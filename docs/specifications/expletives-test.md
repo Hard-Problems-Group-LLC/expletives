@@ -203,6 +203,13 @@ enter the shared command router. The Toggle command's checked presentation
 state changes with the same controller transition observed in the accent
 Panel.
 
+The root-owned `status.main` StatusBar occupies the physical bottom row on
+every catalog screen. It shows the active screen as high-priority static
+context plus shared Quit, Toggle, and disabled-command hints. Controls/Status
+Bar opens `screen.status`, whose `status.overview` text explains the live
+surface. Resizing exposes deterministic segment priority and clipping;
+snapshots retain typed records for both rendered and omitted segments.
+
 The persistent root-owned `menu.main` MenuBar occupies physical row 0 from
 the first through last terminal column, independently of root centering or
 maximum constraints. It reserves that row from the catalog Layout and exposes
@@ -214,9 +221,9 @@ an end-aligned Help root.
   nested Stacking menu, and reserves Panel scroll-bar coverage.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
-- Controls links current Text/Display and Actions pages, then uses separators
-  to group disabled phase-owned Status, Header/Footer, Selection, Input,
-  Progress, Navigation, Scrolling/Content, and Collection pages.
+- Controls links current Text/Display, Actions, and Status Bar pages, then
+  uses separators to group disabled phase-owned Header/Footer, Selection,
+  Input, Progress, Navigation, Scrolling/Content, and Collection pages.
 - Menus links the Menu overview and reserves Panel-owned and context-menu
   demonstrations.
 - Dialogs reserves Message, Confirm, Input, and Progress dialog tests.

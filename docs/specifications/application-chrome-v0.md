@@ -32,9 +32,12 @@ When present, chrome consumes physical rows in this order:
    last column.
 
 If the surface is too short for every requested row, chrome retains stable
-semantic identity and uses a deterministic priority and clipping policy
-defined by the implementing phase. Geometry is always nonnegative and never
-materializes cells outside the physical surface.
+semantic identity. At height one with both a Main Menu and Status Bar visible,
+both retain row-0 semantic Bounds and the Main Menu paints last. At height two,
+they own rows 0 and 1 respectively and ordinary content is empty. Geometry is
+always nonnegative and never materializes cells outside the physical surface.
+Header/Footer priority in still-shorter combined stacks is fixed by their
+implementing phase.
 
 The Main Menu and Status Bar are each optional and unique per App. Headers
 and Footers are optional ordered collections. Every individual Header and
@@ -84,7 +87,9 @@ the Layout overflow contract.
 
 - Menus deliver the Main Menu and the initial reusable root-content
   reservation seam.
-- Status Bar is the immediately following phase.
+- Status Bar is the immediately following phase, with its exact segment and
+  narrow-width contract in
+  [`status-bar-api-v0.md`](status-bar-api-v0.md).
 - Headers and Footers follow Status Bar.
 
 Later chrome phases extend the same physical-edge calculation rather than

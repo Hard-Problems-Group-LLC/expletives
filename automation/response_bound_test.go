@@ -574,6 +574,164 @@ func TestSnapshotRejectsInvalidMenuBarDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidStatusBarDetails(t *testing.T) {
+	t.Parallel()
+
+	limits := DefaultLimits()
+	statusBar := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		cell := completion.Snapshot.Frame.Cells[0]
+		completion.Snapshot.Frame.Size = Size{Width: 19, Height: 1}
+		completion.Snapshot.Frame.Cells = make([]Cell, 19)
+		for index := range completion.Snapshot.Frame.Cells {
+			completion.Snapshot.Frame.Cells[index] = cell
+		}
+		compactFrame(&completion.Snapshot.Frame, true)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "status_bar"
+		control.Bounds = Rect{Width: 19, Height: 1}
+		control.AbsoluteBounds = control.Bounds
+		control.Details = ControlDetails{
+			Version: 1,
+			StatusBar: &StatusBarDetails{
+				Segments: []StatusSegmentDetails{
+					{
+						Key: "status.context", Label: "Ready",
+						Priority: 5, Enabled: true, Rendered: true,
+						Bounds: Rect{Width: 7, Height: 1},
+					},
+					{
+						Key: "status.exit", Label: "Exit",
+						Command: "app.exit", Priority: 10, Enabled: true,
+						Chord: &Chord{
+							Key: "x", Modifiers: []Key{"alt"},
+						},
+						Rendered: true,
+						Bounds:   Rect{X: 7, Width: 12, Height: 1},
+					},
+					{
+						Key: "status.omitted", Label: "Omitted",
+						Priority: -1, Enabled: true,
+					},
+				},
+			},
+		}
+		return completion
+	}
+	if err := validateCompletion(statusBar(), limits); err != nil {
+		t.Fatalf("valid StatusBar fixture rejected: %v", err)
+	}
+	disabled := statusBar()
+	disabledSegment := &disabled.Snapshot.Controls[0].
+		Details.StatusBar.Segments[1]
+	disabledSegment.Enabled = false
+	disabledSegment.DisabledReason = "Unavailable"
+	if err := validateCompletion(disabled, limits); err != nil {
+		t.Fatalf("valid disabled StatusBar fixture rejected: %v", err)
+	}
+	clipped := statusBar()
+	clippedSegment := &clipped.Snapshot.Controls[0].
+		Details.StatusBar.Segments[1]
+	clippedSegment.Clipped = true
+	if err := validateCompletion(clipped, limits); err != nil {
+		t.Fatalf("valid clipped StatusBar fixture rejected: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*StatusBarDetails)
+	}{
+		{
+			name: "duplicate key",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[1].Key = bar.Segments[0].Key
+			},
+		},
+		{
+			name: "empty label",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[0].Label = ""
+			},
+		},
+		{
+			name: "invalid command",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[1].Command = "bad command"
+			},
+		},
+		{
+			name: "enabled reason",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[1].DisabledReason = "Contradiction"
+			},
+		},
+		{
+			name: "disabled without reason",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[1].Enabled = false
+			},
+		},
+		{
+			name: "static command state",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[0].Checked = true
+			},
+		},
+		{
+			name: "omitted bounds",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[2].Bounds.Width = 1
+			},
+		},
+		{
+			name: "rendered empty",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[0].Bounds.Width = 0
+			},
+		},
+		{
+			name: "render gap",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[1].Bounds.X++
+			},
+		},
+		{
+			name: "invalid chord",
+			mutate: func(bar *StatusBarDetails) {
+				bar.Segments[1].Chord.Modifiers = []Key{"alt", "alt"}
+			},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			completion := statusBar()
+			test.mutate(completion.Snapshot.Controls[0].Details.StatusBar)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal(
+					"validateCompletion() accepted invalid StatusBarDetails",
+				)
+			}
+		})
+	}
+
+	t.Run("multiple bars", func(t *testing.T) {
+		t.Parallel()
+		completion := statusBar()
+		duplicate := completion.Snapshot.Controls[0]
+		duplicate.ID = "control-second"
+		duplicate.Key = "status.second"
+		completion.Snapshot.Controls = append(
+			completion.Snapshot.Controls,
+			duplicate,
+		)
+		if err := validateCompletion(completion, limits); err == nil {
+			t.Fatal("validateCompletion() accepted multiple StatusBars")
+		}
+	})
+}
+
 func TestSnapshotRejectsAggregateChildReferencesBeyondBound(t *testing.T) {
 	t.Parallel()
 
@@ -674,6 +832,39 @@ func maximumCompletionJSONBytes(
 			}},
 		},
 	}
+	statusSegment := StatusSegmentDetails{
+		Key:            string(controlValue.ID),
+		Label:          strings.Repeat("\x00", maxDisplayTextBytes),
+		Command:        string(controlValue.ID),
+		Priority:       math.MaxInt,
+		Enabled:        false,
+		DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+		Checked:        true,
+		Chord: &Chord{
+			Key: Key(controlValue.ID),
+			Modifiers: []Key{
+				Key(controlValue.ID),
+				Key(controlValue.ID),
+				Key(controlValue.ID),
+				Key(controlValue.ID),
+			},
+		},
+		Rendered: true,
+		Bounds: Rect{
+			X:      math.MaxInt,
+			Y:      math.MaxInt,
+			Width:  math.MaxInt,
+			Height: math.MaxInt,
+		},
+		Clipped: true,
+	}
+	statusControl := controlValue
+	statusControl.Details = ControlDetails{
+		Version: 1,
+		StatusBar: &StatusBarDetails{
+			Segments: []StatusSegmentDetails{statusSegment},
+		},
+	}
 	menuEntry := MenuEntryDetails{
 		Key:            string(controlValue.ID),
 		ParentKey:      string(controlValue.ID),
@@ -734,11 +925,14 @@ func maximumCompletionJSONBytes(
 	layout := mustMarshal(t, completion.Snapshot.Layouts[0])
 	layoutItem := mustMarshal(t, completion.Snapshot.Layouts[0].Items[0])
 	menuItem := mustMarshal(t, menuEntry)
+	statusItem := mustMarshal(t, statusSegment)
 	menuControlBytes := mustMarshal(t, menuControl)
 	menuControlOverhead := max(0, len(menuControlBytes)-len(control))
+	statusControlBytes := mustMarshal(t, statusControl)
+	statusControlOverhead := max(0, len(statusControlBytes)-len(control))
 	t.Logf(
-		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d",
-		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem), len(menuItem), menuControlOverhead,
+		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d status_item=%d status_control_overhead=%d",
+		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem), len(menuItem), menuControlOverhead, len(statusItem), statusControlOverhead,
 	)
 
 	return len(base) +
@@ -749,7 +943,9 @@ func maximumCompletionJSONBytes(
 		(limits.Layouts-1)*(len(layout)+1) +
 		(limits.LayoutItems-limits.Layouts)*(len(layoutItem)+1) +
 		menuControlOverhead +
-		(expletives.MaxMenuItems-1)*(len(menuItem)+1)
+		(expletives.MaxMenuItems-1)*(len(menuItem)+1) +
+		statusControlOverhead +
+		(expletives.MaxStatusBarSegments-1)*(len(statusItem)+1)
 }
 
 func maximumElementCompletion(limits Limits) Completion {

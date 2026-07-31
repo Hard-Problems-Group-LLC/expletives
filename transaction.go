@@ -49,6 +49,7 @@ const (
 	mutationStyle
 	mutationVisible
 	mutationText
+	mutationStatusSegments
 )
 
 type transactionMutation struct {
@@ -221,8 +222,10 @@ func (t *Transaction) SetBounds(control Control, bounds Rect) error {
 	if state.root {
 		return errors.New("expletives: root bounds follow App root constraints")
 	}
-	if state.kind == ControlMenuBar {
-		return errors.New("expletives: MenuBar bounds follow the application surface")
+	if isApplicationChrome(state.kind) {
+		return errors.New(
+			"expletives: application chrome bounds follow the application surface",
+		)
 	}
 	if err := t.reserveOperation(); err != nil {
 		return err
@@ -247,8 +250,8 @@ func (t *Transaction) SetMinimumSize(control Control, size Size) error {
 	if state.root {
 		return errors.New("expletives: use SetRootConstraints for the root minimum")
 	}
-	if state.kind == ControlMenuBar {
-		return errors.New("expletives: MenuBar minimum is intrinsic")
+	if isApplicationChrome(state.kind) {
+		return errors.New("expletives: application chrome minimum is intrinsic")
 	}
 	if err := t.reserveOperation(); err != nil {
 		return err
@@ -756,6 +759,18 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			selectedStyles[mutation.state] = mutation.style
 		}
 	}
+	selectedBehaviors := make(map[*controlState]controlBehavior)
+	for _, mutation := range t.mutations {
+		if mutation.kind == mutationStatusSegments {
+			selectedBehaviors[mutation.state] = mutation.behavior
+		}
+	}
+	effectiveBehavior := func(state *controlState) controlBehavior {
+		if selected, found := selectedBehaviors[state]; found {
+			return selected
+		}
+		return state.behavior
+	}
 	validateStyleReferences := func(state *controlState) error {
 		style := state.style
 		if selected, found := selectedStyles[state]; found {
@@ -768,7 +783,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				style,
 			)
 		}
-		if border, ok := state.behavior.(borderBehavior); ok {
+		behavior := effectiveBehavior(state)
+		if border, ok := behavior.(borderBehavior); ok {
 			if _, found := stagedStyles[border.borderStyle]; !found {
 				return fmt.Errorf(
 					"%w: theme has no definition for %q",
@@ -777,7 +793,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				)
 			}
 		}
-		if styled, ok := state.behavior.(interface {
+		if styled, ok := behavior.(interface {
 			additionalStyles() []StyleID
 		}); ok {
 			for _, additional := range styled.additionalStyles() {
@@ -821,11 +837,16 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	activeCount := 0
 	actionItems := 0
 	menuBars := 0
+	statusBars := 0
 	mnemonics := make(map[Key]*controlState)
 	defaults := make(map[*controlState]*controlState)
 	cancels := make(map[*controlState]*controlState)
-	validateAction := func(state *controlState, requireCommand bool) error {
-		switch behavior := state.behavior.(type) {
+	validateAction := func(
+		state *controlState,
+		behavior controlBehavior,
+		requireCommand bool,
+	) error {
+		switch behavior := behavior.(type) {
 		case buttonBehavior:
 			if requireCommand {
 				if _, exists := t.app.commands[behavior.command]; !exists {
@@ -892,6 +913,20 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+		case statusBarBehavior:
+			statusBars++
+			if statusBars > 1 {
+				return fmt.Errorf(
+					"%w: v0 supports one StatusBar per App",
+					ErrInvalidControl,
+				)
+			}
+			actionItems += len(behavior.segments)
+			if requireCommand {
+				if err := validateStatusCommandsLocked(t.app, behavior); err != nil {
+					return err
+				}
+			}
 		case textBehavior:
 			if behavior.mnemonic != "" && !destroyed[behavior.target] {
 				if existing := mnemonics[behavior.mnemonic]; existing != nil {
@@ -914,7 +949,12 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if err := validateStyleReferences(state); err != nil {
 			return err
 		}
-		if err := validateAction(state, false); err != nil {
+		_, behaviorMutated := selectedBehaviors[state]
+		if err := validateAction(
+			state,
+			effectiveBehavior(state),
+			behaviorMutated,
+		); err != nil {
 			return err
 		}
 	}
@@ -926,7 +966,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if err := validateStyleReferences(state); err != nil {
 			return err
 		}
-		if err := validateAction(state, true); err != nil {
+		if err := validateAction(state, state.behavior, true); err != nil {
 			return err
 		}
 	}
@@ -1036,10 +1076,16 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		changed = true
 	}
 	menuBounds := menuBarSurfaceRect(targetSize)
+	statusBounds := statusBarSurfaceRect(targetSize)
 	for _, state := range t.app.controlsByID {
 		if state.kind == ControlMenuBar && !state.destroyed &&
 			state.bounds != menuBounds {
 			state.bounds = menuBounds
+			changed = true
+		}
+		if state.kind == ControlStatusBar && !state.destroyed &&
+			state.bounds != statusBounds {
+			state.bounds = statusBounds
 			changed = true
 		}
 	}
@@ -1073,6 +1119,13 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					mutation.state.minimumSize =
 						mutation.behavior.(intrinsicMinimumBehavior).intrinsicMinimum()
 				}
+				changed = true
+			}
+		case mutationStatusSegments:
+			current := mutation.state.behavior.(statusBarBehavior)
+			next := mutation.behavior.(statusBarBehavior)
+			if !statusBarBehaviorEqual(current, next) {
+				mutation.state.behavior = next
 				changed = true
 			}
 		}
@@ -1205,7 +1258,7 @@ func (t *Transaction) validateLayoutTreeLocked(
 					ErrInvalidLayout,
 				)
 			}
-			if panel.kind == ControlMenuBar {
+			if isApplicationChrome(panel.kind) {
 				return 0, 0, fmt.Errorf(
 					"%w: application chrome cannot be a Layout item",
 					ErrInvalidLayout,

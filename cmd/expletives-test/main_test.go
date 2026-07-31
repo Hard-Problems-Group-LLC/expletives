@@ -93,6 +93,8 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	actionEvidence := make(map[string]bool)
 	screenEvidence := make(map[string]bool)
 	menuEvidence := false
+	statusEvidence := false
+	var statusID automation.ControlID
 	helpEnd := false
 	expectedRootMnemonics := map[string]automation.Key{
 		"menu.file":     "i",
@@ -123,7 +125,8 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.ResolvedStyle.Background == "#003878"
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
-			"screen.text", "screen.actions", "screen.menus", "screen.about":
+			"screen.text", "screen.actions", "screen.menus",
+			"screen.status", "screen.about":
 			screenEvidence[control.Key] = !control.Visible
 		case "menu.main":
 			menuEvidence =
@@ -150,6 +153,18 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					}
 				}
 			}
+		case "status.main":
+			statusID = control.ID
+			statusEvidence =
+				control.Kind == "status_bar" &&
+					control.Details.StatusBar != nil &&
+					len(control.Details.StatusBar.Segments) == 4 &&
+					control.Details.StatusBar.Segments[0].Label == "Home" &&
+					control.Bounds == (automation.Rect{
+						Y:      observe.Snapshot.Frame.Size.Height - 1,
+						Width:  observe.Snapshot.Frame.Size.Width,
+						Height: 1,
+					})
 		case "display.label":
 			displayEvidence[control.Key] =
 				control.Kind == "label" &&
@@ -211,15 +226,21 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			observe.Snapshot.Frame.Cells[3].Style == "menu.mnemonic" &&
 			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-2].Grapheme == "p" &&
 			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-2].Style == "menu.mnemonic"
+		lastRow := (observe.Snapshot.Frame.Size.Height - 1) *
+			observe.Snapshot.Frame.Size.Width
+		statusEvidence = statusEvidence &&
+			observe.Snapshot.Frame.Cells[lastRow].Owner == statusID &&
+			observe.Snapshot.Frame.Cells[lastRow+observe.Snapshot.Frame.Size.Width-1].Owner == statusID
 	}
-	if !menuEvidence || !helpEnd ||
+	if !menuEvidence || !statusEvidence || !helpEnd ||
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(screenEvidence) != 9 {
+		len(screenEvidence) != 10 {
 		t.Fatalf(
-			"catalog evidence: menu=%t screens=%#v display=%#v action=%#v",
+			"catalog evidence: menu=%t status=%t screens=%#v display=%#v action=%#v",
 			menuEvidence,
+			statusEvidence,
 			screenEvidence,
 			displayEvidence,
 			actionEvidence,

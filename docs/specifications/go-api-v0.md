@@ -417,6 +417,31 @@ The complete ownership, validation, focus, rendering, keyboard, snapshot,
 automation, and catalog-screen contract is in
 [`menus-api-v0.md`](menus-api-v0.md).
 
+## Status Bar
+
+```go
+func NewStatusBar(Container, StatusBarOptions) (*StatusBar, error)
+func (b *StatusBar) Segments() []StatusSegment
+func (b *StatusBar) SetSegments([]StatusSegment) error
+```
+
+`StatusBar` is the unique non-container leaf parented directly by
+`app.Root()`. Its derived full-width Bounds occupy the physical last row,
+independently of root constraints, and it cannot be a Layout item. A copied
+bounded segment is either canonical static context or a command reference.
+Command segments dynamically derive label, enabled/disabled reason, checked
+state, and first binding from the shared command registry.
+
+Higher segment Priority values are retained first when narrow; ties preserve
+declaration order, retained segments paint in declaration order, and the
+highest-priority segment receives a clipped representation when no complete
+segment fits. `StatusBarDetails` exposes every segment, including effective
+command state, chord, rendered relative Bounds, and clipping/omission state.
+
+The exact public, geometry, painting, mutation, concurrency, snapshot, and
+automation contract is
+[`status-bar-api-v0.md`](status-bar-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -432,6 +457,7 @@ func (t *Transaction) NewRule(Container, RuleOptions) (*Rule, error)
 func (t *Transaction) NewButton(Container, ButtonOptions) (*Button, error)
 func (t *Transaction) NewHotkeyBar(Container, HotkeyBarOptions) (*HotkeyBar, error)
 func (t *Transaction) NewMenuBar(Container, MenuBarOptions) (*MenuBar, error)
+func (t *Transaction) NewStatusBar(Container, StatusBarOptions) (*StatusBar, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
 func (t *Transaction) SetBounds(Control, Rect) error
@@ -439,6 +465,7 @@ func (t *Transaction) SetMinimumSize(Control, Size) error
 func (t *Transaction) SetStyle(Control, StyleID) error
 func (t *Transaction) SetVisible(Control, bool) error
 func (t *Transaction) SetText(Control, string) error
+func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) Destroy(Control) error
 func (t *Transaction) SetTheme(Theme) error
@@ -524,13 +551,16 @@ arrangement and current stack indices. A `ControlSnapshot` contains semantic
 `StyleID` and its Theme-resolved `ResolvedStyle`; border detail does the same.
 The typed details union contains `TextDetails` for Label/StaticText and
 `DividerDetails` for Separator/Rule, `ActionDetails` for Button, and
-`HotkeyBarDetails` for HotkeyBar, and flat `MenuBarDetails` for MenuBar.
+`HotkeyBarDetails` for HotkeyBar, flat `MenuBarDetails` for MenuBar, and
+`StatusBarDetails` for StatusBar.
 These expose canonical bounded text,
 alignment, wrap, Label target/mnemonic, divider orientation/form, generic
 focus, command presentation state, pressed/default/cancel roles, and
 structured current bindings. Menu details additionally expose immutable entry
 identity and parent/depth, kind, effective command state, child counts,
-selected/open flags, and ordered session paths.
+selected/open flags, and ordered session paths. Status details expose copied
+segment identity and priority, effective command state and chord, and exact
+rendered/omitted/clipped geometry.
 
 Snapshot storage is independent, including frame cells, child IDs, Layout
 items, held keys, typed detail, overflow records, and completion. History is

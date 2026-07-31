@@ -353,6 +353,7 @@ func (a *App) renderLocked() Snapshot {
 		Layouts:      layouts,
 		Overflows:    overflows,
 	}
+	a.paintStatusBarChromeLocked(&snapshot.Frame)
 	a.paintMenuBarChromeLocked(&snapshot.Frame)
 	a.paintMenuOverlayLocked(&snapshot.Frame)
 	a.paintOverflowWarningLocked(&snapshot.Frame, overflows)
@@ -372,9 +373,14 @@ func (a *App) paintControlLocked(
 	}
 	bounds := state.bounds
 	absolute := bounds
-	_, menuBar := state.behavior.(menuBarBehavior)
-	if menuBar {
-		bounds = menuBarSurfaceRect(a.size)
+	chrome := isApplicationChrome(state.kind)
+	if chrome {
+		switch state.kind {
+		case ControlMenuBar:
+			bounds = menuBarSurfaceRect(a.size)
+		case ControlStatusBar:
+			bounds = statusBarSurfaceRect(a.size)
+		}
 		absolute = bounds
 		ancestorClip = Rect{Width: a.size.Width, Height: a.size.Height}
 	} else if !state.root {
@@ -412,6 +418,20 @@ func (a *App) paintControlLocked(
 		menuBar := a.menuBarDetailsLocked(state, behavior)
 		details.MenuBar = &menuBar
 	}
+	if behavior, ok := state.behavior.(statusBarBehavior); ok {
+		renderWidth := bounds.Width
+		if !visible {
+			renderWidth = 0
+		}
+		plans := a.statusBarRenderPlanLocked(behavior, renderWidth)
+		statusBar := StatusBarDetails{
+			Segments: make([]StatusSegmentDetails, len(plans)),
+		}
+		for index := range plans {
+			statusBar.Segments[index] = plans[index].details
+		}
+		details.StatusBar = &statusBar
+	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,
 		Key:            state.automationKey,
@@ -432,7 +452,7 @@ func (a *App) paintControlLocked(
 		Details:        details,
 	})
 
-	if visible && !clip.Empty() && !menuBar {
+	if visible && !clip.Empty() && !chrome {
 		a.fillLocked(frame, clip, state.style, state.id)
 		state.behavior.paintDecoration(a, frame, state, absolute, clip)
 	}
@@ -489,12 +509,19 @@ func (a *App) paintControlLocked(
 }
 
 func (a *App) applicationContentRectLocked() Rect {
-	content := Rect{Width: a.size.Width, Height: a.size.Height}
-	if bar := a.firstMenuBarLocked(); bar != nil && content.Height > 0 {
-		content.Y++
-		content.Height--
+	top := 0
+	bottom := a.size.Height
+	if bar := a.firstMenuBarLocked(); bar != nil && bottom > 0 {
+		top = 1
 	}
-	return content
+	if bar := a.firstStatusBarLocked(); bar != nil && bottom > top {
+		bottom--
+	}
+	return Rect{
+		Y:      top,
+		Width:  a.size.Width,
+		Height: max(0, bottom-top),
+	}
 }
 
 func (a *App) rootContentRectLocked() Rect {

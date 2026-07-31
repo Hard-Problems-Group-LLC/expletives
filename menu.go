@@ -220,7 +220,7 @@ func (t *Transaction) NewMenuBar(
 		focusedDisabledStyle: focusedDisabledStyle,
 		shadowStyle:          shadowStyle,
 	}
-	options.Bounds = menuBarSurfaceRect(t.app.size)
+	options.Bounds = menuBarSurfaceRect(t.app.Size())
 	state, err := t.newLeafControl(
 		parent,
 		options.PanelOptions,

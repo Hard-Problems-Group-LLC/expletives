@@ -113,6 +113,21 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 					OpenPath:     []string{"menu.file"},
 					SelectedPath: []string{"menu.file", "menu.open"},
 				},
+				StatusBar: &expletives.StatusBarDetails{
+					Segments: []expletives.StatusSegmentDetails{{
+						Key: "status.run", Label: "Run",
+						Command: "action.run", Priority: 10, Enabled: true,
+						Chord: &expletives.Chord{
+							Key: "r", Modifiers: []expletives.Key{
+								expletives.KeyControl,
+							},
+						},
+						Rendered: true,
+						Bounds: expletives.Rect{
+							X: 2, Width: 12, Height: 1,
+						},
+					}},
+				},
 			},
 		}},
 		Layouts: []expletives.LayoutSnapshot{{
@@ -178,6 +193,10 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	if got := projected.Controls[0].Details.MenuBar.Entries[0].Placement; got != "end" {
 		t.Fatalf("projected MenuBar placement = %q, want end", got)
 	}
+	if got := projected.Controls[0].Details.StatusBar.Segments[0]; got.Key !=
+		"status.run" || got.Chord == nil || got.Chord.Key != "r" {
+		t.Fatalf("projected StatusBar segment = %#v", got)
+	}
 
 	core.Frame.Cells[0].Grapheme = "Z"
 	core.Controls[0].Children[0] = "changed"
@@ -194,6 +213,9 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 		expletives.KeyAlt
 	core.Controls[0].Details.MenuBar.OpenPath[0] = "changed"
 	core.Controls[0].Details.MenuBar.SelectedPath[0] = "changed"
+	core.Controls[0].Details.StatusBar.Segments[0].Label = "Changed"
+	core.Controls[0].Details.StatusBar.Segments[0].Chord.Modifiers[0] =
+		expletives.KeyAlt
 	core.Layouts[0].Items[0].Kind = "layout"
 	core.InputSources[0].Held[0] = expletives.KeyAlt
 	core.Overflows[0].State = "changed"
@@ -222,6 +244,9 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 		Key(expletives.KeyShift)
 	projected.Controls[0].Details.MenuBar.OpenPath[0] = "mutated"
 	projected.Controls[0].Details.MenuBar.SelectedPath[0] = "mutated"
+	projected.Controls[0].Details.StatusBar.Segments[0].Label = "Mutated"
+	projected.Controls[0].Details.StatusBar.Segments[0].Chord.Modifiers[0] =
+		Key(expletives.KeyShift)
 	projected.Layouts[0].Items[0].Kind = "layout"
 	projected.InputSources[0].Held[0] = Key(expletives.KeyShift)
 	projected.Overflows[0].State = "mutated"

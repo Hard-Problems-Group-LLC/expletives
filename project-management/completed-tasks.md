@@ -4,6 +4,65 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-024` — Deliver Phase 9 Status Bar.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T23:25:38-07:00
+  - Completed: 2026-07-30T23:53:29-07:00
+  - Outcome:
+    - added the unique root-parented, non-container `StatusBar` on the complete
+      physical bottom row, outside ordinary root Layouts and constraints;
+    - added copied keyed static-context and command-derived segments, atomic
+      replacement, dynamic shared command state, and deterministic
+      priority/omission/clipping at narrow widths;
+    - extended application chrome through resize, visibility, destruction,
+      zero/tiny surfaces, and the documented one-row Main Menu priority;
+    - added Turbo Vision light-gray, red-shortcut, and disabled palette roles;
+      and
+    - added bounded typed core and automation details with exact relative
+      segment geometry and deep-copy guarantees.
+  - Catalog:
+    - added global `status.main` context and command hints plus the dedicated
+      `screen.status` / `status.overview` page;
+    - enabled Controls/Status Bar and included it in the exhaustive raw-key
+      menu audit;
+    - added collision-audited Alt-X Quit while retaining File/Quit, `q`,
+      Escape, and the cancel Button; and
+    - reduced screen-navigation command updates from every catalog page to
+      only the previous and target checked commands.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the controlling-PTY integration test, the full race suite, all
+      debug/release/profiling builds, and every mode's smoke/self-check;
+    - focused Go tests cover construction, parent/geometry/Layout rejection,
+      uniqueness, command replacement/removal, priority, clipping, empty and
+      tiny surfaces, row return, constrained roots, atomic rollback, snapshot
+      copying, concurrent readers/writers, automation validation, response
+      bounds, and catalog routes;
+    - the conservative maximum completion remains below the fixed response
+      limit at 37,496,731 bytes, with three retained maxima at 112,490,193
+      bytes below the 128 MiB aggregate budget; and
+    - live attached 100x30 and 18x5 debug runs confirmed full bottom-row
+      ownership, Alt-C / `s` navigation, checked menu and contextual state,
+      exact ` Home  Alt+X Quit ` narrow rendering, lower-priority omission,
+      orderly final snapshots, socket cleanup, and no retained temp paths.
+  - Contracts:
+    - [`Status Bar API v0`](../docs/specifications/status-bar-api-v0.md)
+    - [`Application Chrome v0`](../docs/specifications/application-chrome-v0.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Process:
+    - completed as a bounded common-control phase without convening the
+      Panel;
+    - added the
+      [`ControlDetails extension checklist`](../docs/Control-Details-Extension-Checklist.md);
+      and
+    - recorded typed-union and catalog-navigation improvements in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 10 Headers and Footers is next, followed by Selection; and
+    - Structured Input and automation authentication remain deferred.
+
 - 2026-07-30 — `EXPL-TASK-023` — Reorganize the interactive catalog and
   exhaustively audit its menus.
   - Requestor: project operator

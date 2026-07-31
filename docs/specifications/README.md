@@ -54,6 +54,9 @@ do not use them as retrospective decoration.
   MenuItem descriptors, the persistent MenuBar control, popup keyboard
   sessions, focus restoration, typed automation, and catalog-screen
   navigation.
+- [`status-bar-api-v0.md`](status-bar-api-v0.md) defines the unique root-owned
+  bottom-row StatusBar, copied contextual and command segments, deterministic
+  narrow-width priority, and typed automation evidence.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

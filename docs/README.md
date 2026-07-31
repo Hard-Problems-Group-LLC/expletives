@@ -10,6 +10,9 @@ Keep durable project documentation here.
 - [Terminal Shortcut Compatibility](Terminal-Shortcut-Compatibility.md)
   identifies host-emulator collisions on supported RHEL, Fedora, and Ubuntu
   terminal families and defines the project's safe default-binding policy.
+- [ControlDetails Extension Checklist](Control-Details-Extension-Checklist.md)
+  keeps core snapshots, automation projection, validation, resource proofs,
+  and tests synchronized as new typed controls arrive.
 - [Specifications](specifications/README.md) contains behavior, interface,
   data, build, verification, and operational contracts.
 - [Go API v0](specifications/go-api-v0.md) records the implemented public
@@ -25,6 +28,8 @@ Keep durable project documentation here.
   defines safe public calls and serialized UI/render/presentation ownership.
 - [Control Catalog](specifications/control-catalog.md) defines the common
   controls, delivery phases, and explicitly deferred Structured Input family.
+- [Status Bar API v0](specifications/status-bar-api-v0.md) defines root-owned
+  bottom-row context and command hints with deterministic narrow behavior.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

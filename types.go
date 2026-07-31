@@ -52,7 +52,10 @@ const (
 	MaxDisplayTextCells = 256
 	// MaxHotkeyBarItems bounds one HotkeyBar's copied ordered inventory.
 	MaxHotkeyBarItems = 64
-	// MaxActionItems bounds aggregate HotkeyBar items across one App.
+	// MaxStatusBarSegments bounds one StatusBar's copied ordered inventory.
+	MaxStatusBarSegments = 64
+	// MaxActionItems bounds aggregate HotkeyBar items and StatusBar segments
+	// across one App.
 	MaxActionItems = MaxControls
 	// MaxMenuDepth bounds one MenuBar's immutable popup tree.
 	MaxMenuDepth = 8
@@ -253,6 +256,8 @@ const (
 	ControlHotkeyBar ControlKind = "hotkey_bar"
 	// ControlMenuBar identifies the persistent popup-menu session owner.
 	ControlMenuBar ControlKind = "menu_bar"
+	// ControlStatusBar identifies the persistent bottom-row status surface.
+	ControlStatusBar ControlKind = "status_bar"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -513,6 +518,8 @@ type ControlDetails struct {
 	HotkeyBar *HotkeyBarDetails `json:"hotkey_bar,omitempty"`
 	// MenuBar is present for MenuBar.
 	MenuBar *MenuBarDetails `json:"menu_bar,omitempty"`
+	// StatusBar is present for StatusBar.
+	StatusBar *StatusBarDetails `json:"status_bar,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -606,6 +613,26 @@ type MenuBarDetails struct {
 	Entries      []MenuEntryDetails `json:"entries"`
 	OpenPath     []string           `json:"open_path"`
 	SelectedPath []string           `json:"selected_path"`
+}
+
+// StatusSegmentDetails describes one current contextual or command segment.
+type StatusSegmentDetails struct {
+	Key            string    `json:"key"`
+	Label          string    `json:"label"`
+	Command        CommandID `json:"command,omitempty"`
+	Priority       int       `json:"priority"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+	Checked        bool      `json:"checked"`
+	Chord          *Chord    `json:"chord,omitempty"`
+	Rendered       bool      `json:"rendered"`
+	Bounds         Rect      `json:"bounds"`
+	Clipped        bool      `json:"clipped"`
+}
+
+// StatusBarDetails describes one bounded ordered bottom-row status inventory.
+type StatusBarDetails struct {
+	Segments []StatusSegmentDetails `json:"segments"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -766,6 +793,24 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				snapshot.Controls[index].Details.MenuBar.SelectedPath...,
 			)
 			cloned.Controls[index].Details.MenuBar = &menuBar
+		}
+		if snapshot.Controls[index].Details.StatusBar != nil {
+			statusBar := *snapshot.Controls[index].Details.StatusBar
+			statusBar.Segments = append(
+				[]StatusSegmentDetails(nil),
+				snapshot.Controls[index].Details.StatusBar.Segments...,
+			)
+			for segmentIndex := range statusBar.Segments {
+				if statusBar.Segments[segmentIndex].Chord != nil {
+					chord := *statusBar.Segments[segmentIndex].Chord
+					chord.Modifiers = append(
+						[]Key(nil),
+						statusBar.Segments[segmentIndex].Chord.Modifiers...,
+					)
+					statusBar.Segments[segmentIndex].Chord = &chord
+				}
+			}
+			cloned.Controls[index].Details.StatusBar = &statusBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

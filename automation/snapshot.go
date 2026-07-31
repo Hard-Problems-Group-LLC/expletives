@@ -167,6 +167,8 @@ type ControlDetails struct {
 	HotkeyBar *HotkeyBarDetails `json:"hotkey_bar,omitempty"`
 	// MenuBar is present for MenuBar.
 	MenuBar *MenuBarDetails `json:"menu_bar,omitempty"`
+	// StatusBar is present for StatusBar.
+	StatusBar *StatusBarDetails `json:"status_bar,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -264,6 +266,26 @@ type MenuBarDetails struct {
 	Entries      []MenuEntryDetails `json:"entries"`
 	OpenPath     []string           `json:"open_path"`
 	SelectedPath []string           `json:"selected_path"`
+}
+
+// StatusSegmentDetails describes one current contextual or command segment.
+type StatusSegmentDetails struct {
+	Key            string `json:"key"`
+	Label          string `json:"label"`
+	Command        string `json:"command,omitempty"`
+	Priority       int    `json:"priority"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Checked        bool   `json:"checked"`
+	Chord          *Chord `json:"chord,omitempty"`
+	Rendered       bool   `json:"rendered"`
+	Bounds         Rect   `json:"bounds"`
+	Clipped        bool   `json:"clipped"`
+}
+
+// StatusBarDetails describes one bounded ordered bottom-row inventory.
+type StatusBarDetails struct {
+	Segments []StatusSegmentDetails `json:"segments"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -557,6 +579,44 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					projectedEntry
 			}
 		}
+		if control.Details.StatusBar != nil {
+			statusBar := control.Details.StatusBar
+			projectedControl.Details.StatusBar = &StatusBarDetails{
+				Segments: make(
+					[]StatusSegmentDetails,
+					len(statusBar.Segments),
+				),
+			}
+			for segmentIndex, segment := range statusBar.Segments {
+				projectedSegment := StatusSegmentDetails{
+					Key:            segment.Key,
+					Label:          segment.Label,
+					Command:        string(segment.Command),
+					Priority:       segment.Priority,
+					Enabled:        segment.Enabled,
+					DisabledReason: segment.DisabledReason,
+					Checked:        segment.Checked,
+					Rendered:       segment.Rendered,
+					Bounds:         rectFromCore(segment.Bounds),
+					Clipped:        segment.Clipped,
+				}
+				if segment.Chord != nil {
+					projectedSegment.Chord = &Chord{
+						Key: Key(segment.Chord.Key),
+						Modifiers: make(
+							[]Key,
+							len(segment.Chord.Modifiers),
+						),
+					}
+					for modifierIndex, modifier := range segment.Chord.Modifiers {
+						projectedSegment.Chord.Modifiers[modifierIndex] =
+							Key(modifier)
+					}
+				}
+				projectedControl.Details.StatusBar.Segments[segmentIndex] =
+					projectedSegment
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -704,6 +764,24 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 				snapshot.Controls[index].Details.MenuBar.SelectedPath...,
 			)
 			cloned.Controls[index].Details.MenuBar = &menuBar
+		}
+		if snapshot.Controls[index].Details.StatusBar != nil {
+			statusBar := *snapshot.Controls[index].Details.StatusBar
+			statusBar.Segments = append(
+				[]StatusSegmentDetails{},
+				snapshot.Controls[index].Details.StatusBar.Segments...,
+			)
+			for segmentIndex := range statusBar.Segments {
+				if statusBar.Segments[segmentIndex].Chord != nil {
+					chord := *statusBar.Segments[segmentIndex].Chord
+					chord.Modifiers = append(
+						[]Key{},
+						statusBar.Segments[segmentIndex].Chord.Modifiers...,
+					)
+					statusBar.Segments[segmentIndex].Chord = &chord
+				}
+			}
+			cloned.Controls[index].Details.StatusBar = &statusBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

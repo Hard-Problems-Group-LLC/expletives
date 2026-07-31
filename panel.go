@@ -144,6 +144,10 @@ type controlBehavior interface {
 	details() ControlDetails
 }
 
+func isApplicationChrome(kind ControlKind) bool {
+	return kind == ControlMenuBar || kind == ControlStatusBar
+}
+
 type containerBehavior struct{}
 
 func (containerBehavior) clientInset() int {

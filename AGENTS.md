@@ -143,6 +143,15 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   arrow/Home/End/Enter/Escape traversal, nested popup clipping, and
   command-route parity as defined in
   [`docs/specifications/menus-api-v0.md`](docs/specifications/menus-api-v0.md).
+- `StatusBar` is one persistent non-container, non-focusable leaf per App. It
+  is parented directly by `app.Root()`, occupies the complete physical bottom
+  row independently of root constraints, and may not be a Layout item.
+  Copied keyed segments are either static context or command-derived hints;
+  higher priorities survive narrow widths, while declaration order remains
+  the paint order. Preserve shared command-state ownership, atomic segment
+  replacement, Turbo Vision palette roles, and typed rendered/omitted/clipped
+  evidence as defined in
+  [`docs/specifications/status-bar-api-v0.md`](docs/specifications/status-bar-api-v0.md).
 - Follow
   [`docs/Terminal-Shortcut-Compatibility.md`](docs/Terminal-Shortcut-Compatibility.md)
   for toolkit, demo, example, and acceptance-test defaults. Host terminal
@@ -152,8 +161,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
 - Application chrome is anchored to physical terminal edges in this order:
   Main Menu, Headers, root content, Footers, Status Bar. Main Menu and Status
   Bar are full-width edge rows; every Header/Footer is exactly one row and
-  accepts only a Layout tree compatible with that height. Deliver Status Bar
-  immediately after Menus, then Headers and Footers, following
+  accepts only a Layout tree compatible with that height. Status Bar is
+  delivered; Headers and Footers are the next chrome phase, following
   [`docs/specifications/application-chrome-v0.md`](docs/specifications/application-chrome-v0.md).
 - Follow
   [`docs/specifications/layouts-and-overflow.md`](docs/specifications/layouts-and-overflow.md)
@@ -198,6 +207,10 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   and stable owner identity; cursor and the bounded typed control tree are
   snapshot-level facts. Do not add width or continuation fields or expose
   unrestricted domain maps merely for test convenience.
+- When extending the typed detail union, follow
+  [`docs/Control-Details-Extension-Checklist.md`](docs/Control-Details-Extension-Checklist.md)
+  so core cloning, automation projection/cloning, explicit kind validation,
+  resource proofs, and tests advance together.
 - Every injected automation event or command needs a unique request ID, an
   explicit outcome, and its associated frame sequence. No-ops complete
   explicitly; unrelated redraws do not count; timeouts never mean success;
@@ -215,8 +228,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   tested across views, editors, modals, long-running work, and automation.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
-- Deliver Menus immediately after Actions, then Status Bar, then Headers and
-  Footers. Use the persistent
+- Preserve the completed Actions, Menus, and Status Bar sequence; deliver
+  Headers and Footers next. Use the persistent
   `expletives-test` MenuBar to navigate purpose-specific catalog screens as
   the public control set grows, rather than crowding every demonstration onto
   one surface.

@@ -330,7 +330,9 @@ The optional Status Bar occupies the complete last physical row and is
 parented by `app.Root()` without becoming an ordinary root Layout item. It
 delivers stable contextual segments, narrow-terminal behavior, semantic
 snapshot evidence, and the bottom-edge reservation defined by
-[`application-chrome-v0.md`](application-chrome-v0.md).
+[`application-chrome-v0.md`](application-chrome-v0.md). Its exact copied
+segment, command-state, rendering, mutation, and typed automation contract is
+[`status-bar-api-v0.md`](status-bar-api-v0.md).
 
 ### 9. Headers And Footers
 

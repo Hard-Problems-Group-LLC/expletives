@@ -60,6 +60,7 @@ var catalogScreens = []struct {
 	{CommandViewText, "Text / Display"},
 	{CommandViewActions, "Actions"},
 	{CommandViewMenus, "Menu Bar"},
+	{CommandStatusBar, "Status Bar"},
 	{CommandViewAbout, "About"},
 }
 
@@ -149,6 +150,21 @@ var (
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0x00, 0x00, 0x00),
 	}
+	statusStyle = expletives.Style{
+		ID:         "status_bar",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
+	statusShortcutStyle = expletives.Style{
+		ID:         "status.shortcut",
+		Foreground: expletives.RGB(0xAA, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
+	statusDisabledStyle = expletives.Style{
+		ID:         "status.disabled",
+		Foreground: expletives.RGB(0x80, 0x80, 0x80),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
 )
 
 // Scene owns the catalog controls and its small application controller state.
@@ -159,6 +175,7 @@ type Scene struct {
 	accent         *expletives.Panel
 	accentControls []expletives.Control
 	layer          *expletives.BoxLayout
+	status         *expletives.StatusBar
 	screens        map[expletives.CommandID]*expletives.Panel
 	activeScreen   expletives.CommandID
 	toggled        bool
@@ -198,6 +215,9 @@ func NewWithRootConstraints(
 		menuDisabledStyle,
 		menuFocusedDisabledStyle,
 		menuShadowStyle,
+		statusStyle,
+		statusShortcutStyle,
+		statusDisabledStyle,
 	)
 	if err != nil {
 		return nil, err
@@ -250,6 +270,21 @@ func NewWithRootConstraints(
 		FocusedDisabledStyle: menuFocusedDisabledStyle.ID,
 		ShadowStyle:          menuShadowStyle.ID,
 	})
+	if err != nil {
+		return nil, err
+	}
+	statusBar, err := transaction.NewStatusBar(
+		app.Root(),
+		expletives.StatusBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "status.main",
+				Style:         statusStyle.ID,
+			},
+			Segments:      catalogStatusSegments(CommandViewHome),
+			ShortcutStyle: statusShortcutStyle.ID,
+			DisabledStyle: statusDisabledStyle.ID,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +370,14 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	statusScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
+		AutomationKey: "screen.status",
+		Style:         canvasStyle.ID,
+		Hidden:        true,
+	})
+	if err != nil {
+		return nil, err
+	}
 	aboutScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
 		AutomationKey: "screen.about",
 		Style:         canvasStyle.ID,
@@ -353,6 +396,26 @@ func NewWithRootConstraints(
 			Text: "Menu demonstrations\n\n" +
 				"Use Alt plus a red mnemonic, F9, arrows, Enter, and Escape. " +
 				"Panel-owned and context menus arrive with their required controls.",
+			HorizontalAlignment: expletives.TextAlignCenter,
+			VerticalAlignment:   expletives.TextAlignCenter,
+			Wrap:                expletives.TextWrapWords,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	statusText, err := transaction.NewStaticText(
+		statusScreen,
+		expletives.StaticTextOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "status.overview",
+				Style:         canvasStyle.ID,
+			},
+			Text: "Status Bar\n\n" +
+				"The physical bottom row shows current context and shared " +
+				"command hints. Resize the terminal to observe deterministic " +
+				"priority and clipping; command labels, bindings, and disabled " +
+				"state come from the same Action registry.",
 			HorizontalAlignment: expletives.TextAlignCenter,
 			VerticalAlignment:   expletives.TextAlignCenter,
 			Wrap:                expletives.TextWrapWords,
@@ -838,6 +901,7 @@ func NewWithRootConstraints(
 		{"text", textScreen},
 		{"actions", actionsScreen},
 		{"menus", menusScreen},
+		{"status", statusScreen},
 		{"about", aboutScreen},
 	}
 	screenLayouts := make([]*expletives.BoxLayout, 0, len(screenControls))
@@ -873,6 +937,24 @@ func NewWithRootConstraints(
 	}
 	if err := menusLayout.AddPanel(
 		menusText,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	statusLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.status",
+			Insets: expletives.Insets{
+				Top: 1, Right: 2, Bottom: 1, Left: 2,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := statusLayout.AddPanel(
+		statusText,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
@@ -1269,6 +1351,9 @@ func NewWithRootConstraints(
 	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(statusScreen, statusLayout); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(aboutScreen, aboutLayout); err != nil {
 		return nil, err
 	}
@@ -1286,6 +1371,7 @@ func NewWithRootConstraints(
 		App:          app,
 		accent:       accent,
 		layer:        backLayout,
+		status:       statusBar,
 		activeScreen: CommandViewHome,
 		accentControls: []expletives.Control{
 			accent,
@@ -1303,6 +1389,7 @@ func NewWithRootConstraints(
 			CommandViewText:        textScreen,
 			CommandViewActions:     actionsScreen,
 			CommandViewMenus:       menusScreen,
+			CommandStatusBar:       statusScreen,
 			CommandViewAbout:       aboutScreen,
 		},
 	}
@@ -1322,6 +1409,13 @@ func NewWithRootConstraints(
 		},
 		{chord: expletives.Chord{Key: "q"}, command: CommandAppQuit},
 		{chord: expletives.Chord{Key: expletives.KeyEscape}, command: CommandAppQuit},
+		{
+			chord: expletives.Chord{
+				Key:       "x",
+				Modifiers: []expletives.Key{expletives.KeyAlt},
+			},
+			command: CommandAppQuit,
+		},
 		{
 			chord: expletives.Chord{
 				Key:       "c",
@@ -1384,11 +1478,6 @@ func initialCommandDefinitions() []expletives.CommandDefinition {
 			CommandLayoutAbsolute,
 			"Absolute Positioning",
 			"future Layout",
-		),
-		unavailableCatalogDefinition(
-			CommandStatusBar,
-			"Status Bar",
-			"Status Bar",
 		),
 		unavailableCatalogDefinition(
 			CommandHeadersFooters,
@@ -1501,17 +1590,34 @@ func screenDefinition(
 	id expletives.CommandID,
 	checked bool,
 ) expletives.CommandDefinition {
-	label := ""
-	for _, screen := range catalogScreens {
-		if screen.id == id {
-			label = screen.label
-			break
-		}
-	}
+	label := catalogScreenLabel(id)
 	return expletives.CommandDefinition{
 		ID: id, Label: label,
 		Description: "Show one purpose-specific toolkit catalog screen",
 		Enabled:     true, Checked: checked, Automation: true,
+	}
+}
+
+func catalogScreenLabel(id expletives.CommandID) string {
+	for _, screen := range catalogScreens {
+		if screen.id == id {
+			return screen.label
+		}
+	}
+	return string(id)
+}
+
+func catalogStatusSegments(
+	screen expletives.CommandID,
+) []expletives.StatusSegment {
+	return []expletives.StatusSegment{
+		{
+			Key: "screen", Text: catalogScreenLabel(screen),
+			Priority: 100,
+		},
+		{Key: "quit", Command: CommandAppQuit, Priority: 90},
+		{Key: "toggle", Command: CommandFixtureToggle, Priority: 50},
+		{Key: "disabled", Command: CommandUnavailable, Priority: 0},
 	}
 }
 
@@ -1868,7 +1974,8 @@ func (s *Scene) handleCommand(
 		return expletives.OutcomeApplied, nil
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
-		CommandViewActions, CommandViewMenus, CommandViewAbout:
+		CommandViewActions, CommandViewMenus, CommandStatusBar,
+		CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -1905,6 +2012,7 @@ func (s *Scene) switchScreenLocked(
 	if s.activeScreen == target {
 		return expletives.OutcomeNoOp, nil
 	}
+	previous := s.activeScreen
 	transaction := s.App.NewTransaction()
 	for command, screen := range s.screens {
 		if err := transaction.SetVisible(
@@ -1914,13 +2022,25 @@ func (s *Scene) switchScreenLocked(
 			return expletives.OutcomeFailed, err
 		}
 	}
+	if err := transaction.SetStatusSegments(
+		s.status,
+		catalogStatusSegments(target),
+	); err != nil {
+		return expletives.OutcomeFailed, err
+	}
 	if err := transaction.Commit(context.Background()); err != nil {
 		return expletives.OutcomeFailed, err
 	}
 	s.activeScreen = target
-	for _, screen := range catalogScreens {
+	for _, selection := range []struct {
+		id      expletives.CommandID
+		checked bool
+	}{
+		{id: previous, checked: false},
+		{id: target, checked: true},
+	} {
 		if err := s.App.ReplaceCommand(
-			screenDefinition(screen.id, screen.id == target),
+			screenDefinition(selection.id, selection.checked),
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -1992,8 +2112,11 @@ func SelfCheck() error {
 		"screen.text",
 		"screen.actions",
 		"screen.menus",
+		"screen.status",
 		"screen.about",
 		"menus.overview",
+		"status.main",
+		"status.overview",
 		"help.about",
 		"panel.red",
 		"panel.accent",
@@ -2082,6 +2205,21 @@ func SelfCheck() error {
 	if len(seenCatalogLabels) != len(catalogLabels) || !homeChecked {
 		return errors.New("catalog navigation labels are incomplete")
 	}
+	status := controls["status.main"]
+	if status.Details.StatusBar == nil ||
+		status.Bounds != (expletives.Rect{
+			Y: 19, Width: 64, Height: 1,
+		}) ||
+		len(status.Details.StatusBar.Segments) != 4 ||
+		status.Details.StatusBar.Segments[0].Label != "Home" {
+		return errors.New("StatusBar typed evidence is incomplete")
+	}
+	for column := range snapshot.Frame.Size.Width {
+		cell, ok := snapshot.Frame.Cell(column, snapshot.Frame.Size.Height-1)
+		if !ok || cell.Owner != status.ID {
+			return errors.New("StatusBar does not own the complete bottom row")
+		}
+	}
 	if !controls["screen.home"].Visible ||
 		controls["screen.panels.core"].Visible ||
 		controls["screen.panels.styles"].Visible ||
@@ -2090,6 +2228,7 @@ func SelfCheck() error {
 		controls["screen.text"].Visible ||
 		controls["screen.actions"].Visible ||
 		controls["screen.menus"].Visible ||
+		controls["screen.status"].Visible ||
 		controls["screen.about"].Visible {
 		return errors.New("initial catalog screen visibility is invalid")
 	}
@@ -2201,11 +2340,21 @@ func SelfCheck() error {
 		!controls["action.toggle"].Focused {
 		return errors.New("Actions screen did not become visible and focused")
 	}
+	if err := invoke("show-status", CommandStatusBar); err != nil {
+		return err
+	}
+	status = controls["status.main"]
+	if !controls["screen.status"].Visible ||
+		status.Details.StatusBar == nil ||
+		status.Details.StatusBar.Segments[0].Label != "Status Bar" {
+		return errors.New("Status Bar page did not update contextual evidence")
+	}
 	if err := invoke("show-home", CommandViewHome); err != nil {
 		return err
 	}
 	if !controls["screen.home"].Visible ||
-		controls["screen.actions"].Visible {
+		controls["screen.actions"].Visible ||
+		controls["screen.status"].Visible {
 		return errors.New("File Home did not restore the empty catalog screen")
 	}
 	return nil

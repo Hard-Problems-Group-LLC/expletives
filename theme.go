@@ -81,9 +81,18 @@ func DefaultTheme() Theme {
 		"rule":             resolved,
 		"button":           resolved,
 		"hotkey_bar":       resolved,
-		"menu_bar":         menuNormal,
-		"menu.popup":       menuNormal,
-		"menu.border":      menuNormal,
+		"status_bar":       menuNormal,
+		"status.shortcut": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: menuNormal.Background,
+		},
+		"status.disabled": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: menuNormal.Background,
+		},
+		"menu_bar":    menuNormal,
+		"menu.popup":  menuNormal,
+		"menu.border": menuNormal,
 		"menu.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
 			Background: menuNormal.Background,

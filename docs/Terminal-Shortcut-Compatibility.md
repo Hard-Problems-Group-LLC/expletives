@@ -97,6 +97,18 @@ The MenuBar activation defaults are:
 | Dialogs | `&Dialogs` | `Alt-D` |
 | Help | `Hel&p` | `Alt-P` |
 
+Its essential non-menu routes remain redundant:
+
+| Purpose | Preferred visible hint | Other routes |
+| --- | --- | --- |
+| Quit | `Alt-X` | File/Quit, `q`, `Escape`, cancel Button |
+| Toggle fixture | `Ctrl-R` | Controls/Actions Button |
+| Interrupt | `Ctrl-C` | configured signal/input policy |
+
+`Alt-X` is the conventional Turbo Vision exit hint and is not claimed by the
+audited terminal defaults. No essential operation depends on it being
+forwarded.
+
 The red Turbo Vision-style mnemonic rendering follows the marked character.
 Popup-item mnemonics remain unmodified keys while their popup owns menu
 navigation; they are not bare `Alt` chords intercepted by the host.

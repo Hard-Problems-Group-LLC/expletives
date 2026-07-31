@@ -9,6 +9,53 @@
 
 ## Observed Opportunities
 
+### 29. Update Only Changed Catalog Selection Commands
+
+Screen navigation previously replaced every catalog-screen command definition
+to recompute checked state, publishing once per screen. Each new page therefore
+increased render, snapshot-copy, history, and automation-notification cost
+even though exactly two checked values can change.
+
+Improvement applied:
+
+- remember the previous screen;
+- uncheck only its command and check only the target command; and
+- keep screen visibility plus StatusBar context in the existing single
+  control-tree transaction.
+
+This changes command-definition publications per navigation from the number
+of catalog pages to exactly two. A future transactional bulk command-state API
+may combine those final two publications when broader command-registry
+mutation is designed.
+
+### 28. Give Typed Control Details One Extension Checklist
+
+Adding StatusBar state correctly touched the core union, core deep copy,
+automation DTO, projection, automation deep copy, client validation,
+aggregate bounds, maximum-response proof, and focused invalid-state tests.
+Those are real trust-boundary responsibilities, but discovering the same
+extension surface by search for the prior control type is slower and risks
+missing one copy seam.
+
+Improvement:
+
+- keep a short project-owned checklist for every new typed ControlDetails
+  member: core type and clone, renderer population, wire type and projection,
+  wire clone, kind validator, aggregate limits, maximum-response proof, and
+  valid/invalid/deep-copy tests;
+- add a small generic Chord-copy helper when another chord-bearing detail
+  arrives, rather than repeating pointer/slice copying again;
+- retain explicit kind validators instead of reflection at the untrusted
+  automation boundary; and
+- calculate unique-control response overhead separately, as now done for
+  MenuBar and StatusBar, rather than multiplying a unique large union member
+  by every control slot.
+
+Applied immediately: StatusBar painting and typed geometry share one render
+plan, MenuBar/StatusBar use one application-chrome predicate, response
+accounting treats both unique controls separately, and focused projection,
+clone, validity, aggregate, and response-bound tests cover the complete seam.
+
 ### 27. Give Closed-Loop Commands A Built-In Compact Projection
 
 The shortcut compatibility check needed only outcome, MenuBar open/selected

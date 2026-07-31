@@ -897,6 +897,10 @@ the root package's local snapshot. The client checks:
   parent-before-child structure, sibling mnemonic uniqueness, kind-consistent
   command/separator/submenu state, bounded structured chords, and consistent
   selected/open paths;
+- at most one StatusBar and 64 copied ordered segments, with unique bounded
+  keys, canonical effective labels, kind-consistent static or command state,
+  structured chords, deterministic contiguous rendered Bounds, and explicit
+  omission/clipping state;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -919,8 +923,8 @@ cell. Control-detail union members must match the control kind. A nested public
 snapshot-completion message is at most 1,024 UTF-8 bytes without NUL. A
 top-level protocol `error.message` is trimmed to at most 256 valid UTF-8
 bytes. Every encoded response must also fit the 36 MiB response-line limit.
-The conservative legal-maximum completion proof is 37,214,739 JSON bytes;
-three such records total 111,644,217 bytes and remain below the 128 MiB
+The conservative legal-maximum completion proof is 37,496,731 JSON bytes;
+three such records total 112,490,193 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
 
 ## Public Go Client Contract
@@ -1089,12 +1093,12 @@ revalidated on 2026-07-30 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 
-That command passed. The current maximum fixture encoded to 37,255,187 bytes;
-three retained maximum records total 111,765,561 bytes.
+That command passed. The current maximum fixture encoded to 37,496,731 bytes;
+three retained maximum records total 112,490,193 bytes.
 
 The relevant integration assertions are:
 

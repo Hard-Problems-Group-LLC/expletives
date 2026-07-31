@@ -22,7 +22,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 1. Foundational Decisions
 
-- Status: `active`
+- Status: `completed`
 - Goal: turn the directed product outcomes into coherent public contracts
   before implementation freezes conflicting design models.
 - Dependencies: none.
@@ -342,7 +342,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 9. Status Bar
 
-- Status: `planned`
+- Status: `active`
 - Goal: deliver a root-owned `StatusBar` on the complete physical bottom row.
 - Dependencies: Phase 8 application-chrome seam and the shared Action command
   and shortcut model.
@@ -358,7 +358,10 @@ ordered backlog and the active-task record; it does not replace either.
   the last physical row, remains outside ordinary root Layouts, and returns
   its row atomically when hidden or destroyed.
 - Contract:
-  [`application-chrome-v0.md`](../docs/specifications/application-chrome-v0.md).
+  [`application-chrome-v0.md`](../docs/specifications/application-chrome-v0.md)
+  and
+  [`status-bar-api-v0.md`](../docs/specifications/status-bar-api-v0.md).
+- Completion evidence: [`EXPL-TASK-024`](completed-tasks.md).
 
 ### 10. Headers And Footers
 

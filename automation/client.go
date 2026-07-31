@@ -729,6 +729,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	actionItemCount := 0
 	menuItemCount := 0
 	menuBarCount := 0
+	statusBarCount := 0
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
 			(control.Key != "" && !validIdentifier(control.Key, limits.IdentifierBytes)) ||
@@ -764,7 +765,26 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				return errors.New("snapshot control child has an invalid identity")
 			}
 		}
-		if !validControlDetails(control.Kind, control.Details, limits) {
+		if control.Kind == "status_bar" {
+			expected := Rect{}
+			if width > 0 && height > 0 {
+				expected = Rect{
+					Y: height - 1, Width: width, Height: 1,
+				}
+			}
+			if control.Bounds != expected ||
+				control.AbsoluteBounds != expected {
+				return errors.New(
+					"snapshot StatusBar does not have derived surface bounds",
+				)
+			}
+		}
+		if !validControlDetails(
+			control.Kind,
+			control.Details,
+			control.Bounds.Width,
+			limits,
+		) {
 			return errors.New("snapshot control details are invalid for its kind")
 		}
 		if control.Details.HotkeyBar != nil {
@@ -788,6 +808,19 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 			menuItemCount += len(control.Details.MenuBar.Entries)
+		}
+		if control.Details.StatusBar != nil {
+			statusBarCount++
+			if statusBarCount > 1 ||
+				len(control.Details.StatusBar.Segments) >
+					expletives.MaxStatusBarSegments ||
+				len(control.Details.StatusBar.Segments) >
+					limits.Controls-actionItemCount {
+				return errors.New(
+					"snapshot StatusBar count or segment count exceeds bound",
+				)
+			}
+			actionItemCount += len(control.Details.StatusBar.Segments)
 		}
 	}
 	if len(snapshot.Layouts) > limits.Layouts {
@@ -910,6 +943,7 @@ func validBorderDetails(border *BorderDetails, limits Limits) bool {
 func validControlDetails(
 	kind ControlKind,
 	details ControlDetails,
+	controlWidth int,
 	limits Limits,
 ) bool {
 	if details.Version != 1 {
@@ -924,7 +958,8 @@ func validControlDetails(
 			details.Divider == nil &&
 			details.Action == nil &&
 			details.HotkeyBar == nil &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "frame", "group_box":
 		return details.Container != nil &&
 			validBorderDetails(details.Border, limits) &&
@@ -936,7 +971,8 @@ func validControlDetails(
 			details.Divider == nil &&
 			details.Action == nil &&
 			details.HotkeyBar == nil &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "label":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -945,7 +981,8 @@ func validControlDetails(
 			details.Divider == nil &&
 			details.Action == nil &&
 			details.HotkeyBar == nil &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "static_text":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -955,7 +992,8 @@ func validControlDetails(
 			details.Divider == nil &&
 			details.Action == nil &&
 			details.HotkeyBar == nil &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "separator":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -964,7 +1002,8 @@ func validControlDetails(
 			details.Divider.Text == "" &&
 			details.Action == nil &&
 			details.HotkeyBar == nil &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "rule":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -972,7 +1011,8 @@ func validControlDetails(
 			validDividerDetails(details.Divider) &&
 			details.Action == nil &&
 			details.HotkeyBar == nil &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "button":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -980,7 +1020,8 @@ func validControlDetails(
 			details.Divider == nil &&
 			validActionDetails(details.Action, limits) &&
 			details.HotkeyBar == nil &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "hotkey_bar":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -988,7 +1029,8 @@ func validControlDetails(
 			details.Divider == nil &&
 			details.Action == nil &&
 			validHotkeyBarDetails(details.HotkeyBar, limits) &&
-			details.MenuBar == nil
+			details.MenuBar == nil &&
+			details.StatusBar == nil
 	case "menu_bar":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -996,7 +1038,17 @@ func validControlDetails(
 			details.Divider == nil &&
 			details.Action == nil &&
 			details.HotkeyBar == nil &&
-			validMenuBarDetails(details.MenuBar, limits)
+			validMenuBarDetails(details.MenuBar, limits) &&
+			details.StatusBar == nil
+	case "status_bar":
+		return details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			validStatusBarDetails(details.StatusBar, controlWidth, limits)
 	default:
 		return false
 	}
@@ -1041,6 +1093,57 @@ func validHotkeyBarDetails(
 			return false
 		}
 		seen[item.Command] = true
+	}
+	return true
+}
+
+func validStatusBarDetails(
+	bar *StatusBarDetails,
+	controlWidth int,
+	limits Limits,
+) bool {
+	if bar == nil || controlWidth < 0 ||
+		len(bar.Segments) > expletives.MaxStatusBarSegments {
+		return false
+	}
+	seen := make(map[string]bool, len(bar.Segments))
+	nextX := 0
+	for _, segment := range bar.Segments {
+		if !validIdentifier(segment.Key, limits.IdentifierBytes) ||
+			seen[segment.Key] ||
+			segment.Label == "" ||
+			!canonicalDisplayText(segment.Label, false) ||
+			(segment.Command != "" &&
+				!validIdentifier(segment.Command, limits.IdentifierBytes)) ||
+			len(segment.DisabledReason) > maxDisplayTextBytes ||
+			!utf8.ValidString(segment.DisabledReason) ||
+			strings.ContainsRune(segment.DisabledReason, 0) ||
+			(segment.Enabled && segment.DisabledReason != "") ||
+			(!segment.Enabled && segment.DisabledReason == "") ||
+			(segment.Command == "" &&
+				(!segment.Enabled ||
+					segment.DisabledReason != "" ||
+					segment.Checked ||
+					segment.Chord != nil)) ||
+			(segment.Chord != nil && !validChord(*segment.Chord)) ||
+			segment.Bounds.X < 0 ||
+			segment.Bounds.Y != 0 ||
+			segment.Bounds.Width < 0 ||
+			segment.Bounds.Height < 0 ||
+			(!segment.Rendered &&
+				(segment.Bounds != (Rect{}) || segment.Clipped)) ||
+			(segment.Rendered &&
+				(segment.Bounds.X != nextX ||
+					segment.Bounds.Height != 1 ||
+					segment.Bounds.Width <= 0 ||
+					nextX > controlWidth ||
+					segment.Bounds.Width > controlWidth-nextX)) {
+			return false
+		}
+		if segment.Rendered {
+			nextX += segment.Bounds.Width
+		}
+		seen[segment.Key] = true
 	}
 	return true
 }
