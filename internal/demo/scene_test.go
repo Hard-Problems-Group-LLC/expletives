@@ -555,6 +555,85 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	if !control("input.text.plain").Focused {
 		t.Fatal("Input screen did not focus its first TextField")
 	}
+	form := control("input.form")
+	screen := control("screen.input")
+	if form.AbsoluteBounds.Width != 55 ||
+		form.AbsoluteBounds.Height != screen.AbsoluteBounds.Height-1 {
+		t.Fatalf(
+			"form bounds=%+v screen bounds=%+v, want natural width and available height",
+			form.AbsoluteBounds,
+			screen.AbsoluteBounds,
+		)
+	}
+	fieldKeys := []string{
+		"input.text.plain",
+		"input.text.soft_whitelist",
+		"input.text.hard_blacklist",
+		"input.text.password",
+		"input.number.ranged",
+		"input.spin.clamped",
+	}
+	fieldX := -1
+	lastY := -1
+	for _, key := range fieldKeys {
+		field := control(key)
+		if field.AbsoluteBounds.Width != 30 ||
+			field.AbsoluteBounds.Height != 1 {
+			t.Fatalf("%s bounds = %+v, want 30x1", key, field.AbsoluteBounds)
+		}
+		if fieldX < 0 {
+			fieldX = field.AbsoluteBounds.X
+		} else if field.AbsoluteBounds.X != fieldX {
+			t.Fatalf(
+				"%s X = %d, want aligned field column %d",
+				key,
+				field.AbsoluteBounds.X,
+				fieldX,
+			)
+		}
+		if field.AbsoluteBounds.Y <= lastY {
+			t.Fatalf("%s did not follow the preceding form row", key)
+		}
+		lastY = field.AbsoluteBounds.Y
+	}
+	area := control("input.text_area.multiline")
+	if area.AbsoluteBounds.X != fieldX ||
+		area.AbsoluteBounds.Width != 30 ||
+		area.AbsoluteBounds.Height <= 3 ||
+		area.AbsoluteBounds.Y <= lastY {
+		t.Fatalf("TextArea form bounds = %+v", area.AbsoluteBounds)
+	}
+	for _, key := range []string{
+		"plain", "soft", "hard", "password", "number", "spin", "multiline",
+	} {
+		label := control("input.label." + key)
+		row := control("input.row." + key)
+		if row.Details.Border != nil ||
+			label.Details.Text == nil ||
+			label.Details.Text.Target == "" ||
+			label.AbsoluteBounds.X+label.AbsoluteBounds.Width+1 != fieldX {
+			t.Fatalf(
+				"%s form row/label evidence = row:%+v label:%+v",
+				key,
+				row,
+				label,
+			)
+		}
+	}
+	snapshot := scene.App.Snapshot()
+	blankPoint := expletives.Point{
+		X: control("input.text.plain").AbsoluteBounds.X + 29,
+		Y: control("input.text.plain").AbsoluteBounds.Y,
+	}
+	blankCell, ok := snapshot.Frame.Cell(blankPoint.X, blankPoint.Y)
+	if !ok || blankCell.Owner != control("input.text.plain").ID ||
+		blankCell.Background != textFieldStyle.Background ||
+		blankCell.Background == canvasStyle.Background {
+		t.Fatalf(
+			"TextField blank-cell treatment = %+v, want distinct field background",
+			blankCell,
+		)
+	}
 	dispatch("plain-edit", expletives.KeyEnter)
 	dispatch("plain-type", "!")
 	if completion := dispatch("plain-commit", expletives.KeyEnter); completion.Command != CommandTextChanged {

@@ -67,6 +67,10 @@ func DefaultTheme() Theme {
 		Foreground: black,
 		Background: RGB(0x00, 0xAA, 0x00),
 	}
+	inputNormal := ResolvedStyle{
+		Foreground: white,
+		Background: RGB(0x00, 0x00, 0xAA),
+	}
 	styles := map[StyleID]ResolvedStyle{
 		"application.root":    resolved,
 		"panel":               resolved,
@@ -87,10 +91,10 @@ func DefaultTheme() Theme {
 		"radio_button":        resolved,
 		"cycle_field":         resolved,
 		"select_field":        resolved,
-		"text_field":          resolved,
-		"number_field":        resolved,
-		"spin_box":            resolved,
-		"text_area":           resolved,
+		"text_field":          inputNormal,
+		"number_field":        inputNormal,
+		"spin_box":            inputNormal,
+		"text_area":           inputNormal,
 		"progress_bar":        resolved,
 		"meter":               resolved,
 		"spinner":             resolved,
@@ -160,15 +164,15 @@ func DefaultTheme() Theme {
 		"tab.continuation": menuNormal,
 		"text_input.valid": {
 			Foreground: RGB(0x00, 0xAA, 0x00),
-			Background: resolved.Background,
+			Background: inputNormal.Background,
 		},
 		"text_input.invalid": {
 			Foreground: RGB(0xAA, 0xAA, 0x00),
-			Background: resolved.Background,
+			Background: inputNormal.Background,
 		},
 		"text_input.invalid_character": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
-			Background: resolved.Background,
+			Background: inputNormal.Background,
 		},
 		"text_input.selection": {
 			Foreground: resolved.Foreground,
@@ -176,7 +180,7 @@ func DefaultTheme() Theme {
 		},
 		"text_input.disabled": {
 			Foreground: RGB(0x80, 0x80, 0x80),
-			Background: resolved.Background,
+			Background: inputNormal.Background,
 		},
 		"selection.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),

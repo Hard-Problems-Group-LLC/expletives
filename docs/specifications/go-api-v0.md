@@ -547,6 +547,12 @@ on complete elements. Tab commits before direct-parent focus-group traversal.
 Programmatic focus loss commits silently, while a user Enter/Tab commit may
 route the optional `ChangeCommand` after the value is published.
 
+TextField, NumberField, and SpinBox default to horizontal stretch and natural
+one-row vertical sizing. They draw no implicit frame and use their distinct
+background across the complete arranged width. TextArea defaults to stretch
+on both axes. Every `PanelOptions` accepts construction-time `LayoutHints`;
+every `Control` exposes its resolved immutable hints through `LayoutHints()`.
+
 The optional copied `TextValidator` requires soft or hard enforcement,
 whitelist or blacklist mode, and a nonempty character set. Soft-invalid input
 remains editable and paints the complete valid portion yellow with invalid
@@ -1085,7 +1091,8 @@ it.
 ## Layout API
 
 The exact implemented constructors, attachment/transaction methods,
-measure/arrange rules, nesting, `Panel.Raise`/`Lower`,
+per-axis natural/stretch hints and weights, measure/arrange rules, nesting,
+`Panel.Raise`/`Lower`,
 `Layout.Raise`/`Lower`, snapshot fields, and overflow callback are specified
 in [`layout-api-v0.md`](layout-api-v0.md).
 

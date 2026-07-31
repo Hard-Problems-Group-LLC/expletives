@@ -103,7 +103,12 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   `Raise`/`Lower` moves the complete subtree among Layout peers while
   preserving other-kind slots. Most controls should share Panel behavior
   directly or indirectly through the approved Go composition/embedding
-  model. Follow
+  model. Every control supplies overridable construction-time horizontal and
+  vertical natural/stretch hints and weights. Box free space uses those
+  weights only when no explicit positive item Grow exists; explicit item
+  alignment remains authoritative. Single-line text/numeric editors default
+  to horizontal stretch and one-row natural height, while TextArea defaults
+  to stretch on both axes. Follow
   [`docs/specifications/layout-api-v0.md`](docs/specifications/layout-api-v0.md)
   for the exact contract.
 - Default the App-owned root to the complete offered container surface.
@@ -280,7 +285,11 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   Enter/Tab commits, and use `[`/`]` for clamped SpinBox stepping outside edit
   mode. TextArea normalizes line separators, supports no/word/cell wrapping,
   uses Enter for newline and Ctrl-Enter for commit, preserves one-cell
-  selection boundaries, and exposes a private bounded viewport. Committed
+  selection boundaries, exposes a private bounded viewport, and defaults to
+  two-axis Layout stretching. Text/Numeric form presentation uses separate
+  bound Labels and borderless one-row fields with a distinct complete-width
+  background; it does not vertically stretch ordinary fields to fill a page.
+  Committed
   text and paste are distinct bounded non-key events and must never enter
   command resolution; Ctrl-C remains available to configured interrupt
   policy in every editor.

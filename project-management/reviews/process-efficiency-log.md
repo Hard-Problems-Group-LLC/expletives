@@ -9,6 +9,36 @@
 
 ## Observed Opportunities
 
+### 38. Keep Closed-Loop Shutdown And Snapshot Output Projected
+
+A live form check needed only outcome, selected control bounds, and a few
+frame cells. Allowing a shutdown completion to print its complete final
+snapshot can emit a very large payload even though the process transition
+itself is simple.
+
+Improvement applied:
+
+- project every routine `expletivesctl` result through a small `jq` shape;
+- request the complete frame only for a deliberate bounded artifact or
+  diagnosis;
+- keep shutdown evidence to outcome and final frame sequence; and
+- use typed control bounds and selected cell samples for ordinary visual
+  assertions.
+
+### 37. Escalate Known Unix-Socket Tests On The First Run
+
+The workspace sandbox consistently denies the Unix-socket option required by
+the attached automation integration tests. Repeating the unprivileged failure
+on every checkpoint spends time without adding diagnostic value.
+
+Improvement applied:
+
+- run ordinary non-socket package tests in the sandbox;
+- run the full suite with the already-approved `go test` escalation when
+  attached automation is in scope; and
+- retain the focused sandbox failure only when investigating a changed
+  permission boundary.
+
 ### 36. Overlay Catalog Styles On The Complete Default Theme
 
 Adding the first Progress-page buttons initially exposed a missing semantic

@@ -38,14 +38,157 @@ const (
 )
 
 // Alignment selects placement within an item's cross-axis or Grid cell.
+// AlignDefault consults the item's control-supplied LayoutHints.
 type Alignment uint8
 
 const (
-	AlignStretch Alignment = iota
+	AlignDefault Alignment = iota
+	AlignStretch
 	AlignStart
 	AlignCenter
 	AlignEnd
 )
+
+// LayoutSizeHint tells a Layout whether an axis normally consumes only its
+// natural minimum or may expand into available space. The empty value lets
+// the control kind choose its sensible default.
+type LayoutSizeHint string
+
+const (
+	LayoutSizeDefault LayoutSizeHint = ""
+	LayoutSizeNatural LayoutSizeHint = "natural"
+	LayoutSizeStretch LayoutSizeHint = "stretch"
+)
+
+// LayoutHints are one control's resolved per-axis sizing preferences.
+type LayoutHints struct {
+	Horizontal       LayoutSizeHint `json:"horizontal"`
+	Vertical         LayoutSizeHint `json:"vertical"`
+	HorizontalWeight int            `json:"horizontal_weight"`
+	VerticalWeight   int            `json:"vertical_weight"`
+}
+
+func resolveControlLayoutHints(
+	kind ControlKind,
+	behavior controlBehavior,
+	requested LayoutHints,
+) (LayoutHints, error) {
+	defaults := defaultControlLayoutHints(kind, behavior)
+	resolved := requested
+	for _, axis := range []*LayoutSizeHint{
+		&resolved.Horizontal,
+		&resolved.Vertical,
+	} {
+		switch *axis {
+		case LayoutSizeDefault:
+		case LayoutSizeNatural, LayoutSizeStretch:
+		default:
+			return LayoutHints{}, fmt.Errorf(
+				"%w: invalid control layout size hint",
+				ErrInvalidLayout,
+			)
+		}
+	}
+	if resolved.Horizontal == LayoutSizeDefault {
+		resolved.Horizontal = defaults.Horizontal
+	}
+	if resolved.Vertical == LayoutSizeDefault {
+		resolved.Vertical = defaults.Vertical
+	}
+	if resolved.HorizontalWeight < 0 ||
+		resolved.VerticalWeight < 0 ||
+		resolved.HorizontalWeight > maxCoordinateMagnitude ||
+		resolved.VerticalWeight > maxCoordinateMagnitude {
+		return LayoutHints{}, fmt.Errorf(
+			"%w: invalid control layout weight",
+			ErrInvalidLayout,
+		)
+	}
+	resolved.HorizontalWeight = resolveLayoutAxisWeight(
+		resolved.Horizontal,
+		resolved.HorizontalWeight,
+		defaults.HorizontalWeight,
+	)
+	resolved.VerticalWeight = resolveLayoutAxisWeight(
+		resolved.Vertical,
+		resolved.VerticalWeight,
+		defaults.VerticalWeight,
+	)
+	if (resolved.Horizontal == LayoutSizeNatural &&
+		requested.HorizontalWeight > 0) ||
+		(resolved.Vertical == LayoutSizeNatural &&
+			requested.VerticalWeight > 0) {
+		return LayoutHints{}, fmt.Errorf(
+			"%w: natural layout axis cannot carry growth weight",
+			ErrInvalidLayout,
+		)
+	}
+	return resolved, nil
+}
+
+func resolveLayoutAxisWeight(
+	hint LayoutSizeHint,
+	requested int,
+	defaultWeight int,
+) int {
+	if hint == LayoutSizeNatural {
+		return 0
+	}
+	if requested > 0 {
+		return requested
+	}
+	if defaultWeight > 0 {
+		return defaultWeight
+	}
+	return 1
+}
+
+func defaultControlLayoutHints(
+	kind ControlKind,
+	behavior controlBehavior,
+) LayoutHints {
+	hints := func(horizontal, vertical LayoutSizeHint) LayoutHints {
+		result := LayoutHints{Horizontal: horizontal, Vertical: vertical}
+		if horizontal == LayoutSizeStretch {
+			result.HorizontalWeight = 1
+		}
+		if vertical == LayoutSizeStretch {
+			result.VerticalWeight = 1
+		}
+		return result
+	}
+	switch kind {
+	case ControlRoot, ControlPanel, ControlFrame, ControlGroupBox,
+		ControlRadioGroup, ControlStaticText, ControlTextArea,
+		ControlTabbedPanel, ControlNotebook:
+		return hints(LayoutSizeStretch, LayoutSizeStretch)
+	case ControlMenuBar, ControlStatusBar, ControlHeader, ControlFooter,
+		ControlHotkeyBar, ControlFocusGuideBar, ControlTextField,
+		ControlNumberField, ControlSpinBox, ControlProgressBar:
+		return hints(LayoutSizeStretch, LayoutSizeNatural)
+	case ControlSeparator, ControlRule:
+		if divider, ok := behavior.(dividerBehavior); ok &&
+			divider.orientation == Vertical {
+			return hints(LayoutSizeNatural, LayoutSizeStretch)
+		}
+		return hints(LayoutSizeStretch, LayoutSizeNatural)
+	case ControlMeter:
+		if progress, ok := behavior.(progressBehavior); ok &&
+			progress.meter != nil &&
+			progress.meter.Orientation == Vertical {
+			return hints(LayoutSizeNatural, LayoutSizeStretch)
+		}
+		return hints(LayoutSizeStretch, LayoutSizeNatural)
+	case ControlScrollBar:
+		if scrollBar, ok := behavior.(scrollBarBehavior); ok &&
+			scrollBar.orientation == Vertical {
+			return hints(LayoutSizeNatural, LayoutSizeStretch)
+		}
+		return hints(LayoutSizeStretch, LayoutSizeNatural)
+	default:
+		return hints(LayoutSizeNatural, LayoutSizeNatural)
+	}
+}
 
 // Insets reserves cells at four edges.
 type Insets struct {
@@ -884,6 +1027,7 @@ func arrangeBoxLocked(state *layoutState) {
 	}
 	minMain := 0
 	totalGrow := int64(0)
+	explicitGrow := false
 	for index, item := range state.items {
 		if index > 0 {
 			minMain += state.box.Gap
@@ -894,15 +1038,32 @@ func arrangeBoxLocked(state *layoutState) {
 			minMain += item.minimum.Height + item.options.Insets.Top + item.options.Insets.Bottom
 		}
 		totalGrow += int64(item.options.Grow)
+		explicitGrow = explicitGrow || item.options.Grow > 0
+	}
+	if !explicitGrow {
+		totalGrow = 0
+		for _, item := range state.items {
+			totalGrow += int64(layoutItemWeight(
+				item,
+				state.orientation == Horizontal,
+			))
+		}
 	}
 	extra := max(0, mainAvailable-minMain)
 	growth := make([]int, len(state.items))
 	if totalGrow > 0 {
 		assigned := 0
 		for index, item := range state.items {
-			if item.options.Grow > 0 {
+			weight := item.options.Grow
+			if !explicitGrow {
+				weight = layoutItemWeight(
+					item,
+					state.orientation == Horizontal,
+				)
+			}
+			if weight > 0 {
 				growth[index] = int(
-					int64(extra) * int64(item.options.Grow) / totalGrow,
+					int64(extra) * int64(weight) / totalGrow,
 				)
 				assigned += growth[index]
 			}
@@ -912,7 +1073,14 @@ func arrangeBoxLocked(state *layoutState) {
 			if remainder == 0 {
 				break
 			}
-			if item.options.Grow > 0 {
+			weight := item.options.Grow
+			if !explicitGrow {
+				weight = layoutItemWeight(
+					item,
+					state.orientation == Horizontal,
+				)
+			}
+			if weight > 0 {
 				growth[index]++
 				remainder--
 			}
@@ -933,6 +1101,11 @@ func arrangeBoxLocked(state *layoutState) {
 			crossBefore, crossAfter = item.options.Insets.Left, item.options.Insets.Right
 			align = item.options.HorizontalAlign
 		}
+		align = effectiveItemAlignment(
+			item,
+			align,
+			state.orientation == Vertical,
+		)
 		slotMain := base + growth[index]
 		crossPos, crossSize := alignedSpan(
 			crossAvailable, crossMin, crossBefore, crossAfter, align,
@@ -990,14 +1163,22 @@ func arrangeGridLocked(state *layoutState) {
 			item.minimum.Width,
 			item.options.Insets.Left,
 			item.options.Insets.Right,
-			item.options.HorizontalAlign,
+			effectiveItemAlignment(
+				item,
+				item.options.HorizontalAlign,
+				true,
+			),
 		)
 		y, height := alignedSpan(
 			heights[row],
 			item.minimum.Height,
 			item.options.Insets.Top,
 			item.options.Insets.Bottom,
-			item.options.VerticalAlign,
+			effectiveItemAlignment(
+				item,
+				item.options.VerticalAlign,
+				false,
+			),
 		)
 		item.bounds = Rect{
 			X:     content.X + xs[column] + x,
@@ -1040,6 +1221,48 @@ func alignedSpan(
 		position = max(before, available-after-size)
 	}
 	return position, size
+}
+
+func layoutItemHints(item *layoutItem) LayoutHints {
+	if item != nil && item.kind == layoutPanelItem && item.panel != nil {
+		return item.panel.layoutHints
+	}
+	return LayoutHints{
+		Horizontal:       LayoutSizeStretch,
+		Vertical:         LayoutSizeStretch,
+		HorizontalWeight: 1,
+		VerticalWeight:   1,
+	}
+}
+
+func layoutItemStretches(item *layoutItem, horizontal bool) bool {
+	hints := layoutItemHints(item)
+	if horizontal {
+		return hints.Horizontal == LayoutSizeStretch
+	}
+	return hints.Vertical == LayoutSizeStretch
+}
+
+func layoutItemWeight(item *layoutItem, horizontal bool) int {
+	hints := layoutItemHints(item)
+	if horizontal {
+		return hints.HorizontalWeight
+	}
+	return hints.VerticalWeight
+}
+
+func effectiveItemAlignment(
+	item *layoutItem,
+	alignment Alignment,
+	horizontal bool,
+) Alignment {
+	if alignment != AlignDefault {
+		return alignment
+	}
+	if layoutItemStretches(item, horizontal) {
+		return AlignStretch
+	}
+	return AlignStart
 }
 
 func distributedSpans(count, minimum, available int) []int {

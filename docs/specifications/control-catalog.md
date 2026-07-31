@@ -408,6 +408,14 @@ SpinBox stepping. The implemented TextArea adds normalized line separators,
 word/cell/no-wrap presentation, a private bounded viewport, selection-aware
 multiline navigation, Ctrl-Enter commit, and semantic bounded paste.
 
+Single-line text and numeric fields default to horizontal stretch and
+one-row natural vertical sizing. They normally appear borderless beside a
+separate bound Label, using a distinct complete-width field background.
+TextArea defaults to stretch on both axes. Every control exposes resolved
+construction-time per-axis Layout hints; positive axis weights divide Box
+free space between eligible controls when explicit item Grow values are
+absent. Applications may override hints and weights at control construction.
+
 ### 13. Progress
 
 Required controls:

@@ -218,22 +218,22 @@ var (
 	textFieldStyle = expletives.Style{
 		ID:         "text_field",
 		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-		Background: expletives.RGB(0x00, 0x38, 0x78),
+		Background: expletives.RGB(0x00, 0x00, 0xAA),
 	}
 	textInputValidStyle = expletives.Style{
 		ID:         "text_input.valid",
 		Foreground: expletives.RGB(0x00, 0xFF, 0x00),
-		Background: expletives.RGB(0x00, 0x38, 0x78),
+		Background: expletives.RGB(0x00, 0x00, 0xAA),
 	}
 	textInputInvalidStyle = expletives.Style{
 		ID:         "text_input.invalid",
 		Foreground: expletives.RGB(0xFF, 0xFF, 0x00),
-		Background: expletives.RGB(0x00, 0x38, 0x78),
+		Background: expletives.RGB(0x00, 0x00, 0xAA),
 	}
 	textInputInvalidCharacterStyle = expletives.Style{
 		ID:         "text_input.invalid_character",
 		Foreground: expletives.RGB(0xFF, 0x00, 0x00),
-		Background: expletives.RGB(0x00, 0x38, 0x78),
+		Background: expletives.RGB(0x00, 0x00, 0xAA),
 	}
 	textInputSelectionStyle = expletives.Style{
 		ID:         "text_input.selection",
@@ -243,7 +243,7 @@ var (
 	textInputDisabledStyle = expletives.Style{
 		ID:         "text_input.disabled",
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
-		Background: expletives.RGB(0x00, 0x38, 0x78),
+		Background: expletives.RGB(0x00, 0x00, 0xAA),
 	}
 )
 
@@ -1542,33 +1542,108 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
-	plainInputGroup, err := transaction.NewGroupBox(
+	inputForm, err := transaction.NewPanel(
 		inputScreen,
-		expletives.GroupBoxOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "input.group.plain",
-				MinimumSize:   expletives.Size{Width: 18, Height: 5},
-				Style:         canvasStyle.ID,
+		expletives.PanelOptions{
+			AutomationKey: "input.form",
+			MinimumSize:   expletives.Size{Width: 55, Height: 9},
+			LayoutHints: expletives.LayoutHints{
+				Horizontal: expletives.LayoutSizeNatural,
+				Vertical:   expletives.LayoutSizeStretch,
 			},
-			Title:       "Plain TextField",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderSingle,
+			Style: canvasStyle.ID,
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
+	type inputFormRow struct {
+		key   string
+		panel *expletives.Panel
+		label *expletives.Label
+		field expletives.Control
+	}
+	inputRows := make([]inputFormRow, 0, 7)
+	newInputRow := func(
+		key string,
+		height int,
+		vertical expletives.LayoutSizeHint,
+	) (*expletives.Panel, error) {
+		return transaction.NewPanel(
+			inputForm,
+			expletives.PanelOptions{
+				AutomationKey: "input.row." + key,
+				MinimumSize: expletives.Size{
+					Width: 55, Height: height,
+				},
+				LayoutHints: expletives.LayoutHints{
+					Horizontal: expletives.LayoutSizeStretch,
+					Vertical:   vertical,
+				},
+				Style: canvasStyle.ID,
+			},
+		)
+	}
+	addInputRow := func(
+		key string,
+		row *expletives.Panel,
+		text string,
+		mnemonic expletives.Key,
+		field expletives.Control,
+	) error {
+		label, labelErr := transaction.NewLabel(
+			row,
+			expletives.LabelOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "input.label." + key,
+					MinimumSize: expletives.Size{
+						Width: 24, Height: 1,
+					},
+					Style: canvasStyle.ID,
+				},
+				Text:                text,
+				HorizontalAlignment: expletives.TextAlignEnd,
+				Target:              field,
+				Mnemonic:            mnemonic,
+			},
+		)
+		if labelErr != nil {
+			return labelErr
+		}
+		inputRows = append(inputRows, inputFormRow{
+			key: key, panel: row, label: label, field: field,
+		})
+		return nil
+	}
+	plainInputRow, err := newInputRow(
+		"plain",
+		1,
+		expletives.LayoutSizeNatural,
+	)
+	if err != nil {
+		return nil, err
+	}
 	inputPlain, err := transaction.NewTextField(
-		plainInputGroup,
+		plainInputRow,
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.plain",
+				MinimumSize:   expletives.Size{Width: 30, Height: 1},
 			},
 			Text:          "Edit me",
 			ChangeCommand: CommandTextChanged,
 		},
 	)
 	if err != nil {
+		return nil, err
+	}
+	if err := addInputRow(
+		"plain",
+		plainInputRow,
+		"Plain text:",
+		"p",
+		inputPlain,
+	); err != nil {
 		return nil, err
 	}
 	if err := transaction.SetFocusGuidance(
@@ -1581,27 +1656,20 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
-	softInputGroup, err := transaction.NewGroupBox(
-		inputScreen,
-		expletives.GroupBoxOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "input.group.soft",
-				MinimumSize:   expletives.Size{Width: 18, Height: 5},
-				Style:         canvasStyle.ID,
-			},
-			Title:       "Soft Whitelist",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderSingle,
-		},
+	softInputRow, err := newInputRow(
+		"soft",
+		1,
+		expletives.LayoutSizeNatural,
 	)
 	if err != nil {
 		return nil, err
 	}
 	inputSoft, err := transaction.NewTextField(
-		softInputGroup,
+		softInputRow,
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.soft_whitelist",
+				MinimumSize:   expletives.Size{Width: 30, Height: 1},
 			},
 			Text: "ABC-123",
 			Validator: &expletives.TextValidator{
@@ -1615,28 +1683,30 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	if err := addInputRow(
+		"soft",
+		softInputRow,
+		"Soft whitelist:",
+		"f",
+		inputSoft,
+	); err != nil {
+		return nil, err
+	}
 
-	hardInputGroup, err := transaction.NewGroupBox(
-		inputScreen,
-		expletives.GroupBoxOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "input.group.hard",
-				MinimumSize:   expletives.Size{Width: 18, Height: 5},
-				Style:         canvasStyle.ID,
-			},
-			Title:       "Hard Filename Blacklist",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderSingle,
-		},
+	hardInputRow, err := newInputRow(
+		"hard",
+		1,
+		expletives.LayoutSizeNatural,
 	)
 	if err != nil {
 		return nil, err
 	}
 	inputHard, err := transaction.NewTextField(
-		hardInputGroup,
+		hardInputRow,
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.hard_blacklist",
+				MinimumSize:   expletives.Size{Width: 30, Height: 1},
 			},
 			Text: "safe-name.txt",
 			Validator: &expletives.TextValidator{
@@ -1650,48 +1720,30 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-
-	passwordInputGroup, err := transaction.NewGroupBox(
-		inputScreen,
-		expletives.GroupBoxOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "input.group.password",
-				MinimumSize:   expletives.Size{Width: 18, Height: 5},
-				Style:         canvasStyle.ID,
-			},
-			Title:       "Password / TextArea",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderSingle,
-		},
-	)
-	if err != nil {
+	if err := addInputRow(
+		"hard",
+		hardInputRow,
+		"Hard blacklist:",
+		"b",
+		inputHard,
+	); err != nil {
 		return nil, err
 	}
-	inputArea, err := transaction.NewTextArea(
-		passwordInputGroup,
-		expletives.TextAreaOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "input.text_area.multiline",
-				MinimumSize:   expletives.Size{Width: 8, Height: 1},
-			},
-			Text: "Multiline\ntext area",
-			Wrap: expletives.TextWrapWords,
-			Validator: &expletives.TextValidator{
-				Enforcement: expletives.TextValidationSoft,
-				Mode:        expletives.TextValidationBlacklist,
-				Characters:  "@",
-			},
-			ChangeCommand: CommandTextChanged,
-		},
+
+	passwordInputRow, err := newInputRow(
+		"password",
+		1,
+		expletives.LayoutSizeNatural,
 	)
 	if err != nil {
 		return nil, err
 	}
 	inputPassword, err := transaction.NewTextField(
-		passwordInputGroup,
+		passwordInputRow,
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.password",
+				MinimumSize:   expletives.Size{Width: 30, Height: 1},
 			},
 			Text:     "secret",
 			Password: true,
@@ -1706,29 +1758,31 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	if err := addInputRow(
+		"password",
+		passwordInputRow,
+		"Password phrase:",
+		"h",
+		inputPassword,
+	); err != nil {
+		return nil, err
+	}
 
-	numberInputGroup, err := transaction.NewGroupBox(
-		inputScreen,
-		expletives.GroupBoxOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "input.group.number",
-				MinimumSize:   expletives.Size{Width: 18, Height: 5},
-				Style:         canvasStyle.ID,
-			},
-			Title:       "NumberField",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderSingle,
-		},
+	numberInputRow, err := newInputRow(
+		"number",
+		1,
+		expletives.LayoutSizeNatural,
 	)
 	if err != nil {
 		return nil, err
 	}
 	numberMinimum, numberMaximum := 0.0, 20.0
 	inputNumber, err := transaction.NewNumberField(
-		numberInputGroup,
+		numberInputRow,
 		expletives.NumberFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.number.ranged",
+				MinimumSize:   expletives.Size{Width: 30, Height: 1},
 			},
 			Value: 12.5, Minimum: &numberMinimum, Maximum: &numberMaximum,
 			DecimalPlaces: 1, ChangeCommand: CommandNumberChanged,
@@ -1737,29 +1791,31 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	if err := addInputRow(
+		"number",
+		numberInputRow,
+		"Number:",
+		"u",
+		inputNumber,
+	); err != nil {
+		return nil, err
+	}
 
-	spinInputGroup, err := transaction.NewGroupBox(
-		inputScreen,
-		expletives.GroupBoxOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "input.group.spin",
-				MinimumSize:   expletives.Size{Width: 18, Height: 5},
-				Style:         canvasStyle.ID,
-			},
-			Title:       "SpinBox [ / ]",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderSingle,
-		},
+	spinInputRow, err := newInputRow(
+		"spin",
+		1,
+		expletives.LayoutSizeNatural,
 	)
 	if err != nil {
 		return nil, err
 	}
 	spinMinimum, spinMaximum := 0.0, 2.0
 	inputSpin, err := transaction.NewSpinBox(
-		spinInputGroup,
+		spinInputRow,
 		expletives.SpinBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.spin.clamped",
+				MinimumSize:   expletives.Size{Width: 30, Height: 1},
 			},
 			Value: 1, Minimum: &spinMinimum, Maximum: &spinMaximum,
 			DecimalPlaces: 1, Step: 0.5,
@@ -1767,6 +1823,53 @@ func NewWithRootConstraints(
 		},
 	)
 	if err != nil {
+		return nil, err
+	}
+	if err := addInputRow(
+		"spin",
+		spinInputRow,
+		"Spin box:",
+		"x",
+		inputSpin,
+	); err != nil {
+		return nil, err
+	}
+
+	areaInputRow, err := newInputRow(
+		"multiline",
+		3,
+		expletives.LayoutSizeStretch,
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputArea, err := transaction.NewTextArea(
+		areaInputRow,
+		expletives.TextAreaOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text_area.multiline",
+				MinimumSize:   expletives.Size{Width: 30, Height: 3},
+			},
+			Text: "Multiline\ntext area",
+			Wrap: expletives.TextWrapWords,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  "@",
+			},
+			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := addInputRow(
+		"multiline",
+		areaInputRow,
+		"Multiline value:",
+		"v",
+		inputArea,
+	); err != nil {
 		return nil, err
 	}
 
@@ -2843,91 +2946,67 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
-	inputGrid, err := expletives.NewGridLayout(
-		expletives.GridLayoutOptions{
-			AutomationKey: "layout.input.grid",
-			Columns:       3,
-			HorizontalGap: 1,
-			VerticalGap:   1,
+	inputScreenLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.input.screen",
+			Insets:        expletives.Insets{Top: 1, Left: 2},
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	for _, group := range []expletives.Control{
-		plainInputGroup,
-		softInputGroup,
-		hardInputGroup,
-		passwordInputGroup,
-		numberInputGroup,
-		spinInputGroup,
-	} {
-		if err := inputGrid.AddPanel(
-			group,
+	if err := inputScreenLayout.AddPanel(
+		inputForm,
+		expletives.LayoutItemOptions{
+			HorizontalAlign: expletives.AlignStart,
+		},
+	); err != nil {
+		return nil, err
+	}
+	inputFormLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.input.form",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range inputRows {
+		if err := inputFormLayout.AddPanel(
+			row.panel,
 			expletives.LayoutItemOptions{},
 		); err != nil {
 			return nil, err
 		}
-	}
-	for _, entry := range []struct {
-		key   string
-		group expletives.Container
-		field expletives.Control
-	}{
-		{"plain", plainInputGroup, inputPlain},
-		{"soft", softInputGroup, inputSoft},
-		{"hard", hardInputGroup, inputHard},
-		{"number", numberInputGroup, inputNumber},
-		{"spin", spinInputGroup, inputSpin},
-	} {
-		layout, layoutErr := expletives.NewBoxLayout(
-			expletives.Vertical,
+		rowLayout, layoutErr := expletives.NewBoxLayout(
+			expletives.Horizontal,
 			expletives.BoxLayoutOptions{
-				AutomationKey: "layout.input." + entry.key,
-				Insets: expletives.Insets{
-					Top: 1, Right: 1, Bottom: 1, Left: 1,
-				},
+				AutomationKey: "layout.input.row." + row.key,
+				Gap:           1,
 			},
 		)
 		if layoutErr != nil {
 			return nil, layoutErr
 		}
-		if err := layout.AddPanel(
-			entry.field,
-			expletives.LayoutItemOptions{Grow: 1},
+		if err := rowLayout.AddPanel(
+			row.label,
+			expletives.LayoutItemOptions{},
 		); err != nil {
 			return nil, err
 		}
-		if err := transaction.SetLayout(entry.group, layout); err != nil {
+		if err := rowLayout.AddPanel(
+			row.field,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+		if err := transaction.SetLayout(row.panel, rowLayout); err != nil {
 			return nil, err
 		}
 	}
-	passwordLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
-		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.input.password",
-			Gap:           1,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := passwordLayout.AddPanel(
-		inputPassword,
-		expletives.LayoutItemOptions{},
-	); err != nil {
-		return nil, err
-	}
-	if err := passwordLayout.AddPanel(
-		inputArea,
-		expletives.LayoutItemOptions{Grow: 1},
-	); err != nil {
-		return nil, err
-	}
-	if err := transaction.SetLayout(
-		passwordInputGroup,
-		passwordLayout,
-	); err != nil {
+	if err := transaction.SetLayout(inputForm, inputFormLayout); err != nil {
 		return nil, err
 	}
 	progressGrid, err := expletives.NewGridLayout(
@@ -3250,7 +3329,7 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(inputScreen, inputGrid); err != nil {
+	if err := transaction.SetLayout(inputScreen, inputScreenLayout); err != nil {
 		return nil, err
 	}
 	if err := transaction.SetLayout(progressScreen, progressGrid); err != nil {
@@ -5014,12 +5093,21 @@ func SelfCheck() error {
 		"selection.cycle.primary",
 		"selection.select.primary",
 		"selection.cycle.empty",
-		"input.group.plain",
-		"input.group.soft",
-		"input.group.hard",
-		"input.group.password",
-		"input.group.number",
-		"input.group.spin",
+		"input.form",
+		"input.row.plain",
+		"input.row.soft",
+		"input.row.hard",
+		"input.row.password",
+		"input.row.number",
+		"input.row.spin",
+		"input.row.multiline",
+		"input.label.plain",
+		"input.label.soft",
+		"input.label.hard",
+		"input.label.password",
+		"input.label.number",
+		"input.label.spin",
+		"input.label.multiline",
 		"input.text.plain",
 		"input.text.soft_whitelist",
 		"input.text.hard_blacklist",

@@ -18,6 +18,7 @@ owner, known blockers, and brief status notes.
   - Dependencies: completed Phase 14 ScrollBar/tab navigation, Layouts,
     grouped focus, Limited Unicode, and automation.
   - Blockers: none.
-  - Status: public ownership, state, keyboard, capacity, security, and
-    automation contracts are being fixed before the first implementation
-    slice.
+  - Status: directed contracts and the opening compatibility slice are
+    complete: Cycle semantics, per-axis Layout hints/weights, and the compact
+    Text/Numeric form pass the complete verification gate. Viewport and
+    ScrollablePanel implementation is active.

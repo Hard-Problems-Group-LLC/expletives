@@ -114,6 +114,34 @@ or Tab will not commit it or leave the field. Escape restores the committed
 value. `Value()` exposes committed application state; typed details expose
 both that value and the current working text.
 
+## Form Layout
+
+An ordinary text, number, or spin field is one row high and has no implicit
+frame. Give it a practical minimum width—usually 10 to 30 cells—and place a
+separate bound `Label` in the preceding form column. The field's distinct
+background fills its complete arranged width, including blank cells.
+
+Single-line fields default to horizontal stretch and natural vertical size.
+`TextArea` defaults to stretch in both directions. `BoxLayout` preserves
+natural rows and configured gaps, then divides remaining space among
+stretch-capable controls by their construction-time axis weights:
+
+```go
+area, err := expletives.NewTextArea(parent, expletives.TextAreaOptions{
+    PanelOptions: expletives.PanelOptions{
+        MinimumSize: expletives.Size{Width: 20, Height: 3},
+        LayoutHints: expletives.LayoutHints{
+            VerticalWeight: 2,
+        },
+    },
+})
+```
+
+Use `LayoutSizeNatural` or `LayoutSizeStretch` in either axis to override a
+control kind's default. An explicit Layout-item alignment or positive `Grow`
+remains authoritative. Wrapping a one-row field in a one-cell bordered Frame
+produces a three-row compound minimum.
+
 ## Multiline TextArea
 
 `TextArea` uses the same optional validator and password rules:

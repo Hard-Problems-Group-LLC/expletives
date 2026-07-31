@@ -354,10 +354,10 @@ func TestNestedLayoutRaisePreservesPanelSlotAndArrangement(t *testing.T) {
 	if err := app.Root().SetLayout(parent); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := left.Bounds(), (Rect{Width: 1, Height: 1}); got != want {
+	if got, want := left.Bounds(), (Rect{Width: 2, Height: 1}); got != want {
 		t.Fatalf("left nested bounds = %+v, want %+v", got, want)
 	}
-	if got, want := right.Bounds(), (Rect{X: 2, Width: 1, Height: 1}); got != want {
+	if got, want := right.Bounds(), (Rect{X: 4, Width: 2, Height: 1}); got != want {
 		t.Fatalf("right nested bounds = %+v, want %+v", got, want)
 	}
 	leftBounds, rightBounds := left.Bounds(), right.Bounds()
@@ -378,6 +378,248 @@ func TestNestedLayoutRaisePreservesPanelSlotAndArrangement(t *testing.T) {
 	}
 	if left.Bounds() != leftBounds || right.Bounds() != rightBounds {
 		t.Fatal("nested Layout Raise changed arrangement")
+	}
+}
+
+func TestControlLayoutHintDefaultsAndConstructionOverrides(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 40, Height: 10})
+	field, err := NewTextField(app.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "hints.field",
+			MinimumSize:   Size{Width: 10, Height: 1},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	area, err := NewTextArea(app.Root(), TextAreaOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "hints.area",
+			MinimumSize:   Size{Width: 10, Height: 3},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	label, err := NewLabel(app.Root(), LabelOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "hints.label",
+			MinimumSize:   Size{Width: 10, Height: 1},
+		},
+		Text: "Label",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	overridden, err := NewTextField(app.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "hints.overridden",
+			MinimumSize:   Size{Width: 10, Height: 1},
+			LayoutHints: LayoutHints{
+				Horizontal:     LayoutSizeNatural,
+				Vertical:       LayoutSizeStretch,
+				VerticalWeight: 3,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := field.LayoutHints(), (LayoutHints{
+		Horizontal:       LayoutSizeStretch,
+		Vertical:         LayoutSizeNatural,
+		HorizontalWeight: 1,
+	}); got != want {
+		t.Fatalf("TextField LayoutHints = %+v, want %+v", got, want)
+	}
+	if got, want := area.LayoutHints(), (LayoutHints{
+		Horizontal:       LayoutSizeStretch,
+		Vertical:         LayoutSizeStretch,
+		HorizontalWeight: 1,
+		VerticalWeight:   1,
+	}); got != want {
+		t.Fatalf("TextArea LayoutHints = %+v, want %+v", got, want)
+	}
+	if got, want := label.LayoutHints(), (LayoutHints{
+		Horizontal: LayoutSizeNatural,
+		Vertical:   LayoutSizeNatural,
+	}); got != want {
+		t.Fatalf("Label LayoutHints = %+v, want %+v", got, want)
+	}
+	if got, want := overridden.LayoutHints(), (LayoutHints{
+		Horizontal:     LayoutSizeNatural,
+		Vertical:       LayoutSizeStretch,
+		VerticalWeight: 3,
+	}); got != want {
+		t.Fatalf("overridden TextField LayoutHints = %+v, want %+v", got, want)
+	}
+
+	for _, options := range []PanelOptions{
+		{LayoutHints: LayoutHints{Horizontal: LayoutSizeHint("invalid")}},
+		{LayoutHints: LayoutHints{HorizontalWeight: -1}},
+		{LayoutHints: LayoutHints{
+			Horizontal:       LayoutSizeNatural,
+			HorizontalWeight: 1,
+		}},
+	} {
+		if _, createErr := NewPanel(app.Root(), options); !errors.Is(
+			createErr,
+			ErrInvalidLayout,
+		) {
+			t.Fatalf("NewPanel(%+v) error = %v, want ErrInvalidLayout", options, createErr)
+		}
+	}
+}
+
+func TestBoxLayoutUsesControlHintsAndWeights(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 40, Height: 20})
+	newField := func(key string) *TextField {
+		t.Helper()
+		field, err := NewTextField(app.Root(), TextFieldOptions{
+			PanelOptions: PanelOptions{
+				AutomationKey: key,
+				MinimumSize:   Size{Width: 10, Height: 1},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return field
+	}
+	newArea := func(key string, weight int) *TextArea {
+		t.Helper()
+		area, err := NewTextArea(app.Root(), TextAreaOptions{
+			PanelOptions: PanelOptions{
+				AutomationKey: key,
+				MinimumSize:   Size{Width: 10, Height: 3},
+				LayoutHints: LayoutHints{
+					VerticalWeight: weight,
+				},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return area
+	}
+	firstField := newField("weights.field.first")
+	secondField := newField("weights.field.second")
+	firstArea := newArea("weights.area.first", 1)
+	secondArea := newArea("weights.area.second", 3)
+	layout, err := NewBoxLayout(Vertical, BoxLayoutOptions{
+		AutomationKey: "weights.layout",
+		Gap:           1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, control := range []Control{
+		firstField,
+		secondField,
+		firstArea,
+		secondArea,
+	} {
+		if err := layout.AddPanel(control, LayoutItemOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := app.Root().SetLayout(layout); err != nil {
+		t.Fatal(err)
+	}
+	wants := []Rect{
+		{Width: 40, Height: 1},
+		{Y: 2, Width: 40, Height: 1},
+		{Y: 4, Width: 40, Height: 6},
+		{Y: 11, Width: 40, Height: 9},
+	}
+	for index, control := range []Control{
+		firstField,
+		secondField,
+		firstArea,
+		secondArea,
+	} {
+		if got := control.Bounds(); got != wants[index] {
+			t.Fatalf("control %d bounds = %+v, want %+v", index, got, wants[index])
+		}
+	}
+}
+
+func TestBoxAndGridDefaultAlignmentConsultControlHints(t *testing.T) {
+	t.Parallel()
+	boxApp := mustApp(t, Size{Width: 40, Height: 3})
+	label, err := NewLabel(boxApp.Root(), LabelOptions{
+		PanelOptions: PanelOptions{
+			MinimumSize: Size{Width: 10, Height: 1},
+		},
+		Text: "Label",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	field, err := NewTextField(boxApp.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			MinimumSize: Size{Width: 10, Height: 1},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	box, err := NewBoxLayout(Horizontal, BoxLayoutOptions{Gap: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := box.AddPanel(label, LayoutItemOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := box.AddPanel(field, LayoutItemOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := boxApp.Root().SetLayout(box); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := label.Bounds(), (Rect{Width: 10, Height: 1}); got != want {
+		t.Fatalf("Box Label bounds = %+v, want %+v", got, want)
+	}
+	if got, want := field.Bounds(), (Rect{X: 11, Width: 29, Height: 1}); got != want {
+		t.Fatalf("Box TextField bounds = %+v, want %+v", got, want)
+	}
+
+	gridApp := mustApp(t, Size{Width: 20, Height: 5})
+	gridLabel, err := NewLabel(gridApp.Root(), LabelOptions{
+		PanelOptions: PanelOptions{MinimumSize: Size{Width: 5, Height: 1}},
+		Text:         "Label",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gridField, err := NewTextField(gridApp.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{MinimumSize: Size{Width: 5, Height: 1}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, err := NewGridLayout(GridLayoutOptions{Columns: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := grid.AddPanel(gridLabel, LayoutItemOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := grid.AddPanel(gridField, LayoutItemOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := gridApp.Root().SetLayout(grid); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := gridLabel.Bounds(), (Rect{Width: 5, Height: 1}); got != want {
+		t.Fatalf("Grid Label bounds = %+v, want %+v", got, want)
+	}
+	if got, want := gridField.Bounds(), (Rect{
+		X: 10, Width: 10, Height: 1,
+	}); got != want {
+		t.Fatalf("Grid TextField bounds = %+v, want %+v", got, want)
 	}
 }
 

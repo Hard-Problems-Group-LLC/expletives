@@ -86,11 +86,27 @@ const (
 type Alignment uint8
 
 const (
-    AlignStretch Alignment = iota
+    AlignDefault Alignment = iota
+    AlignStretch
     AlignStart
     AlignCenter
     AlignEnd
 )
+
+type LayoutSizeHint string
+
+const (
+    LayoutSizeDefault LayoutSizeHint = ""
+    LayoutSizeNatural LayoutSizeHint = "natural"
+    LayoutSizeStretch LayoutSizeHint = "stretch"
+)
+
+type LayoutHints struct {
+    Horizontal       LayoutSizeHint
+    Vertical         LayoutSizeHint
+    HorizontalWeight int
+    VerticalWeight   int
+}
 
 type Insets struct {
     Top, Right, Bottom, Left int
@@ -112,8 +128,35 @@ type BorderOptions struct {
 ```
 
 All inset, gap, row, column, and grow values are checked nonnegative integers.
-The zero alignment is Stretch. Dimensions and arithmetic remain within the
-project's checked geometry bounds.
+The zero alignment is `AlignDefault`, which consults the control's resolved
+construction-time hint for that axis. Dimensions, weights, and arithmetic
+remain within the project's checked geometry bounds.
+
+Every `PanelOptions` includes `LayoutHints`, and every `Control` exposes the
+resolved immutable value through `LayoutHints() LayoutHints`. The empty hint
+selects the sensible default for the concrete control kind. A natural axis
+retains the measured minimum and has zero growth weight. A stretch axis may
+consume free space and defaults to weight 1. An application may override
+either axis and may assign a positive horizontal or vertical weight at
+construction; a positive weight on a natural axis is invalid.
+
+Important defaults include:
+
+- `TextField`, `NumberField`, and `SpinBox`: horizontal stretch, vertical
+  natural;
+- `TextArea`: stretch on both axes;
+- single-line labels, buttons, checkboxes, radio options, Cycle/Select fields,
+  spinners, and activity dots: natural on both axes;
+- container Panels, Frames, GroupBoxes, RadioGroups, tab containers, and
+  multiline StaticText: stretch on both axes;
+- one-row application bands and horizontal progress bars: horizontal stretch,
+  vertical natural; and
+- dividers, meters, and scrollbars: stretch on their long axis and remain
+  natural on their short axis.
+
+The default one-line editor height is one cell. If an application composes
+that editor inside a one-cell bordered Frame, the compound minimum is three
+rows: top border, editor, and bottom border.
 
 Resource limits are:
 
@@ -244,12 +287,24 @@ item Insets, and stable gaps.
 - The main-axis minimum is the sum of item outer minima plus gaps.
 - The cross-axis minimum is the maximum item outer minimum.
 - When the available main axis exceeds the minimum, extra cells are divided
-  by positive Grow weights using integer arithmetic.
+  by positive weights using integer arithmetic.
+- If any item supplies a positive `LayoutItemOptions.Grow`, those explicit
+  item weights are authoritative and control hints do not receive main-axis
+  growth. Otherwise, the Layout uses each control's horizontal or vertical
+  construction weight for its main axis.
 - Remainder cells go to eligible items in arrangement order.
-- With no grow item, main-axis extra space remains trailing.
+- With no eligible explicit or control-hint weight, main-axis extra space
+  remains trailing.
 - The cross axis uses the corresponding horizontal or vertical Alignment.
-- Stretch fills the available slot after item Insets; other alignments retain
-  the item's measured minimum.
+- `AlignDefault` uses the control's hint for that axis. `AlignStretch` is an
+  explicit final override and fills the available slot after item Insets;
+  other explicit alignments retain the item's measured minimum.
+
+Thus a vertical form containing two ordinary one-line fields and two
+multiline editors gives each field its one-row minimum, preserves the
+configured gaps, and divides the remaining rows between the multiline editors
+according to their vertical weights. The same rule applies independently on
+the horizontal axis.
 
 When available space is below minimum, all item minima are preserved and may
 extend beyond the available rectangle.
@@ -265,7 +320,10 @@ and cell arrangement.
   outer Insets.
 - Extra columns and rows are distributed left-to-right and top-to-bottom.
 - Each item uses HorizontalAlign and VerticalAlign inside its cell after item
-  Insets.
+  Insets. `AlignDefault` consults its control hint; an explicit alignment is
+  authoritative.
+- Control weights do not resize Grid tracks; Grid remains uniform-cell. They
+  affect Box main-axis free-space allocation.
 - Empty fixed-capacity cells are valid.
 
 When available space is below minimum, uniform cell minima are preserved.
@@ -340,6 +398,8 @@ Required coverage includes:
 
 - exact Box/Grid minima and rectangles, stable remainder distribution,
   alignment, nesting, clipping, and resize;
+- control-kind defaults, construction overrides, one-line natural height,
+  multiline two-axis stretching, and weighted free-space division;
 - atomic attachment failure, cross-App, duplicate Panel, cycle, depth,
   capacity, and fixed-Grid rejection;
 - arrangement-order stability across Panel and Layout raise/lower;

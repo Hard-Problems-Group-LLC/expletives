@@ -1016,22 +1016,16 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		t.Fatalf("TextField commit outcome=%q snapshot=%t",
 			textCommit.Outcome, textCommit.Snapshot != nil)
 	}
-	for index := range 3 {
-		if _, err := client.InjectInput(
+	var areaFocus automation.Completion
+	for index := range 6 {
+		areaFocus, err = client.InjectInput(
 			ctx,
 			"area-tab-"+string(rune('0'+index)),
 			automation.KeyEvent{Kind: automation.KeyPress, Key: "tab"},
-		); err != nil {
+		)
+		if err != nil {
 			t.Fatalf("InjectInput(TextArea Tab %d) error = %v", index, err)
 		}
-	}
-	areaFocus, err := client.InjectInput(
-		ctx,
-		"area-focus-down",
-		automation.KeyEvent{Kind: automation.KeyPress, Key: "down"},
-	)
-	if err != nil {
-		t.Fatalf("InjectInput(TextArea Down) error = %v", err)
 	}
 	areaFocused := false
 	if areaFocus.Snapshot != nil {
@@ -1042,7 +1036,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		}
 	}
 	if !areaFocused {
-		t.Fatal("raw directional focus did not enter TextArea")
+		t.Fatal("raw Tab group traversal did not enter TextArea")
 	}
 	for _, event := range []struct {
 		request string
@@ -1111,17 +1105,20 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			areaValue,
 		)
 	}
-	var spinCompletion automation.Completion
-	for index := range 2 {
-		spinCompletion, err = client.InjectInput(
+	for _, event := range []automation.KeyEvent{
+		{Kind: automation.KeyDown, Key: "shift"},
+		{Kind: automation.KeyPress, Key: "tab"},
+		{Kind: automation.KeyUp, Key: "shift"},
+	} {
+		if _, err := client.InjectInput(
 			ctx,
-			"input-tab-"+string(rune('0'+index)),
-			automation.KeyEvent{Kind: automation.KeyPress, Key: "tab"},
-		)
-		if err != nil {
-			t.Fatalf("InjectInput(Tab %d) error = %v", index, err)
+			"input-spin-focus-"+string(event.Kind),
+			event,
+		); err != nil {
+			t.Fatalf("InjectInput(Shift-Tab %s) error = %v", event.Kind, err)
 		}
 	}
+	var spinCompletion automation.Completion
 	spinCompletion, err = client.InjectInput(
 		ctx,
 		"input-spin-increment",

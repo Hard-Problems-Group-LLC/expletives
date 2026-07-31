@@ -128,10 +128,16 @@ func NewApp(options AppOptions) (*App, error) {
 		kind:          ControlRoot,
 		bounds:        constrainedRootBounds(options.Size, options.RootConstraints),
 		minimumSize:   options.RootConstraints.Minimum,
-		style:         rootStyle,
-		visible:       true,
-		root:          true,
-		behavior:      containerBehavior{},
+		layoutHints: LayoutHints{
+			Horizontal:       LayoutSizeStretch,
+			Vertical:         LayoutSizeStretch,
+			HorizontalWeight: 1,
+			VerticalWeight:   1,
+		},
+		style:    rootStyle,
+		visible:  true,
+		root:     true,
+		behavior: containerBehavior{},
 	}
 	root := &Panel{
 		containerHandle: containerHandle{

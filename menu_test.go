@@ -466,7 +466,10 @@ func TestMenuBarOwnsPhysicalTopRowAndReservesRootContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBoxLayout() error = %v", err)
 	}
-	if err := layout.AddPanel(button, LayoutItemOptions{Grow: 1}); err != nil {
+	if err := layout.AddPanel(button, LayoutItemOptions{
+		Grow:            1,
+		HorizontalAlign: AlignStretch,
+	}); err != nil {
 		t.Fatalf("AddPanel(button) error = %v", err)
 	}
 	tx := app.NewTransaction()

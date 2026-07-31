@@ -222,11 +222,20 @@ same typed values and optional `selection.changed` command callback.
 Scenario Reset restores the initial selection values without emitting user
 change callbacks.
 
-The Text / Numeric Input screen contains four
-single-line TextFields under stable `input.text.*` keys: an unrestricted
-field, a soft whitelist, a hard filename-character blacklist, and a
-password-masked soft blacklist. Enter starts and commits editing, Escape
-cancels, caret keys edit locally, and Tab crosses the four parent groups.
+The Text / Numeric Input screen is a compact Turbo Vision-style form under
+`input.form`. Separate right-aligned bound Labels occupy one column under
+stable `input.label.*` keys; borderless fields occupy the aligned second
+column with a distinct complete-width field background. Six
+`input.row.*` single-line rows stay exactly one cell high while
+`input.row.multiline` and `input.text_area.multiline` consume the available
+vertical balance through their default stretch hints. The form retains its
+natural horizontal width instead of filling empty canvas.
+
+The form contains four single-line TextFields under stable `input.text.*`
+keys: an unrestricted field, a soft whitelist, a hard filename-character
+blacklist, and a password-masked soft blacklist. Enter starts and commits
+editing, Escape cancels, caret keys edit locally, and Tab crosses the field
+parent groups.
 Soft-invalid input remains visible with the specified green/yellow/red
 validation presentation. Hard-invalid input is ignored. Password text is
 masked in the frame and redacted from all snapshot and automation payloads.
@@ -235,11 +244,12 @@ Successful user commits route the optional `text.changed` command.
 minimum/maximum bounds, and `input.spin.clamped` demonstrates a half-unit
 SpinBox step with `[`/`]` clamping. Numeric edits expose current text and a
 separate committed value; numeric changes route `number.changed`. Scenario
-`input.text_area.multiline` demonstrates word-wrapped multiline editing in the
-Password/TextArea group. Arrow keys enter it from the adjacent field; Enter
-inserts LF, Ctrl-Enter commits, Shift movement selects, and normalized
+`input.text_area.multiline` demonstrates word-wrapped multiline editing.
+Enter inserts LF, Ctrl-Enter commits, Shift movement selects, and normalized
 committed-text/paste events cannot become commands. Scenario Reset restores
-all seven initial committed values silently.
+all seven initial committed values silently. Once Phase 15 supplies the
+public ScrollablePanel, a viewport smaller than the form's natural content
+uses that scrollbar rather than stretching or clipping single-line rows.
 
 The Progress screen contains stable `progress.*` controls for a 42-percent
 determinate ProgressBar, an indeterminate ProgressBar, horizontal and vertical

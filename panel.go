@@ -18,6 +18,9 @@ type PanelOptions struct {
 	Bounds Rect
 	// MinimumSize is the nonnegative declared logical minimum.
 	MinimumSize Size
+	// LayoutHints override the control kind's per-axis natural/stretch
+	// preferences and optional free-space weights.
+	LayoutHints LayoutHints
 	// Style is resolved through the App Theme. Empty selects the control-kind
 	// default.
 	Style StyleID
@@ -66,6 +69,7 @@ type Control interface {
 	AutomationKey() string
 	Bounds() Rect
 	MinimumSize() Size
+	LayoutHints() LayoutHints
 	Visible() bool
 	Style() StyleID
 
@@ -123,6 +127,7 @@ type controlState struct {
 	bounds        Rect
 	minimumSize   Size
 	autoMinimum   bool
+	layoutHints   LayoutHints
 	style         StyleID
 	visible       bool
 	root          bool
@@ -395,6 +400,14 @@ func preparePanel(
 	if err := validateMinimumSize(options.MinimumSize); err != nil {
 		return nil, err
 	}
+	layoutHints, err := resolveControlLayoutHints(
+		kind,
+		behavior,
+		options.LayoutHints,
+	)
+	if err != nil {
+		return nil, err
+	}
 	if options.AutomationKey != "" &&
 		!validBoundedIdentifier(options.AutomationKey) {
 		return nil, errors.New("expletives: automation key is invalid or too long")
@@ -414,6 +427,7 @@ func preparePanel(
 		parent:        parentState,
 		bounds:        options.Bounds,
 		minimumSize:   options.MinimumSize,
+		layoutHints:   layoutHints,
 		style:         style,
 		visible:       !options.Hidden,
 		provisional:   true,
@@ -519,6 +533,20 @@ func (p *controlHandle) MinimumSize() Size {
 		return Size{}
 	}
 	return state.minimumSize
+}
+
+// LayoutHints returns the resolved construction-time sizing preferences.
+func (p *controlHandle) LayoutHints() LayoutHints {
+	state := p.controlState()
+	if state == nil || state.app == nil {
+		return LayoutHints{}
+	}
+	state.app.mu.RLock()
+	defer state.app.mu.RUnlock()
+	if state.aborted {
+		return LayoutHints{}
+	}
+	return state.layoutHints
 }
 
 // Visible reports the control's own active visibility. An invisible ancestor

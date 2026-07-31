@@ -185,6 +185,27 @@ distinct facts.
 User commits publish the value first and then invoke the optional registered
 `ChangeCommand` outside toolkit locks. Programmatic setters are silent.
 
+### Form Presentation And Sizing
+
+An ordinary `TextField`, `NumberField`, or `SpinBox` is a one-row field. It
+does not draw an implicit control-owned frame; the distinct field background
+across its complete arranged width is the primary visual affordance.
+Applications normally choose a minimum width between 10 and 30 cells and put
+a separate bound `Label` in an adjacent form column. The Label mnemonic
+focuses its target field.
+
+These single-line editors default to horizontal stretch and vertical natural
+sizing. Their one-row minimum does not grow merely because a vertical Box has
+surplus rows. An explicit construction-time `PanelOptions.LayoutHints`
+override may change that policy. Composing a field inside a one-cell bordered
+Frame yields a three-row compound minimum: border, field, border.
+
+Form Layouts control inter-row whitespace with their ordinary Gap setting.
+They must not invent vertical stretching or borders merely to fill a page.
+When the complete natural form exceeds its viewport, the containing
+ScrollablePanel supplies scrolling rather than shrinking or overlapping
+field rows.
+
 ## NumberField And SpinBox
 
 ```go
@@ -327,6 +348,14 @@ element length, logical-line count, caret and selection offsets, visual
 caret row/column, row/column viewport offsets, wrap, edit/valid/password
 state, disabled reason, change command, and copied validator summary.
 
+Unlike a single-line editor, `TextArea` defaults to stretch on both axes. In a
+BoxLayout with no explicit positive item `Grow`, all remaining main-axis
+space is divided among stretch-capable controls according to the applicable
+construction-time horizontal or vertical weights. Natural controls retain
+their minima and Layout Gap remains independent. Applications may override a
+TextArea axis to natural or assign a different positive weight through
+`PanelOptions.LayoutHints`.
+
 ## Committed Text And Paste Events
 
 ```go
@@ -407,6 +436,8 @@ Verification includes:
   interrupt availability;
 - multiline CR/LF normalization, visual-row navigation, wrapping, viewport
   clamping, and resize;
+- compact label/field form geometry, one-row single-line controls, two-axis
+  TextArea stretching, and weighted division between multiple TextAreas;
 - bounded committed-text and bracketed-paste delivery with no command
   interpretation or partial over-limit insertion;
 - raw human/headless/automation key equivalence;

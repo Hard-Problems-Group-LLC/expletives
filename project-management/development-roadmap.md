@@ -494,6 +494,10 @@ ordered backlog and the active-task record; it does not replace either.
 - Includes: bounded offsets, keep-visible behavior, arbitrary clipped
   content, a documented Markdown subset, ring-buffered logs, follow versus
   scrollback, safe streamed text, and honest dropped-content accounting.
+  The opening compatibility slice also formalizes per-control horizontal and
+  vertical Layout hints/weights and rebuilds Text/Numeric Entry as a compact
+  scroll-ready form: single-line fields remain natural-height while multiline
+  editors divide the available balance by vertical weight.
 - `expletives-test` scenarios: `content.viewport`, `content.markdown`,
   `content.log-follow`, `content.log-scrollback`, and
   `content.stream-drops`.
