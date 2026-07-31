@@ -410,7 +410,7 @@ func TestRadioGroupExclusivityNavigationRepairAndValidation(t *testing.T) {
 	}
 }
 
-func TestChoiceFieldNavigationClampOptionsAndFocusTraversal(t *testing.T) {
+func TestChoiceFieldActivationWrapsAndBracketsStopAtBoundaries(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 50, Height: 8})
 	registerActionCommand(t, app, "selection.choice.changed", "Changed", true)
@@ -443,12 +443,12 @@ func TestChoiceFieldNavigationClampOptionsAndFocusTraversal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCycleField() error = %v", err)
 	}
-	clamped, err := NewSelectField(app.Root(), SelectFieldOptions{
+	selectField, err := NewSelectField(app.Root(), SelectFieldOptions{
 		PanelOptions: PanelOptions{
-			AutomationKey: "choice.clamped",
+			AutomationKey: "choice.select",
 			Bounds:        Rect{Y: 2, Width: 30, Height: 1},
 		},
-		Label: "Clamp", Clamp: true,
+		Label: "Select",
 		Options: []SelectionOption{
 			{Value: "x", Label: "X"},
 			{Value: "y", Label: "Y"},
@@ -490,33 +490,48 @@ func TestChoiceFieldNavigationClampOptionsAndFocusTraversal(t *testing.T) {
 	if app.Focused() != field {
 		t.Fatalf("Down focus = %#v, want CycleField", app.Focused())
 	}
+	if completion := dispatchSelectionKey(
+		t,
+		app,
+		"choice-previous-at-start",
+		KeyLeftBracket,
+	); completion.Outcome != OutcomeNoOp || field.Value() != "a" {
+		t.Fatalf("[ at start = completion:%+v value:%q", completion, field.Value())
+	}
 	dispatchSelectionKey(t, app, "choice-next", KeyRightBracket)
 	if field.Value() != "c" {
 		t.Fatalf("] selected %q, want c", field.Value())
 	}
-	dispatchSelectionKey(t, app, "choice-wrap", KeyRightBracket)
-	if field.Value() != "a" {
-		t.Fatalf("] wrapped to %q, want a", field.Value())
+	if completion := dispatchSelectionKey(
+		t,
+		app,
+		"choice-next-at-end",
+		KeyRightBracket,
+	); completion.Outcome != OutcomeNoOp || field.Value() != "c" {
+		t.Fatalf("] at end = completion:%+v value:%q", completion, field.Value())
 	}
-	dispatchSelectionKey(t, app, "choice-previous", KeyLeftBracket)
+	dispatchSelectionKey(t, app, "choice-space-wrap", KeySpace)
+	if field.Value() != "a" {
+		t.Fatalf("Space wrapped to %q, want a", field.Value())
+	}
+	dispatchSelectionKey(t, app, "choice-enter-next", KeyEnter)
 	if field.Value() != "c" {
-		t.Fatalf("[ selected %q, want c", field.Value())
+		t.Fatalf("Enter selected %q, want c", field.Value())
 	}
 	if calls != 3 {
 		t.Fatalf("choice ChangeCommand calls = %d, want 3", calls)
 	}
 
-	if err := clamped.Focus(); err != nil {
-		t.Fatalf("clamped.Focus() error = %v", err)
+	if err := selectField.Focus(); err != nil {
+		t.Fatalf("selectField.Focus() error = %v", err)
 	}
-	dispatchSelectionKey(t, app, "clamp-previous", KeyLeftBracket)
-	if clamped.Value() != "x" {
-		t.Fatalf("clamped previous selected %q", clamped.Value())
+	dispatchSelectionKey(t, app, "select-enter-next", KeyEnter)
+	if selectField.Value() != "y" {
+		t.Fatalf("SelectField Enter selected %q, want y", selectField.Value())
 	}
-	dispatchSelectionKey(t, app, "clamp-next", KeyRightBracket)
-	dispatchSelectionKey(t, app, "clamp-past-end", KeyRightBracket)
-	if clamped.Value() != "y" {
-		t.Fatalf("clamped next selected %q", clamped.Value())
+	dispatchSelectionKey(t, app, "select-enter-wrap", KeyEnter)
+	if selectField.Value() != "x" {
+		t.Fatalf("SelectField Enter wrapped to %q, want x", selectField.Value())
 	}
 	if err := empty.Focus(); !errors.Is(err, ErrNotFocusable) {
 		t.Fatalf("empty.Focus() error = %v", err)
@@ -546,7 +561,7 @@ func TestChoiceFieldNavigationClampOptionsAndFocusTraversal(t *testing.T) {
 		len(control.Details.ChoiceField.Options) != 2 {
 		t.Fatalf("ChoiceFieldDetails = %#v", control.Details.ChoiceField)
 	}
-	if controlByKey(t, snapshot, "choice.clamped").Kind != ControlSelectField {
+	if controlByKey(t, snapshot, "choice.select").Kind != ControlSelectField {
 		t.Fatal("SelectField did not retain its distinct control kind")
 	}
 }

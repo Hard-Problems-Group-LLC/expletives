@@ -181,7 +181,6 @@ type CycleFieldOptions struct {
     Mnemonic       Key
     Options        []SelectionOption
     Value          string
-    Clamp          bool
     Disabled       bool
     DisabledReason string
     ChangeCommand  CommandID
@@ -211,12 +210,14 @@ func (f *CycleField) Focus() error
 
 `SelectField` exposes the corresponding methods.
 
-`[` selects the previous enabled option and `]` selects the next. Cycling
-wraps unless `Clamp` is true. Arrows retain their focus-navigation meaning
-and never change the field value. Space, Enter, Home, and End likewise do not
-change a CycleField/SelectField value. A mnemonic focuses the field without
-changing its value. Empty and all-disabled fields are retained and observable
-but are not focusable.
+`[` selects the previous enabled option and stops at the first enabled option;
+`]` selects the next enabled option and stops at the last enabled option.
+Space, Enter, and public `Activate` select the next enabled option and wrap
+from the last enabled option to the first. Disabled options are skipped in
+both forms of movement. Arrows retain their focus-navigation meaning and
+never change the field value; Home and End likewise do not change it. A
+mnemonic focuses the field without changing its value. Empty and all-disabled
+fields are retained and observable but are not focusable.
 
 The canonical one-row presentation is `Label  ◄ value ►`, with one-cell
 ASCII fallback for the arrows at the physical-terminal boundary. A visible
@@ -273,8 +274,8 @@ not in an implicit callback rollback.
 
 `ControlDetails` adds exact members for Checkbox, RadioButton, RadioGroup, and
 ChoiceField. They expose canonical label/value state, enabled and disabled
-facts, mnemonic, change command, three-state/allow-empty/clamp policy, and
-copied option records. RadioGroup details include current value and each
+facts, mnemonic, change command, three-state/allow-empty policies, and copied
+option records. RadioGroup details include current value and each
 direct child's stable value/ID; ChoiceField details include the selected
 index and each option's enabled state.
 
@@ -292,10 +293,10 @@ commands converge on the same setters and observable state.
   Space/Enter selection and post-destruction repair are exact;
 - Tab/Shift-Tab cross parent-defined focus groups, while arrows move within
   groups and perform only unambiguous directional crossings;
-- `[`/`]` are the only ordinary raw navigation keys that change a
-  CycleField/SelectField value;
-- empty, singleton, all-disabled, wrapping, and clamped choice fields are
-  deterministic;
+- `[`/`]` change a CycleField/SelectField value without wrapping, while
+  Space/Enter advance with wrapping and arrows remain focus-only;
+- empty, singleton, all-disabled, boundary, and disabled-skip choice-field
+  behavior is deterministic;
 - focus, selection, and command activation remain distinguishable;
 - change commands run outside toolkit locks and are serialized;
 - copied options and snapshots cannot alias toolkit state;

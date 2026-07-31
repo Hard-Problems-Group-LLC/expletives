@@ -738,6 +738,150 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		)
 	}
 
+	selectionScreen, err := client.InvokeCommand(
+		ctx,
+		"show-selection",
+		string(demo.CommandSelection),
+		"",
+	)
+	if err != nil || selectionScreen.Outcome != automation.OutcomeApplied {
+		t.Fatalf(
+			"InvokeCommand(Selection) = %+v, %v",
+			selectionScreen,
+			err,
+		)
+	}
+	if selectionScreen.Snapshot == nil ||
+		len(selectionScreen.Snapshot.Overflows) == 0 {
+		t.Fatal("Selection fixture did not expose its expected narrow-window overflow")
+	}
+	overflowDismissed, err := client.InjectInput(
+		ctx,
+		"selection-dismiss-overflow",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "enter"},
+	)
+	if err != nil || overflowDismissed.Snapshot == nil ||
+		overflowDismissed.Snapshot.Completion == nil ||
+		overflowDismissed.Snapshot.Completion.Command != "overflow.dismiss" {
+		t.Fatalf(
+			"Selection overflow dismissal = %+v, %v",
+			overflowDismissed,
+			err,
+		)
+	}
+	for index := range 2 {
+		if _, err := client.InjectInput(
+			ctx,
+			"selection-tab-"+string(rune('0'+index)),
+			automation.KeyEvent{Kind: automation.KeyPress, Key: "tab"},
+		); err != nil {
+			t.Fatalf("InjectInput(Selection Tab %d) error = %v", index, err)
+		}
+	}
+	choiceValue := func(
+		completion automation.Completion,
+		key string,
+	) string {
+		t.Helper()
+		if completion.Snapshot == nil {
+			t.Fatalf("Selection snapshot is absent for %q", key)
+		}
+		for _, control := range completion.Snapshot.Controls {
+			if control.Key == key && control.Details.ChoiceField != nil {
+				return control.Details.ChoiceField.Value
+			}
+		}
+		t.Fatalf("Selection choice %q is absent", key)
+		return ""
+	}
+	cycleNext, err := client.InjectInput(
+		ctx,
+		"selection-cycle-next",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "]"},
+	)
+	cycleNextValue := choiceValue(cycleNext, "selection.cycle.primary")
+	if err != nil || cycleNext.Outcome != automation.OutcomeApplied ||
+		cycleNextValue != "charlie" {
+		t.Fatalf(
+			"CycleField ] = value:%q completion:%+v, %v",
+			cycleNextValue,
+			cycleNext,
+			err,
+		)
+	}
+	cycleStop, err := client.InjectInput(
+		ctx,
+		"selection-cycle-stop",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "]"},
+	)
+	cycleStopValue := choiceValue(cycleStop, "selection.cycle.primary")
+	if err != nil || cycleStop.Outcome != automation.OutcomeNoOp ||
+		cycleStopValue != "charlie" {
+		t.Fatalf(
+			"CycleField ] at end = value:%q completion:%+v, %v",
+			cycleStopValue,
+			cycleStop,
+			err,
+		)
+	}
+	cycleWrap, err := client.InjectInput(
+		ctx,
+		"selection-cycle-space-wrap",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "space"},
+	)
+	cycleWrapValue := choiceValue(cycleWrap, "selection.cycle.primary")
+	if err != nil || cycleWrap.Outcome != automation.OutcomeApplied ||
+		cycleWrapValue != "alpha" {
+		t.Fatalf(
+			"CycleField Space wrap = value:%q completion:%+v, %v",
+			cycleWrapValue,
+			cycleWrap,
+			err,
+		)
+	}
+	cycleEnter, err := client.InjectInput(
+		ctx,
+		"selection-cycle-enter",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "enter"},
+	)
+	cycleEnterValue := choiceValue(cycleEnter, "selection.cycle.primary")
+	if err != nil || cycleEnter.Outcome != automation.OutcomeApplied ||
+		cycleEnterValue != "charlie" {
+		command := ""
+		focused := ""
+		overflows := 0
+		if cycleEnter.Snapshot != nil {
+			overflows = len(cycleEnter.Snapshot.Overflows)
+			if cycleEnter.Snapshot.Completion != nil {
+				command = cycleEnter.Snapshot.Completion.Command
+			}
+			for _, control := range cycleEnter.Snapshot.Controls {
+				if control.Focused {
+					focused = control.Key
+				}
+			}
+		}
+		t.Fatalf(
+			"CycleField Enter = value:%q command:%q focused:%q "+
+				"overflows:%d completion:%+v, %v",
+			cycleEnterValue,
+			command,
+			focused,
+			overflows,
+			cycleEnter,
+			err,
+		)
+	}
+	actionsRestored, err := client.InvokeCommand(
+		ctx,
+		"restore-actions",
+		string(demo.CommandViewActions),
+		"",
+	)
+	if err != nil || actionsRestored.Outcome != automation.OutcomeApplied {
+		t.Fatalf("InvokeCommand(restore Actions) = %+v, %v", actionsRestored, err)
+	}
+
 	if _, err := client.InjectInput(
 		ctx,
 		"menu-layouts-alt-down",

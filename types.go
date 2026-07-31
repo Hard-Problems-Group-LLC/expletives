@@ -771,7 +771,6 @@ type ChoiceFieldDetails struct {
 	Label          string                   `json:"label"`
 	Value          string                   `json:"value,omitempty"`
 	SelectedIndex  int                      `json:"selected_index"`
-	Clamp          bool                     `json:"clamp"`
 	Enabled        bool                     `json:"enabled"`
 	DisabledReason string                   `json:"disabled_reason,omitempty"`
 	Mnemonic       Key                      `json:"mnemonic,omitempty"`

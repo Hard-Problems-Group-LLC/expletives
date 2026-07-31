@@ -1651,7 +1651,6 @@ func maximumCompletionJSONBytes(
 			Label:          strings.Repeat("\x00", maxDisplayTextBytes),
 			Value:          string(controlValue.ID),
 			SelectedIndex:  math.MaxInt,
-			Clamp:          true,
 			Enabled:        false,
 			DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
 			Mnemonic:       Key(controlValue.ID),

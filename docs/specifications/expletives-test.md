@@ -208,16 +208,17 @@ command's checked presentation state changes with the same controller
 transition observed in the accent Panel.
 
 The Selection screen embeds two-state, three-state, and disabled Checkboxes;
-one exclusive RadioGroup with enabled and disabled RadioButtons; a wrapping
-CycleField; a clamped SelectField; and an empty CycleField. Stable keys use
-the `selection.*` namespace. Direct parent Containers are focus groups:
+one exclusive RadioGroup with enabled and disabled RadioButtons; CycleField
+and SelectField examples; and an empty CycleField. Their stable automation
+keys include `selection.cycle.primary`, `selection.select.primary`, and
+`selection.cycle.empty`. Direct parent Containers are focus groups:
 Tab/Shift-Tab cross the Checkbox, Radio, and Cycle/Select groups; arrows move
 focus within a group or make only an unambiguous spatial crossing. Radio
 arrows do not select; Space or Enter does. `[` and `]` change
-CycleField/SelectField values while arrows remain focus navigation. Exact
-mnemonics, public `Activate` methods, and attached raw key lifecycle events
-expose the same typed values and optional `selection.changed` command
-callback.
+CycleField/SelectField values but stop at the first/last enabled option;
+Space, Enter, and public `Activate` advance and wrap. Arrows remain focus
+navigation. Exact mnemonics and attached raw key lifecycle events expose the
+same typed values and optional `selection.changed` command callback.
 Scenario Reset restores the initial selection values without emitting user
 change callbacks.
 

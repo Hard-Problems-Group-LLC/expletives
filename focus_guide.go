@@ -149,9 +149,9 @@ func genericFocusGuidance(kind ControlKind) string {
 	case ControlRadioButton:
 		return "Radio: arrows move focus; Space or Enter selects; Tab leaves group"
 	case ControlCycleField:
-		return "Cycle field: [ previous; ] next; arrows move focus"
+		return "Cycle: [/] stop; Space/Enter next (wraps)"
 	case ControlSelectField:
-		return "Select field: [ previous; ] next; arrows move focus"
+		return "Select: [/] stop; Space/Enter next (wraps)"
 	case ControlTextField:
 		return "Text field: Enter edits/commits; Esc cancels; arrows move caret"
 	case ControlNumberField:

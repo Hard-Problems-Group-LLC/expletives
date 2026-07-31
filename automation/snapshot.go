@@ -365,7 +365,6 @@ type ChoiceFieldDetails struct {
 	Label          string                   `json:"label"`
 	Value          string                   `json:"value,omitempty"`
 	SelectedIndex  int                      `json:"selected_index"`
-	Clamp          bool                     `json:"clamp"`
 	Enabled        bool                     `json:"enabled"`
 	DisabledReason string                   `json:"disabled_reason,omitempty"`
 	Mnemonic       Key                      `json:"mnemonic,omitempty"`
@@ -881,7 +880,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 		if details := control.Details.ChoiceField; details != nil {
 			field := &ChoiceFieldDetails{
 				Label: details.Label, Value: details.Value,
-				SelectedIndex: details.SelectedIndex, Clamp: details.Clamp,
+				SelectedIndex:  details.SelectedIndex,
 				Enabled:        details.Enabled,
 				DisabledReason: details.DisabledReason,
 				Mnemonic:       Key(details.Mnemonic),

@@ -516,7 +516,8 @@ the latter is a distinct control kind and naming variant, not a popup.
 
 Radio arrows and Home/End move focus without changing selection; Space or
 Enter selects the focused RadioButton. CycleField/SelectField use `[` for the
-previous enabled value and `]` for the next; arrows remain focus navigation.
+previous enabled value and `]` for the next, stopping at the ends; Space,
+Enter, and `Activate` advance and wrap. Arrows remain focus navigation.
 
 User changes use serialized raw input and optionally invoke a registered
 ChangeCommand outside toolkit locks after publishing the new typed value.

@@ -458,16 +458,34 @@ func TestSelectionCatalogRawKeyboardAndReset(t *testing.T) {
 	dispatch("tab-cycle", expletives.KeyTab)
 	dispatch("cycle-next", expletives.KeyRightBracket)
 	if field := control(
-		"selection.cycle.wrap",
+		"selection.cycle.primary",
 	).Details.ChoiceField; field.Value != "charlie" {
 		t.Fatalf("CycleField Right value = %q", field.Value)
 	}
-	dispatch("down-select", expletives.KeyDown)
-	dispatch("select-next", expletives.KeyRightBracket)
+	dispatch("cycle-end-stop", expletives.KeyRightBracket)
 	if field := control(
-		"selection.select.clamp",
+		"selection.cycle.primary",
+	).Details.ChoiceField; field.Value != "charlie" {
+		t.Fatalf("CycleField ] at end value = %q", field.Value)
+	}
+	dispatch("cycle-space-wrap", expletives.KeySpace)
+	if field := control(
+		"selection.cycle.primary",
+	).Details.ChoiceField; field.Value != "alpha" {
+		t.Fatalf("CycleField Space wrap value = %q", field.Value)
+	}
+	dispatch("down-select", expletives.KeyDown)
+	dispatch("select-next", expletives.KeyEnter)
+	if field := control(
+		"selection.select.primary",
 	).Details.ChoiceField; field.Value != "high" {
-		t.Fatalf("SelectField End value = %q", field.Value)
+		t.Fatalf("SelectField Enter value = %q", field.Value)
+	}
+	dispatch("select-wrap", expletives.KeyEnter)
+	if field := control(
+		"selection.select.primary",
+	).Details.ChoiceField; field.Value != "low" {
+		t.Fatalf("SelectField Enter wrap value = %q", field.Value)
 	}
 
 	reset, err := scene.App.InvokeCommand(
@@ -487,8 +505,8 @@ func TestSelectionCatalogRawKeyboardAndReset(t *testing.T) {
 			"selection.checkbox.three_state",
 		).Details.Checkbox.State != expletives.CheckIndeterminate ||
 		control("selection.radio.group").Details.RadioGroup.Value != "one" ||
-		control("selection.cycle.wrap").Details.ChoiceField.Value != "alpha" ||
-		control("selection.select.clamp").Details.ChoiceField.Value != "low" {
+		control("selection.cycle.primary").Details.ChoiceField.Value != "alpha" ||
+		control("selection.select.primary").Details.ChoiceField.Value != "low" {
 		t.Fatal("Scenario Reset did not restore Selection initial values")
 	}
 }

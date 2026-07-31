@@ -71,6 +71,9 @@ do not use them as retrospective decoration.
   worker-update, and typed evidence.
 - [`navigation-chrome-api-v0.md`](navigation-chrome-api-v0.md) defines honest
   ScrollBar viewport state and TabbedPanel/Notebook page navigation.
+- [`scrolling-content-api-v0.md`](scrolling-content-api-v0.md) defines
+  managed scrolling containers, Markdown rendering, bounded log/stream
+  retention, follow/scrollback, and honest drop accounting.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

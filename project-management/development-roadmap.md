@@ -486,7 +486,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 15. Scrolling/Content
 
-- Status: `planned`
+- Status: `active`
 - Goal: deliver `ScrollablePanel`, `Viewport`, `MarkdownView`, `LogView`, and
   `StreamView`.
 - Dependencies: Phase 14 scrolling chrome and the internal scroll model
@@ -504,6 +504,8 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: scroll position, follow mode, and drop accounting are
   semantically observable and remain correct under resize and sustained
   bounded input.
+- Contract:
+  [`scrolling-content-api-v0.md`](../docs/specifications/scrolling-content-api-v0.md).
 
 ### 16. Collections
 

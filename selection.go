@@ -63,7 +63,6 @@ type CycleFieldOptions struct {
 	Mnemonic       Key
 	Options        []SelectionOption
 	Value          string
-	Clamp          bool
 	Disabled       bool
 	DisabledReason string
 	ChangeCommand  CommandID
@@ -124,7 +123,6 @@ type choiceFieldBehavior struct {
 	mnemonic       Key
 	options        []selectionOptionBehavior
 	value          string
-	clamp          bool
 	disabled       bool
 	disabledReason string
 	changeCommand  CommandID
@@ -395,7 +393,7 @@ func (t *Transaction) newChoiceField(
 		kind,
 		choiceFieldBehavior{
 			label: label, mnemonic: mnemonic, options: choices, value: value,
-			clamp: options.Clamp, disabled: options.Disabled,
+			disabled:       options.Disabled,
 			disabledReason: disabledReason,
 			changeCommand:  options.ChangeCommand,
 		},
@@ -1093,16 +1091,21 @@ func choiceTargetValue(
 		if !found {
 			return enabled[0]
 		}
-		if index == 0 && behavior.clamp {
+		if index == 0 {
 			return enabled[0]
 		}
-		return enabled[(index+len(enabled)-1)%len(enabled)]
-	case selectionActivate, selectionNext:
+		return enabled[index-1]
+	case selectionNext:
 		if !found {
 			return enabled[0]
 		}
-		if index == len(enabled)-1 && behavior.clamp {
+		if index == len(enabled)-1 {
 			return enabled[index]
+		}
+		return enabled[index+1]
+	case selectionActivate:
+		if !found {
+			return enabled[0]
 		}
 		return enabled[(index+1)%len(enabled)]
 	default:
@@ -1141,7 +1144,9 @@ func (a *App) selectionKeyActionLocked(
 		return action, action == selectionActivate
 	case choiceFieldBehavior:
 		return action,
-			action == selectionPrevious || action == selectionNext
+			action == selectionActivate ||
+				action == selectionPrevious ||
+				action == selectionNext
 	default:
 		return 0, false
 	}
@@ -1396,7 +1401,6 @@ func selectionBehaviorEqual(left, right controlBehavior) bool {
 		if !ok || leftValue.label.text != rightValue.label.text ||
 			leftValue.mnemonic != rightValue.mnemonic ||
 			leftValue.value != rightValue.value ||
-			leftValue.clamp != rightValue.clamp ||
 			leftValue.disabled != rightValue.disabled ||
 			leftValue.disabledReason != rightValue.disabledReason ||
 			leftValue.changeCommand != rightValue.changeCommand ||
@@ -1526,8 +1530,8 @@ func (a *App) choiceFieldDetailsLocked(
 ) ChoiceFieldDetails {
 	details := ChoiceFieldDetails{
 		Label: behavior.label.text, Value: behavior.value,
-		SelectedIndex: choiceSelectedIndex(behavior), Clamp: behavior.clamp,
-		Enabled: !behavior.disabled, DisabledReason: behavior.disabledReason,
+		SelectedIndex: choiceSelectedIndex(behavior),
+		Enabled:       !behavior.disabled, DisabledReason: behavior.disabledReason,
 		Mnemonic: behavior.mnemonic, ChangeCommand: behavior.changeCommand,
 		Options: make(
 			[]SelectionOptionDetails,

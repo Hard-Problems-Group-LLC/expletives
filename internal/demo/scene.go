@@ -1492,9 +1492,9 @@ func NewWithRootConstraints(
 		choiceGroup,
 		expletives.CycleFieldOptions{
 			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "selection.cycle.wrap",
+				AutomationKey: "selection.cycle.primary",
 			},
-			Label: "Wrap", Mnemonic: "m",
+			Label: "Cycle", Mnemonic: "m",
 			Options: []expletives.SelectionOption{
 				{Value: "alpha", Label: "Alpha"},
 				{
@@ -1515,14 +1515,14 @@ func NewWithRootConstraints(
 		choiceGroup,
 		expletives.SelectFieldOptions{
 			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "selection.select.clamp",
+				AutomationKey: "selection.select.primary",
 			},
-			Label: "Clamp", Mnemonic: "l",
+			Label: "Select", Mnemonic: "l",
 			Options: []expletives.SelectionOption{
 				{Value: "low", Label: "Low"},
 				{Value: "high", Label: "High"},
 			},
-			Value: "low", Clamp: true,
+			Value:         "low",
 			ChangeCommand: CommandSelectionChanged,
 		},
 	)
@@ -5011,8 +5011,8 @@ func SelfCheck() error {
 		"selection.radio.one",
 		"selection.radio.disabled",
 		"selection.radio.two",
-		"selection.cycle.wrap",
-		"selection.select.clamp",
+		"selection.cycle.primary",
+		"selection.select.primary",
 		"selection.cycle.empty",
 		"input.group.plain",
 		"input.group.soft",
@@ -5301,8 +5301,8 @@ func SelfCheck() error {
 		!controls["selection.checkbox.two_state"].Focused ||
 		controls["selection.checkbox.two_state"].Details.Checkbox == nil ||
 		controls["selection.radio.group"].Details.RadioGroup == nil ||
-		controls["selection.cycle.wrap"].Details.ChoiceField == nil ||
-		controls["selection.select.clamp"].Kind !=
+		controls["selection.cycle.primary"].Details.ChoiceField == nil ||
+		controls["selection.select.primary"].Kind !=
 			expletives.ControlSelectField {
 		return errors.New("Selection screen typed evidence is incomplete")
 	}

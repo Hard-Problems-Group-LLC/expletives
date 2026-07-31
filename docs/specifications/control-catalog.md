@@ -372,7 +372,8 @@ The implemented exact model, keyboard, focus, mutation, notification,
 rendering, and typed automation contract is
 [`selection-api-v0.md`](selection-api-v0.md). `expletives-test` exposes all
 five public control names on the enabled Controls/Selection page, including
-two/three-state, disabled, exclusive, empty, wrapping, and clamped states.
+two/three-state, disabled, exclusive, and empty states plus boundary-stopping
+bracket movement and wrapping Space/Enter activation.
 
 ### 12. Text And Numeric Input
 

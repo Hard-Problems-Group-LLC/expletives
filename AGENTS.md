@@ -262,11 +262,11 @@ Vision, and other toolkits are design evidence, not compatibility targets.
 - Preserve the implemented bounded Selection contract in
   [`docs/specifications/selection-api-v0.md`](docs/specifications/selection-api-v0.md):
   group-owned radio exclusivity, stable values, disabled-option skipping,
-  wrap/clamp policies, direct-parent focus groups, Tab/Shift-Tab group
-  traversal, focus-only spatial arrows, Radio Space/Enter selection,
-  Cycle/Select `[`/`]` changes, serialized user changes, programmatic-setter
-  silence, outside-lock ChangeCommand routing, and exact typed
-  snapshot/automation evidence.
+  direct-parent focus groups, Tab/Shift-Tab group traversal, focus-only
+  spatial arrows, Radio Space/Enter selection, non-wrapping Cycle/Select
+  `[`/`]` movement, wrapping Space/Enter advancement, serialized user
+  changes, programmatic-setter silence, outside-lock ChangeCommand routing,
+  and exact typed snapshot/automation evidence.
 - Preserve the directed Text and Numeric Input contract in
   [`docs/specifications/text-and-numeric-input-api-v0.md`](docs/specifications/text-and-numeric-input-api-v0.md).
   Optional text validators require soft or hard enforcement, whitelist or
@@ -300,6 +300,12 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   track/thumb geometry. TabbedPanel and Notebook use copied Tab descriptors
   over direct child Panel pages; the strip is one focus stop and page
   visibility is derived without overwriting caller visibility policy.
+- Follow the directed Phase 15 Scrolling and Content contract in
+  [`docs/specifications/scrolling-content-api-v0.md`](docs/specifications/scrolling-content-api-v0.md).
+  Viewport and ScrollablePanel own one managed Content Panel and exact
+  viewport clipping; MarkdownView performs no I/O or execution; LogView and
+  StreamView retain bounded copied content with honest drop accounting and no
+  hidden reader, worker, channel, terminal emulator, or terminal access.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
 - Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and
