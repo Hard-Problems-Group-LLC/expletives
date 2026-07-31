@@ -30,8 +30,8 @@ specifications, and ISO 8601 timestamps.
     - cover entry, resize while active, recovery, zero geometry, clipping,
       recursive minima, headless automation, and attached-terminal behavior.
   - Dependencies: the existing Layout measurement and root-sizing contracts.
-  - Blockers: intentionally deferred until after the active Actions and Menus
-    work.
+  - Blockers: none; intentionally deferred until the operator selects the
+    next work item after the completed Actions and Menus phases.
   - Related:
     - [`docs/specifications/layouts-and-overflow.md`](../docs/specifications/layouts-and-overflow.md)
     - [`docs/specifications/root-sizing-and-borders-v0.md`](../docs/specifications/root-sizing-and-borders-v0.md)

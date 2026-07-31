@@ -53,6 +53,59 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		writePTYFragment(t, ctx, process, []byte{'A'})
 		waitForFrameHeight(t, ctx, process, inputStart, 30)
 
+		altStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b, 'F'})
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("deliver Alt-F: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, altStart, 30)
+		escapeStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b})
+		waitForFrameHeight(t, ctx, process, escapeStart, 30)
+
+		f10Start := process.output.mark()
+		writePTY(
+			t,
+			process.pair.master,
+			[]byte("\x1b[21~\x1b[C\x1b[B\r"),
+		)
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("deliver F10/Right/Down/Enter: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, f10Start, 30)
+
+		controlSpaceStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0})
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("deliver Ctrl-Space: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, controlSpaceStart, 30)
+		controlSpaceEscapeStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b})
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("dismiss Ctrl-Space menu: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, controlSpaceEscapeStart, 30)
+
+		nestedStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b, 'A', 's'})
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("deliver Alt-A/S: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, nestedStart, 30)
+		nestedEscapeStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b})
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("dismiss nested menu: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, nestedEscapeStart, 30)
+		rootEscapeStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b})
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("dismiss root menu: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, rootEscapeStart, 30)
+
 		quitStart := process.output.mark()
 		writePTY(t, process.pair.master, []byte{'q'})
 		if err := process.wait(ctx); err != nil {
@@ -146,7 +199,7 @@ func waitForInitialFrame(
 	if err := process.output.waitContains(
 		ctx,
 		0,
-		[]byte("expletives Core / Presentation / Automation"),
+		[]byte("expletives Toolkit Catalog"),
 	); err != nil {
 		t.Fatalf("wait for initial debug expletives-test frame: %v", err)
 	}

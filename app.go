@@ -48,6 +48,7 @@ type App struct {
 	held            map[string]map[Key]bool
 	focus           *controlState
 	pressed         map[string]pressedAction
+	menu            *menuSession
 	bindings        map[string]CommandID
 	commandRouter   CommandRouter
 	legacyRouter    bool
@@ -352,6 +353,7 @@ func (a *App) renderLocked() Snapshot {
 		Layouts:      layouts,
 		Overflows:    overflows,
 	}
+	a.paintMenuOverlayLocked(&snapshot.Frame)
 	a.paintOverflowWarningLocked(&snapshot.Frame, overflows)
 	return snapshot
 }
@@ -399,6 +401,10 @@ func (a *App) paintControlLocked(
 		details.HotkeyBar = &HotkeyBarDetails{
 			Items: a.hotkeyBarItemDetailsLocked(behavior.items),
 		}
+	}
+	if behavior, ok := state.behavior.(menuBarBehavior); ok {
+		menuBar := a.menuBarDetailsLocked(state, behavior)
+		details.MenuBar = &menuBar
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

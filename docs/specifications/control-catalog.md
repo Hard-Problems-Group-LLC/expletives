@@ -309,6 +309,11 @@ It includes `Alt-F`, F10 and another documented fallback, checked/disabled
 items, separators, nested popups, dismissal, clipping, resize, and exact focus
 restoration.
 
+The implemented exact contract is
+[`menus-api-v0.md`](menus-api-v0.md). The public-API catalog now uses its
+persistent MenuBar to show exactly one Core/Layout, Text/Display, or Actions
+screen while retaining all controls as observable stable nodes.
+
 ### 8. Selection
 
 Required controls:

@@ -298,7 +298,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 8. Menus
 
-- Status: `active`
+- Status: `complete`
 - Goal: deliver `MenuBar`, popup `Menu`, and `MenuItem` immediately after the
   Action controls they invoke, then use them to navigate the growing
   `expletives-test` catalog.
@@ -321,7 +321,8 @@ ordered backlog and the active-task record; it does not replace either.
   automation routes converge on the same command outcome; both `Alt-F` and
   the documented fallback work; and screen navigation is deterministic and
   observable.
-- Active work: [`EXPL-TASK-019`](tasks-in-progress.md).
+- Completion evidence:
+  [`EXPL-TASK-019`](completed-tasks.md).
 
 ### 9. Selection
 

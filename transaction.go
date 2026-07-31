@@ -771,6 +771,19 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				)
 			}
 		}
+		if styled, ok := state.behavior.(interface {
+			additionalStyles() []StyleID
+		}); ok {
+			for _, additional := range styled.additionalStyles() {
+				if _, found := stagedStyles[additional]; !found {
+					return fmt.Errorf(
+						"%w: theme has no definition for %q",
+						ErrStyleMissing,
+						additional,
+					)
+				}
+			}
+		}
 		return nil
 	}
 	validateLayoutStyle := func(state *layoutState) error {
@@ -801,6 +814,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 
 	activeCount := 0
 	actionItems := 0
+	menuBars := 0
 	mnemonics := make(map[Key]*controlState)
 	defaults := make(map[*controlState]*controlState)
 	cancels := make(map[*controlState]*controlState)
@@ -856,6 +870,21 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 						)
 					}
 				}
+			}
+		case menuBarBehavior:
+			menuBars++
+			if menuBars > 1 {
+				return fmt.Errorf(
+					"%w: v0 supports one MenuBar per App",
+					ErrInvalidControl,
+				)
+			}
+			if err := validateMenuBarTreeLocked(
+				t.app,
+				behavior,
+				requireCommand,
+			); err != nil {
+				return err
 			}
 		case textBehavior:
 			if behavior.mnemonic != "" && !destroyed[behavior.target] {
@@ -1052,11 +1081,18 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		changed = true
 	}
 	if t.focusSet {
+		if t.app.menu != nil {
+			t.app.closeMenuLocked()
+			changed = true
+		}
 		if t.app.focus != t.focus {
 			t.app.focus = t.focus
 			t.app.clearInvalidPressesLocked()
 			changed = true
 		}
+	}
+	if t.app.repairMenuLocked() {
+		changed = true
 	}
 	if t.app.ensureFocusLocked() {
 		changed = true

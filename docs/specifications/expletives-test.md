@@ -1,6 +1,6 @@
 # `expletives-test` Interactive and Automation Requirements
 
-Status: Directed requirements; the first runnable foundation is implemented
+Status: Directed, implemented through Menus
 Authority: Direct operator requests on 2026-07-24
 Related decisions: `EXPL-DEC-001` through `EXPL-DEC-007` in
 [`project-management/decision-log.md`](../../project-management/decision-log.md)
@@ -135,10 +135,12 @@ bounded by aggregate frame cells, not by a conventional terminal axis.
 The application must maintain an inspectable catalog that covers every
 public UI element. Each catalog entry needs a stable scenario ID, a concise
 purpose, deterministic reset behavior, and the important applicable states.
-After the Action controls exist, the following Menu phase adds a persistent
-MenuBar that selects one purpose-specific catalog screen at a time. Screen
-selection is a normal stable command reachable through menu input and
-automation; it must not create a private test-only navigation path.
+The implemented `toolkit.catalog` scene has one persistent MenuBar and exactly
+one visible purpose-specific Core/Layout, Text/Display, or Actions screen.
+Screen selection uses the normal `view.core`, `view.text`, and `view.actions`
+commands reached through menu input or automation; it has no private
+test-only navigation path. The disabled `view.future` item demonstrates
+unavailable screen presentation.
 
 The coverage inventory must include, as the library gains them:
 
@@ -169,25 +171,33 @@ The coverage inventory must include, as the library gains them:
 - bounded streaming and honest dropped-content reporting; and
 - cursor visibility and placement during text entry and non-editing focus.
 
-The first foundation scene visibly distinguishes control and Layout
+The Core/Layout screen visibly distinguishes control and Layout
 decoration: a single-line outer Frame, a double-line GroupBox, an unbordered
 Frame, independently bordered Grid and nested Layouts, and light, medium,
 dark, and full-cell shade forms. The unbordered Frame combined with its
 bordered child Layout is the regression fixture for clean shared framing
-without doubled seams. The same public-API scene embeds an aligned Label with
+without doubled seams. The Text/Display screen embeds an aligned Label with
 an observable mnemonic target, word-wrapped StaticText, a double-line
 Separator, and a titled Rule in two child BoxLayouts. Their stable automation
 keys are `display.label`, `display.static_text`, `display.separator`, and
 `display.rule`.
 
-The Actions catalog embeds default/focused, ordinary, disabled-with-reason,
-and cancel Buttons in `panel.nested`, plus a live HotkeyBar in the automation
+The Actions screen embeds default/focused, ordinary, disabled-with-reason,
+and cancel Buttons in `action.panel`, plus a live HotkeyBar in the automation
 status Frame. Their stable keys are `action.toggle`, `action.reset`,
 `action.disabled`, `action.quit`, and `action.hotkeys`. Raw Alt-T, Tab plus
 Enter/Space, the existing Ctrl-R binding, and direct command invocation all
 enter the shared command router. The Toggle command's checked presentation
 state changes with the same controller transition observed in the accent
 Panel.
+
+The persistent `menu.main` MenuBar exposes File, View, and Actions roots.
+File contains Quit; View contains checked Core/Layout, Text/Display, and
+Actions screen commands plus a disabled future item; Actions contains Toggle,
+Reset, and a nested Stacking submenu. Alt-F, Alt-V, Alt-A, F10, Ctrl-Space,
+arrows, Home/End, Enter, sibling mnemonics, and Escape all use the ordinary
+raw logical key path. Popups remain visible in typed snapshots as a flat
+bounded tree with open and selected paths.
 
 The authoritative inventory and order are in
 [`control-catalog.md`](control-catalog.md). `FormPanel`, `Wizard`, and
@@ -257,10 +267,10 @@ canonical frame nondeterministic.
 
 ## Layout Attachment And Overflow Scenarios
 
-`expletives-test` must construct `BoxLayout` and `GridLayout` independently
-and attach them through `Panel.SetLayout` and `Panel.AddLayout`. The
-`layouts.basic` fixture uses a vertical Box containing a nested three-column
-Grid, a child Panel with its own Layout, and two top-level Layout layers.
+`expletives-test` constructs `BoxLayout` and `GridLayout` independently and
+attaches them through `Panel.SetLayout` and `Panel.AddLayout`. The Core/Layout
+screen uses a vertical Box containing a nested three-column Grid, a child
+Panel with its own Layout, and two top-level Layout layers.
 `layout.panel.raise`, `layout.panel.lower`, `layout.layer.raise`, and
 `layout.layer.lower` let a human or attached client verify that arrangement
 rectangles remain fixed while Panel peers or complete Layout subtrees change

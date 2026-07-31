@@ -492,6 +492,15 @@ func (a *App) focusableButtonsLocked() []*controlState {
 }
 
 func (a *App) ensureFocusLocked() bool {
+	if a.menu != nil {
+		if a.menu.bar != nil &&
+			a.effectivelyVisibleLocked(a.menu.bar) {
+			changed := a.focus != a.menu.bar
+			a.focus = a.menu.bar
+			return changed
+		}
+		a.closeMenuLocked()
+	}
 	if a.buttonEligibleLocked(a.focus) {
 		return false
 	}
@@ -612,6 +621,7 @@ func (a *App) refreshActionPresentationLocked() {
 			minimumChanged = true
 		}
 	}
+	a.repairMenuLocked()
 	a.ensureFocusLocked()
 	a.clearInvalidPressesLocked()
 	if minimumChanged {

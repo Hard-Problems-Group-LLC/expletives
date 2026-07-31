@@ -73,6 +73,17 @@ func DefaultTheme() Theme {
 		"rule":             resolved,
 		"button":           resolved,
 		"hotkey_bar":       resolved,
+		"menu_bar":         resolved,
+		"menu.popup":       resolved,
+		"menu.border":      resolved,
+		"menu.focused": ResolvedStyle{
+			Foreground: black,
+			Background: white,
+		},
+		"menu.disabled": ResolvedStyle{
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: black,
+		},
 	}
 	return Theme{styles: styles}
 }

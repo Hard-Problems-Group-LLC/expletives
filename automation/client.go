@@ -727,6 +727,8 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	}
 	childCount := 0
 	actionItemCount := 0
+	menuItemCount := 0
+	menuBarCount := 0
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
 			(control.Key != "" && !validIdentifier(control.Key, limits.IdentifierBytes)) ||
@@ -775,6 +777,17 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 			actionItemCount += len(control.Details.HotkeyBar.Items)
+		}
+		if control.Details.MenuBar != nil {
+			menuBarCount++
+			if menuBarCount > 1 ||
+				len(control.Details.MenuBar.Entries) >
+					expletives.MaxMenuItems-menuItemCount {
+				return errors.New(
+					"snapshot MenuBar count or item count exceeds bound",
+				)
+			}
+			menuItemCount += len(control.Details.MenuBar.Entries)
 		}
 	}
 	if len(snapshot.Layouts) > limits.Layouts {
@@ -910,7 +923,8 @@ func validControlDetails(
 			details.Text == nil &&
 			details.Divider == nil &&
 			details.Action == nil &&
-			details.HotkeyBar == nil
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil
 	case "frame", "group_box":
 		return details.Container != nil &&
 			validBorderDetails(details.Border, limits) &&
@@ -921,7 +935,8 @@ func validControlDetails(
 			details.Text == nil &&
 			details.Divider == nil &&
 			details.Action == nil &&
-			details.HotkeyBar == nil
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil
 	case "label":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -929,7 +944,8 @@ func validControlDetails(
 			details.Text.Wrap == "none" &&
 			details.Divider == nil &&
 			details.Action == nil &&
-			details.HotkeyBar == nil
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil
 	case "static_text":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -938,7 +954,8 @@ func validControlDetails(
 			details.Text.Mnemonic == "" &&
 			details.Divider == nil &&
 			details.Action == nil &&
-			details.HotkeyBar == nil
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil
 	case "separator":
 		return details.Container == nil &&
 			details.Border == nil &&
@@ -946,28 +963,40 @@ func validControlDetails(
 			validDividerDetails(details.Divider) &&
 			details.Divider.Text == "" &&
 			details.Action == nil &&
-			details.HotkeyBar == nil
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil
 	case "rule":
 		return details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			validDividerDetails(details.Divider) &&
 			details.Action == nil &&
-			details.HotkeyBar == nil
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil
 	case "button":
 		return details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			details.Divider == nil &&
 			validActionDetails(details.Action, limits) &&
-			details.HotkeyBar == nil
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil
 	case "hotkey_bar":
 		return details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			details.Divider == nil &&
 			details.Action == nil &&
-			validHotkeyBarDetails(details.HotkeyBar, limits)
+			validHotkeyBarDetails(details.HotkeyBar, limits) &&
+			details.MenuBar == nil
+	case "menu_bar":
+		return details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			validMenuBarDetails(details.MenuBar, limits)
 	default:
 		return false
 	}
@@ -1012,6 +1041,167 @@ func validHotkeyBarDetails(
 			return false
 		}
 		seen[item.Command] = true
+	}
+	return true
+}
+
+func validMenuBarDetails(
+	bar *MenuBarDetails,
+	limits Limits,
+) bool {
+	if bar == nil || len(bar.Entries) == 0 ||
+		len(bar.Entries) > expletives.MaxMenuItems ||
+		len(bar.OpenPath) > expletives.MaxMenuDepth ||
+		len(bar.SelectedPath) > expletives.MaxMenuDepth+1 {
+		return false
+	}
+	entries := make(map[string]MenuEntryDetails, len(bar.Entries))
+	children := make(map[string]int)
+	siblingMnemonics := make(map[string]map[Key]bool)
+	menuCount := 0
+	rootCount := 0
+	for _, entry := range bar.Entries {
+		if !validIdentifier(entry.Key, limits.IdentifierBytes) ||
+			(entry.ParentKey != "" &&
+				!validIdentifier(entry.ParentKey, limits.IdentifierBytes)) ||
+			entry.Depth < 0 || entry.Depth > expletives.MaxMenuDepth ||
+			!canonicalDisplayText(entry.Label, false) ||
+			len(entry.DisabledReason) > maxDisplayTextBytes ||
+			!utf8.ValidString(entry.DisabledReason) ||
+			strings.ContainsRune(entry.DisabledReason, 0) ||
+			entry.ChildCount < 0 ||
+			entry.ChildCount > expletives.MaxMenuItemsPerMenu {
+			return false
+		}
+		if _, exists := entries[entry.Key]; exists {
+			return false
+		}
+		if entry.Depth == 0 {
+			if entry.ParentKey != "" {
+				return false
+			}
+			rootCount++
+			if rootCount > expletives.MaxMenuItemsPerMenu {
+				return false
+			}
+		} else {
+			parent, exists := entries[entry.ParentKey]
+			if !exists || parent.Kind != "submenu" ||
+				parent.Depth+1 != entry.Depth {
+				return false
+			}
+			children[entry.ParentKey]++
+		}
+		if entry.Mnemonic != "" {
+			if len(entry.Mnemonic) != 1 ||
+				!validLogicalKey(string(entry.Mnemonic)) {
+				return false
+			}
+			seen := siblingMnemonics[entry.ParentKey]
+			if seen == nil {
+				seen = make(map[Key]bool)
+				siblingMnemonics[entry.ParentKey] = seen
+			}
+			if seen[entry.Mnemonic] {
+				return false
+			}
+			seen[entry.Mnemonic] = true
+		}
+		switch entry.Kind {
+		case "command":
+			if entry.Depth == 0 ||
+				entry.Label == "" ||
+				!validIdentifier(entry.Command, limits.IdentifierBytes) ||
+				entry.ChildCount != 0 ||
+				(entry.Enabled && entry.DisabledReason != "") ||
+				(!entry.Enabled && entry.DisabledReason == "") ||
+				(entry.Chord != nil && !validChord(*entry.Chord)) ||
+				entry.Open {
+				return false
+			}
+		case "separator":
+			if entry.Depth == 0 || entry.Label != "" ||
+				entry.Command != "" || entry.Enabled ||
+				entry.DisabledReason != "" || entry.Checked ||
+				entry.Mnemonic != "" || entry.Chord != nil ||
+				entry.Selected || entry.Open || entry.ChildCount != 0 {
+				return false
+			}
+		case "submenu":
+			menuCount++
+			if entry.Label == "" || entry.Command != "" ||
+				!entry.Enabled || entry.DisabledReason != "" ||
+				entry.Checked || entry.Chord != nil ||
+				entry.ChildCount == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+		if entry.Selected && !entry.Enabled {
+			return false
+		}
+		entries[entry.Key] = entry
+	}
+	if menuCount > expletives.MaxMenus {
+		return false
+	}
+	for key, entry := range entries {
+		if entry.Kind == "submenu" &&
+			children[key] != entry.ChildCount {
+			return false
+		}
+	}
+	if !validMenuPath(bar.OpenPath, entries, true, limits) ||
+		!validMenuPath(bar.SelectedPath, entries, false, limits) ||
+		len(bar.OpenPath) > len(bar.SelectedPath) ||
+		len(bar.SelectedPath) > len(bar.OpenPath)+1 ||
+		(len(bar.OpenPath) == 0 && len(bar.SelectedPath) != 0) {
+		return false
+	}
+	for index, key := range bar.OpenPath {
+		if bar.SelectedPath[index] != key {
+			return false
+		}
+	}
+	selected := make(map[string]bool, len(bar.SelectedPath))
+	for _, key := range bar.SelectedPath {
+		selected[key] = true
+	}
+	open := make(map[string]bool, len(bar.OpenPath))
+	for _, key := range bar.OpenPath {
+		open[key] = true
+	}
+	for key, entry := range entries {
+		if entry.Selected != selected[key] ||
+			entry.Open != open[key] {
+			return false
+		}
+	}
+	return true
+}
+
+func validMenuPath(
+	path []string,
+	entries map[string]MenuEntryDetails,
+	requireSubmenu bool,
+	limits Limits,
+) bool {
+	for index, key := range path {
+		if !validIdentifier(key, limits.IdentifierBytes) {
+			return false
+		}
+		entry, exists := entries[key]
+		if !exists || (requireSubmenu && entry.Kind != "submenu") {
+			return false
+		}
+		if index == 0 {
+			if entry.Depth != 0 {
+				return false
+			}
+		} else if entry.ParentKey != path[index-1] {
+			return false
+		}
 	}
 	return true
 }

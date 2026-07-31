@@ -54,6 +54,14 @@ const (
 	MaxHotkeyBarItems = 64
 	// MaxActionItems bounds aggregate HotkeyBar items across one App.
 	MaxActionItems = MaxControls
+	// MaxMenuDepth bounds one MenuBar's immutable popup tree.
+	MaxMenuDepth = 8
+	// MaxMenuItemsPerMenu bounds direct items in one Menu.
+	MaxMenuItemsPerMenu = 64
+	// MaxMenus bounds aggregate popup Menu models attached to one App.
+	MaxMenus = 256
+	// MaxMenuItems bounds aggregate MenuItem descriptors attached to one App.
+	MaxMenuItems = 512
 	// MaxInputSources bounds sources that may hold keys concurrently.
 	MaxInputSources = MaxControls
 	// MaxHeldKeysPerSource bounds one source's simultaneous held-key state.
@@ -243,6 +251,8 @@ const (
 	ControlButton ControlKind = "button"
 	// ControlHotkeyBar identifies a non-focusable command-shortcut summary.
 	ControlHotkeyBar ControlKind = "hotkey_bar"
+	// ControlMenuBar identifies the persistent popup-menu session owner.
+	ControlMenuBar ControlKind = "menu_bar"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -501,6 +511,8 @@ type ControlDetails struct {
 	Action *ActionDetails `json:"action,omitempty"`
 	// HotkeyBar is present for HotkeyBar.
 	HotkeyBar *HotkeyBarDetails `json:"hotkey_bar,omitempty"`
+	// MenuBar is present for MenuBar.
+	MenuBar *MenuBarDetails `json:"menu_bar,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -568,6 +580,31 @@ type HotkeyBarItemDetails struct {
 // HotkeyBarDetails describes one bounded ordered command summary.
 type HotkeyBarDetails struct {
 	Items []HotkeyBarItemDetails `json:"items"`
+}
+
+// MenuEntryDetails is one flattened immutable MenuItem observation.
+type MenuEntryDetails struct {
+	Key            string       `json:"key"`
+	ParentKey      string       `json:"parent_key,omitempty"`
+	Depth          int          `json:"depth"`
+	Kind           MenuItemKind `json:"kind"`
+	Label          string       `json:"label,omitempty"`
+	Command        CommandID    `json:"command,omitempty"`
+	Enabled        bool         `json:"enabled"`
+	DisabledReason string       `json:"disabled_reason,omitempty"`
+	Checked        bool         `json:"checked"`
+	Mnemonic       Key          `json:"mnemonic,omitempty"`
+	Chord          *Chord       `json:"chord,omitempty"`
+	Selected       bool         `json:"selected"`
+	Open           bool         `json:"open"`
+	ChildCount     int          `json:"child_count"`
+}
+
+// MenuBarDetails is the bounded flattened state of one MenuBar and session.
+type MenuBarDetails struct {
+	Entries      []MenuEntryDetails `json:"entries"`
+	OpenPath     []string           `json:"open_path"`
+	SelectedPath []string           `json:"selected_path"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -702,6 +739,32 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				}
 			}
 			cloned.Controls[index].Details.HotkeyBar = &hotkeyBar
+		}
+		if snapshot.Controls[index].Details.MenuBar != nil {
+			menuBar := *snapshot.Controls[index].Details.MenuBar
+			menuBar.Entries = append(
+				[]MenuEntryDetails(nil),
+				snapshot.Controls[index].Details.MenuBar.Entries...,
+			)
+			for entryIndex := range menuBar.Entries {
+				if menuBar.Entries[entryIndex].Chord != nil {
+					chord := *menuBar.Entries[entryIndex].Chord
+					chord.Modifiers = append(
+						[]Key(nil),
+						menuBar.Entries[entryIndex].Chord.Modifiers...,
+					)
+					menuBar.Entries[entryIndex].Chord = &chord
+				}
+			}
+			menuBar.OpenPath = append(
+				[]string(nil),
+				snapshot.Controls[index].Details.MenuBar.OpenPath...,
+			)
+			menuBar.SelectedPath = append(
+				[]string(nil),
+				snapshot.Controls[index].Details.MenuBar.SelectedPath...,
+			)
+			cloned.Controls[index].Details.MenuBar = &menuBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

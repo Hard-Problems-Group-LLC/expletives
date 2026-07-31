@@ -563,6 +563,15 @@ func (a *App) DispatchKey(
 			a.dismissOverflowLocked() {
 			command = CommandOverflowDismiss
 			result.Outcome = OutcomeApplied
+		} else if menuCommand, handled, changed :=
+			a.dispatchMenuKeyLocked(event.Key, held); handled {
+			if changed {
+				result.Outcome = OutcomeApplied
+			}
+			if menuCommand != "" {
+				command = menuCommand
+				router, result, execute = a.resolveCommandLocked(command)
+			}
 		} else if mnemonicKeyEvent(event.Key, held) {
 			control, activate := a.mnemonicControlLocked(event.Key)
 			if control != nil && activate {

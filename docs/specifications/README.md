@@ -44,6 +44,10 @@ do not use them as retrospective decoration.
 - [`actions-api-v0.md`](actions-api-v0.md) defines Button, HotkeyBar,
   command-owned presentation state, focus traversal, mnemonics, and unified
   activation used by the following Menu phase.
+- [`menus-api-v0.md`](menus-api-v0.md) defines immutable popup Menu models,
+  MenuItem descriptors, the persistent MenuBar control, popup keyboard
+  sessions, focus restoration, typed automation, and catalog-screen
+  navigation.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

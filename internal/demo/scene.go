@@ -11,13 +11,17 @@ import (
 )
 
 const (
-	ScenarioID                                = "layouts.basic"
+	ScenarioID                                = "toolkit.catalog"
 	CommandFixtureToggle expletives.CommandID = "fixture.toggle"
 	CommandPanelRaise    expletives.CommandID = "layout.panel.raise"
 	CommandPanelLower    expletives.CommandID = "layout.panel.lower"
 	CommandLayerRaise    expletives.CommandID = "layout.layer.raise"
 	CommandLayerLower    expletives.CommandID = "layout.layer.lower"
 	CommandScenarioReset expletives.CommandID = "scenario.reset"
+	CommandViewCore      expletives.CommandID = "view.core"
+	CommandViewText      expletives.CommandID = "view.text"
+	CommandViewActions   expletives.CommandID = "view.actions"
+	CommandViewFuture    expletives.CommandID = "view.future"
 	CommandUnavailable   expletives.CommandID = "fixture.unavailable"
 	CommandAppQuit       expletives.CommandID = "app.quit"
 	CommandAppInterrupt  expletives.CommandID = "app.interrupt"
@@ -66,16 +70,17 @@ var (
 	}
 )
 
-// Scene owns the first colored-Panel fixture and its small controller state.
+// Scene owns the catalog controls and its small application controller state.
 type Scene struct {
 	App *expletives.App
 
-	mu         sync.Mutex
-	accent     *expletives.Panel
-	accentText *expletives.StaticText
-	accentRule *expletives.Rule
-	layer      *expletives.BoxLayout
-	toggled    bool
+	mu             sync.Mutex
+	accent         *expletives.Panel
+	accentControls []expletives.Control
+	layer          *expletives.BoxLayout
+	screens        map[expletives.CommandID]*expletives.Panel
+	activeScreen   expletives.CommandID
+	toggled        bool
 }
 
 // New constructs the complete fixture through the public toolkit API.
@@ -117,58 +122,14 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	definitions := []expletives.CommandDefinition{
-		{
-			ID: CommandFixtureToggle, Label: "Toggle",
-			Description: "Toggle the accent Panel color",
-			Enabled:     true, Automation: true,
-		},
-		{
-			ID: CommandScenarioReset, Label: "Reset",
-			Description: "Reset the active demonstration scenario",
-			Enabled:     true, Automation: true,
-		},
-		{
-			ID: CommandUnavailable, Label: "Disabled",
-			Description: "Demonstrate disabled Action presentation",
-			Enabled:     false, DisabledReason: "Demonstration command is disabled",
-			Automation: true,
-		},
-		{
-			ID: CommandPanelRaise, Label: "Raise Panel",
-			Description: "Raise the accent Panel among Grid Panel peers",
-			Enabled:     true, Automation: true,
-		},
-		{
-			ID: CommandPanelLower, Label: "Lower Panel",
-			Description: "Lower the accent Panel among Grid Panel peers",
-			Enabled:     true, Automation: true,
-		},
-		{
-			ID: CommandLayerRaise, Label: "Raise Layer",
-			Description: "Raise the red Layout layer above the green layer",
-			Enabled:     true, Automation: true,
-		},
-		{
-			ID: CommandLayerLower, Label: "Lower Layer",
-			Description: "Lower the red Layout layer below the green layer",
-			Enabled:     true, Automation: true,
-		},
-		{
-			ID: CommandAppQuit, Label: "Quit",
-			Description: "Exit the demonstration application",
-			Enabled:     true, Automation: true,
-		},
-		{
-			ID: CommandAppInterrupt, Label: "Interrupt",
-			Description: "Interrupt the demonstration application",
-			Enabled:     true, Automation: true,
-		},
-	}
-	for _, definition := range definitions {
+	for _, definition := range initialCommandDefinitions() {
 		if err := app.RegisterCommand(definition); err != nil {
 			return nil, err
 		}
+	}
+	menuItems, err := catalogMenuItems()
+	if err != nil {
+		return nil, err
 	}
 
 	transaction := app.NewTransaction()
@@ -177,14 +138,59 @@ func NewWithRootConstraints(
 			AutomationKey: "fixture",
 			Style:         canvasStyle.ID,
 		},
-		Title:       "expletives Core / Presentation / Automation",
+		Title:       "expletives Toolkit Catalog",
 		BorderStyle: borderStyle.ID,
 		BorderForm:  expletives.BorderSingle,
 	})
 	if err != nil {
 		return nil, err
 	}
-	red, err := transaction.NewPanel(outer, expletives.PanelOptions{
+	menuBar, err := transaction.NewMenuBar(outer, expletives.MenuBarOptions{
+		PanelOptions: expletives.PanelOptions{
+			AutomationKey: "menu.main",
+			Style:         bannerStyle.ID,
+		},
+		Items:         menuItems,
+		PopupStyle:    canvasStyle.ID,
+		BorderStyle:   borderStyle.ID,
+		FocusedStyle:  yellowStyle.ID,
+		DisabledStyle: borderStyle.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	content, err := transaction.NewPanel(outer, expletives.PanelOptions{
+		AutomationKey: "catalog.content",
+		Style:         canvasStyle.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	coreScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
+		AutomationKey: "screen.core",
+		Style:         canvasStyle.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	textScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
+		AutomationKey: "screen.text",
+		Style:         canvasStyle.ID,
+		Hidden:        true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	actionsScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
+		AutomationKey: "screen.actions",
+		Style:         canvasStyle.ID,
+		Hidden:        true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	red, err := transaction.NewPanel(coreScreen, expletives.PanelOptions{
 		AutomationKey: "panel.red",
 		MinimumSize:   expletives.Size{Width: 10, Height: 5},
 		Style:         redStyle.ID,
@@ -192,18 +198,100 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	accent, err := transaction.NewPanel(
-		outer,
+	accent, err := transaction.NewPanel(coreScreen, expletives.PanelOptions{
+		AutomationKey: "panel.accent",
+		MinimumSize:   expletives.Size{Width: 12, Height: 5},
+		Style:         greenStyle.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	group, err := transaction.NewGroupBox(
+		coreScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "group",
+				MinimumSize:   expletives.Size{Width: 16, Height: 7},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Nested Panel",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderDouble,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	nestedPanel, err := transaction.NewPanel(group, expletives.PanelOptions{
+		AutomationKey: "panel.nested",
+		MinimumSize:   expletives.Size{Width: 12, Height: 3},
+		Style:         yellowStyle.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	layerFrame, err := transaction.NewFrame(
+		coreScreen,
+		expletives.FrameOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "layers",
+				MinimumSize:   expletives.Size{Width: 20, Height: 3},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Layout stacking: green over red",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderNone,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	layerBack, err := transaction.NewPanel(
+		layerFrame,
 		expletives.PanelOptions{
-			AutomationKey: "panel.accent",
-			MinimumSize:   expletives.Size{Width: 12, Height: 5},
+			AutomationKey: "layer.back",
+			MinimumSize:   expletives.Size{Width: 1, Height: 1},
+			Style:         redStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	layerFront, err := transaction.NewPanel(
+		layerFrame,
+		expletives.PanelOptions{
+			AutomationKey: "layer.front",
+			MinimumSize:   expletives.Size{Width: 1, Height: 1},
 			Style:         greenStyle.ID,
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	label, err := transaction.NewLabel(red, expletives.LabelOptions{
+
+	textRed, err := transaction.NewPanel(
+		textScreen,
+		expletives.PanelOptions{
+			AutomationKey: "display.panel.red",
+			MinimumSize:   expletives.Size{Width: 20, Height: 7},
+			Style:         redStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	textAccent, err := transaction.NewPanel(
+		textScreen,
+		expletives.PanelOptions{
+			AutomationKey: "display.panel.accent",
+			MinimumSize:   expletives.Size{Width: 20, Height: 7},
+			Style:         greenStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	label, err := transaction.NewLabel(textRed, expletives.LabelOptions{
 		PanelOptions: expletives.PanelOptions{
 			AutomationKey: "display.label",
 			Style:         redStyle.ID,
@@ -211,14 +299,14 @@ func NewWithRootConstraints(
 		Text:                "Label -> accent",
 		HorizontalAlignment: expletives.TextAlignCenter,
 		VerticalAlignment:   expletives.TextAlignCenter,
-		Target:              accent,
+		Target:              textAccent,
 		Mnemonic:            "a",
 	})
 	if err != nil {
 		return nil, err
 	}
 	separator, err := transaction.NewSeparator(
-		red,
+		textRed,
 		expletives.SeparatorOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "display.separator",
@@ -232,7 +320,7 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	staticText, err := transaction.NewStaticText(
-		accent,
+		textAccent,
 		expletives.StaticTextOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "display.static_text",
@@ -247,45 +335,47 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	rule, err := transaction.NewRule(accent, expletives.RuleOptions{
-		PanelOptions: expletives.PanelOptions{
-			AutomationKey: "display.rule",
-			Style:         greenStyle.ID,
-		},
-		Orientation: expletives.Horizontal,
-		Form:        expletives.BorderSingle,
-		Text:        "Rule",
-		Alignment:   expletives.TextAlignCenter,
-	})
-	if err != nil {
-		return nil, err
-	}
-	group, err := transaction.NewGroupBox(
-		outer,
-		expletives.GroupBoxOptions{
+	rule, err := transaction.NewRule(
+		textAccent,
+		expletives.RuleOptions{
 			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "group",
-				MinimumSize:   expletives.Size{Width: 16, Height: 8},
-				Style:         canvasStyle.ID,
+				AutomationKey: "display.rule",
+				Style:         greenStyle.ID,
 			},
-			Title:       "Nested",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderDouble,
+			Orientation: expletives.Horizontal,
+			Form:        expletives.BorderSingle,
+			Text:        "Rule",
+			Alignment:   expletives.TextAlignCenter,
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	nestedPanel, err := transaction.NewPanel(group, expletives.PanelOptions{
-		AutomationKey: "panel.nested",
-		MinimumSize:   expletives.Size{Width: 14, Height: 4},
-		Style:         yellowStyle.ID,
-	})
+
+	actionPanel, err := transaction.NewPanel(
+		actionsScreen,
+		expletives.PanelOptions{
+			AutomationKey: "action.panel",
+			MinimumSize:   expletives.Size{Width: 18, Height: 8},
+			Style:         yellowStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	actionPreview, err := transaction.NewPanel(
+		actionsScreen,
+		expletives.PanelOptions{
+			AutomationKey: "action.preview",
+			MinimumSize:   expletives.Size{Width: 18, Height: 8},
+			Style:         greenStyle.ID,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
 	toggleButton, err := transaction.NewButton(
-		nestedPanel,
+		actionPanel,
 		expletives.ButtonOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "action.toggle",
@@ -300,7 +390,7 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	resetButton, err := transaction.NewButton(
-		nestedPanel,
+		actionPanel,
 		expletives.ButtonOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "action.reset",
@@ -314,7 +404,7 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	disabledButton, err := transaction.NewButton(
-		nestedPanel,
+		actionPanel,
 		expletives.ButtonOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "action.disabled",
@@ -327,7 +417,7 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	quitButton, err := transaction.NewButton(
-		nestedPanel,
+		actionPanel,
 		expletives.ButtonOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "action.quit",
@@ -341,53 +431,21 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	layerFrame, err := transaction.NewFrame(outer, expletives.FrameOptions{
-		PanelOptions: expletives.PanelOptions{
-			AutomationKey: "layers",
-			MinimumSize:   expletives.Size{Width: 20, Height: 3},
-			Style:         canvasStyle.ID,
-		},
-		Title:       "Layout stacking: green over red",
-		BorderStyle: borderStyle.ID,
-		BorderForm:  expletives.BorderNone,
-	})
-	if err != nil {
-		return nil, err
-	}
-	layerBack, err := transaction.NewPanel(layerFrame, expletives.PanelOptions{
-		AutomationKey: "layer.back",
-		MinimumSize:   expletives.Size{Width: 1, Height: 1},
-		Style:         redStyle.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
-	layerFront, err := transaction.NewPanel(layerFrame, expletives.PanelOptions{
-		AutomationKey: "layer.front",
-		MinimumSize:   expletives.Size{Width: 1, Height: 1},
-		Style:         greenStyle.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	bannerTitle := "Automation off"
 	if automationPath != "" {
 		bannerTitle = "UNAUTH AUTOMATION ENABLED: " + automationPath
 	}
-	banner, err := transaction.NewFrame(
-		outer,
-		expletives.FrameOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "automation.status",
-				MinimumSize:   expletives.Size{Width: 20, Height: 3},
-				Style:         bannerStyle.ID,
-			},
-			Title:       bannerTitle,
-			BorderStyle: bannerStyle.ID,
-			BorderForm:  expletives.BorderShadeMedium,
+	banner, err := transaction.NewFrame(outer, expletives.FrameOptions{
+		PanelOptions: expletives.PanelOptions{
+			AutomationKey: "automation.status",
+			MinimumSize:   expletives.Size{Width: 20, Height: 3},
+			Style:         bannerStyle.ID,
 		},
-	)
+		Title:       bannerTitle,
+		BorderStyle: bannerStyle.ID,
+		BorderForm:  expletives.BorderShadeMedium,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -410,18 +468,6 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
-	grid, err := expletives.NewGridLayout(expletives.GridLayoutOptions{
-		AutomationKey: "layout.presentation.grid",
-		Columns:       3,
-		HorizontalGap: 1,
-		Border: expletives.BorderOptions{
-			Form:  expletives.BorderShadeDark,
-			Style: borderStyle.ID,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
 	rootLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
 		expletives.BoxLayoutOptions{
@@ -440,76 +486,102 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
-	for _, panel := range []expletives.Control{red, accent, group} {
-		if err := grid.AddPanel(panel, expletives.LayoutItemOptions{}); err != nil {
+	outerLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.catalog"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range []struct {
+		control expletives.Control
+		grow    int
+	}{
+		{menuBar, 0},
+		{content, 1},
+		{banner, 0},
+	} {
+		if err := outerLayout.AddPanel(
+			item.control,
+			expletives.LayoutItemOptions{Grow: item.grow},
+		); err != nil {
 			return nil, err
 		}
 	}
-	mainLayout, err := expletives.NewBoxLayout(
+	coreScreenLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
-		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.main",
-			Gap:           0,
-		},
+		expletives.BoxLayoutOptions{AutomationKey: "layout.screen.core"},
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := mainLayout.AddLayout(
-		grid,
-		expletives.LayoutItemOptions{Grow: 1},
-	); err != nil {
-		return nil, err
-	}
-	if err := mainLayout.AddPanel(layerFrame, expletives.LayoutItemOptions{}); err != nil {
-		return nil, err
-	}
-	if err := mainLayout.AddPanel(banner, expletives.LayoutItemOptions{}); err != nil {
-		return nil, err
-	}
-	redLayout, err := expletives.NewBoxLayout(
+	textScreenLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
-		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.display.red",
-		},
+		expletives.BoxLayoutOptions{AutomationKey: "layout.screen.text"},
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := redLayout.AddPanel(
-		label,
+	actionsScreenLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.screen.actions"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for layout, screen := range map[*expletives.BoxLayout]expletives.Control{
+		coreScreenLayout:    coreScreen,
+		textScreenLayout:    textScreen,
+		actionsScreenLayout: actionsScreen,
+	} {
+		if err := layout.AddPanel(
+			screen,
+			expletives.LayoutItemOptions{Grow: 1},
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	coreGrid, err := expletives.NewGridLayout(expletives.GridLayoutOptions{
+		AutomationKey: "layout.core.grid",
+		Columns:       3,
+		HorizontalGap: 1,
+		Border: expletives.BorderOptions{
+			Form:  expletives.BorderShadeDark,
+			Style: borderStyle.ID,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, panel := range []expletives.Control{red, accent, group} {
+		if err := coreGrid.AddPanel(
+			panel,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	coreLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.core"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := coreLayout.AddLayout(
+		coreGrid,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
 	}
-	if err := redLayout.AddPanel(
-		separator,
+	if err := coreLayout.AddPanel(
+		layerFrame,
 		expletives.LayoutItemOptions{},
 	); err != nil {
 		return nil, err
 	}
-	accentLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
-		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.display.accent",
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := accentLayout.AddPanel(
-		staticText,
-		expletives.LayoutItemOptions{Grow: 1},
-	); err != nil {
-		return nil, err
-	}
-	if err := accentLayout.AddPanel(
-		rule,
-		expletives.LayoutItemOptions{},
-	); err != nil {
-		return nil, err
-	}
-	nestedLayout, err := expletives.NewBoxLayout(
+	groupLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
 		expletives.BoxLayoutOptions{
 			AutomationKey: "layout.group",
@@ -522,45 +594,8 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	if err := nestedLayout.AddPanel(
+	if err := groupLayout.AddPanel(
 		nestedPanel,
-		expletives.LayoutItemOptions{Grow: 1},
-	); err != nil {
-		return nil, err
-	}
-	actionLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
-		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.actions",
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	for _, button := range []expletives.Control{
-		toggleButton,
-		resetButton,
-		disabledButton,
-		quitButton,
-	} {
-		if err := actionLayout.AddPanel(
-			button,
-			expletives.LayoutItemOptions{},
-		); err != nil {
-			return nil, err
-		}
-	}
-	hotkeyLayout, err := expletives.NewBoxLayout(
-		expletives.Horizontal,
-		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.hotkeys",
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := hotkeyLayout.AddPanel(
-		hotkeyBar,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
@@ -597,25 +632,135 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+
+	textGrid, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
+			AutomationKey: "layout.text.grid",
+			Columns:       2,
+			HorizontalGap: 1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, panel := range []expletives.Control{textRed, textAccent} {
+		if err := textGrid.AddPanel(
+			panel,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	textRedLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.display.red"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := textRedLayout.AddPanel(
+		label,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	if err := textRedLayout.AddPanel(
+		separator,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
+	textAccentLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.display.accent"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := textAccentLayout.AddPanel(
+		staticText,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	if err := textAccentLayout.AddPanel(
+		rule,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
+
+	actionsGrid, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
+			AutomationKey: "layout.actions.grid",
+			Columns:       2,
+			HorizontalGap: 1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, panel := range []expletives.Control{actionPanel, actionPreview} {
+		if err := actionsGrid.AddPanel(
+			panel,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	actionLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.actions"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, button := range []expletives.Control{
+		toggleButton,
+		resetButton,
+		disabledButton,
+		quitButton,
+	} {
+		if err := actionLayout.AddPanel(
+			button,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	hotkeyLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.hotkeys"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := hotkeyLayout.AddPanel(
+		hotkeyBar,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+
 	if err := transaction.SetLayout(app.Root(), rootLayout); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(outer, mainLayout); err != nil {
+	if err := transaction.SetLayout(outer, outerLayout); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(red, redLayout); err != nil {
+	if err := transaction.SetLayout(content, coreScreenLayout); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(accent, accentLayout); err != nil {
+	if err := transaction.AddLayout(content, textScreenLayout); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(group, nestedLayout); err != nil {
+	if err := transaction.AddLayout(content, actionsScreenLayout); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(nestedPanel, actionLayout); err != nil {
+	if err := transaction.SetLayout(coreScreen, coreLayout); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(banner, hotkeyLayout); err != nil {
+	if err := transaction.SetLayout(group, groupLayout); err != nil {
 		return nil, err
 	}
 	if err := transaction.SetLayout(layerFrame, backLayout); err != nil {
@@ -624,18 +769,56 @@ func NewWithRootConstraints(
 	if err := transaction.AddLayout(layerFrame, frontLayout); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(textScreen, textGrid); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(textRed, textRedLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		textAccent,
+		textAccentLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		actionsScreen,
+		actionsGrid,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(actionPanel, actionLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(banner, hotkeyLayout); err != nil {
+		return nil, err
+	}
 	if err := transaction.Commit(context.Background()); err != nil {
 		return nil, err
 	}
 
 	scene := &Scene{
-		App: app, accent: accent, accentText: staticText,
-		accentRule: rule, layer: backLayout,
+		App:          app,
+		accent:       accent,
+		layer:        backLayout,
+		activeScreen: CommandViewCore,
+		accentControls: []expletives.Control{
+			accent,
+			textAccent,
+			staticText,
+			rule,
+			actionPreview,
+		},
+		screens: map[expletives.CommandID]*expletives.Panel{
+			CommandViewCore:    coreScreen,
+			CommandViewText:    textScreen,
+			CommandViewActions: actionsScreen,
+		},
 	}
 	if err := app.SetCommandRouter(scene.routeCommand); err != nil {
 		return nil, err
 	}
-	bindings := []struct {
+	for _, binding := range []struct {
 		chord   expletives.Chord
 		command expletives.CommandID
 	}{
@@ -655,8 +838,7 @@ func NewWithRootConstraints(
 			},
 			command: CommandAppInterrupt,
 		},
-	}
-	for _, binding := range bindings {
+	} {
 		if err := app.BindChord(
 			binding.chord,
 			expletives.CommandBinding{Command: binding.command},
@@ -667,18 +849,207 @@ func NewWithRootConstraints(
 	return scene, nil
 }
 
-// Resize updates the surface and the root-relative fixture frame.
+func initialCommandDefinitions() []expletives.CommandDefinition {
+	return []expletives.CommandDefinition{
+		toggleDefinition(false),
+		{
+			ID: CommandScenarioReset, Label: "Reset",
+			Description: "Reset the active demonstration scenario",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandUnavailable, Label: "Disabled",
+			Description:    "Demonstrate disabled Action presentation",
+			Enabled:        false,
+			DisabledReason: "Demonstration command is disabled",
+			Automation:     true,
+		},
+		{
+			ID: CommandPanelRaise, Label: "Raise Panel",
+			Description: "Raise the accent Panel among Grid Panel peers",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandPanelLower, Label: "Lower Panel",
+			Description: "Lower the accent Panel among Grid Panel peers",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandLayerRaise, Label: "Raise Layer",
+			Description: "Raise the red Layout layer above the green layer",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandLayerLower, Label: "Lower Layer",
+			Description: "Lower the red Layout layer below the green layer",
+			Enabled:     true, Automation: true,
+		},
+		screenDefinition(CommandViewCore, true),
+		screenDefinition(CommandViewText, false),
+		screenDefinition(CommandViewActions, false),
+		{
+			ID: CommandViewFuture, Label: "Future Controls",
+			Description:    "Reserved for the next control catalog phase",
+			Enabled:        false,
+			DisabledReason: "No later control phase has been implemented",
+			Automation:     true,
+		},
+		{
+			ID: CommandAppQuit, Label: "Quit",
+			Description: "Exit the demonstration application",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandAppInterrupt, Label: "Interrupt",
+			Description: "Interrupt the demonstration application",
+			Enabled:     true, Automation: true,
+		},
+	}
+}
+
+func toggleDefinition(checked bool) expletives.CommandDefinition {
+	return expletives.CommandDefinition{
+		ID: CommandFixtureToggle, Label: "Toggle",
+		Description: "Toggle the accent Panel color",
+		Enabled:     true, Checked: checked, Automation: true,
+	}
+}
+
+func screenDefinition(
+	id expletives.CommandID,
+	checked bool,
+) expletives.CommandDefinition {
+	labels := map[expletives.CommandID]string{
+		CommandViewCore:    "Core / Layout",
+		CommandViewText:    "Text / Display",
+		CommandViewActions: "Actions",
+	}
+	return expletives.CommandDefinition{
+		ID: id, Label: labels[id],
+		Description: "Show one purpose-specific toolkit catalog screen",
+		Enabled:     true, Checked: checked, Automation: true,
+	}
+}
+
+func catalogMenuItems() ([]expletives.MenuItem, error) {
+	file, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{{
+			Key: "menu.file.quit", Kind: expletives.MenuItemCommand,
+			Command: CommandAppQuit, Mnemonic: "q",
+		}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	view, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key: "menu.view.core", Kind: expletives.MenuItemCommand,
+				Command: CommandViewCore, Mnemonic: "c",
+			},
+			{
+				Key: "menu.view.text", Kind: expletives.MenuItemCommand,
+				Command: CommandViewText, Mnemonic: "t",
+			},
+			{
+				Key: "menu.view.actions", Kind: expletives.MenuItemCommand,
+				Command: CommandViewActions, Mnemonic: "a",
+			},
+			{Key: "menu.view.separator", Kind: expletives.MenuItemSeparator},
+			{
+				Key: "menu.view.future", Kind: expletives.MenuItemCommand,
+				Command: CommandViewFuture, Mnemonic: "f",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	stacking, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key:     "menu.stack.panel.raise",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandPanelRaise, Mnemonic: "p",
+			},
+			{
+				Key:     "menu.stack.panel.lower",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandPanelLower, Mnemonic: "o",
+			},
+			{
+				Key:     "menu.stack.layer.raise",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandLayerRaise, Mnemonic: "r",
+			},
+			{
+				Key:     "menu.stack.layer.lower",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandLayerLower, Mnemonic: "l",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	actions, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key: "menu.actions.toggle", Kind: expletives.MenuItemCommand,
+				Command: CommandFixtureToggle, Mnemonic: "t",
+			},
+			{
+				Key: "menu.actions.reset", Kind: expletives.MenuItemCommand,
+				Command: CommandScenarioReset, Mnemonic: "r",
+			},
+			{
+				Key:  "menu.actions.separator",
+				Kind: expletives.MenuItemSeparator,
+			},
+			{
+				Key: "menu.actions.stacking", Kind: expletives.MenuItemSubmenu,
+				Label: "Stacking", Mnemonic: "s", Menu: stacking,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []expletives.MenuItem{
+		{
+			Key: "menu.file", Kind: expletives.MenuItemSubmenu,
+			Label: "File", Mnemonic: "f", Menu: file,
+		},
+		{
+			Key: "menu.view", Kind: expletives.MenuItemSubmenu,
+			Label: "View", Mnemonic: "v", Menu: view,
+		},
+		{
+			Key: "menu.actions", Kind: expletives.MenuItemSubmenu,
+			Label: "Actions", Mnemonic: "a", Menu: actions,
+		},
+	}, nil
+}
+
+// Resize updates the surface and its root-relative catalog frame.
 func (s *Scene) Resize(size expletives.Size) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.App.SetSize(size)
 }
 
-// Toggle reports whether the accent panel is in its alternate state.
+// Toggle reports whether the accent panels use the alternate style.
 func (s *Scene) Toggle() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.toggled
+}
+
+// ActiveScreen reports the command identity of the visible catalog screen.
+func (s *Scene) ActiveScreen() expletives.CommandID {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.activeScreen
 }
 
 func (s *Scene) routeCommand(
@@ -712,11 +1083,7 @@ func (s *Scene) handleCommand(
 			style = magentaStyle.ID
 		}
 		transaction := s.App.NewTransaction()
-		for _, control := range []expletives.Control{
-			s.accent,
-			s.accentText,
-			s.accentRule,
-		} {
+		for _, control := range s.accentControls {
 			if err := transaction.SetStyle(control, style); err != nil {
 				return expletives.OutcomeFailed, err
 			}
@@ -724,11 +1091,9 @@ func (s *Scene) handleCommand(
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
-		if err := s.App.ReplaceCommand(expletives.CommandDefinition{
-			ID: CommandFixtureToggle, Label: "Toggle",
-			Description: "Toggle the accent Panel color",
-			Enabled:     true, Checked: s.toggled, Automation: true,
-		}); err != nil {
+		if err := s.App.ReplaceCommand(
+			toggleDefinition(s.toggled),
+		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 		return expletives.OutcomeApplied, nil
@@ -736,23 +1101,20 @@ func (s *Scene) handleCommand(
 		changed := s.toggled
 		s.toggled = false
 		transaction := s.App.NewTransaction()
-		for _, control := range []expletives.Control{
-			s.accent,
-			s.accentText,
-			s.accentRule,
-		} {
-			if err := transaction.SetStyle(control, greenStyle.ID); err != nil {
+		for _, control := range s.accentControls {
+			if err := transaction.SetStyle(
+				control,
+				greenStyle.ID,
+			); err != nil {
 				return expletives.OutcomeFailed, err
 			}
 		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
-		if err := s.App.ReplaceCommand(expletives.CommandDefinition{
-			ID: CommandFixtureToggle, Label: "Toggle",
-			Description: "Toggle the accent Panel color",
-			Enabled:     true, Checked: false, Automation: true,
-		}); err != nil {
+		if err := s.App.ReplaceCommand(
+			toggleDefinition(false),
+		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 		before := s.App.Snapshot().Sequence
@@ -767,42 +1129,16 @@ func (s *Scene) handleCommand(
 			return expletives.OutcomeNoOp, nil
 		}
 		return expletives.OutcomeApplied, nil
+	case CommandViewCore, CommandViewText, CommandViewActions:
+		return s.switchScreenLocked(command.ID)
 	case CommandPanelRaise:
-		before := s.App.Snapshot().Sequence
-		if err := s.accent.Raise(); err != nil {
-			return expletives.OutcomeFailed, err
-		}
-		if s.App.Snapshot().Sequence == before {
-			return expletives.OutcomeNoOp, nil
-		}
-		return expletives.OutcomeApplied, nil
+		return mutationOutcome(s.App, s.accent.Raise)
 	case CommandPanelLower:
-		before := s.App.Snapshot().Sequence
-		if err := s.accent.Lower(); err != nil {
-			return expletives.OutcomeFailed, err
-		}
-		if s.App.Snapshot().Sequence == before {
-			return expletives.OutcomeNoOp, nil
-		}
-		return expletives.OutcomeApplied, nil
+		return mutationOutcome(s.App, s.accent.Lower)
 	case CommandLayerRaise:
-		before := s.App.Snapshot().Sequence
-		if err := s.layer.Raise(); err != nil {
-			return expletives.OutcomeFailed, err
-		}
-		if s.App.Snapshot().Sequence == before {
-			return expletives.OutcomeNoOp, nil
-		}
-		return expletives.OutcomeApplied, nil
+		return mutationOutcome(s.App, s.layer.Raise)
 	case CommandLayerLower:
-		before := s.App.Snapshot().Sequence
-		if err := s.layer.Lower(); err != nil {
-			return expletives.OutcomeFailed, err
-		}
-		if s.App.Snapshot().Sequence == before {
-			return expletives.OutcomeNoOp, nil
-		}
-		return expletives.OutcomeApplied, nil
+		return mutationOutcome(s.App, s.layer.Lower)
 	case CommandAppQuit:
 		return expletives.OutcomeExited, nil
 	case CommandAppInterrupt:
@@ -812,7 +1148,55 @@ func (s *Scene) handleCommand(
 	}
 }
 
-// SelfCheck validates exact Layout geometry, nesting, and stacking.
+func (s *Scene) switchScreenLocked(
+	target expletives.CommandID,
+) (expletives.Outcome, error) {
+	if s.activeScreen == target {
+		return expletives.OutcomeNoOp, nil
+	}
+	transaction := s.App.NewTransaction()
+	for command, screen := range s.screens {
+		if err := transaction.SetVisible(
+			screen,
+			command == target,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	s.activeScreen = target
+	for _, command := range []expletives.CommandID{
+		CommandViewCore,
+		CommandViewText,
+		CommandViewActions,
+	} {
+		if err := s.App.ReplaceCommand(
+			screenDefinition(command, command == target),
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+	}
+	return expletives.OutcomeApplied, nil
+}
+
+func mutationOutcome(
+	app *expletives.App,
+	mutate func() error,
+) (expletives.Outcome, error) {
+	before := app.Snapshot().Sequence
+	if err := mutate(); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if app.Snapshot().Sequence == before {
+		return expletives.OutcomeNoOp, nil
+	}
+	return expletives.OutcomeApplied, nil
+}
+
+// SelfCheck validates catalog visibility, typed Menu evidence, geometry, and
+// Layout common-mode stacking through the public API.
 func SelfCheck() error {
 	scene, err := New(expletives.Size{Width: 64, Height: 20}, "")
 	if err != nil {
@@ -822,53 +1206,85 @@ func SelfCheck() error {
 	if snapshot.Version != expletives.SnapshotVersion {
 		return errors.New("unexpected snapshot version")
 	}
-	if len(snapshot.Controls) != 19 {
-		return fmt.Errorf("control count = %d, want 19", len(snapshot.Controls))
-	}
-	if len(snapshot.Layouts) != 10 {
-		return fmt.Errorf("Layout count = %d, want 10", len(snapshot.Layouts))
-	}
-	checks := []struct {
-		x     int
-		y     int
-		key   string
-		color expletives.Color
-	}{
-		{x: 0, y: 0, key: "root", color: rootStyle.Background},
-		{x: 4, y: 4, key: "display.label", color: redStyle.Background},
-		{x: 24, y: 4, key: "display.static_text", color: greenStyle.Background},
-		{x: 45, y: 6, key: "action.reset", color: yellowStyle.Background},
-		{x: 4, y: 13, key: "layer.front", color: greenStyle.Background},
-	}
-	ids := make(map[string]expletives.ControlID)
+	controls := make(map[string]expletives.ControlSnapshot)
 	for _, control := range snapshot.Controls {
-		ids[control.Key] = control.ID
+		controls[control.Key] = control
 	}
-	for _, check := range checks {
-		cell, ok := snapshot.Frame.Cell(check.x, check.y)
-		if !ok {
-			return fmt.Errorf("cell %d,%d is unavailable", check.x, check.y)
+	for _, key := range []string{
+		"menu.main",
+		"screen.core",
+		"screen.text",
+		"screen.actions",
+		"panel.red",
+		"panel.accent",
+		"display.label",
+		"display.static_text",
+		"action.toggle",
+		"action.hotkeys",
+		"layer.back",
+		"layer.front",
+	} {
+		if _, exists := controls[key]; !exists {
+			return fmt.Errorf("catalog control %q is absent", key)
 		}
-		if cell.Owner != ids[check.key] || cell.Background != check.color {
-			return fmt.Errorf(
-				"cell %d,%d = owner %q background %s, want %q %s",
-				check.x,
-				check.y,
-				cell.Owner,
-				cell.Background,
-				ids[check.key],
-				check.color,
-			)
+	}
+	menu := controls["menu.main"].Details.MenuBar
+	if menu == nil || len(menu.Entries) != 17 ||
+		len(menu.OpenPath) != 0 {
+		return errors.New("MenuBar typed evidence is incomplete")
+	}
+	if !controls["screen.core"].Visible ||
+		controls["screen.text"].Visible ||
+		controls["screen.actions"].Visible {
+		return errors.New("initial catalog screen visibility is invalid")
+	}
+	for _, key := range []string{"panel.red", "panel.accent"} {
+		control := controls[key]
+		point := expletives.Point{
+			X: control.AbsoluteBounds.X + control.AbsoluteBounds.Width/2,
+			Y: control.AbsoluteBounds.Y + control.AbsoluteBounds.Height/2,
 		}
+		cell, ok := snapshot.Frame.Cell(point.X, point.Y)
+		if !ok || cell.Owner != control.ID {
+			return fmt.Errorf("%q does not paint its arranged interior", key)
+		}
+	}
+	front := controls["layer.front"]
+	point := expletives.Point{
+		X: front.AbsoluteBounds.X + front.AbsoluteBounds.Width/2,
+		Y: front.AbsoluteBounds.Y + front.AbsoluteBounds.Height/2,
+	}
+	cell, ok := snapshot.Frame.Cell(point.X, point.Y)
+	if !ok || cell.Owner != front.ID {
+		return errors.New("front Layout does not initially paint above back")
 	}
 	if err := scene.layer.Raise(); err != nil {
 		return err
 	}
 	snapshot = scene.App.Snapshot()
-	cell, ok := snapshot.Frame.Cell(4, 13)
-	if !ok || cell.Owner != ids["layer.back"] ||
-		cell.Background != redStyle.Background {
+	cell, ok = snapshot.Frame.Cell(point.X, point.Y)
+	if !ok || cell.Owner != controls["layer.back"].ID {
 		return errors.New("Layout Raise did not move the complete red layer")
+	}
+	completion, err := scene.App.InvokeCommand(
+		context.Background(),
+		"self-check",
+		"show-actions",
+		CommandViewActions,
+		"",
+	)
+	if err != nil || completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("show Actions screen: %v (%s)", err, completion.Outcome)
+	}
+	snapshot = scene.App.Snapshot()
+	controls = make(map[string]expletives.ControlSnapshot)
+	for _, control := range snapshot.Controls {
+		controls[control.Key] = control
+	}
+	if controls["screen.core"].Visible ||
+		!controls["screen.actions"].Visible ||
+		!controls["action.toggle"].Focused {
+		return errors.New("Actions screen did not become visible and focused")
 	}
 	return nil
 }

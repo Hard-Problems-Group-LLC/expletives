@@ -32,6 +32,8 @@ type (
 	TextWrap string
 	// Orientation selects a horizontal or vertical divider axis.
 	Orientation uint8
+	// MenuItemKind identifies a command, separator, or submenu entry.
+	MenuItemKind string
 )
 
 // Point is a zero-based snapshot cell coordinate.
@@ -161,6 +163,8 @@ type ControlDetails struct {
 	Action *ActionDetails `json:"action,omitempty"`
 	// HotkeyBar is present for HotkeyBar.
 	HotkeyBar *HotkeyBarDetails `json:"hotkey_bar,omitempty"`
+	// MenuBar is present for MenuBar.
+	MenuBar *MenuBarDetails `json:"menu_bar,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -232,6 +236,31 @@ type HotkeyBarItemDetails struct {
 // HotkeyBarDetails describes a bounded ordered shortcut inventory.
 type HotkeyBarDetails struct {
 	Items []HotkeyBarItemDetails `json:"items"`
+}
+
+// MenuEntryDetails is one flattened immutable menu entry.
+type MenuEntryDetails struct {
+	Key            string       `json:"key"`
+	ParentKey      string       `json:"parent_key,omitempty"`
+	Depth          int          `json:"depth"`
+	Kind           MenuItemKind `json:"kind"`
+	Label          string       `json:"label,omitempty"`
+	Command        string       `json:"command,omitempty"`
+	Enabled        bool         `json:"enabled"`
+	DisabledReason string       `json:"disabled_reason,omitempty"`
+	Checked        bool         `json:"checked"`
+	Mnemonic       Key          `json:"mnemonic,omitempty"`
+	Chord          *Chord       `json:"chord,omitempty"`
+	Selected       bool         `json:"selected"`
+	Open           bool         `json:"open"`
+	ChildCount     int          `json:"child_count"`
+}
+
+// MenuBarDetails is one bounded flattened menu tree and its session paths.
+type MenuBarDetails struct {
+	Entries      []MenuEntryDetails `json:"entries"`
+	OpenPath     []string           `json:"open_path"`
+	SelectedPath []string           `json:"selected_path"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -478,6 +507,52 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					projectedItem
 			}
 		}
+		if control.Details.MenuBar != nil {
+			menuBar := control.Details.MenuBar
+			projectedControl.Details.MenuBar = &MenuBarDetails{
+				Entries: make(
+					[]MenuEntryDetails,
+					len(menuBar.Entries),
+				),
+				OpenPath: append([]string{}, menuBar.OpenPath...),
+				SelectedPath: append(
+					[]string{},
+					menuBar.SelectedPath...,
+				),
+			}
+			for entryIndex, entry := range menuBar.Entries {
+				projectedEntry := MenuEntryDetails{
+					Key:            entry.Key,
+					ParentKey:      entry.ParentKey,
+					Depth:          entry.Depth,
+					Kind:           MenuItemKind(entry.Kind),
+					Label:          entry.Label,
+					Command:        string(entry.Command),
+					Enabled:        entry.Enabled,
+					DisabledReason: entry.DisabledReason,
+					Checked:        entry.Checked,
+					Mnemonic:       Key(entry.Mnemonic),
+					Selected:       entry.Selected,
+					Open:           entry.Open,
+					ChildCount:     entry.ChildCount,
+				}
+				if entry.Chord != nil {
+					projectedEntry.Chord = &Chord{
+						Key: Key(entry.Chord.Key),
+						Modifiers: make(
+							[]Key,
+							len(entry.Chord.Modifiers),
+						),
+					}
+					for modifierIndex, modifier := range entry.Chord.Modifiers {
+						projectedEntry.Chord.Modifiers[modifierIndex] =
+							Key(modifier)
+					}
+				}
+				projectedControl.Details.MenuBar.Entries[entryIndex] =
+					projectedEntry
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -599,6 +674,32 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 				}
 			}
 			cloned.Controls[index].Details.HotkeyBar = &hotkeyBar
+		}
+		if snapshot.Controls[index].Details.MenuBar != nil {
+			menuBar := *snapshot.Controls[index].Details.MenuBar
+			menuBar.Entries = append(
+				[]MenuEntryDetails{},
+				snapshot.Controls[index].Details.MenuBar.Entries...,
+			)
+			for entryIndex := range menuBar.Entries {
+				if menuBar.Entries[entryIndex].Chord != nil {
+					chord := *menuBar.Entries[entryIndex].Chord
+					chord.Modifiers = append(
+						[]Key{},
+						menuBar.Entries[entryIndex].Chord.Modifiers...,
+					)
+					menuBar.Entries[entryIndex].Chord = &chord
+				}
+			}
+			menuBar.OpenPath = append(
+				[]string{},
+				snapshot.Controls[index].Details.MenuBar.OpenPath...,
+			)
+			menuBar.SelectedPath = append(
+				[]string{},
+				snapshot.Controls[index].Details.MenuBar.SelectedPath...,
+			)
+			cloned.Controls[index].Details.MenuBar = &menuBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

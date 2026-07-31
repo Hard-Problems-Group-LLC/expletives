@@ -94,6 +94,24 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 						},
 					}},
 				},
+				MenuBar: &expletives.MenuBarDetails{
+					Entries: []expletives.MenuEntryDetails{{
+						Key: "menu.file", Kind: expletives.MenuItemSubmenu,
+						Label: "File", Enabled: true, Mnemonic: "f",
+						Selected: true, Open: true, ChildCount: 1,
+					}, {
+						Key: "menu.open", ParentKey: "menu.file", Depth: 1,
+						Kind: expletives.MenuItemCommand, Label: "Open",
+						Command: "action.open", Enabled: true, Selected: true,
+						Chord: &expletives.Chord{
+							Key: "o", Modifiers: []expletives.Key{
+								expletives.KeyControl,
+							},
+						},
+					}},
+					OpenPath:     []string{"menu.file"},
+					SelectedPath: []string{"menu.file", "menu.open"},
+				},
 			},
 		}},
 		Layouts: []expletives.LayoutSnapshot{{
@@ -167,6 +185,11 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	core.Controls[0].Details.HotkeyBar.Items[0].Label = "Changed"
 	core.Controls[0].Details.HotkeyBar.Items[0].Chord.Modifiers[0] =
 		expletives.KeyAlt
+	core.Controls[0].Details.MenuBar.Entries[0].Label = "Changed"
+	core.Controls[0].Details.MenuBar.Entries[1].Chord.Modifiers[0] =
+		expletives.KeyAlt
+	core.Controls[0].Details.MenuBar.OpenPath[0] = "changed"
+	core.Controls[0].Details.MenuBar.SelectedPath[0] = "changed"
 	core.Layouts[0].Items[0].Kind = "layout"
 	core.InputSources[0].Held[0] = expletives.KeyAlt
 	core.Overflows[0].State = "changed"
@@ -190,6 +213,11 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	projected.Controls[0].Details.HotkeyBar.Items[0].Label = "Mutated"
 	projected.Controls[0].Details.HotkeyBar.Items[0].Chord.Modifiers[0] =
 		Key(expletives.KeyShift)
+	projected.Controls[0].Details.MenuBar.Entries[0].Label = "Mutated"
+	projected.Controls[0].Details.MenuBar.Entries[1].Chord.Modifiers[0] =
+		Key(expletives.KeyShift)
+	projected.Controls[0].Details.MenuBar.OpenPath[0] = "mutated"
+	projected.Controls[0].Details.MenuBar.SelectedPath[0] = "mutated"
 	projected.Layouts[0].Items[0].Kind = "layout"
 	projected.InputSources[0].Held[0] = Key(expletives.KeyShift)
 	projected.Overflows[0].State = "mutated"

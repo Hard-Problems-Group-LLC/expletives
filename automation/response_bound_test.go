@@ -428,6 +428,123 @@ func TestSnapshotRejectsInvalidActionControlDetails(t *testing.T) {
 	})
 }
 
+func TestSnapshotRejectsInvalidMenuBarDetails(t *testing.T) {
+	t.Parallel()
+
+	limits := DefaultLimits()
+	menuBar := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "menu_bar"
+		control.Details = ControlDetails{
+			Version: 1,
+			MenuBar: &MenuBarDetails{
+				Entries: []MenuEntryDetails{
+					{
+						Key: "menu.file", Kind: "submenu", Label: "File",
+						Enabled: true, Mnemonic: "f", Selected: true,
+						Open: true, ChildCount: 2,
+					},
+					{
+						Key: "item.open", ParentKey: "menu.file", Depth: 1,
+						Kind: "command", Label: "Open",
+						Command: "action.open", Enabled: true, Selected: true,
+						Mnemonic: "o",
+						Chord: &Chord{
+							Key: "o", Modifiers: []Key{"control"},
+						},
+					},
+					{
+						Key: "item.separator", ParentKey: "menu.file",
+						Depth: 1, Kind: "separator",
+					},
+				},
+				OpenPath:     []string{"menu.file"},
+				SelectedPath: []string{"menu.file", "item.open"},
+			},
+		}
+		return completion
+	}
+	if err := validateCompletion(menuBar(), limits); err != nil {
+		t.Fatalf("valid MenuBar fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*MenuBarDetails)
+	}{
+		{
+			name: "duplicate key",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[2].Key = "item.open"
+			},
+		},
+		{
+			name: "wrong parent",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[1].ParentKey = "missing"
+			},
+		},
+		{
+			name: "wrong depth",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[1].Depth = 2
+			},
+		},
+		{
+			name: "child count",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[0].ChildCount = 1
+			},
+		},
+		{
+			name: "selected path",
+			mutate: func(bar *MenuBarDetails) {
+				bar.SelectedPath[1] = "item.separator"
+			},
+		},
+		{
+			name: "selected unopened descendant",
+			mutate: func(bar *MenuBarDetails) {
+				bar.OpenPath = nil
+				bar.Entries[0].Open = false
+			},
+		},
+		{
+			name: "separator state",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[2].Enabled = true
+			},
+		},
+		{
+			name: "command disabled reason",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[1].Enabled = false
+			},
+		},
+		{
+			name: "duplicate sibling mnemonic",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[2].Kind = "command"
+				bar.Entries[2].Label = "Other"
+				bar.Entries[2].Command = "action.other"
+				bar.Entries[2].Enabled = true
+				bar.Entries[2].Mnemonic = "o"
+			},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			completion := menuBar()
+			test.mutate(completion.Snapshot.Controls[0].Details.MenuBar)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid MenuBarDetails")
+			}
+		})
+	}
+}
+
 func TestSnapshotRejectsAggregateChildReferencesBeyondBound(t *testing.T) {
 	t.Parallel()
 
@@ -528,6 +645,50 @@ func maximumCompletionJSONBytes(
 			}},
 		},
 	}
+	menuEntry := MenuEntryDetails{
+		Key:            string(controlValue.ID),
+		ParentKey:      string(controlValue.ID),
+		Depth:          math.MaxInt,
+		Kind:           MenuItemKind(controlValue.ID),
+		Label:          strings.Repeat("\x00", maxDisplayTextBytes),
+		Command:        string(controlValue.ID),
+		Enabled:        false,
+		DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+		Checked:        true,
+		Mnemonic:       Key(controlValue.ID),
+		Chord: &Chord{
+			Key: Key(controlValue.ID),
+			Modifiers: []Key{
+				Key(controlValue.ID),
+				Key(controlValue.ID),
+				Key(controlValue.ID),
+				Key(controlValue.ID),
+			},
+		},
+		Selected:   true,
+		Open:       true,
+		ChildCount: math.MaxInt,
+	}
+	menuControl := controlValue
+	menuControl.Details = ControlDetails{
+		Version: 1,
+		MenuBar: &MenuBarDetails{
+			Entries: []MenuEntryDetails{menuEntry},
+			OpenPath: []string{
+				string(controlValue.ID), string(controlValue.ID),
+				string(controlValue.ID), string(controlValue.ID),
+				string(controlValue.ID), string(controlValue.ID),
+				string(controlValue.ID), string(controlValue.ID),
+			},
+			SelectedPath: []string{
+				string(controlValue.ID), string(controlValue.ID),
+				string(controlValue.ID), string(controlValue.ID),
+				string(controlValue.ID), string(controlValue.ID),
+				string(controlValue.ID), string(controlValue.ID),
+				string(controlValue.ID),
+			},
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -542,9 +703,12 @@ func maximumCompletionJSONBytes(
 	overflow := mustMarshal(t, completion.Snapshot.Overflows[0])
 	layout := mustMarshal(t, completion.Snapshot.Layouts[0])
 	layoutItem := mustMarshal(t, completion.Snapshot.Layouts[0].Items[0])
+	menuItem := mustMarshal(t, menuEntry)
+	menuControlBytes := mustMarshal(t, menuControl)
+	menuControlOverhead := max(0, len(menuControlBytes)-len(control))
 	t.Logf(
-		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d",
-		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem),
+		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d",
+		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem), len(menuItem), menuControlOverhead,
 	)
 
 	return len(base) +
@@ -553,7 +717,9 @@ func maximumCompletionJSONBytes(
 		(limits.Controls-1)*(len(source)+1) +
 		(limits.Controls-1)*(len(overflow)+1) +
 		(limits.Layouts-1)*(len(layout)+1) +
-		(limits.LayoutItems-limits.Layouts)*(len(layoutItem)+1)
+		(limits.LayoutItems-limits.Layouts)*(len(layoutItem)+1) +
+		menuControlOverhead +
+		(expletives.MaxMenuItems-1)*(len(menuItem)+1)
 }
 
 func maximumElementCompletion(limits Limits) Completion {

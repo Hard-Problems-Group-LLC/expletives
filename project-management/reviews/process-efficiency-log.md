@@ -51,6 +51,23 @@ Improvement:
 - keep core disconnect cleanup strict rather than weakening input isolation
   to make shell composition appear stateful.
 
+### 25. Make Cross-Target Compile Checks A Named Target
+
+A direct `GOOS=linux GOARCH=arm64 go test ./... -run '^$'` compiled arm64 test
+binaries and then tried to execute them on the amd64 host. Repeating the check
+with `-exec=/bin/true` proved the intended compile-only outcome, but the
+correct incantation should not need rediscovery at every checkpoint.
+
+Improvement:
+
+- add a named cross-target compile target that pins GOOS, GOARCH, and
+  `CGO_ENABLED=0`;
+- use `go test -exec=/bin/true ./...` or an equally bounded compile-only
+  mechanism that creates no retained binaries;
+- include that target in the declared verification contract once the target
+  matrix is approved; and
+- distinguish compile evidence from runtime support claims.
+
 ### 1. Use A Small Contract-First Packet
 
 The first design packet inventories 71 files and asks every reviewer to scan

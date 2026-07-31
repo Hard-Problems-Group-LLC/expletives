@@ -26,7 +26,7 @@ Basic Layout foundation in the root `expletives` package. It covers:
 - Box/Grid measurement and arrangement, nested Layouts, Panel/Layout stacking,
   and overflow delivery;
 - raw key lifecycle events, the command registry, structured command results,
-  and correlated completions; and
+  correlated completions, and Menu popup sessions; and
 - concurrency, dispatch, callback, and final-state behavior.
 
 The import path is:
@@ -77,6 +77,12 @@ The implemented exported limits are:
 | `MaxCellBytes` | 64 | Maximum UTF-8 bytes in one retained canonical cell |
 | `MaxDisplayTextBytes` | 256 | Maximum retained UTF-8 bytes for one display-control text |
 | `MaxDisplayTextCells` | 256 | Maximum canonical cells, including line separators, for one display-control text |
+| `MaxHotkeyBarItems` | 64 | Maximum entries in one HotkeyBar |
+| `MaxActionItems` | 4,096 | Maximum aggregate HotkeyBar entries in one App |
+| `MaxMenuDepth` | 8 | Maximum immutable popup Menu tree depth |
+| `MaxMenuItemsPerMenu` | 64 | Maximum direct entries in one Menu |
+| `MaxMenus` | 256 | Maximum popup Menu models in one MenuBar tree |
+| `MaxMenuItems` | 512 | Maximum aggregate MenuItem descriptors in one App |
 | `MaxInputSources` | 4,096 | Maximum sources that may hold keys concurrently |
 | `MaxHeldKeysPerSource` | 8 | Maximum simultaneously held keys for one source |
 | `MaxConcurrentCommandHandlers` | 4 | Maximum live router callbacks per App |
@@ -121,7 +127,9 @@ copied after first use.
 - `frame` and `frame.border`;
 - `group_box` and `group_box.border`;
 - `layout.border`; and
-- `label`, `static_text`, `separator`, and `rule`.
+- `label`, `static_text`, `separator`, `rule`, `button`, `hotkey_bar`, and
+  `menu_bar`; and
+- `menu.popup`, `menu.border`, `menu.focused`, and `menu.disabled`.
 
 All default definitions resolve to white foreground on black background.
 
@@ -370,6 +378,38 @@ The complete construction, validation, rendering, focus, routing, snapshot,
 automation, and resource-bound contract is in
 [`actions-api-v0.md`](actions-api-v0.md).
 
+## Menus
+
+The first popup-menu surface is:
+
+```go
+func NewMenu(MenuOptions) (*Menu, error)
+func (m *Menu) Items() []MenuItem
+func NewMenuBar(Container, MenuBarOptions) (*MenuBar, error)
+func (b *MenuBar) Open() error
+func (b *MenuBar) Close() error
+func (b *MenuBar) Items() []MenuItem
+```
+
+`Menu` is a copied immutable model, not a Control or an event loop.
+`MenuItem` is a copied command, separator, or submenu descriptor. `MenuBar`
+is a non-container leaf; version 0 permits one live MenuBar and popup session
+per App. Command items derive label, enabled/disabled reason, checked state,
+and first binding from the same `CommandDefinition` used by Button and
+HotkeyBar.
+
+Exact Alt top-level mnemonics, F10, and Ctrl-Space open or switch menus.
+Arrow, Home, End, Enter, Escape, and unmodified sibling mnemonics traverse
+without activation surprises. Opening saves prior Button focus; complete
+close or command activation restores it when still eligible. Popups are
+clipped semantic overlays painted after ordinary controls and before the
+overflow fallback. `MenuBarDetails` exposes a bounded depth-first flat tree
+plus open and selected key paths.
+
+The complete ownership, validation, focus, rendering, keyboard, snapshot,
+automation, and catalog-screen contract is in
+[`menus-api-v0.md`](menus-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -384,6 +424,7 @@ func (t *Transaction) NewSeparator(Container, SeparatorOptions) (*Separator, err
 func (t *Transaction) NewRule(Container, RuleOptions) (*Rule, error)
 func (t *Transaction) NewButton(Container, ButtonOptions) (*Button, error)
 func (t *Transaction) NewHotkeyBar(Container, HotkeyBarOptions) (*HotkeyBar, error)
+func (t *Transaction) NewMenuBar(Container, MenuBarOptions) (*MenuBar, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
 func (t *Transaction) SetBounds(Control, Rect) error
@@ -476,10 +517,13 @@ arrangement and current stack indices. A `ControlSnapshot` contains semantic
 `StyleID` and its Theme-resolved `ResolvedStyle`; border detail does the same.
 The typed details union contains `TextDetails` for Label/StaticText and
 `DividerDetails` for Separator/Rule, `ActionDetails` for Button, and
-`HotkeyBarDetails` for HotkeyBar. These expose canonical bounded text,
+`HotkeyBarDetails` for HotkeyBar, and flat `MenuBarDetails` for MenuBar.
+These expose canonical bounded text,
 alignment, wrap, Label target/mnemonic, divider orientation/form, generic
 focus, command presentation state, pressed/default/cancel roles, and
-structured current bindings.
+structured current bindings. Menu details additionally expose immutable entry
+identity and parent/depth, kind, effective command state, child counts,
+selected/open flags, and ordered session paths.
 
 Snapshot storage is independent, including frame cells, child IDs, Layout
 items, held keys, typed detail, overflow records, and completion. History is

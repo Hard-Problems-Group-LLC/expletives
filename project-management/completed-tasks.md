@@ -4,6 +4,68 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-019` — Deliver Menus and purpose-specific catalog
+  screen navigation.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T20:19:43-07:00
+  - Completed: 2026-07-30T20:52:17-07:00
+  - Outcome:
+    - delivered copied immutable `Menu` models and `MenuItem` descriptors plus
+      one persistent non-container `MenuBar` and popup session per App;
+    - reused command definitions for menu label, enabled/disabled reason,
+      checked state, and first shortcut while preserving one router and
+      correlated completion path across Button, HotkeyBar, menu, mnemonic,
+      binding, and direct invocation;
+    - delivered exact Alt top-level mnemonics, F10 and Ctrl-Space access,
+      arrows/Home/End/Enter/Escape, sibling mnemonics, nested popups,
+      deterministic clipping/viewports, and exact eligible Button focus
+      restoration without a nested event loop;
+    - added bounded flat core and automation MenuBar details, deep-copy
+      projection, structural/path validation, and response-bound evidence;
+    - converted `expletives-test` to the `toolkit.catalog` scene with one
+      persistent File/View/Actions MenuBar and purpose-specific Core/Layout,
+      Text/Display, and Actions screens; and
+    - retained 28 stable public-API controls, 16 Layouts, 17 menu entries,
+      visible checked/disabled/nested states, and no overflow at the live
+      80x24 acceptance geometry.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the expanded controlling-PTY menu/resize/lifecycle test, the full race
+      suite, every debug/release/profiling build, executable checks, and
+      smoke/self-checks;
+    - the display/command-label normalization fuzzer executed 285,312 cases
+      in three seconds, and the complete package set compiled for CGO-free
+      Linux arm64;
+    - the conservative response proof measured 37,214,739 JSON bytes and
+      111,644,217 bytes for three retained maxima, below the 36 MiB and
+      128 MiB bounds; and
+    - a live attached debug session observed the closed catalog, opened View
+      with raw Alt-V, switched to Actions through a normal menu command,
+      observed focus and checked-screen repair, activated Toggle through the
+      Actions menu, verified the magenta frame/style transition, received a
+      final `app.quit` completion, and confirmed socket cleanup.
+  - Physical input evidence:
+    - the Linux controlling-PTY test exercised fragmented input, resize,
+      physical Alt-F, F10, Right/Down/Enter, Ctrl-Space, nested Alt-A/S,
+      staged Escape dismissal, ordinary quit, terminal Ctrl-C, and exact
+      terminal-mode restoration.
+  - Contracts:
+    - [`Menus API v0`](../docs/specifications/menus-api-v0.md)
+    - [`Foundational Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+  - Process:
+    - completed as one routine feature without convening the Panel;
+    - ACP is authorized without review for this checkpoint; and
+    - recorded a named cross-target compile-check opportunity in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - `EXPL-TASK-018` remains the first backlog item for the recursive
+      root-minimum `TOO SMALL` diagnostic;
+    - Phase 9 Selection is the next planned common-control phase; and
+    - Structured Input remains deferred.
+
 - 2026-07-30 — `EXPL-TASK-017` — Deliver Actions and the shared activation
   foundation required by Menus.
   - Requestor: project operator

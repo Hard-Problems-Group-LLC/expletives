@@ -651,6 +651,9 @@ func (s *controlState) mutableLocked() error {
 }
 
 func (a *App) destroyStateLocked(state *controlState) {
+	if a.menu != nil && a.menu.bar == state {
+		a.closeMenuLocked()
+	}
 	if state.layout != nil {
 		removeLayoutPanelLocked(state)
 	}

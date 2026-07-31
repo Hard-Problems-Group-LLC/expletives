@@ -254,7 +254,7 @@ The server writes exactly one `hello` before reading requests:
   "session_id": "32-lowercase-hex-characters",
   "unauthenticated": true,
   "supported_versions": [1],
-  "scenario": "layouts.basic",
+  "scenario": "toolkit.catalog",
   "latest_frame_sequence": 1,
   "final": false,
   "operations": [
@@ -270,12 +270,17 @@ The server writes exactly one `hello` before reading requests:
     "app.interrupt",
     "app.quit",
     "fixture.toggle",
+    "fixture.unavailable",
     "layout.layer.lower",
     "layout.layer.raise",
     "layout.panel.lower",
     "layout.panel.raise",
     "overflow.dismiss",
-    "scenario.reset"
+    "scenario.reset",
+    "view.actions",
+    "view.core",
+    "view.future",
+    "view.text"
   ],
   "limits": {
     "request_line_bytes": 65536,
@@ -611,11 +616,11 @@ The command enters the App's normal bounded dispatch and command-registry
 policy. A command need not be in `hello.commands` to be syntactically valid,
 but the structured App router rejects unregistered or disabled commands.
 
-`expletives-test` advertises:
-
-- `fixture.toggle`;
-- `scenario.reset`; and
-- `app.quit`.
+`expletives-test` advertises its bounded catalog command inventory, including
+fixture toggle/reset, Panel and Layout stacking, Core/Text/Actions screen
+selection, interrupt, and quit commands. Disabled demonstration and future
+screen commands remain advertised so clients can inspect and truthfully
+observe `command_disabled`.
 
 ### `query_result`
 
@@ -866,6 +871,11 @@ the root package's local snapshot. The client checks:
   with canonical structured bindings;
 - at most 64 entries in one HotkeyBar and at most 4,096 aggregate HotkeyBar
   entries across one snapshot;
+- at most one MenuBar, 512 aggregate flat Menu entries, 64 direct siblings,
+  256 Menu models, and depth eight, with unique keys, depth-first
+  parent-before-child structure, sibling mnemonic uniqueness, kind-consistent
+  command/separator/submenu state, bounded structured chords, and consistent
+  selected/open paths;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -888,8 +898,8 @@ cell. Control-detail union members must match the control kind. A nested public
 snapshot-completion message is at most 1,024 UTF-8 bytes without NUL. A
 top-level protocol `error.message` is trimmed to at most 256 valid UTF-8
 bytes. Every encoded response must also fit the 36 MiB response-line limit.
-The conservative legal-maximum completion proof is 35,182,459 JSON bytes;
-three such records total 105,547,377 bytes and remain below the 128 MiB
+The conservative legal-maximum completion proof is 37,214,739 JSON bytes;
+three such records total 111,644,217 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
 
 ## Public Go Client Contract
@@ -1058,12 +1068,12 @@ revalidated on 2026-07-30 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 
-That command passed. The maximum fixture encoded to 28,388,838 bytes; three
-retained maximum records total 85,166,514 bytes.
+That command passed. The current maximum fixture encoded to 37,214,739 bytes;
+three retained maximum records total 111,644,217 bytes.
 
 The relevant integration assertions are:
 
@@ -1079,9 +1089,11 @@ The relevant integration assertions are:
   and requires `Serve` to join; and
 - `cmd/expletives-test/main_test.go`:
   `TestHeadlessAutomationShutdownDeliversFinalCompletion` runs the real
-  headless application loop, connects through the Unix socket, requires the
-  shutdown client to receive the final completion, and requires
-  `expletives-test` to return status 0.
+  headless application loop, connects through the Unix socket, opens View and
+  Actions using raw Alt key lifecycles, changes catalog screens, opens and
+  dismisses a nested menu, verifies flat Menu state and checked command
+  presentation, requires the shutdown client to receive the final completion,
+  and requires `expletives-test` to return status 0.
 
 The race run exercises the same assertions under Go's race detector. These
 tests establish the orderly in-process path; they do not turn peer failure,

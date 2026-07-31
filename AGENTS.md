@@ -129,6 +129,14 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   Preserve source-local pressed capture, deterministic focus traversal, and
   typed automation evidence as defined in
   [`docs/specifications/actions-api-v0.md`](docs/specifications/actions-api-v0.md).
+- `MenuBar` is one persistent non-container leaf and popup-session owner per
+  App; `Menu` and `MenuItem` are copied immutable models rather than Controls
+  or nested event loops. Menu commands derive presentation and enabled state
+  from the shared command registry, restore prior Button focus exactly when
+  possible, and expose a bounded flat semantic tree. Preserve Alt top-level
+  mnemonics, F10, Ctrl-Space, arrow/Home/End/Enter/Escape traversal, nested
+  popup clipping, and command-route parity as defined in
+  [`docs/specifications/menus-api-v0.md`](docs/specifications/menus-api-v0.md).
 - Follow
   [`docs/specifications/layouts-and-overflow.md`](docs/specifications/layouts-and-overflow.md)
   for logical versus clipped geometry, attachment, overflow episodes,
