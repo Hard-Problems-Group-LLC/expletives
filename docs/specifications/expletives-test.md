@@ -158,7 +158,7 @@ The coverage inventory must include, as the library gains them:
   capture and restoration;
 - normal, focused, selected, activated, editing, disabled-with-reason,
   invalid, empty, loading, error, and completed states where meaningful;
-- keyboard-only operation, structured menu accelerators such as `Alt-I`,
+- keyboard-only operation, structured menu accelerators such as `Alt-F`,
   component hotkeys, fallback key paths, and inspectable bindings;
 - configurable interrupt behavior, including robust Ctrl-C handling in
   ordinary views, editors, modals, long-running operations, and automation;
@@ -233,18 +233,20 @@ Tab and Shift-Tab movement is visually unambiguous. Six
 `input.row.*` single-line rows stay exactly one cell high while
 `input.row.multiline` and `input.text_area.multiline` consume the available
 vertical balance through their default stretch hints. At roomy geometry the
-form and fields stretch to the available viewport. Below the 55-by-9 natural
+form and fields stretch to the available viewport. Below the 56-by-11 natural
 content geometry, fixed-point integrated scrollbars appear instead of
 shrinking, overlapping, or vertically stretching the single-line rows.
 
-The form contains four single-line TextFields under stable `input.text.*`
-keys: an unrestricted field, a soft whitelist, a hard filename-character
-blacklist, and a password-masked soft blacklist. Enter starts and commits
-editing, Escape cancels, caret keys edit locally, and Tab crosses the field
-parent groups.
-Soft-invalid input remains visible with the specified green/yellow/red
-validation presentation. Hard-invalid input is ignored. Password text is
-masked in the frame and redacted from all snapshot and automation payloads.
+The form contains six single-line TextFields under stable `input.text.*`
+keys: an unrestricted field; soft and hard ASCII-alphanumeric whitelists;
+soft and hard ASCII-symbol blacklists; and a password-masked soft blacklist.
+The two whitelist demonstrations share the exact alphanumeric set, and the
+two blacklist demonstrations share the exact ASCII punctuation/symbol set.
+Enter starts and commits editing, Escape cancels, caret keys edit locally,
+and Tab crosses the field parent groups. Soft-invalid input remains visible
+with the specified green/yellow/red validation presentation. Hard-invalid
+input is ignored. Password text is masked in the frame and redacted from all
+snapshot and automation payloads.
 Successful user commits route the optional `text.changed` command.
 `input.number.ranged` demonstrates a one-decimal NumberField with inclusive
 minimum/maximum bounds, and `input.spin.clamped` demonstrates a half-unit
@@ -325,7 +327,7 @@ roots plus an end-aligned Help root.
 - Dialogs reserves Message, Confirm, Input, and Progress dialog tests.
 - Help contains an enabled About page and is right-justified as the end group.
 
-The direct root chords are Alt-I for File, Alt-N for Panels, Alt-A for
+The direct root chords are Alt-F for File, Alt-N for Panels, Alt-A for
 Layouts, Alt-C for Controls, Alt-S for Sections, Alt-M for Menus, Alt-D for
 Dialogs, and Alt-P for Help. Alt-S is an explicit operator-selected exception
 to the host-terminal advisory; F9 and Ctrl-Space provide routes when a host
@@ -479,7 +481,7 @@ correlated submission levels:
 `KeyDown` and `KeyUp` maintain pressed-key state for their automation source,
 including modifier keys. `KeyPress` is a distinct one-shot raw logical event
 that does not leave a key held. Ordered down/press/up sequences must be able
-to create chords such as `Alt-I` and `Ctrl-S` and enter the same
+to create chords such as `Alt-F` and `Ctrl-S` and enter the same
 context-sensitive mnemonic, accelerator, hotkey, and command resolver used by
 physical input.
 

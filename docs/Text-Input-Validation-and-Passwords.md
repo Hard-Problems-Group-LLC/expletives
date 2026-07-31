@@ -113,16 +113,19 @@ configured precision. Invalid intermediate text remains editable, but Enter
 or Tab will not commit it or leave the field. Escape restores the committed
 value. `Value()` exposes committed application state; typed details expose
 both that value and the current working text.
+SpinBox reserves the final two cells for `▼` and `▲` decrement/increment
+affordances, with distinct normal, focused, and disabled button styles. These
+explain the stepping behavior even before the user reads the focus guidance.
 
 ## Form Layout
 
 An ordinary text, number, or spin field is one row high and has no implicit
 frame. Give it a practical minimum width—usually 10 to 30 cells—and place a
-separate left-aligned bound `Label` in the preceding form column. The classic
-white-on-blue field background fills its complete arranged width, including
-blank cells, against a light-neutral dialog/form surface. Keeping those
-physical palette classes distinct avoids both surfaces quantizing to the same
-terminal blue.
+separate left-aligned bound `Label` in the preceding form column. Labels use
+the hosting Panel background. The field background fills its complete
+arranged width, including blank cells, and uses one basic-terminal palette
+family while unfocused and another while focused. Both must remain distinct
+from the hosting Panel after terminal color quantization.
 
 Single-line fields default to horizontal stretch and natural vertical size.
 `TextArea` defaults to stretch in both directions. `BoxLayout` preserves
@@ -166,6 +169,13 @@ cancels, Tab commits and traverses focus groups, arrows navigate visual rows,
 and Shift extends selection. CRLF and CR normalize to LF. The internal
 row/column viewport keeps the caret visible with no-wrap, word-wrap, and
 cell-wrap policies.
+
+The physical terminal presenter requests disambiguated modified-key reporting
+through the Kitty keyboard protocol and xterm `modifyOtherKeys`, and the input
+decoder accepts Ctrl-Enter from either encoding. Unsupported terminals ignore
+those requests and may still transmit Ctrl-Enter as an indistinguishable plain
+Enter; Tab remains the portable commit-and-traverse route. Attached automation
+can always inject the explicit Control-down, Enter-press, Control-up lifecycle.
 
 `App.DispatchTextInput` delivers bounded committed text or paste directly to
 the focused editing control. The content never enters key, menu, mnemonic, or

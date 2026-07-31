@@ -2,6 +2,8 @@ package terminal
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -592,6 +594,12 @@ func inputForSequence(sequence string) ([]expletives.KeyEvent, bool) {
 	if key, ok := keyForSequence(sequence); ok {
 		return keyEvents(key), true
 	}
+	if input, ok := kittyKeyboardInput(sequence); ok {
+		return input, true
+	}
+	if input, ok := modifyOtherKeysInput(sequence); ok {
+		return input, true
+	}
 	switch sequence {
 	case "\x1b[1;2A":
 		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyUp), true
@@ -612,6 +620,130 @@ func inputForSequence(sequence string) ([]expletives.KeyEvent, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func kittyKeyboardInput(sequence string) ([]expletives.KeyEvent, bool) {
+	if !strings.HasPrefix(sequence, "\x1b[") ||
+		!strings.HasSuffix(sequence, "u") {
+		return nil, false
+	}
+	parameters := strings.TrimSuffix(strings.TrimPrefix(sequence, "\x1b["), "u")
+	fields := strings.Split(parameters, ";")
+	if len(fields) < 1 || len(fields) > 2 || fields[0] == "" {
+		return nil, false
+	}
+	keyField := strings.Split(fields[0], ":")
+	if len(keyField) > 3 {
+		return nil, false
+	}
+	codepoint, err := strconv.Atoi(keyField[0])
+	if err != nil {
+		return nil, false
+	}
+	key, ok := keyboardCodepointKey(codepoint)
+	if !ok {
+		return nil, false
+	}
+	modifier := 1
+	if len(fields) == 2 {
+		modifierField := strings.Split(fields[1], ":")
+		// The presenter requests disambiguation only, not event reporting.
+		// Reject unexpected event-type fields rather than inventing lifecycle.
+		if len(modifierField) != 1 || modifierField[0] == "" {
+			return nil, false
+		}
+		modifier, err = strconv.Atoi(modifierField[0])
+		if err != nil {
+			return nil, false
+		}
+	}
+	return keyboardChordEvents(key, modifier)
+}
+
+func modifyOtherKeysInput(sequence string) ([]expletives.KeyEvent, bool) {
+	if !strings.HasPrefix(sequence, "\x1b[27;") ||
+		!strings.HasSuffix(sequence, "~") {
+		return nil, false
+	}
+	parameters := strings.TrimSuffix(strings.TrimPrefix(sequence, "\x1b["), "~")
+	fields := strings.Split(parameters, ";")
+	if len(fields) != 3 || fields[0] != "27" {
+		return nil, false
+	}
+	modifier, err := strconv.Atoi(fields[1])
+	if err != nil {
+		return nil, false
+	}
+	codepoint, err := strconv.Atoi(fields[2])
+	if err != nil {
+		return nil, false
+	}
+	key, ok := keyboardCodepointKey(codepoint)
+	if !ok {
+		return nil, false
+	}
+	return keyboardChordEvents(key, modifier)
+}
+
+func keyboardCodepointKey(codepoint int) (expletives.Key, bool) {
+	switch codepoint {
+	case 9:
+		return expletives.KeyTab, true
+	case 13:
+		return expletives.KeyEnter, true
+	case 27:
+		return expletives.KeyEscape, true
+	case 32:
+		return expletives.KeySpace, true
+	case 127:
+		return expletives.KeyBackspace, true
+	}
+	if codepoint < 0x21 || codepoint > utf8.MaxRune ||
+		codepoint >= 0xD800 && codepoint <= 0xDFFF {
+		return "", false
+	}
+	return expletives.Key(string(rune(codepoint))), true
+}
+
+func keyboardChordEvents(
+	key expletives.Key,
+	modifierParameter int,
+) ([]expletives.KeyEvent, bool) {
+	if modifierParameter < 1 {
+		return nil, false
+	}
+	bits := modifierParameter - 1
+	if bits & ^(1|2|4|8|32) != 0 {
+		return nil, false
+	}
+	modifiers := make([]expletives.Key, 0, 4)
+	if bits&1 != 0 {
+		modifiers = append(modifiers, expletives.KeyShift)
+	}
+	if bits&2 != 0 {
+		modifiers = append(modifiers, expletives.KeyAlt)
+	}
+	if bits&4 != 0 {
+		modifiers = append(modifiers, expletives.KeyControl)
+	}
+	if bits&(8|32) != 0 {
+		modifiers = append(modifiers, expletives.KeyMeta)
+	}
+	events := make([]expletives.KeyEvent, 0, len(modifiers)*2+1)
+	for _, modifier := range modifiers {
+		events = append(events, expletives.KeyEvent{
+			Kind: expletives.KeyEventDown,
+			Key:  modifier,
+		})
+	}
+	events = append(events, keyPress(key))
+	for index := len(modifiers) - 1; index >= 0; index-- {
+		events = append(events, expletives.KeyEvent{
+			Kind: expletives.KeyEventUp,
+			Key:  modifiers[index],
+		})
+	}
+	return events, true
 }
 
 func keyEvents(key expletives.Key) []expletives.KeyEvent {

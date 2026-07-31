@@ -156,6 +156,11 @@ While a popup is active:
 - Alt plus a root mnemonic switches directly to that popup; and
 - Escape closes one child level, then closes/restores at the root popup.
 
+Displayed top-level Alt mnemonics take precedence during a menu session. Any
+other registered global Alt chord remains active, closes the session, and
+routes through the normal command resolver. A visible global chord such as
+Alt-X Quit therefore works both from client controls and from open menus.
+
 Selection never activates. Activation closes/restores before the router runs
 outside toolkit locks. Button, HotkeyBar, MenuItem, mnemonic, bound chord, and
 direct automation routes use the same command definition and correlated

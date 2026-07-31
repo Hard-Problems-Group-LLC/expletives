@@ -209,6 +209,23 @@ func TestSpinBoxBracketStepClampAndEditMode(t *testing.T) {
 	if spin.Step() != 0.5 {
 		t.Fatalf("Step() = %v", spin.Step())
 	}
+	if spin.MinimumSize() != (Size{Width: 10, Height: 1}) {
+		t.Fatalf("SpinBox MinimumSize() = %+v", spin.MinimumSize())
+	}
+	frame := app.Snapshot().Frame
+	decrement, decrementOK := frame.Cell(6, 0)
+	increment, incrementOK := frame.Cell(7, 0)
+	if !decrementOK || !incrementOK ||
+		decrement.Grapheme != "▼" || increment.Grapheme != "▲" ||
+		decrement.Style != "spin_box.button_focused" ||
+		increment.Style != "spin_box.button_focused" ||
+		decrement.Owner != spin.ID() || increment.Owner != spin.ID() {
+		t.Fatalf(
+			"SpinBox affordances decrement=%+v increment=%+v",
+			decrement,
+			increment,
+		)
+	}
 	for index, want := range []float64{1.5, 2, 2} {
 		completion := dispatchTextKey(
 			t,

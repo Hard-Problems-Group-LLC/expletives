@@ -240,6 +240,36 @@ func TestMenuConstructionSnapshotCopyAndRendering(t *testing.T) {
 	}
 }
 
+func TestOpenMenuPreservesNonMenuGlobalAltChord(t *testing.T) {
+	t.Parallel()
+	app, _, _, mu, commands := buildMenuFixture(t)
+	registerActionCommand(t, app, "app.quit", "Quit", true)
+	if err := app.BindChord(
+		Chord{Key: "x", Modifiers: []Key{KeyAlt}},
+		CommandBinding{Command: "app.quit"},
+	); err != nil {
+		t.Fatalf("BindChord(Alt-X) error = %v", err)
+	}
+
+	pressChord(t, app, "open-file", KeyAlt, "f")
+	if details := menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar; len(details.OpenPath) != 1 {
+		t.Fatalf("open menu path = %v, want one root", details.OpenPath)
+	}
+	completion := pressChord(t, app, "quit", KeyAlt, "x")
+	if completion.Command != "app.quit" ||
+		completion.Outcome != OutcomeApplied {
+		t.Fatalf("Alt-X completion = %+v", completion)
+	}
+	if details := menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar; len(details.OpenPath) != 0 {
+		t.Fatalf("menu remained open after Alt-X: %v", details.OpenPath)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(*commands) == 0 || (*commands)[len(*commands)-1].ID != "app.quit" {
+		t.Fatalf("routed commands = %+v", *commands)
+	}
+}
+
 func TestMenuBarEndPlacementRightJustifiesLabelAndAnchorsPopup(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 30, Height: 8})

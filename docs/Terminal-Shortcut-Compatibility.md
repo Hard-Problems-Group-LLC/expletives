@@ -89,7 +89,7 @@ The MenuBar activation defaults are:
 
 | Displayed label | Marked form | Direct chord |
 | --- | --- | --- |
-| File | `F&ile` | `Alt-I` |
+| File | `&File` | `Alt-F` |
 | Panels | `Pa&nels` | `Alt-N` |
 | Layouts | `L&ayouts` | `Alt-A` |
 | Controls | `&Controls` | `Alt-C` |

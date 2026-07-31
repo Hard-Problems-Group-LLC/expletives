@@ -198,7 +198,10 @@ The input line paints a contrasting background across its complete arranged
 width whether focused or not. Focus changes that complete-width background
 again, so Tab and Shift-Tab movement is immediately visible even while the
 field is not in edit mode. Validation and selection foregrounds remain
-legible over both field backgrounds.
+legible over both field backgrounds. Default-theme field backgrounds are
+chosen from terminal palette families distinct from both the hosting canvas
+and the focused field; merely using two RGB shades that commonly quantize to
+the same basic terminal color does not satisfy this requirement.
 
 These single-line editors default to horizontal stretch and vertical natural
 sizing. Their one-row minimum does not grow merely because a vertical Box has
@@ -275,6 +278,13 @@ character policy, so arrows retain caret meaning and bracket stepping cannot
 silently replace a working edit. Arithmetic overflow without an applicable
 bound is a no-op.
 
+A SpinBox reserves its final two arranged cells as visible decrement and
+increment affordances, rendered as `▼` and `▲`. Those cells use normal,
+focused, and disabled semantic button styles distinct from the editable
+numeric field. The arrows persistently distinguish the control from an
+ordinary NumberField. Pointer activation is deferred until pointer input is
+part of the public contract.
+
 `ControlDetails.NumberField` is present for both kinds. It contains current
 text, committed numeric value, length, caret/view position, edit and validity
 state, invalid reason, copied optional bounds, decimal places, optional step,
@@ -345,6 +355,13 @@ Outside edit mode Enter activates editing. Inside edit mode:
 - Ctrl-Home/Ctrl-End move to the beginning/end of the complete value;
 - PageUp/PageDown move by one visible page; and
 - Shift extends selection for every movement operation.
+
+The POSIX presenter requests the Kitty disambiguated-key flag and xterm
+`modifyOtherKeys` level 2 while it owns the terminal, restores both modes on
+suspend or close, and decodes both `CSI 13;5u` and `CSI 27;5;13~` as the same
+bounded Control-down, Enter-press, Control-up lifecycle. A terminal that
+supports neither protocol may encode Ctrl-Enter identically to Enter; Tab is
+the required portable commit-and-traverse fallback.
 
 The same selection replacement, deletion, Ctrl-A, validation, password
 redaction, focus-loss commit, and user-only `ChangeCommand` rules as

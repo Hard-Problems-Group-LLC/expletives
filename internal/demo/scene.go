@@ -11,58 +11,64 @@ import (
 )
 
 const (
-	ScenarioID                                    = "toolkit.catalog"
-	CommandFixtureToggle     expletives.CommandID = "fixture.toggle"
-	CommandPanelRaise        expletives.CommandID = "layout.panel.raise"
-	CommandPanelLower        expletives.CommandID = "layout.panel.lower"
-	CommandLayerRaise        expletives.CommandID = "layout.layer.raise"
-	CommandLayerLower        expletives.CommandID = "layout.layer.lower"
-	CommandScenarioReset     expletives.CommandID = "scenario.reset"
-	CommandAutomationNotice  expletives.CommandID = "fixture.automation_notice"
-	CommandViewHome          expletives.CommandID = "view.home"
-	CommandViewText          expletives.CommandID = "view.text"
-	CommandViewActions       expletives.CommandID = "view.actions"
-	CommandViewMenus         expletives.CommandID = "view.menus"
-	CommandViewAbout         expletives.CommandID = "view.about"
-	CommandViewPanelsCore    expletives.CommandID = "view.panels.core"
-	CommandViewPanelStyles   expletives.CommandID = "view.panels.styles"
-	CommandViewLayoutBox     expletives.CommandID = "view.layouts.box"
-	CommandViewLayoutGrid    expletives.CommandID = "view.layouts.grid"
-	CommandPanelScrollbars   expletives.CommandID = "catalog.panels.scrollbars"
-	CommandLayoutAbsolute    expletives.CommandID = "catalog.layouts.absolute"
-	CommandStatusBar         expletives.CommandID = "chrome.status.show"
-	CommandHeadersShow       expletives.CommandID = "chrome.headers.show"
-	CommandHeadersAdd        expletives.CommandID = "chrome.headers.add"
-	CommandHeadersRemoveTop  expletives.CommandID = "chrome.headers.remove_highest"
-	CommandHeadersRemoveLow  expletives.CommandID = "chrome.headers.remove_lowest"
-	CommandFooterGlobalShow  expletives.CommandID = "chrome.footer.global.show"
-	CommandFooterScreenShow  expletives.CommandID = "chrome.footer.screen.show"
-	CommandFooterFocusShow   expletives.CommandID = "chrome.footer.focus.show"
-	CommandSelection         expletives.CommandID = "catalog.controls.selection"
-	CommandSelectionChanged  expletives.CommandID = "selection.changed"
-	CommandTextInput         expletives.CommandID = "catalog.controls.input"
-	CommandTextChanged       expletives.CommandID = "text.changed"
-	CommandNumberChanged     expletives.CommandID = "number.changed"
-	CommandProgress          expletives.CommandID = "catalog.controls.progress"
-	CommandProgressTick      expletives.CommandID = "progress.tick"
-	CommandProgressReset     expletives.CommandID = "progress.reset"
-	CommandProgressComplete  expletives.CommandID = "progress.complete"
-	CommandProgressFail      expletives.CommandID = "progress.fail"
-	CommandProgressCancel    expletives.CommandID = "progress.cancel"
-	CommandProgressMotion    expletives.CommandID = "progress.reduced_motion"
-	CommandNavigation        expletives.CommandID = "catalog.controls.navigation"
-	CommandNavigationChanged expletives.CommandID = "navigation.changed"
-	CommandScrolling         expletives.CommandID = "catalog.controls.scrolling"
-	CommandCollections       expletives.CommandID = "catalog.controls.collections"
-	CommandPanelMenu         expletives.CommandID = "catalog.menus.panel"
-	CommandContextMenu       expletives.CommandID = "catalog.menus.context"
-	CommandDialogMessage     expletives.CommandID = "catalog.dialogs.message"
-	CommandDialogConfirm     expletives.CommandID = "catalog.dialogs.confirm"
-	CommandDialogInput       expletives.CommandID = "catalog.dialogs.input"
-	CommandDialogProgress    expletives.CommandID = "catalog.dialogs.progress"
-	CommandUnavailable       expletives.CommandID = "fixture.unavailable"
-	CommandAppQuit           expletives.CommandID = "app.quit"
-	CommandAppInterrupt      expletives.CommandID = "app.interrupt"
+	ScenarioID                                       = "toolkit.catalog"
+	CommandFixtureToggle        expletives.CommandID = "fixture.toggle"
+	CommandPanelRaise           expletives.CommandID = "layout.panel.raise"
+	CommandPanelLower           expletives.CommandID = "layout.panel.lower"
+	CommandLayerRaise           expletives.CommandID = "layout.layer.raise"
+	CommandLayerLower           expletives.CommandID = "layout.layer.lower"
+	CommandScenarioReset        expletives.CommandID = "scenario.reset"
+	CommandAutomationNotice     expletives.CommandID = "fixture.automation_notice"
+	CommandViewHome             expletives.CommandID = "view.home"
+	CommandViewText             expletives.CommandID = "view.text"
+	CommandViewActions          expletives.CommandID = "view.actions"
+	CommandViewMenus            expletives.CommandID = "view.menus"
+	CommandViewAbout            expletives.CommandID = "view.about"
+	CommandViewPanelsCore       expletives.CommandID = "view.panels.core"
+	CommandViewPanelStyles      expletives.CommandID = "view.panels.styles"
+	CommandViewLayoutBox        expletives.CommandID = "view.layouts.box"
+	CommandViewLayoutGrid       expletives.CommandID = "view.layouts.grid"
+	CommandPanelScrollbars      expletives.CommandID = "catalog.panels.scrollbars"
+	CommandLayoutAbsolute       expletives.CommandID = "catalog.layouts.absolute"
+	CommandStatusBar            expletives.CommandID = "chrome.status.show"
+	CommandHeadersShow          expletives.CommandID = "chrome.headers.show"
+	CommandHeadersAdd           expletives.CommandID = "chrome.headers.add"
+	CommandHeadersRemoveTop     expletives.CommandID = "chrome.headers.remove_highest"
+	CommandHeadersRemoveLow     expletives.CommandID = "chrome.headers.remove_lowest"
+	CommandFooterGlobalShow     expletives.CommandID = "chrome.footer.global.show"
+	CommandFooterScreenShow     expletives.CommandID = "chrome.footer.screen.show"
+	CommandFooterFocusShow      expletives.CommandID = "chrome.footer.focus.show"
+	CommandSelection            expletives.CommandID = "catalog.controls.selection"
+	CommandSelectionChanged     expletives.CommandID = "selection.changed"
+	CommandTextInput            expletives.CommandID = "catalog.controls.input"
+	CommandTextChanged          expletives.CommandID = "text.changed"
+	CommandNumberChanged        expletives.CommandID = "number.changed"
+	CommandProgress             expletives.CommandID = "catalog.controls.progress"
+	CommandProgressTick         expletives.CommandID = "progress.tick"
+	CommandProgressReset        expletives.CommandID = "progress.reset"
+	CommandProgressComplete     expletives.CommandID = "progress.complete"
+	CommandProgressFail         expletives.CommandID = "progress.fail"
+	CommandProgressCancel       expletives.CommandID = "progress.cancel"
+	CommandProgressMotion       expletives.CommandID = "progress.reduced_motion"
+	CommandNavigation           expletives.CommandID = "catalog.controls.navigation"
+	CommandNavigationChanged    expletives.CommandID = "navigation.changed"
+	CommandScrolling            expletives.CommandID = "catalog.controls.scrolling"
+	CommandCollections          expletives.CommandID = "catalog.controls.collections"
+	CommandPanelMenu            expletives.CommandID = "catalog.menus.panel"
+	CommandContextMenu          expletives.CommandID = "catalog.menus.context"
+	CommandDialogMessage        expletives.CommandID = "catalog.dialogs.message"
+	CommandDialogConfirm        expletives.CommandID = "catalog.dialogs.confirm"
+	CommandDialogInput          expletives.CommandID = "catalog.dialogs.input"
+	CommandDialogProgress       expletives.CommandID = "catalog.dialogs.progress"
+	CommandUnavailable          expletives.CommandID = "fixture.unavailable"
+	CommandAppQuit              expletives.CommandID = "app.quit"
+	CommandAppInterrupt         expletives.CommandID = "app.interrupt"
+	inputFormNaturalWidth                            = 56
+	inputFormNaturalHeight                           = 11
+	inputLabelWidth                                  = 35
+	inputFieldMinimumWidth                           = 20
+	inputAlphanumericCharacters                      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	inputSymbolCharacters                            = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
 )
 
 var catalogScreens = []struct {
@@ -218,22 +224,22 @@ var (
 	textFieldStyle = expletives.Style{
 		ID:         "text_field",
 		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-		Background: expletives.RGB(0x00, 0x00, 0xAA),
+		Background: expletives.RGB(0x00, 0x78, 0x78),
 	}
 	textInputValidStyle = expletives.Style{
 		ID:         "text_input.valid",
 		Foreground: expletives.RGB(0x00, 0xFF, 0x00),
-		Background: expletives.RGB(0x00, 0x00, 0xAA),
+		Background: textFieldStyle.Background,
 	}
 	textInputInvalidStyle = expletives.Style{
 		ID:         "text_input.invalid",
 		Foreground: expletives.RGB(0xFF, 0xFF, 0x00),
-		Background: expletives.RGB(0x00, 0x00, 0xAA),
+		Background: textFieldStyle.Background,
 	}
 	textInputInvalidCharacterStyle = expletives.Style{
 		ID:         "text_input.invalid_character",
 		Foreground: expletives.RGB(0xFF, 0x00, 0x00),
-		Background: expletives.RGB(0x00, 0x00, 0xAA),
+		Background: textFieldStyle.Background,
 	}
 	textInputSelectionStyle = expletives.Style{
 		ID:         "text_input.selection",
@@ -243,7 +249,7 @@ var (
 	textInputDisabledStyle = expletives.Style{
 		ID:         "text_input.disabled",
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
-		Background: expletives.RGB(0x00, 0x00, 0xAA),
+		Background: textFieldStyle.Background,
 	}
 	textInputFocusedStyle = expletives.Style{
 		ID:         "text_input.focused",
@@ -292,6 +298,8 @@ type Scene struct {
 	selectionSelectField    *expletives.SelectField
 	inputPlain              *expletives.TextField
 	inputSoft               *expletives.TextField
+	inputHardWhitelist      *expletives.TextField
+	inputSoftBlacklist      *expletives.TextField
 	inputHard               *expletives.TextField
 	inputPassword           *expletives.TextField
 	inputNumber             *expletives.NumberField
@@ -410,6 +418,21 @@ func NewWithRootConstraints(
 			ID:         "spin_box",
 			Foreground: textFieldStyle.Foreground,
 			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "spin_box.button",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		},
+		expletives.Style{
+			ID:         "spin_box.button_focused",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID:         "spin_box.button_disabled",
+			Foreground: expletives.RGB(0x80, 0x80, 0x80),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
 		},
 		expletives.Style{
 			ID:         "text_area",
@@ -1600,7 +1623,8 @@ func NewWithRootConstraints(
 				ContentStyle: canvasStyle.ID,
 				State: expletives.ViewportState{
 					ContentSize: expletives.Size{
-						Width: 55, Height: 9,
+						Width:  inputFormNaturalWidth,
+						Height: inputFormNaturalHeight,
 					},
 				},
 			},
@@ -1616,8 +1640,10 @@ func NewWithRootConstraints(
 		inputViewport.Content(),
 		expletives.PanelOptions{
 			AutomationKey: "input.form",
-			MinimumSize:   expletives.Size{Width: 55, Height: 9},
-			Style:         canvasStyle.ID,
+			MinimumSize: expletives.Size{
+				Width: inputFormNaturalWidth, Height: inputFormNaturalHeight,
+			},
+			Style: canvasStyle.ID,
 		},
 	)
 	if err != nil {
@@ -1629,7 +1655,7 @@ func NewWithRootConstraints(
 		label *expletives.Label
 		field expletives.Control
 	}
-	inputRows := make([]inputFormRow, 0, 7)
+	inputRows := make([]inputFormRow, 0, 9)
 	newInputRow := func(
 		key string,
 		height int,
@@ -1640,7 +1666,7 @@ func NewWithRootConstraints(
 			expletives.PanelOptions{
 				AutomationKey: "input.row." + key,
 				MinimumSize: expletives.Size{
-					Width: 55, Height: height,
+					Width: inputFormNaturalWidth, Height: height,
 				},
 				LayoutHints: expletives.LayoutHints{
 					Horizontal: expletives.LayoutSizeStretch,
@@ -1663,7 +1689,7 @@ func NewWithRootConstraints(
 				PanelOptions: expletives.PanelOptions{
 					AutomationKey: "input.label." + key,
 					MinimumSize: expletives.Size{
-						Width: 24, Height: 1,
+						Width: inputLabelWidth, Height: 1,
 					},
 					Style: canvasStyle.ID,
 				},
@@ -1694,7 +1720,9 @@ func NewWithRootConstraints(
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.plain",
-				MinimumSize:   expletives.Size{Width: 30, Height: 1},
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
 			},
 			Text:          "Edit me",
 			ChangeCommand: CommandTextChanged,
@@ -1735,13 +1763,15 @@ func NewWithRootConstraints(
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.soft_whitelist",
-				MinimumSize:   expletives.Size{Width: 30, Height: 1},
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
 			},
-			Text: "ABC-123",
+			Text: "Alpha123",
 			Validator: &expletives.TextValidator{
 				Enforcement: expletives.TextValidationSoft,
 				Mode:        expletives.TextValidationWhitelist,
-				Characters:  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-",
+				Characters:  inputAlphanumericCharacters,
 			},
 			ChangeCommand: CommandTextChanged,
 		},
@@ -1752,9 +1782,87 @@ func NewWithRootConstraints(
 	if err := addInputRow(
 		"soft",
 		softInputRow,
-		"Soft whitelist:",
+		"Soft whitelist (alphanumeric only):",
 		"f",
 		inputSoft,
+	); err != nil {
+		return nil, err
+	}
+
+	hardWhitelistRow, err := newInputRow(
+		"hard_whitelist",
+		1,
+		expletives.LayoutSizeNatural,
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputHardWhitelist, err := transaction.NewTextField(
+		hardWhitelistRow,
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text.hard_whitelist",
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
+			},
+			Text: "Hard123",
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationHard,
+				Mode:        expletives.TextValidationWhitelist,
+				Characters:  inputAlphanumericCharacters,
+			},
+			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := addInputRow(
+		"hard_whitelist",
+		hardWhitelistRow,
+		"Hard whitelist (alphanumeric only):",
+		"i",
+		inputHardWhitelist,
+	); err != nil {
+		return nil, err
+	}
+
+	softBlacklistRow, err := newInputRow(
+		"soft_blacklist",
+		1,
+		expletives.LayoutSizeNatural,
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputSoftBlacklist, err := transaction.NewTextField(
+		softBlacklistRow,
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text.soft_blacklist",
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
+			},
+			Text: "soft value",
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  inputSymbolCharacters,
+			},
+			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := addInputRow(
+		"soft_blacklist",
+		softBlacklistRow,
+		"Soft blacklist (no symbols):",
+		"k",
+		inputSoftBlacklist,
 	); err != nil {
 		return nil, err
 	}
@@ -1772,13 +1880,15 @@ func NewWithRootConstraints(
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.hard_blacklist",
-				MinimumSize:   expletives.Size{Width: 30, Height: 1},
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
 			},
-			Text: "safe-name.txt",
+			Text: "hard value",
 			Validator: &expletives.TextValidator{
 				Enforcement: expletives.TextValidationHard,
 				Mode:        expletives.TextValidationBlacklist,
-				Characters:  `/\:*?"<>|`,
+				Characters:  inputSymbolCharacters,
 			},
 			ChangeCommand: CommandTextChanged,
 		},
@@ -1789,7 +1899,7 @@ func NewWithRootConstraints(
 	if err := addInputRow(
 		"hard",
 		hardInputRow,
-		"Hard blacklist:",
+		"Hard blacklist (no symbols):",
 		"b",
 		inputHard,
 	); err != nil {
@@ -1809,7 +1919,9 @@ func NewWithRootConstraints(
 		expletives.TextFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text.password",
-				MinimumSize:   expletives.Size{Width: 30, Height: 1},
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
 			},
 			Text:     "secret",
 			Password: true,
@@ -1848,7 +1960,9 @@ func NewWithRootConstraints(
 		expletives.NumberFieldOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.number.ranged",
-				MinimumSize:   expletives.Size{Width: 30, Height: 1},
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
 			},
 			Value: 12.5, Minimum: &numberMinimum, Maximum: &numberMaximum,
 			DecimalPlaces: 1, ChangeCommand: CommandNumberChanged,
@@ -1881,7 +1995,9 @@ func NewWithRootConstraints(
 		expletives.SpinBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.spin.clamped",
-				MinimumSize:   expletives.Size{Width: 30, Height: 1},
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 1,
+				},
 			},
 			Value: 1, Minimum: &spinMinimum, Maximum: &spinMaximum,
 			DecimalPlaces: 1, Step: 0.5,
@@ -1914,7 +2030,9 @@ func NewWithRootConstraints(
 		expletives.TextAreaOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.text_area.multiline",
-				MinimumSize:   expletives.Size{Width: 30, Height: 3},
+				MinimumSize: expletives.Size{
+					Width: inputFieldMinimumWidth, Height: 3,
+				},
 			},
 			Text: "Multiline\ntext area",
 			Wrap: expletives.TextWrapWords,
@@ -3518,6 +3636,8 @@ func NewWithRootConstraints(
 		selectionSelectField:    selectionSelectField,
 		inputPlain:              inputPlain,
 		inputSoft:               inputSoft,
+		inputHardWhitelist:      inputHardWhitelist,
+		inputSoftBlacklist:      inputSoftBlacklist,
 		inputHard:               inputHard,
 		inputPassword:           inputPassword,
 		inputNumber:             inputNumber,
@@ -4215,7 +4335,7 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 	return []expletives.MenuItem{
 		{
 			Key: "menu.file", Kind: expletives.MenuItemSubmenu,
-			Label: "File", Mnemonic: "i", Menu: file,
+			Label: "File", Mnemonic: "f", Menu: file,
 		},
 		{
 			Key: "menu.panels", Kind: expletives.MenuItemSubmenu,
@@ -4263,8 +4383,8 @@ func (s *Scene) syncInputViewportLocked() error {
 	if s.inputViewport == nil {
 		return nil
 	}
-	const naturalWidth = 55
-	const naturalHeight = 9
+	const naturalWidth = inputFormNaturalWidth
+	const naturalHeight = inputFormNaturalHeight
 	bounds := s.inputViewport.Bounds()
 	horizontalVisible := false
 	verticalVisible := false
@@ -4495,8 +4615,10 @@ func (s *Scene) handleCommand(
 			value string
 		}{
 			{s.inputPlain, "Edit me"},
-			{s.inputSoft, "ABC-123"},
-			{s.inputHard, "safe-name.txt"},
+			{s.inputSoft, "Alpha123"},
+			{s.inputHardWhitelist, "Hard123"},
+			{s.inputSoftBlacklist, "soft value"},
+			{s.inputHard, "hard value"},
 			{s.inputPassword, "secret"},
 		} {
 			if err := transaction.SetText(input.field, input.value); err != nil {
@@ -5256,6 +5378,8 @@ func SelfCheck() error {
 		"input.form",
 		"input.row.plain",
 		"input.row.soft",
+		"input.row.hard_whitelist",
+		"input.row.soft_blacklist",
 		"input.row.hard",
 		"input.row.password",
 		"input.row.number",
@@ -5263,6 +5387,8 @@ func SelfCheck() error {
 		"input.row.multiline",
 		"input.label.plain",
 		"input.label.soft",
+		"input.label.hard_whitelist",
+		"input.label.soft_blacklist",
 		"input.label.hard",
 		"input.label.password",
 		"input.label.number",
@@ -5270,6 +5396,8 @@ func SelfCheck() error {
 		"input.label.multiline",
 		"input.text.plain",
 		"input.text.soft_whitelist",
+		"input.text.hard_whitelist",
+		"input.text.soft_blacklist",
 		"input.text.hard_blacklist",
 		"input.text.password",
 		"input.number.ranged",
@@ -5321,7 +5449,7 @@ func SelfCheck() error {
 	}
 	helpAtEnd := false
 	expectedRootMnemonics := map[string]expletives.Key{
-		"menu.file":     "i",
+		"menu.file":     "f",
 		"menu.panels":   "n",
 		"menu.layouts":  "a",
 		"menu.controls": "c",
@@ -5589,6 +5717,10 @@ func SelfCheck() error {
 	}
 	plainDetails := controls["input.text.plain"].Details.TextField
 	softDetails := controls["input.text.soft_whitelist"].Details.TextField
+	hardWhitelistDetails :=
+		controls["input.text.hard_whitelist"].Details.TextField
+	softBlacklistDetails :=
+		controls["input.text.soft_blacklist"].Details.TextField
 	hardDetails := controls["input.text.hard_blacklist"].Details.TextField
 	passwordDetails := controls["input.text.password"].Details.TextField
 	numberDetails := controls["input.number.ranged"].Details.NumberField
@@ -5599,8 +5731,27 @@ func SelfCheck() error {
 		plainDetails == nil || plainDetails.Text != "Edit me" ||
 		softDetails == nil || softDetails.Validator == nil ||
 		softDetails.Validator.Enforcement != expletives.TextValidationSoft ||
+		softDetails.Validator.Mode != expletives.TextValidationWhitelist ||
+		softDetails.Validator.Characters != inputAlphanumericCharacters ||
+		hardWhitelistDetails == nil ||
+		hardWhitelistDetails.Validator == nil ||
+		hardWhitelistDetails.Validator.Enforcement !=
+			expletives.TextValidationHard ||
+		hardWhitelistDetails.Validator.Mode !=
+			expletives.TextValidationWhitelist ||
+		hardWhitelistDetails.Validator.Characters !=
+			inputAlphanumericCharacters ||
+		softBlacklistDetails == nil ||
+		softBlacklistDetails.Validator == nil ||
+		softBlacklistDetails.Validator.Enforcement !=
+			expletives.TextValidationSoft ||
+		softBlacklistDetails.Validator.Mode !=
+			expletives.TextValidationBlacklist ||
+		softBlacklistDetails.Validator.Characters != inputSymbolCharacters ||
 		hardDetails == nil || hardDetails.Validator == nil ||
 		hardDetails.Validator.Enforcement != expletives.TextValidationHard ||
+		hardDetails.Validator.Mode != expletives.TextValidationBlacklist ||
+		hardDetails.Validator.Characters != inputSymbolCharacters ||
 		passwordDetails == nil || !passwordDetails.Password ||
 		!passwordDetails.Redacted || passwordDetails.Text != "" ||
 		numberDetails == nil || numberDetails.Value != 12.5 ||

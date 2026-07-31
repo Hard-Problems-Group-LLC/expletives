@@ -526,7 +526,7 @@ Beyond the textbook behavior of each control, we specifically need:
 - **Raw key lifecycle.** `KeyDown` and `KeyUp` maintain pressed-key state for
   their input source, including modifier keys. `KeyPress` is an atomic
   convenience that does not leave a key held. Modifier chords such as
-  `Alt-I` and `Ctrl-S` enter mnemonic, accelerator, hotkey, and binding
+  `Alt-F` and `Ctrl-S` enter mnemonic, accelerator, hotkey, and binding
   resolution with the same source-local state whether they came from the
   terminal adapter, headless tests, or attached automation. Disconnect,
   cancellation, failure, and shutdown clear or synthesize release for that

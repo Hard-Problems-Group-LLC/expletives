@@ -374,10 +374,22 @@ func (b numberFieldBehavior) current() normalizedInputText {
 func (numberFieldBehavior) clientInset() int { return 0 }
 
 func (b numberFieldBehavior) additionalStyles() []StyleID {
-	return b.editor.additionalStyles()
+	styles := b.editor.additionalStyles()
+	if b.policy.spin {
+		styles = append(
+			styles,
+			"spin_box.button",
+			"spin_box.button_focused",
+			"spin_box.button_disabled",
+		)
+	}
+	return styles
 }
 
-func (numberFieldBehavior) intrinsicMinimum() Size {
+func (b numberFieldBehavior) intrinsicMinimum() Size {
+	if b.policy.spin {
+		return Size{Width: 10, Height: 1}
+	}
 	return Size{Width: 8, Height: 1}
 }
 
@@ -396,15 +408,56 @@ func (b numberFieldBehavior) paintDecoration(
 	clip Rect,
 ) {
 	_, _, valid := parseNumberText(b.current().text, b.policy)
+	editorBounds := absolute
+	buttonCount := 0
+	if b.policy.spin {
+		buttonCount = min(2, absolute.Width)
+		editorBounds.Width -= buttonCount
+	}
 	paintTextEditor(
 		app,
 		frame,
 		state,
-		absolute,
+		editorBounds,
 		clip,
 		b.editor,
 		!valid,
 	)
+	if buttonCount == 0 {
+		return
+	}
+	style := StyleID("spin_box.button")
+	if b.editor.disabled {
+		style = "spin_box.button_disabled"
+	} else if app.focus == state {
+		style = "spin_box.button_focused"
+	}
+	start := absolute.X + absolute.Width - buttonCount
+	if buttonCount == 1 {
+		app.setClippedCellLocked(
+			frame,
+			clip,
+			start,
+			absolute.Y,
+			"↕",
+			style,
+			app.styles[style],
+			state.id,
+		)
+		return
+	}
+	for index, glyph := range []string{"▼", "▲"} {
+		app.setClippedCellLocked(
+			frame,
+			clip,
+			start+index,
+			absolute.Y,
+			glyph,
+			style,
+			app.styles[style],
+			state.id,
+		)
+	}
 }
 
 func numberFieldBehaviorForRead(

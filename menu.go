@@ -854,6 +854,10 @@ func (a *App) dispatchMenuKeyLocked(
 		if a.menu == nil {
 			return "", false, false
 		}
+		if command := a.bindings[chordKey(key, held)]; command != "" {
+			changed = a.closeMenuLocked()
+			return command, true, changed
+		}
 		return "", true, false
 	}
 	if a.menu == nil {

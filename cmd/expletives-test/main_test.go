@@ -108,7 +108,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	var statusID automation.ControlID
 	helpEnd := false
 	expectedRootMnemonics := map[string]automation.Key{
-		"menu.file":     "i",
+		"menu.file":     "f",
 		"menu.panels":   "n",
 		"menu.layouts":  "a",
 		"menu.controls": "c",
@@ -262,6 +262,20 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.TextField.Validator != nil &&
 					control.Details.TextField.Validator.Enforcement == "soft" &&
 					control.Details.TextField.Validator.Mode == "whitelist"
+		case "input.text.hard_whitelist":
+			inputEvidence[control.Key] =
+				control.Kind == "text_field" &&
+					control.Details.TextField != nil &&
+					control.Details.TextField.Validator != nil &&
+					control.Details.TextField.Validator.Enforcement == "hard" &&
+					control.Details.TextField.Validator.Mode == "whitelist"
+		case "input.text.soft_blacklist":
+			inputEvidence[control.Key] =
+				control.Kind == "text_field" &&
+					control.Details.TextField != nil &&
+					control.Details.TextField.Validator != nil &&
+					control.Details.TextField.Validator.Enforcement == "soft" &&
+					control.Details.TextField.Validator.Mode == "blacklist"
 		case "input.text.hard_blacklist":
 			inputEvidence[control.Key] =
 				control.Kind == "text_field" &&
@@ -413,8 +427,8 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if len(observe.Snapshot.Frame.Cells) > 2 {
 		menuEvidence = menuEvidence &&
 			observe.Snapshot.Frame.Cells[0].Style == "menu_bar" &&
-			observe.Snapshot.Frame.Cells[3].Grapheme == "i" &&
-			observe.Snapshot.Frame.Cells[3].Style == "menu.mnemonic" &&
+			observe.Snapshot.Frame.Cells[2].Grapheme == "F" &&
+			observe.Snapshot.Frame.Cells[2].Style == "menu.mnemonic" &&
 			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-2].Grapheme == "p" &&
 			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-2].Style == "menu.mnemonic"
 		lastRow := (observe.Snapshot.Frame.Size.Height - 1) *
@@ -427,7 +441,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(inputEvidence) != 7 ||
+		len(inputEvidence) != 9 ||
 		len(progressEvidence) != 11 ||
 		len(navigationEvidence) != 4 ||
 		len(screenEvidence) != 15 ||
@@ -507,9 +521,9 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		if _, err := client.InjectInput(
 			ctx,
 			requestPrefix+"-file",
-			automation.KeyEvent{Kind: automation.KeyPress, Key: "i"},
+			automation.KeyEvent{Kind: automation.KeyPress, Key: "f"},
 		); err != nil {
-			t.Fatalf("InjectInput(Alt-I) error = %v", err)
+			t.Fatalf("InjectInput(Alt-F) error = %v", err)
 		}
 		if _, err := client.InjectInput(
 			ctx,
@@ -1017,7 +1031,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			textCommit.Outcome, textCommit.Snapshot != nil)
 	}
 	var areaFocus automation.Completion
-	for index := range 6 {
+	for index := range 8 {
 		areaFocus, err = client.InjectInput(
 			ctx,
 			"area-tab-"+string(rune('0'+index)),

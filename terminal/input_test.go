@@ -138,6 +138,58 @@ func TestInputDecoderEmitsShiftNavigationLifecycle(t *testing.T) {
 	}
 }
 
+func TestInputDecoderRecognizesEnhancedCtrlEnter(t *testing.T) {
+	t.Parallel()
+	want := []expletives.KeyEvent{
+		{Kind: expletives.KeyEventDown, Key: expletives.KeyControl},
+		keyPress(expletives.KeyEnter),
+		{Kind: expletives.KeyEventUp, Key: expletives.KeyControl},
+	}
+	for _, test := range []struct {
+		name     string
+		sequence string
+	}{
+		{name: "Kitty", sequence: "\x1b[13;5u"},
+		{name: "modifyOtherKeys", sequence: "\x1b[27;5;13~"},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			decoder := mustInputDecoder(t, InputDecoderOptions{})
+			got := decoder.Feed(time.Unix(1, 0), []byte(test.sequence))
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("events = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
+
+func TestInputDecoderRecognizesEnhancedAltX(t *testing.T) {
+	t.Parallel()
+	want := []expletives.KeyEvent{
+		{Kind: expletives.KeyEventDown, Key: expletives.KeyAlt},
+		keyPress("x"),
+		{Kind: expletives.KeyEventUp, Key: expletives.KeyAlt},
+	}
+	for _, test := range []struct {
+		name     string
+		sequence string
+	}{
+		{name: "Kitty", sequence: "\x1b[120;3u"},
+		{name: "modifyOtherKeys", sequence: "\x1b[27;3;120~"},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			decoder := mustInputDecoder(t, InputDecoderOptions{})
+			got := decoder.Feed(time.Unix(1, 0), []byte(test.sequence))
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("events = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
+
 func TestInputDecoderEmitsBoundedPasteInStreamOrder(t *testing.T) {
 	t.Parallel()
 	decoder := mustInputDecoder(t, InputDecoderOptions{})

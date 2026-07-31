@@ -18,8 +18,8 @@ type enabledMenuPath struct {
 }
 
 var enabledCatalogMenuPaths = []enabledMenuPath{
-	{"menu.file.home", []expletives.Key{"i", "h"}, CommandViewHome, expletives.OutcomeNoOp, CommandViewHome, nil},
-	{"menu.file.quit", []expletives.Key{"i", "q"}, CommandAppQuit, expletives.OutcomeExited, "", nil},
+	{"menu.file.home", []expletives.Key{"f", "h"}, CommandViewHome, expletives.OutcomeNoOp, CommandViewHome, nil},
+	{"menu.file.quit", []expletives.Key{"f", "q"}, CommandAppQuit, expletives.OutcomeExited, "", nil},
 	{"menu.panels.core", []expletives.Key{"n", "c"}, CommandViewPanelsCore, expletives.OutcomeApplied, CommandViewPanelsCore, nil},
 	{"menu.panels.styles", []expletives.Key{"n", "v"}, CommandViewPanelStyles, expletives.OutcomeApplied, CommandViewPanelStyles, nil},
 	{"menu.stack.panel.raise", []expletives.Key{"n", "t", "r"}, CommandPanelRaise, expletives.OutcomeApplied, CommandViewPanelsCore, []string{"menu.panels.stacking"}},
@@ -53,7 +53,7 @@ type disabledMenuEntry struct {
 }
 
 var disabledCatalogMenuEntries = []disabledMenuEntry{
-	{"menu.file.automation_notice", "i", 1},
+	{"menu.file.automation_notice", "f", 1},
 	{"menu.panels.scrollbars", "n", 3},
 	{"menu.layouts.absolute", "a", 3},
 	{"menu.controls.scrolling", "c", 6},
@@ -225,7 +225,7 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		root expletives.Key
 		want []string
 	}{
-		{"file", "i", []string{"menu.file.home", "menu.file.automation_notice", "menu.file.quit"}},
+		{"file", "f", []string{"menu.file.home", "menu.file.automation_notice", "menu.file.quit"}},
 		{"panels", "n", []string{"menu.panels.core", "menu.panels.styles", "menu.panels.stacking", "menu.panels.scrollbars"}},
 		{"layouts", "a", []string{"menu.layouts.box", "menu.layouts.grid", "menu.layouts.stacking", "menu.layouts.absolute"}},
 		{"controls", "c", []string{"menu.controls.text", "menu.controls.actions", "menu.controls.selection", "menu.controls.input", "menu.controls.progress", "menu.controls.navigation", "menu.controls.scrolling", "menu.controls.collections"}},
@@ -578,6 +578,8 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	fieldKeys := []string{
 		"input.text.plain",
 		"input.text.soft_whitelist",
+		"input.text.hard_whitelist",
+		"input.text.soft_blacklist",
 		"input.text.hard_blacklist",
 		"input.text.password",
 		"input.number.ranged",
@@ -587,7 +589,7 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	lastY := -1
 	for _, key := range fieldKeys {
 		field := control(key)
-		if field.AbsoluteBounds.Width < 30 ||
+		if field.AbsoluteBounds.Width < inputFieldMinimumWidth ||
 			field.AbsoluteBounds.Height != 1 ||
 			field.AbsoluteBounds.X+field.AbsoluteBounds.Width !=
 				form.AbsoluteBounds.X+form.AbsoluteBounds.Width {
@@ -619,13 +621,26 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 		area.AbsoluteBounds.Y <= lastY {
 		t.Fatalf("TextArea form bounds = %+v", area.AbsoluteBounds)
 	}
+	labels := map[string]string{
+		"plain":          "Plain text:",
+		"soft":           "Soft whitelist (alphanumeric only):",
+		"hard_whitelist": "Hard whitelist (alphanumeric only):",
+		"soft_blacklist": "Soft blacklist (no symbols):",
+		"hard":           "Hard blacklist (no symbols):",
+		"password":       "Password phrase:",
+		"number":         "Number:",
+		"spin":           "Spin box:",
+		"multiline":      "Multiline value:",
+	}
 	for _, key := range []string{
-		"plain", "soft", "hard", "password", "number", "spin", "multiline",
+		"plain", "soft", "hard_whitelist", "soft_blacklist", "hard",
+		"password", "number", "spin", "multiline",
 	} {
 		label := control("input.label." + key)
 		row := control("input.row." + key)
 		if row.Details.Border != nil ||
 			label.Details.Text == nil ||
+			label.Details.Text.Text != labels[key] ||
 			label.Details.Text.Target == "" ||
 			label.Details.Text.HorizontalAlignment !=
 				expletives.TextAlignStart ||
@@ -687,7 +702,9 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	)
 	if plainBlank.Background != textFieldStyle.Background ||
 		softBlank.Background != textInputFocusedStyle.Background ||
-		plainBlank.Background == softBlank.Background {
+		plainBlank.Background == softBlank.Background ||
+		plainBlank.Background == canvasStyle.Background ||
+		softBlank.Background == canvasStyle.Background {
 		t.Fatalf(
 			"Tab focus backgrounds: plain=%+v soft=%+v",
 			plainBlank,
@@ -695,23 +712,91 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 		)
 	}
 	dispatch("soft-edit", expletives.KeyEnter)
-	dispatch("soft-invalid", "x")
-	if details := control("input.text.soft_whitelist").Details.TextField; details == nil || details.Valid || details.Text != "ABC-123x" {
+	dispatch("soft-invalid", "!")
+	if details := control("input.text.soft_whitelist").Details.TextField; details == nil || details.Valid || details.Text != "Alpha123!" ||
+		details.Validator == nil ||
+		details.Validator.Enforcement != expletives.TextValidationSoft ||
+		details.Validator.Mode != expletives.TextValidationWhitelist ||
+		details.Validator.Characters != inputAlphanumericCharacters {
 		t.Fatalf("soft-invalid details = %#v", details)
 	}
 	dispatch("soft-commit", expletives.KeyEnter)
 
-	dispatch("tab-hard", expletives.KeyTab)
-	dispatch("hard-edit", expletives.KeyEnter)
+	dispatch("tab-hard-whitelist", expletives.KeyTab)
+	dispatch("hard-whitelist-edit", expletives.KeyEnter)
+	hardWhitelistBefore :=
+		control("input.text.hard_whitelist").Details.TextField
+	if completion := dispatch("hard-whitelist-accept", "Z"); completion.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("hard whitelist alphanumeric completion = %+v", completion)
+	}
+	hardWhitelistAccepted :=
+		control("input.text.hard_whitelist").Details.TextField
+	if completion := dispatch("hard-whitelist-reject", "!"); completion.Outcome != expletives.OutcomeNoOp {
+		t.Fatalf("hard whitelist symbol completion = %+v", completion)
+	}
+	hardWhitelistAfter :=
+		control("input.text.hard_whitelist").Details.TextField
+	if hardWhitelistBefore == nil || hardWhitelistAccepted == nil ||
+		hardWhitelistAfter == nil ||
+		hardWhitelistAccepted.Length != hardWhitelistBefore.Length+1 ||
+		hardWhitelistAfter.Length != hardWhitelistAccepted.Length ||
+		hardWhitelistAfter.Validator == nil ||
+		hardWhitelistAfter.Validator.Enforcement !=
+			expletives.TextValidationHard ||
+		hardWhitelistAfter.Validator.Mode !=
+			expletives.TextValidationWhitelist ||
+		hardWhitelistAfter.Validator.Characters !=
+			inputAlphanumericCharacters {
+		t.Fatalf(
+			"hard whitelist details before=%#v accepted=%#v after=%#v",
+			hardWhitelistBefore,
+			hardWhitelistAccepted,
+			hardWhitelistAfter,
+		)
+	}
+	dispatch("hard-whitelist-cancel", expletives.KeyEscape)
+
+	dispatch("tab-soft-blacklist", expletives.KeyTab)
+	dispatch("soft-blacklist-edit", expletives.KeyEnter)
+	if completion := dispatch("soft-blacklist-invalid", "!"); completion.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("soft blacklist symbol completion = %+v", completion)
+	}
+	softBlacklist := control("input.text.soft_blacklist").Details.TextField
+	if softBlacklist == nil || softBlacklist.Valid ||
+		softBlacklist.Text != "soft value!" ||
+		softBlacklist.Validator == nil ||
+		softBlacklist.Validator.Enforcement != expletives.TextValidationSoft ||
+		softBlacklist.Validator.Mode != expletives.TextValidationBlacklist ||
+		softBlacklist.Validator.Characters != inputSymbolCharacters {
+		t.Fatalf("soft blacklist details = %#v", softBlacklist)
+	}
+	dispatch("soft-blacklist-commit", expletives.KeyEnter)
+
+	dispatch("tab-hard-blacklist", expletives.KeyTab)
+	dispatch("hard-blacklist-edit", expletives.KeyEnter)
 	before := control("input.text.hard_blacklist").Details.TextField
-	if completion := dispatch("hard-reject", ":"); completion.Outcome != expletives.OutcomeNoOp {
+	if completion := dispatch("hard-blacklist-accept", "Z"); completion.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("hard blacklist alphanumeric completion = %+v", completion)
+	}
+	accepted := control("input.text.hard_blacklist").Details.TextField
+	if completion := dispatch("hard-blacklist-reject", "!"); completion.Outcome != expletives.OutcomeNoOp {
 		t.Fatalf("hard-invalid completion = %+v", completion)
 	}
 	after := control("input.text.hard_blacklist").Details.TextField
-	if before == nil || after == nil || before.Length != after.Length {
-		t.Fatalf("hard-invalid changed details from %#v to %#v", before, after)
+	if before == nil || accepted == nil || after == nil ||
+		accepted.Length != before.Length+1 ||
+		after.Length != accepted.Length || after.Validator == nil ||
+		after.Validator.Enforcement != expletives.TextValidationHard ||
+		after.Validator.Mode != expletives.TextValidationBlacklist ||
+		after.Validator.Characters != inputSymbolCharacters {
+		t.Fatalf(
+			"hard blacklist details before=%#v accepted=%#v after=%#v",
+			before,
+			accepted,
+			after,
+		)
 	}
-	dispatch("hard-cancel", expletives.KeyEscape)
+	dispatch("hard-blacklist-cancel", expletives.KeyEscape)
 
 	dispatch("tab-password", expletives.KeyTab)
 	password := control("input.text.password").Details.TextField
@@ -749,8 +834,17 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	if details := control("input.text.plain").Details.TextField; details == nil || details.Text != "Edit me" {
 		t.Fatalf("Scenario Reset left plain details = %#v", details)
 	}
-	if details := control("input.text.soft_whitelist").Details.TextField; details == nil || details.Text != "ABC-123" || !details.Valid {
+	if details := control("input.text.soft_whitelist").Details.TextField; details == nil || details.Text != "Alpha123" || !details.Valid {
 		t.Fatalf("Scenario Reset left soft details = %#v", details)
+	}
+	if details := control("input.text.hard_whitelist").Details.TextField; details == nil || details.Text != "Hard123" || !details.Valid {
+		t.Fatalf("Scenario Reset left hard whitelist details = %#v", details)
+	}
+	if details := control("input.text.soft_blacklist").Details.TextField; details == nil || details.Text != "soft value" || !details.Valid {
+		t.Fatalf("Scenario Reset left soft blacklist details = %#v", details)
+	}
+	if details := control("input.text.hard_blacklist").Details.TextField; details == nil || details.Text != "hard value" || !details.Valid {
+		t.Fatalf("Scenario Reset left hard blacklist details = %#v", details)
 	}
 	if details := control("input.number.ranged").Details.NumberField; details == nil || details.Value != 12.5 {
 		t.Fatalf("Scenario Reset left NumberField details = %#v", details)
@@ -793,8 +887,8 @@ func TestTextInputFormUsesViewportWhenNaturalGeometryDoesNotFit(t *testing.T) {
 	if details == nil ||
 		!details.HorizontalVisible ||
 		!details.VerticalVisible ||
-		details.State.ContentSize.Width < 55 ||
-		details.State.ContentSize.Height < 9 ||
+		details.State.ContentSize.Width < inputFormNaturalWidth ||
+		details.State.ContentSize.Height < inputFormNaturalHeight ||
 		details.MaximumOffset.X <= 0 ||
 		details.MaximumOffset.Y <= 0 {
 		t.Fatalf("small input viewport details = %#v", details)
@@ -1044,7 +1138,7 @@ func TestAutomationNoticeDefaultsToStatusBarAndMenuToggles(t *testing.T) {
 	assertNotice(true, true)
 	request := 0
 	for _, wantVisible := range []bool{false, true} {
-		openCatalogMenu(t, scene, "i", &request)
+		openCatalogMenu(t, scene, "f", &request)
 		completion := dispatchCatalogKey(
 			t,
 			scene,

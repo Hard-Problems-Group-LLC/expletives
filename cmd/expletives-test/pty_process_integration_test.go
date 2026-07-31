@@ -25,7 +25,7 @@ const (
 	processPTYOutputLimit = 512 * 1024
 
 	// Presenter.Close must emit this mode restoration before the process exits.
-	processLeaveTerminal = "\x1b[0m\x1b[?25h\x1b[?2004l\x1b[?1049l"
+	processLeaveTerminal = "\x1b[0m\x1b[?25h\x1b[>4m\x1b[<u\x1b[?2004l\x1b[?1049l"
 )
 
 func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
@@ -54,9 +54,9 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		waitForFrameHeight(t, ctx, process, inputStart, 30)
 
 		altStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{0x1b, 'i'})
+		writePTY(t, process.pair.master, []byte{0x1b, 'f'})
 		if err := process.pair.waitInputDrained(ctx); err != nil {
-			t.Fatalf("deliver Alt-I: %v", err)
+			t.Fatalf("deliver Alt-F: %v", err)
 		}
 		waitForFrameHeight(t, ctx, process, altStart, 30)
 		escapeStart := process.output.mark()
@@ -114,10 +114,10 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		waitForFrameHeight(t, ctx, process, helpStart, 30)
 
 		quitStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{'q'})
+		writePTY(t, process.pair.master, []byte{0x1b, 'x'})
 		if err := process.wait(ctx); err != nil {
 			t.Fatalf(
-				"debug expletives-test clean quit: %v; terminal output tail=%q",
+				"debug expletives-test Alt-X quit: %v; terminal output tail=%q",
 				err,
 				process.output.tail(4096),
 			)
