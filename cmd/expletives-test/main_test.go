@@ -115,15 +115,21 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			frontBounds = control.AbsoluteBounds
 		case "panel.accent":
 			accentBounds = control.Bounds
-		case "screen.core":
-			screenEvidence[control.Key] = control.Visible
-		case "screen.text", "screen.actions", "screen.menus", "screen.about":
+		case "screen.home":
+			screenEvidence[control.Key] =
+				control.Visible &&
+					len(control.Children) == 0 &&
+					control.Style == "fixture.canvas" &&
+					control.ResolvedStyle.Background == "#003878"
+		case "screen.panels.core", "screen.panels.styles",
+			"screen.layouts.box", "screen.layouts.grid",
+			"screen.text", "screen.actions", "screen.menus", "screen.about":
 			screenEvidence[control.Key] = !control.Visible
 		case "menu.main":
 			menuEvidence =
 				control.Kind == "menu_bar" &&
 					control.Details.MenuBar != nil &&
-					len(control.Details.MenuBar.Entries) == 43 &&
+					len(control.Details.MenuBar.Entries) == 47 &&
 					len(control.Details.MenuBar.OpenPath) == 0 &&
 					control.Bounds == (automation.Rect{
 						Width:  observe.Snapshot.Frame.Size.Width,
@@ -210,7 +216,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(screenEvidence) != 5 {
+		len(screenEvidence) != 9 {
 		t.Fatalf(
 			"catalog evidence: menu=%t screens=%#v display=%#v action=%#v",
 			menuEvidence,
@@ -251,12 +257,25 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if len(observe.Snapshot.Frame.Runs) == 0 {
 		t.Fatal("client observation omitted compact frame runs")
 	}
+	shownBox, err := client.InvokeCommand(
+		ctx,
+		"show-box-layout",
+		string(demo.CommandViewLayoutBox),
+		"",
+	)
+	if err != nil {
+		t.Fatalf("InvokeCommand(Box Layout) error = %v", err)
+	}
+	if shownBox.Outcome != automation.OutcomeApplied ||
+		shownBox.Snapshot == nil {
+		t.Fatalf("Box Layout completion = %+v", shownBox)
+	}
 	layerX, layerY := frontBounds.X+2, frontBounds.Y+1
-	layerCell := layerY*observe.Snapshot.Frame.Size.Width + layerX
+	layerCell := layerY*shownBox.Snapshot.Frame.Size.Width + layerX
 	if backID == "" || frontID == "" ||
 		layerX < 0 || layerY < 0 ||
-		layerCell >= len(observe.Snapshot.Frame.Cells) ||
-		observe.Snapshot.Frame.Cells[layerCell].Owner != frontID {
+		layerCell >= len(shownBox.Snapshot.Frame.Cells) ||
+		shownBox.Snapshot.Frame.Cells[layerCell].Owner != frontID {
 		t.Fatalf("initial stacking evidence is incomplete")
 	}
 	raised, err := client.InvokeCommand(
@@ -369,14 +388,14 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	}
 	actionsVisible := false
 	actionsFocused := false
-	coreHidden := false
+	homeHidden := false
 	viewChecked := false
 	for _, control := range shownActions.Snapshot.Controls {
 		switch control.Key {
 		case "screen.actions":
 			actionsVisible = control.Visible
-		case "screen.core":
-			coreHidden = !control.Visible
+		case "screen.home":
+			homeHidden = !control.Visible
 		case "action.toggle":
 			actionsFocused = control.Focused
 		case "menu.main":
@@ -389,12 +408,12 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			}
 		}
 	}
-	if !actionsVisible || !actionsFocused || !coreHidden || !viewChecked {
+	if !actionsVisible || !actionsFocused || !homeHidden || !viewChecked {
 		t.Fatalf(
-			"Actions screen visible=%t focused=%t coreHidden=%t checked=%t",
+			"Actions screen visible=%t focused=%t homeHidden=%t checked=%t",
 			actionsVisible,
 			actionsFocused,
-			coreHidden,
+			homeHidden,
 			viewChecked,
 		)
 	}

@@ -136,13 +136,13 @@ The application must maintain an inspectable catalog that covers every
 public UI element. Each catalog entry needs a stable scenario ID, a concise
 purpose, deterministic reset behavior, and the important applicable states.
 The implemented `toolkit.catalog` scene has one persistent MenuBar and exactly
-one visible purpose-specific Core/Layout, Text/Display, Actions, Menus, or
-About screen.
+one visible purpose-specific Home, Core Panels, Visual Styles, Box Layout,
+Grid Layout, Text/Display, Actions, Menus, or About screen.
 Screen selection uses normal `view.*` commands reached through menu input or
-automation; it has no private test-only navigation path. Current Panel and
-Layout aliases route to the combined core screen with distinct catalog
-labels. Disabled `catalog.*` commands retain future pages in their intended
-namespaces and expose an explicit phase-owned unavailability reason.
+automation; it has no private test-only navigation path. Each enabled catalog
+label has its own screen and stable command identity. Disabled `catalog.*`
+commands retain future pages in their intended namespaces and expose an
+explicit phase-owned unavailability reason.
 
 The coverage inventory must include, as the library gains them:
 
@@ -173,16 +173,26 @@ The coverage inventory must include, as the library gains them:
 - bounded streaming and honest dropped-content reporting; and
 - cursor visibility and placement during text entry and non-editing focus.
 
-The Core/Layout screen visibly distinguishes control and Layout
-decoration: a single-line outer Frame, a double-line GroupBox, an unbordered
-Frame, independently bordered Grid and nested Layouts, and light, medium,
-dark, and full-cell shade forms. The unbordered Frame combined with its
-bordered child Layout is the regression fixture for clean shared framing
-without doubled seams. The Text/Display screen embeds an aligned Label with
-an observable mnemonic target, word-wrapped StaticText, a double-line
-Separator, and a titled Rule in two child BoxLayouts. Their stable automation
-keys are `display.label`, `display.static_text`, `display.separator`, and
-`display.rule`.
+Home is the startup screen. It has no child controls and paints the ordinary
+Turbo Vision-style catalog canvas, semantic style `fixture.canvas`, whose
+current intended background is medium blue `#003878`. File/Home restores this
+screen from every other catalog page.
+
+Core Panels contains the red and accent Panels plus a double-line GroupBox
+with a nested Panel. Visual Styles separately contains inspectable no-frame,
+single-line, double-line, light-shade, medium-shade, dark-shade, and full-cell
+Frame fixtures. Box Layout contains a nested horizontal/vertical arrangement
+and a distinct pair of overlapping top-level Box Layouts for common-mode
+Raise/Lower verification. Grid Layout contains six colored Panels in a
+three-column, two-row Grid with gaps and its own dark-shade Layout border.
+Panel stacking commands navigate to Core Panels; Layout stacking commands
+navigate to Box Layout, so a menu operation never silently mutates a hidden
+fixture.
+
+The Text/Display screen embeds an aligned Label with an observable mnemonic
+target, word-wrapped StaticText, a double-line Separator, and a titled Rule in
+two child BoxLayouts. Their stable automation keys are `display.label`,
+`display.static_text`, `display.separator`, and `display.rule`.
 
 The Actions screen embeds default/focused, ordinary, disabled-with-reason,
 and cancel Buttons in `action.panel`, plus a live HotkeyBar in the automation
@@ -199,11 +209,11 @@ maximum constraints. It reserves that row from the catalog Layout and exposes
 start-aligned File, Panels, Layouts, Controls, Menus, and Dialogs roots plus
 an end-aligned Help root.
 
-- File contains Quit.
-- Panels links the current Panel/Frame and visual-style page and reserves
-  Panel scroll-bar coverage.
-- Layouts links Box/Grid coverage, contains the nested Stacking operations,
-  and reserves absolute-positioning coverage.
+- File contains Home, a separator, and Quit.
+- Panels links Core Panels and Visual Styles, contains Panel Raise/Lower in a
+  nested Stacking menu, and reserves Panel scroll-bar coverage.
+- Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
+  nested Stacking menu, and reserves absolute-positioning coverage.
 - Controls links current Text/Display and Actions pages, then uses separators
   to group disabled phase-owned Status, Header/Footer, Selection, Input,
   Progress, Navigation, Scrolling/Content, and Collection pages.
@@ -225,6 +235,12 @@ from its right-justified label rather than declaration offset. Popups remain
 visible in typed snapshots as a flat bounded tree with open and selected
 paths. Project-selected defaults follow
 [`../Terminal-Shortcut-Compatibility.md`](../Terminal-Shortcut-Compatibility.md).
+The catalog regression suite traverses every command-bearing menu path.
+Enabled entries must reach their registered command and a sensible visible
+result; disabled future entries must remain selectable with their phase-owned
+reason but refuse activation without closing the popup; separators must
+remain nonselectable; and every submenu must have children and be opened by
+at least one traversed path.
 
 The authoritative inventory and order are in
 [`control-catalog.md`](control-catalog.md). `FormPanel`, `Wizard`, and

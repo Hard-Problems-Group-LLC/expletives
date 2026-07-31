@@ -4,6 +4,55 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-023` — Reorganize the interactive catalog and
+  exhaustively audit its menus.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T23:07:47-07:00
+  - Completed: 2026-07-30T23:24:04-07:00
+  - Outcome:
+    - made a childless medium-blue Home canvas the startup screen and added
+      File/Home followed by the conventional separator before Quit;
+    - replaced the combined Panel/Layout aliases with distinct Core Panels,
+      Visual Styles, Box Layout, and Grid Layout screens;
+    - added visible fixtures for all seven supported Frame forms, nested
+      horizontal/vertical Box Layouts, common-mode Layout stacking, and a
+      six-Panel Grid;
+    - separated Panel and Layout stacking menus and made every mutation route
+      navigate to the fixture it changes; and
+    - retained stable raw commands, typed screen identity, checked menu state,
+      and direct automation observability for every page.
+  - Menu audit:
+    - raw-key regression coverage traverses all 30 command-bearing menu
+      entries, all eight separators, and all nine root or nested submenus;
+    - enabled entries reach their exact registered command and visible page;
+    - every disabled future entry remains selectable, exposes its phase-owned
+      reason, and refuses Enter without dispatch or popup dismissal; and
+    - attached debug checks exercised File/Home, nested Panel stacking, and a
+      disabled Controls entry through raw KeyDown/KeyUp/KeyPress events.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the controlling-PTY integration test, the full race suite, all
+      debug/release/profiling builds, and every mode's smoke/self-check;
+    - live 100x30 frame inspection confirmed the empty `#003878` Home canvas,
+      seven Frame styles, nested Box geometry, stacked Layout geometry, and
+      the complete three-by-two Grid; and
+    - orderly attached shutdown returned a final snapshot, removed its socket,
+      and left no temporary workspace.
+  - Contracts:
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+    - [`Menus API v0`](../docs/specifications/menus-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Process:
+    - completed as a bounded catalog correction without convening the Panel;
+    - ACP is authorized without review after the exhaustive audit gate; and
+    - recorded the single-source catalog-manifest opportunity in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 9 Status Bar is the next active common-control phase, followed by
+      Headers/Footers and Selection; and
+    - Structured Input remains deferred.
+
 - 2026-07-30 — `EXPL-TASK-022` — Audit terminal-emulator shortcut collisions
   and rebind project defaults.
   - Requestor: project operator

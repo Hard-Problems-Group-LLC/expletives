@@ -238,6 +238,12 @@ their implementation. Screen switching uses ordinary public commands and
 transactions; it never reparents controls or introduces test-only automation
 operations.
 
+Home is a childless medium-blue startup canvas reached through File/Home,
+followed by a separator and Quit. Core Panels, Visual Styles, Box Layout, and
+Grid Layout are distinct pages rather than aliases. Panel and Layout stacking
+operations live in separate nested Stacking menus and navigate to the
+relevant page before applying their public Raise/Lower operation.
+
 Normal Go tests cover construction, immutable copies, invalid trees,
 root-chrome ownership, geometry mutation and Layout rejection, surface and
 root-constraint resize, row reservation, F9 bar activation, traversal,
@@ -245,6 +251,12 @@ disabled selection/nonactivation, mnemonics, nesting, focus restoration,
 exact style roles, separators, shadows, measured popup width, child backset,
 start/end alignment and popup anchoring, tiny viewports, snapshot paths,
 concurrency, and response bounds.
+
+The test-application catalog adds an exhaustive path table over every
+command-bearing entry plus structural assertions over every root, submenu,
+and separator. Disabled placeholders count as sensible behavior only when
+they remain selectable for inspection, expose a nonempty phase-owned reason,
+and refuse Enter without closing the popup or dispatching the command.
 
 Attached and PTY tests exercise the collision-audited `expletives-test`
 mnemonics, F9, Ctrl-Space, arrows, Enter, Escape, nested popups, commands,

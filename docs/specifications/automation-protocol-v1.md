@@ -295,7 +295,7 @@ The server writes exactly one `hello` before reading requests:
     "scenario.reset",
     "view.about",
     "view.actions",
-    "view.core",
+    "view.home",
     "view.layouts.box",
     "view.layouts.grid",
     "view.menus",

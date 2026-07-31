@@ -574,6 +574,25 @@ Improvement applied:
 - keep one transaction and publication rather than adding retry passes; and
 - retain a same-transaction nested fixture so this dependency cannot regress.
 
+### 23. Derive Catalog Audits From One Menu Manifest
+
+The exhaustive catalog audit deliberately enumerates every command path and
+disabled entry, but its test table currently repeats keys and mnemonics already
+declared by the demo Menu tree. That is fast enough now, yet each new control
+phase would otherwise require synchronized edits in construction, path tests,
+and documentation.
+
+Improvement:
+
+- introduce one private immutable catalog descriptor when the next page is
+  enabled;
+- derive Menu models and exhaustive audit cases from that descriptor while
+  keeping behavior contracts and prose independently reviewed;
+- retain explicit assertions for expected counts, placement, grouping, and
+  outcomes so generation cannot hide accidental catalog growth; and
+- do not broaden the public toolkit API merely to reduce test-application
+  duplication.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

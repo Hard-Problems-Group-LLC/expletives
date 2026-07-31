@@ -313,6 +313,10 @@ ordered backlog and the active-task record; it does not replace either.
   resize, focus restoration; start/end top-level placement with conventional
   right-justified Help; scalable File/Panels/Layouts/Controls/Menus/Dialogs/
   Help catalog namespaces; and one active purpose-specific catalog screen.
+  The catalog starts on an empty medium-blue Home canvas, exposes Home through
+  File, and gives Core Panels, Visual Styles, Box Layout, and Grid Layout
+  separate pages. Panel and Layout stacking operations are grouped and routed
+  independently.
 - `expletives-test` scenarios: `menus.navigation`, `menus.alt-mnemonic`,
   `menus.f9-fallback`, `menus.disabled-command`, and
   `menus.popup-clipping`, and `menus.end-placement`. The persistent MenuBar
@@ -333,7 +337,8 @@ ordered backlog and the active-task record; it does not replace either.
 - Completion evidence:
   [`EXPL-TASK-019`](completed-tasks.md) and corrective
   [`EXPL-TASK-020`](completed-tasks.md), extended by
-  [`EXPL-TASK-021`](completed-tasks.md).
+  [`EXPL-TASK-021`](completed-tasks.md) and catalog audit
+  `EXPL-TASK-023`.
 
 ### 9. Status Bar
 
