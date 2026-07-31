@@ -58,11 +58,11 @@ const (
 	MaxHotkeyBarItems = 64
 	// MaxStatusBarSegments bounds one StatusBar's copied ordered inventory.
 	MaxStatusBarSegments = 64
-	// MaxSelectionOptions bounds one copied CycleField or SelectField option
+	// MaxSelectionOptions bounds one copied CycleField, SelectField, or tab
 	// inventory.
 	MaxSelectionOptions = 256
-	// MaxSelectionItems bounds aggregate RadioButton and copied fixed-option
-	// records across one App and its automation evidence.
+	// MaxSelectionItems bounds aggregate RadioButton, copied fixed-option, and
+	// copied Tab records across one App and its automation evidence.
 	MaxSelectionItems = 1024
 	// MaxTextInputBytes and MaxTextInputCells bound one editor value. These are
 	// allocation and evidence limits, not conventional terminal geometry caps.
@@ -313,6 +313,10 @@ const (
 	ControlActivityDots ControlKind = "activity_dots"
 	// ControlScrollBar identifies one focusable viewport-position control.
 	ControlScrollBar ControlKind = "scroll_bar"
+	// ControlTabbedPanel identifies one focusable stacked-page container.
+	ControlTabbedPanel ControlKind = "tabbed_panel"
+	// ControlNotebook identifies the Notebook naming variant of TabbedPanel.
+	ControlNotebook ControlKind = "notebook"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -595,6 +599,8 @@ type ControlDetails struct {
 	Progress *ProgressDetails `json:"progress,omitempty"`
 	// ScrollBar is present for ScrollBar.
 	ScrollBar *ScrollBarDetails `json:"scroll_bar,omitempty"`
+	// TabbedPanel is present for TabbedPanel and Notebook.
+	TabbedPanel *TabbedPanelDetails `json:"tabbed_panel,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -892,6 +898,34 @@ type ScrollBarDetails struct {
 	ChangeCommand  CommandID   `json:"change_command,omitempty"`
 }
 
+// TabDetails describes one copied page descriptor and its rendered strip
+// state. Bounds is relative to the owning tab container.
+type TabDetails struct {
+	Key            string    `json:"key"`
+	Value          string    `json:"value"`
+	Label          string    `json:"label"`
+	Mnemonic       Key       `json:"mnemonic,omitempty"`
+	Page           ControlID `json:"page"`
+	PageKey        string    `json:"page_key,omitempty"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+	Selected       bool      `json:"selected"`
+	Current        bool      `json:"current"`
+	Bounds         Rect      `json:"bounds"`
+	Omitted        bool      `json:"omitted"`
+	Clipped        bool      `json:"clipped"`
+}
+
+// TabbedPanelDetails describes one ordered tab strip and page selection.
+type TabbedPanelDetails struct {
+	Tabs            []TabDetails `json:"tabs"`
+	Selected        string       `json:"selected,omitempty"`
+	Current         string       `json:"current,omitempty"`
+	ChangeCommand   CommandID    `json:"change_command,omitempty"`
+	LeadingOmitted  bool         `json:"leading_omitted"`
+	TrailingOmitted bool         `json:"trailing_omitted"`
+}
+
 // InputSourceSnapshot reports held logical keys for one isolated source.
 type InputSourceSnapshot struct {
 	// Source is the caller-selected input-source ID.
@@ -1126,6 +1160,14 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		if snapshot.Controls[index].Details.ScrollBar != nil {
 			scrollBar := *snapshot.Controls[index].Details.ScrollBar
 			cloned.Controls[index].Details.ScrollBar = &scrollBar
+		}
+		if snapshot.Controls[index].Details.TabbedPanel != nil {
+			tabbedPanel := *snapshot.Controls[index].Details.TabbedPanel
+			tabbedPanel.Tabs = append(
+				[]TabDetails(nil),
+				snapshot.Controls[index].Details.TabbedPanel.Tabs...,
+			)
+			cloned.Controls[index].Details.TabbedPanel = &tabbedPanel
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

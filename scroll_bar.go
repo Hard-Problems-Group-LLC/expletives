@@ -399,13 +399,7 @@ func (t *Transaction) recordScrollBarBehavior(
 func (t *Transaction) selectedControlBehavior(
 	state *controlState,
 ) controlBehavior {
-	for index := len(t.mutations) - 1; index >= 0; index-- {
-		mutation := t.mutations[index]
-		if mutation.state == state && mutation.behavior != nil {
-			return mutation.behavior
-		}
-	}
-	return state.behavior
+	return t.recordedControlBehavior(state)
 }
 
 func scrollBarBehaviorEqual(left, right scrollBarBehavior) bool {

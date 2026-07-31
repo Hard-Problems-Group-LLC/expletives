@@ -459,6 +459,9 @@ func (a *App) effectivelyVisibleLocked(state *controlState) bool {
 		if current.destroyed || current.aborted || !current.visible {
 			return false
 		}
+		if managed, selected := a.isManagedTabPageLocked(current); managed && !selected {
+			return false
+		}
 	}
 	return true
 }
@@ -498,6 +501,8 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return !behavior.disabled
 	case scrollBarBehavior:
 		return !behavior.disabled
+	case tabbedPanelBehavior:
+		return tabbedPanelEnabled(behavior)
 	default:
 		return false
 	}
@@ -536,6 +541,8 @@ func (a *App) focusBehaviorEligibleLocked(
 		return !behavior.disabled
 	case scrollBarBehavior:
 		return !behavior.disabled
+	case tabbedPanelBehavior:
+		return tabbedPanelEnabled(behavior)
 	}
 	return false
 }

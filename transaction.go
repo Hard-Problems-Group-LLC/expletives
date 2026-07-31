@@ -60,6 +60,7 @@ const (
 	mutationTextArea
 	mutationProgress
 	mutationScrollBar
+	mutationTabbedPanel
 )
 
 type transactionMutation struct {
@@ -413,7 +414,7 @@ func (t *Transaction) SetFocus(control Control) error {
 	case ControlButton, ControlCheckbox, ControlRadioButton,
 		ControlCycleField, ControlSelectField, ControlTextField,
 		ControlNumberField, ControlSpinBox, ControlTextArea,
-		ControlScrollBar:
+		ControlScrollBar, ControlTabbedPanel, ControlNotebook:
 	default:
 		return ErrNotFocusable
 	}
@@ -728,7 +729,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress, mutationScrollBar:
+			mutationProgress, mutationScrollBar, mutationTabbedPanel:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -883,7 +884,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress, mutationScrollBar,
+			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -909,7 +910,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			)
 		}
 		behavior := effectiveBehavior(state)
-		if border, ok := behavior.(borderBehavior); ok {
+		if provider, ok := behavior.(controlBorderProvider); ok {
+			border := provider.controlBorder()
 			if _, found := stagedStyles[border.borderStyle]; !found {
 				return fmt.Errorf(
 					"%w: theme has no definition for %q",
@@ -1206,6 +1208,33 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+		case tabbedPanelBehavior:
+			selectionItems += len(behavior.tabs)
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"tab container",
+			); err != nil {
+				return err
+			}
+			for _, tab := range behavior.tabs {
+				if destroyed[tab.page] {
+					continue
+				}
+				if err := t.validateTargetLocked(
+					tab.page,
+					provisional,
+				); err != nil ||
+					tab.page.parent != state ||
+					tab.page.kind != ControlPanel ||
+					tab.page.layout != nil ||
+					plannedPanels[tab.page] {
+					return fmt.Errorf(
+						"%w: invalid Tab page",
+						ErrInvalidParent,
+					)
+				}
+			}
 		}
 		return nil
 	}
@@ -1234,7 +1263,11 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if err := validateStyleReferences(state); err != nil {
 			return err
 		}
-		if err := validateAction(state, state.behavior, true); err != nil {
+		if err := validateAction(
+			state,
+			effectiveBehavior(state),
+			true,
+		); err != nil {
 			return err
 		}
 	}
@@ -1415,7 +1448,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				changed = true
 			}
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress, mutationScrollBar:
+			mutationProgress, mutationScrollBar, mutationTabbedPanel:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,
@@ -1431,6 +1464,9 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		}
 	}
 	if t.app.repairRadioGroupsLocked() {
+		changed = true
+	}
+	if t.app.repairTabbedPanelsLocked(destroyed) {
 		changed = true
 	}
 	if t.app.updateApplicationChromeBoundsLocked(targetSize) {

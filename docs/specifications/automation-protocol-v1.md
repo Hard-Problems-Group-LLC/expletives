@@ -902,7 +902,8 @@ the root package's local snapshot. The client checks:
 - generic focus plus Button label, command, enabled/disabled reason, checked,
   mnemonic, pressed/default/cancel state, and HotkeyBar ordered command state
   with canonical structured bindings;
-- kind-consistent FocusGuideBar target kind, exact bounded resolved text, and
+- kind-consistent FocusGuideBar target kind—including ScrollBar,
+  TabbedPanel, and Notebook—exact bounded resolved text, and
   empty/append/override customization state;
 - at most 64 entries in one HotkeyBar and at most 4,096 aggregate HotkeyBar
   entries across one snapshot;
@@ -918,8 +919,8 @@ the root package's local snapshot. The client checks:
 - kind-consistent Checkbox, RadioButton/RadioGroup, and
   CycleField/SelectField detail members with canonical stable values,
   enabled/disabled reasons, exclusive radio selection, selected-index
-  consistency, copied option state, at most 256 fixed options per field, and
-  at most 1,024 aggregate RadioButton/fixed-option records;
+  consistency, copied option state, at most 256 fixed options or Tabs per
+  control, and at most 1,024 aggregate RadioButton/fixed-option/Tab records;
 - kind-consistent TextField details with canonical bounded text, caret,
   selection, and horizontal view position, editing/valid/enabled state,
   copied validator policy, hard-validator consistency, and password value
@@ -939,6 +940,11 @@ the root package's local snapshot. The client checks:
 - kind-consistent ScrollBar details with bounded viewport state, exact maximum
   offset, positive arrow/page steps, enabled/disabled policy, optional change
   command, orientation, and control-size-derived track/thumb geometry;
+- kind-consistent TabbedPanel/Notebook details with unique ordered copied Tab
+  keys, values, mnemonics, and direct-page references; exactly one selected
+  and current record for a nonempty model; enabled-current policy; exact
+  rendered/omitted/clipped strip geometry; selected-page Bounds; and
+  nonselected effective invisibility;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;

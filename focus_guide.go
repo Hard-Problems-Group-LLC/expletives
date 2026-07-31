@@ -162,6 +162,10 @@ func genericFocusGuidance(kind ControlKind) string {
 		return "Text area: Enter edits/newline; Ctrl-Enter commits; Esc cancels"
 	case ControlMenuBar:
 		return "Menu: arrows navigate; Enter activates; Esc closes"
+	case ControlScrollBar:
+		return "Scroll bar: arrows move; Page Up or Page Down pages; Home or End jumps"
+	case ControlTabbedPanel, ControlNotebook:
+		return "Tabs: Left or Right moves focus; Space or Enter selects; Tab leaves group"
 	default:
 		return "No focused control"
 	}

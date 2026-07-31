@@ -84,8 +84,13 @@ focusable built-in kind:
 - Button: Enter/Space activation, grouped Tab traversal, and arrow focus;
 - Checkbox: Space state change, grouped Tab traversal, and arrow focus;
 - RadioButton: arrow/Home/End focus, Space/Enter selection, and group exit;
-- CycleField and SelectField: `[`/`]` value changes and arrow focus; and
-- MenuBar: arrow navigation, Enter activation, and Escape dismissal.
+- CycleField and SelectField: `[`/`]` value changes and arrow focus;
+- TextField, NumberField, SpinBox, and TextArea: their edit, commit, cancel,
+  stepping, and caret paths;
+- MenuBar: arrow navigation, Enter activation, and Escape dismissal;
+- ScrollBar: arrow/page movement and Home/End jumps; and
+- TabbedPanel and Notebook: Left/Right tab focus, Space/Enter selection, and
+  Tab group exit.
 
 No focus resolves to `No focused control`. Generic wording may improve
 compatibly, but it must accurately describe the implemented keyboard

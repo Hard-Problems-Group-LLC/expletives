@@ -90,6 +90,8 @@ The implemented exported limits are:
 | `MaxNumberDecimalPlaces` | 9 | Maximum fixed decimal places in NumberField/SpinBox |
 | `MaxHotkeyBarItems` | 64 | Maximum entries in one HotkeyBar |
 | `MaxActionItems` | 4,096 | Maximum aggregate HotkeyBar entries in one App |
+| `MaxSelectionOptions` | 256 | Maximum copied options or Tabs in one control |
+| `MaxSelectionItems` | 1,024 | Maximum aggregate RadioButton, fixed-option, and Tab records |
 | `MaxMenuDepth` | 8 | Maximum immutable popup Menu tree depth |
 | `MaxMenuItemsPerMenu` | 64 | Maximum direct entries in one Menu |
 | `MaxMenus` | 256 | Maximum popup Menu models in one MenuBar tree |
@@ -610,6 +612,18 @@ func (s *ScrollBar) State() ScrollBarState
 func (s *ScrollBar) SetState(ScrollBarState) error
 func (s *ScrollBar) Update(context.Context, ScrollBarState) error
 func (s *ScrollBar) Focus() error
+func NewTabbedPanel(Container, TabbedPanelOptions) (*TabbedPanel, error)
+func NewNotebook(Container, TabbedPanelOptions) (*Notebook, error)
+func (p *TabbedPanel) Tabs() []Tab
+func (n *Notebook) Tabs() []Tab
+func (p *TabbedPanel) Selected() string
+func (n *Notebook) Selected() string
+func (p *TabbedPanel) SetTabs([]Tab, string) error
+func (n *Notebook) SetTabs([]Tab, string) error
+func (p *TabbedPanel) SetSelected(string) error
+func (n *Notebook) SetSelected(string) error
+func (p *TabbedPanel) Focus() error
+func (n *Notebook) Focus() error
 ```
 
 `ScrollBar` is a focusable Panel-derived leaf over copied nonnegative
@@ -619,6 +633,15 @@ Home, and End navigation; leaves an orientation-mismatched arrow available
 to spatial focus; and routes an optional ChangeCommand only for user changes.
 The complete contract, including Theme roles and typed evidence, is
 [`navigation-chrome-api-v0.md`](navigation-chrome-api-v0.md).
+
+`TabbedPanel` and `Notebook` are distinct focusable container kinds over the
+same copied `Tab` model. Each Tab names one unique live direct child Panel
+page. The strip is one focus stop: Left/Right and Home/End move current tab
+focus without selecting, Space/Enter selects, and a scoped Alt mnemonic
+focuses and selects. Exactly the selected caller-visible page is effectively
+visible and fills the container client area. `SetTabs` performs complete
+ordered insertion/removal/reorder, and page destruction repairs the copied
+model before publication.
 
 ## Atomic Transactions
 
@@ -652,6 +675,8 @@ func (t *Transaction) NewMeter(Container, MeterOptions) (*Meter, error)
 func (t *Transaction) NewSpinner(Container, SpinnerOptions) (*Spinner, error)
 func (t *Transaction) NewActivityDots(Container, ActivityDotsOptions) (*ActivityDots, error)
 func (t *Transaction) NewScrollBar(Container, ScrollBarOptions) (*ScrollBar, error)
+func (t *Transaction) NewTabbedPanel(Container, TabbedPanelOptions) (*TabbedPanel, error)
+func (t *Transaction) NewNotebook(Container, TabbedPanelOptions) (*Notebook, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -670,6 +695,8 @@ func (t *Transaction) SetProgressBarState(*ProgressBar, ProgressBarState) error
 func (t *Transaction) SetMeterState(*Meter, MeterState) error
 func (t *Transaction) SetActivityState(Control, ActivityState) error
 func (t *Transaction) SetScrollBarState(*ScrollBar, ScrollBarState) error
+func (t *Transaction) SetTabs(Control, []Tab, selected string) error
+func (t *Transaction) SetSelectedTab(Control, string) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
@@ -769,8 +796,8 @@ flat `MenuBarDetails` for MenuBar, and `StatusBarDetails` for StatusBar.
 Selection, Text/Numeric Input, Progress, and Navigation controls add their
 kind-consistent `CheckboxDetails`, `RadioButtonDetails`,
 `RadioGroupDetails`, `ChoiceFieldDetails`, `TextFieldDetails`,
-`NumberFieldDetails`, `TextAreaDetails`, `ProgressDetails`, and
-`ScrollBarDetails` members. These expose canonical bounded text,
+`NumberFieldDetails`, `TextAreaDetails`, `ProgressDetails`,
+`ScrollBarDetails`, and `TabbedPanelDetails` members. These expose canonical bounded text,
 alignment, wrap, Label target/mnemonic, divider orientation/form, generic
 focus, command presentation state, pressed/default/cancel roles, and
 structured current bindings. Menu details additionally expose immutable entry

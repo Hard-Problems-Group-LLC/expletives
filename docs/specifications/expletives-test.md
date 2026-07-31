@@ -252,6 +252,16 @@ Snapshots and attached automation expose exact kind-consistent
 `details.progress` records, including the effective frame index; controls do
 not own a clock, ticker, worker, or terminal dependency.
 
+The Navigation screen contains stable `navigation.*` controls for horizontal
+and vertical ScrollBars, a three-page TabbedPanel with one disabled Tab, and
+a two-page Notebook. It demonstrates exact viewport/thumb evidence, arrow
+movement with user-only change notification, tab focus without selection,
+Space/Enter activation, scoped Alt mnemonics, selected-page visibility, and
+single/double tab-container borders. Scenario Reset atomically restores both
+viewport offsets and both selected pages. Attached automation must drive these
+behaviors through raw key lifecycle events and inspect the same typed
+`details.scroll_bar` and `details.tabbed_panel` records used by headless tests.
+
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static
 context and no shortcut inventory. Sections/Status Bar is an independent
@@ -289,8 +299,8 @@ roots plus an end-aligned Help root.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
 - Controls links current Text/Display, Actions, Selection, Text / Numeric
-  Input, and Progress pages, then uses a separator to group disabled
-  phase-owned Navigation, Scrolling/Content, and Collection pages.
+  Input, Progress, and Navigation pages, then uses a separator to group
+  disabled phase-owned Scrolling/Content and Collection pages.
 - Sections owns the independent Status Bar toggle, the Headers lifecycle
   submenu, and the semantic Footer-role visibility submenu.
 - Menus links the Menu overview and reserves Panel-owned and context-menu

@@ -38,6 +38,16 @@ without weakening explicit kind validation.
 - Exercise the member through `expletives-test`, socket automation, and a
   concise live projection using its stable automation key.
 
+## Cross-Control Registries
+
+- If the new kind is focusable, add accurate generic FocusGuideBar text,
+  register the kind in automation focus-target validation, and exercise the
+  resulting contextual Footer through attached automation.
+- Audit every private exhaustive kind switch that supplies focus,
+  container/border behavior, geometry, rendering, input dispatch, destruction
+  repair, and snapshot validation. Add a regression test at each affected
+  cross-control boundary.
+
 Reflection is not a substitute for these explicit trust-boundary checks.
 Shared copy helpers are appropriate only when they preserve the same bounded
 typed contract.

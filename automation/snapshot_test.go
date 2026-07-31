@@ -2,6 +2,7 @@ package automation
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -737,6 +738,91 @@ func TestSnapshotProjectsScrollBarDetailsAndCopiesState(t *testing.T) {
 		if cloned.Controls[index].Key == "scroll.bar" &&
 			cloned.Controls[index].Details.ScrollBar.Offset != 40 {
 			t.Fatal("cloned ScrollBar state aliases projected storage")
+		}
+	}
+}
+
+func TestSnapshotProjectsTabbedPanelDetailsAndCopiesTabs(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := app.NewTransaction()
+	panel, err := transaction.NewTabbedPanel(
+		app.Root(),
+		expletives.TabbedPanelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "tabs",
+				Bounds: expletives.Rect{
+					Width: 20, Height: 8,
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _ := transaction.NewPanel(
+		panel,
+		expletives.PanelOptions{AutomationKey: "page.first"},
+	)
+	second, _ := transaction.NewPanel(
+		panel,
+		expletives.PanelOptions{AutomationKey: "page.second"},
+	)
+	if err := transaction.SetTabs(
+		panel,
+		[]expletives.Tab{
+			{
+				Key: "first", Value: "first", Label: "First",
+				Mnemonic: "f", Page: first,
+			},
+			{
+				Key: "second", Value: "second", Label: "Second",
+				Mnemonic: "s", Page: second,
+			},
+		},
+		"second",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *TabbedPanelDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "tabs" {
+			details = projected.Controls[index].Details.TabbedPanel
+			break
+		}
+	}
+	if details == nil ||
+		details.Selected != "second" ||
+		details.Current != "second" ||
+		len(details.Tabs) != 2 ||
+		details.Tabs[0].PageKey != "page.first" ||
+		details.Tabs[1].Page != ControlID(second.ID()) ||
+		!details.Tabs[1].Selected ||
+		!details.Tabs[1].Current {
+		t.Fatalf("projected TabbedPanelDetails = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	details.Tabs[0].Label = "mutated"
+	details.Selected = "mutated"
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "tabs" {
+			copied := cloned.Controls[index].Details.TabbedPanel
+			if copied.Tabs[0].Label != "First" ||
+				copied.Selected != "second" {
+				t.Fatal("cloned Tab details alias projected storage")
+			}
 		}
 	}
 }

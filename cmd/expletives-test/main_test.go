@@ -99,6 +99,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	actionEvidence := make(map[string]bool)
 	inputEvidence := make(map[string]bool)
 	progressEvidence := make(map[string]bool)
+	navigationEvidence := make(map[string]bool)
 	screenEvidence := make(map[string]bool)
 	chromeEvidence := make(map[string]bool)
 	menuEvidence := false
@@ -137,7 +138,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
 			"screen.text", "screen.actions", "screen.selection", "screen.input",
-			"screen.progress",
+			"screen.progress", "screen.navigation",
 			"screen.menus", "screen.status", "screen.headers_footers",
 			"screen.about":
 			screenEvidence[control.Key] = !control.Visible
@@ -373,6 +374,40 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.Progress.ReducedMotion &&
 					control.Details.Progress.Tick == 0 &&
 					control.Details.Progress.FrameIndex == 0
+		case "navigation.scrollbar.horizontal":
+			navigationEvidence[control.Key] =
+				control.Kind == "scroll_bar" &&
+					control.Details.ScrollBar != nil &&
+					control.Details.ScrollBar.Orientation ==
+						automation.Orientation(expletives.Horizontal) &&
+					control.Details.ScrollBar.ContentSize == 100 &&
+					control.Details.ScrollBar.ViewportSize == 20 &&
+					control.Details.ScrollBar.Offset == 40 &&
+					control.Details.ScrollBar.MaximumOffset == 80
+		case "navigation.scrollbar.vertical":
+			navigationEvidence[control.Key] =
+				control.Kind == "scroll_bar" &&
+					control.Details.ScrollBar != nil &&
+					control.Details.ScrollBar.Orientation ==
+						automation.Orientation(expletives.Vertical) &&
+					control.Details.ScrollBar.ContentSize == 80 &&
+					control.Details.ScrollBar.ViewportSize == 16 &&
+					control.Details.ScrollBar.Offset == 32 &&
+					control.Details.ScrollBar.MaximumOffset == 64
+		case "navigation.tabs":
+			navigationEvidence[control.Key] =
+				control.Kind == "tabbed_panel" &&
+					control.Details.TabbedPanel != nil &&
+					control.Details.TabbedPanel.Selected == "overview" &&
+					control.Details.TabbedPanel.Current == "overview" &&
+					len(control.Details.TabbedPanel.Tabs) == 3
+		case "navigation.notebook":
+			navigationEvidence[control.Key] =
+				control.Kind == "notebook" &&
+					control.Details.TabbedPanel != nil &&
+					control.Details.TabbedPanel.Selected == "one" &&
+					control.Details.TabbedPanel.Current == "one" &&
+					len(control.Details.TabbedPanel.Tabs) == 2
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -394,10 +429,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(actionEvidence) != 5 ||
 		len(inputEvidence) != 7 ||
 		len(progressEvidence) != 11 ||
-		len(screenEvidence) != 14 ||
+		len(navigationEvidence) != 4 ||
+		len(screenEvidence) != 15 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
-			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v progress=%#v",
+			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v progress=%#v navigation=%#v",
 			menuEvidence,
 			statusEvidence,
 			screenEvidence,
@@ -406,6 +442,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			actionEvidence,
 			inputEvidence,
 			progressEvidence,
+			navigationEvidence,
 		)
 	}
 	for key, valid := range displayEvidence {
@@ -426,6 +463,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	for key, valid := range progressEvidence {
 		if !valid {
 			t.Fatalf("Progress control %q has invalid typed evidence", key)
+		}
+	}
+	for key, valid := range navigationEvidence {
+		if !valid {
+			t.Fatalf("Navigation control %q has invalid typed evidence", key)
 		}
 	}
 	for key, valid := range rootMnemonicEvidence {
@@ -1120,6 +1162,171 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if bar == nil || bar.Current != 42 || bar.Status != "running" ||
 		spinner == nil || spinner.Tick != 0 || spinner.ReducedMotion {
 		t.Fatal("automation Progress Reset evidence is incomplete")
+	}
+	navigationScreen, err := client.InvokeCommand(
+		ctx,
+		"show-navigation",
+		string(demo.CommandNavigation),
+		"",
+	)
+	if err != nil ||
+		navigationScreen.Outcome != automation.OutcomeApplied ||
+		navigationScreen.Snapshot == nil {
+		t.Fatalf(
+			"InvokeCommand(Navigation) = %+v, %v",
+			navigationScreen,
+			err,
+		)
+	}
+	horizontal := progressControl(
+		navigationScreen.Snapshot,
+		"navigation.scrollbar.horizontal",
+	)
+	tabs := progressControl(
+		navigationScreen.Snapshot,
+		"navigation.tabs",
+	)
+	notebook := progressControl(
+		navigationScreen.Snapshot,
+		"navigation.notebook",
+	)
+	if !progressControl(
+		navigationScreen.Snapshot,
+		"screen.navigation",
+	).Visible ||
+		!horizontal.Focused ||
+		horizontal.Details.ScrollBar == nil ||
+		horizontal.Details.ScrollBar.Offset != 40 ||
+		horizontal.Details.ScrollBar.TrackSize < 1 ||
+		tabs.Details.TabbedPanel == nil ||
+		tabs.Details.TabbedPanel.Selected != "overview" ||
+		tabs.Details.TabbedPanel.Current != "overview" ||
+		len(tabs.Details.TabbedPanel.Tabs) != 3 ||
+		notebook.Details.TabbedPanel == nil ||
+		notebook.Details.TabbedPanel.Selected != "one" ||
+		len(notebook.Details.TabbedPanel.Tabs) != 2 {
+		t.Fatal("initial attached Navigation evidence is incomplete")
+	}
+	scrollRight, err := client.InjectInput(
+		ctx,
+		"navigation-scroll-right",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "right"},
+	)
+	if err != nil ||
+		scrollRight.Outcome != automation.OutcomeApplied ||
+		scrollRight.Snapshot == nil ||
+		scrollRight.Snapshot.Completion == nil ||
+		scrollRight.Snapshot.Completion.Command !=
+			string(demo.CommandNavigationChanged) ||
+		progressControl(
+			scrollRight.Snapshot,
+			"navigation.scrollbar.horizontal",
+		).Details.ScrollBar.Offset != 41 {
+		t.Fatalf("attached ScrollBar Right completion = %+v, %v", scrollRight, err)
+	}
+	tabFocus, err := client.InjectInput(
+		ctx,
+		"navigation-focus-tabs",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "tab"},
+	)
+	if err != nil ||
+		tabFocus.Outcome != automation.OutcomeApplied ||
+		tabFocus.Snapshot == nil ||
+		!progressControl(tabFocus.Snapshot, "navigation.tabs").Focused {
+		t.Fatalf("attached TabbedPanel focus completion = %+v, %v", tabFocus, err)
+	}
+	tabRight, err := client.InjectInput(
+		ctx,
+		"navigation-tab-right",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "right"},
+	)
+	if err != nil ||
+		tabRight.Outcome != automation.OutcomeApplied ||
+		tabRight.Snapshot == nil {
+		t.Fatalf("attached TabbedPanel Right completion = %+v, %v", tabRight, err)
+	}
+	tabDetails := progressControl(
+		tabRight.Snapshot,
+		"navigation.tabs",
+	).Details.TabbedPanel
+	if tabDetails == nil || tabDetails.Selected != "overview" ||
+		tabDetails.Current != "details" {
+		t.Fatalf("attached TabbedPanel focus/selection = %#v", tabDetails)
+	}
+	tabSpace, err := client.InjectInput(
+		ctx,
+		"navigation-tab-space",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "space"},
+	)
+	if err != nil ||
+		tabSpace.Outcome != automation.OutcomeApplied ||
+		tabSpace.Snapshot == nil ||
+		tabSpace.Snapshot.Completion == nil ||
+		tabSpace.Snapshot.Completion.Command !=
+			string(demo.CommandNavigationChanged) {
+		t.Fatalf("attached TabbedPanel Space completion = %+v, %v", tabSpace, err)
+	}
+	tabDetails = progressControl(
+		tabSpace.Snapshot,
+		"navigation.tabs",
+	).Details.TabbedPanel
+	if tabDetails == nil || tabDetails.Selected != "details" ||
+		progressControl(
+			tabSpace.Snapshot,
+			"navigation.tabs.page.overview",
+		).Visible ||
+		!progressControl(
+			tabSpace.Snapshot,
+			"navigation.tabs.page.details",
+		).Visible {
+		t.Fatal("attached TabbedPanel selection did not switch visible page")
+	}
+	if _, err := client.InjectInput(
+		ctx,
+		"navigation-alt-down",
+		automation.KeyEvent{Kind: automation.KeyDown, Key: "alt"},
+	); err != nil {
+		t.Fatalf("InjectInput(Navigation Alt down) error = %v", err)
+	}
+	notebookMnemonic, err := client.InjectInput(
+		ctx,
+		"navigation-notebook-mnemonic",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "w"},
+	)
+	if _, releaseErr := client.InjectInput(
+		ctx,
+		"navigation-alt-up",
+		automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
+	); releaseErr != nil {
+		t.Fatalf("InjectInput(Navigation Alt up) error = %v", releaseErr)
+	}
+	if err != nil ||
+		notebookMnemonic.Outcome != automation.OutcomeApplied ||
+		notebookMnemonic.Snapshot == nil ||
+		notebookMnemonic.Snapshot.Completion == nil ||
+		notebookMnemonic.Snapshot.Completion.Command !=
+			string(demo.CommandNavigationChanged) {
+		t.Fatalf(
+			"attached Notebook mnemonic completion = %+v, %v",
+			notebookMnemonic,
+			err,
+		)
+	}
+	notebookDetails := progressControl(
+		notebookMnemonic.Snapshot,
+		"navigation.notebook",
+	).Details.TabbedPanel
+	if notebookDetails == nil || notebookDetails.Selected != "two" ||
+		notebookDetails.Current != "two" ||
+		progressControl(
+			notebookMnemonic.Snapshot,
+			"navigation.notebook.page.one",
+		).Visible ||
+		!progressControl(
+			notebookMnemonic.Snapshot,
+			"navigation.notebook.page.two",
+		).Visible {
+		t.Fatal("attached Notebook mnemonic did not switch visible page")
 	}
 	if _, err := client.InjectInput(
 		ctx,

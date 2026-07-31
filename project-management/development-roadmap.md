@@ -469,7 +469,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 14. Navigation/Chrome
 
-- Status: `active`
+- Status: `complete`
 - Goal: deliver `ScrollBar`, `TabbedPanel`, `Notebook`, and `Tab` on the
   already-complete menu and action foundation.
 - Dependencies: Phase 13 plus approved tab focus and viewport contracts.
@@ -481,6 +481,8 @@ ordered backlog and the active-task record; it does not replace either.
   and empty/full/tiny scrollbar ranges.
 - Acceptance gate: tab and scrollbar behavior remains keyboard complete,
   resize-safe, semantically observable, and reachable from the catalog menu.
+- Completion evidence:
+  [`EXPL-TASK-029`](completed-tasks.md).
 
 ### 15. Scrolling/Content
 

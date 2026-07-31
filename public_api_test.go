@@ -335,3 +335,81 @@ func TestExternalConsumerBuildsAndUpdatesScrollBar(t *testing.T) {
 		t.Fatalf("external ScrollBar details = %#v", details)
 	}
 }
+
+func TestExternalConsumerBuildsTabbedPanelAtomically(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size:     expletives.Size{Width: 30, Height: 10},
+		Scenario: "external.tabs",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := app.NewTransaction()
+	panel, err := transaction.NewTabbedPanel(
+		app.Root(),
+		expletives.TabbedPanelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "tabs",
+				Bounds: expletives.Rect{
+					Width: 20, Height: 8,
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := transaction.NewPanel(
+		panel,
+		expletives.PanelOptions{AutomationKey: "page.first"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := transaction.NewPanel(
+		panel,
+		expletives.PanelOptions{AutomationKey: "page.second"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tabs := []expletives.Tab{
+		{
+			Key: "first", Value: "first", Label: "First",
+			Mnemonic: "f", Page: first,
+		},
+		{
+			Key: "second", Value: "second", Label: "Second",
+			Mnemonic: "s", Page: second,
+		},
+	}
+	if err := transaction.SetTabs(panel, tabs, "first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if panel.Selected() != "first" || len(panel.Tabs()) != 2 {
+		t.Fatalf("initial external tabs = %#v, %q",
+			panel.Tabs(), panel.Selected())
+	}
+	if err := panel.SetSelected("second"); err != nil {
+		t.Fatal(err)
+	}
+	if panel.Selected() != "second" {
+		t.Fatalf("selected external tab = %q", panel.Selected())
+	}
+	var details *expletives.TabbedPanelDetails
+	for _, control := range app.Snapshot().Controls {
+		if control.Key == "tabs" {
+			details = control.Details.TabbedPanel
+		}
+	}
+	if details == nil ||
+		details.Selected != "second" ||
+		len(details.Tabs) != 2 ||
+		details.Tabs[1].Page != second.ID() {
+		t.Fatalf("external TabbedPanel details = %#v", details)
+	}
+}

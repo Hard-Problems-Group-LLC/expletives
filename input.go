@@ -594,40 +594,53 @@ func (a *App) DispatchKey(
 				router, result, execute = a.resolveCommandLocked(command)
 			}
 		} else if mnemonicKeyEvent(event.Key, held) {
-			control, activate := a.mnemonicControlLocked(event.Key)
-			if control != nil && control != a.focus {
-				_ = a.commitOrCancelEditorStateLocked(a.focus)
-			}
-			if control != nil && activate {
-				if behavior, ok := control.behavior.(buttonBehavior); ok {
-					command = behavior.command
-					target = control.id
-					router, result, execute =
-						a.resolveCommandLocked(command)
-				} else {
-					var changed bool
-					command, target, changed = a.applySelectionLocked(
-						control,
-						selectionActivate,
-					)
-					if changed {
-						result.Outcome = OutcomeApplied
-					}
-					if command != "" {
-						router, result, execute =
-							a.resolveCommandLocked(command)
-					}
-				}
-			} else if control != nil {
-				if a.focus != control {
-					a.focus = control
-					a.clearInvalidPressesLocked()
+			tabCommand, tabTarget, tabHandled, tabChanged :=
+				a.tabMnemonicLocked(event.Key)
+			if tabHandled {
+				command = tabCommand
+				target = tabTarget
+				if tabChanged {
 					result.Outcome = OutcomeApplied
 				}
-			} else {
-				command = a.bindings[chordKey(event.Key, held)]
 				if command != "" {
 					router, result, execute = a.resolveCommandLocked(command)
+				}
+			} else {
+				control, activate := a.mnemonicControlLocked(event.Key)
+				if control != nil && control != a.focus {
+					_ = a.commitOrCancelEditorStateLocked(a.focus)
+				}
+				if control != nil && activate {
+					if behavior, ok := control.behavior.(buttonBehavior); ok {
+						command = behavior.command
+						target = control.id
+						router, result, execute =
+							a.resolveCommandLocked(command)
+					} else {
+						var changed bool
+						command, target, changed = a.applySelectionLocked(
+							control,
+							selectionActivate,
+						)
+						if changed {
+							result.Outcome = OutcomeApplied
+						}
+						if command != "" {
+							router, result, execute =
+								a.resolveCommandLocked(command)
+						}
+					}
+				} else if control != nil {
+					if a.focus != control {
+						a.focus = control
+						a.clearInvalidPressesLocked()
+						result.Outcome = OutcomeApplied
+					}
+				} else {
+					command = a.bindings[chordKey(event.Key, held)]
+					if command != "" {
+						router, result, execute = a.resolveCommandLocked(command)
+					}
 				}
 			}
 		} else if event.Key == KeyTab && tabModifiers(held) {
@@ -661,6 +674,27 @@ func (a *App) DispatchKey(
 				}
 			}
 			if textHandled {
+				break
+			}
+			tabCommand := CommandID("")
+			tabTarget := ControlID("")
+			tabHandled := false
+			tabChanged := false
+			if noHeldModifiers(held) {
+				tabCommand, tabTarget, tabHandled, tabChanged =
+					a.tabbedPanelKeyLocked(a.focus, event.Key)
+			}
+			if tabHandled {
+				command = tabCommand
+				target = tabTarget
+				result.Outcome = OutcomeNoOp
+				if tabChanged {
+					result.Outcome = OutcomeApplied
+				}
+				if command != "" {
+					router, result, execute =
+						a.resolveCommandLocked(command)
+				}
 				break
 			}
 			scrollCommand := CommandID("")

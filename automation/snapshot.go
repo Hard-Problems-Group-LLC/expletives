@@ -189,6 +189,8 @@ type ControlDetails struct {
 	Progress *ProgressDetails `json:"progress,omitempty"`
 	// ScrollBar is present for ScrollBar.
 	ScrollBar *ScrollBarDetails `json:"scroll_bar,omitempty"`
+	// TabbedPanel is present for TabbedPanel and Notebook.
+	TabbedPanel *TabbedPanelDetails `json:"tabbed_panel,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -480,6 +482,33 @@ type ScrollBarDetails struct {
 	Enabled        bool        `json:"enabled"`
 	DisabledReason string      `json:"disabled_reason,omitempty"`
 	ChangeCommand  string      `json:"change_command,omitempty"`
+}
+
+// TabDetails describes one copied page descriptor and rendered strip state.
+type TabDetails struct {
+	Key            string    `json:"key"`
+	Value          string    `json:"value"`
+	Label          string    `json:"label"`
+	Mnemonic       Key       `json:"mnemonic,omitempty"`
+	Page           ControlID `json:"page"`
+	PageKey        string    `json:"page_key,omitempty"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+	Selected       bool      `json:"selected"`
+	Current        bool      `json:"current"`
+	Bounds         Rect      `json:"bounds"`
+	Omitted        bool      `json:"omitted"`
+	Clipped        bool      `json:"clipped"`
+}
+
+// TabbedPanelDetails describes one ordered tab strip and page selection.
+type TabbedPanelDetails struct {
+	Tabs            []TabDetails `json:"tabs"`
+	Selected        string       `json:"selected,omitempty"`
+	Current         string       `json:"current,omitempty"`
+	ChangeCommand   string       `json:"change_command,omitempty"`
+	LeadingOmitted  bool         `json:"leading_omitted"`
+	TrailingOmitted bool         `json:"trailing_omitted"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -978,6 +1007,35 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				ChangeCommand:  string(details.ChangeCommand),
 			}
 		}
+		if details := control.Details.TabbedPanel; details != nil {
+			tabs := make([]TabDetails, len(details.Tabs))
+			for tabIndex := range details.Tabs {
+				tab := details.Tabs[tabIndex]
+				tabs[tabIndex] = TabDetails{
+					Key:            tab.Key,
+					Value:          tab.Value,
+					Label:          tab.Label,
+					Mnemonic:       Key(tab.Mnemonic),
+					Page:           ControlID(tab.Page),
+					PageKey:        tab.PageKey,
+					Enabled:        tab.Enabled,
+					DisabledReason: tab.DisabledReason,
+					Selected:       tab.Selected,
+					Current:        tab.Current,
+					Bounds:         rectFromCore(tab.Bounds),
+					Omitted:        tab.Omitted,
+					Clipped:        tab.Clipped,
+				}
+			}
+			projectedControl.Details.TabbedPanel = &TabbedPanelDetails{
+				Tabs:            tabs,
+				Selected:        details.Selected,
+				Current:         details.Current,
+				ChangeCommand:   string(details.ChangeCommand),
+				LeadingOmitted:  details.LeadingOmitted,
+				TrailingOmitted: details.TrailingOmitted,
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -1201,6 +1259,14 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.ScrollBar != nil {
 			scrollBar := *snapshot.Controls[index].Details.ScrollBar
 			cloned.Controls[index].Details.ScrollBar = &scrollBar
+		}
+		if snapshot.Controls[index].Details.TabbedPanel != nil {
+			tabbedPanel := *snapshot.Controls[index].Details.TabbedPanel
+			tabbedPanel.Tabs = append(
+				[]TabDetails(nil),
+				snapshot.Controls[index].Details.TabbedPanel.Tabs...,
+			)
+			cloned.Controls[index].Details.TabbedPanel = &tabbedPanel
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

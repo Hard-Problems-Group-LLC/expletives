@@ -820,6 +820,17 @@ func arrangeControlLayoutsLocked(app *App, owner *controlState) {
 			Point{},
 		)
 	}
+	if behavior, ok := owner.behavior.(tabbedPanelBehavior); ok {
+		client := controlClientSize(owner)
+		for _, tab := range behavior.tabs {
+			if tab.page == nil || tab.page.destroyed {
+				continue
+			}
+			tab.page.bounds = Rect{
+				Width: client.Width, Height: client.Height,
+			}
+		}
+	}
 	for _, child := range owner.children {
 		arrangeControlLayoutsLocked(app, child)
 	}

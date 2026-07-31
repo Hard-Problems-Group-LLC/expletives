@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"runtime"
@@ -533,6 +534,17 @@ func TestSnapshotRejectsInvalidFocusGuideBarDetails(t *testing.T) {
 	if err := validateCompletion(valid(), limits); err != nil {
 		t.Fatalf("valid FocusGuideBar fixture rejected: %v", err)
 	}
+	for _, kind := range []ControlKind{
+		"scroll_bar",
+		"tabbed_panel",
+		"notebook",
+	} {
+		completion := valid()
+		completion.Snapshot.Controls[0].Details.FocusGuideBar.TargetKind = kind
+		if err := validateCompletion(completion, limits); err != nil {
+			t.Fatalf("valid %s focus target rejected: %v", kind, err)
+		}
+	}
 	tests := map[string]func(*FocusGuideBarDetails){
 		"target kind": func(details *FocusGuideBarDetails) {
 			details.TargetKind = "panel"
@@ -905,6 +917,161 @@ func TestSnapshotRejectsInvalidScrollBarDetails(t *testing.T) {
 			)
 			if err := validateCompletion(completion, limits); err == nil {
 				t.Fatal("validateCompletion() accepted invalid ScrollBar details")
+			}
+		})
+	}
+}
+
+func TestSnapshotRejectsInvalidTabbedPanelDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 30, Height: 10},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		transaction := app.NewTransaction()
+		panel, err := transaction.NewNotebook(
+			app.Root(),
+			expletives.TabbedPanelOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "tabs",
+					Bounds: expletives.Rect{
+						Width: 20, Height: 8,
+					},
+				},
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		first, _ := transaction.NewPanel(
+			panel,
+			expletives.PanelOptions{AutomationKey: "page.first"},
+		)
+		second, _ := transaction.NewPanel(
+			panel,
+			expletives.PanelOptions{AutomationKey: "page.second"},
+		)
+		if err := transaction.SetTabs(
+			panel,
+			[]expletives.Tab{
+				{
+					Key: "first", Value: "first", Label: "First",
+					Mnemonic: "f", Page: first,
+				},
+				{
+					Key: "second", Value: "second", Label: "Second",
+					Mnemonic: "s", Page: second,
+				},
+			},
+			"first",
+		); err != nil {
+			t.Fatal(err)
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid TabbedPanel fixture rejected: %v", err)
+	}
+	find := func(snapshot *SnapshotV1) (*ControlSnapshot, *TabbedPanelDetails) {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "tabs" {
+				return &snapshot.Controls[index],
+					snapshot.Controls[index].Details.TabbedPanel
+			}
+		}
+		t.Fatal("fixture has no tabs control")
+		return nil, nil
+	}
+	tests := []struct {
+		name   string
+		mutate func(*SnapshotV1, *ControlSnapshot, *TabbedPanelDetails)
+	}{
+		{
+			name: "selected",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				details *TabbedPanelDetails,
+			) {
+				details.Selected = "missing"
+			},
+		},
+		{
+			name: "duplicate key",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				details *TabbedPanelDetails,
+			) {
+				details.Tabs[1].Key = details.Tabs[0].Key
+			},
+		},
+		{
+			name: "mnemonic",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				details *TabbedPanelDetails,
+			) {
+				details.Tabs[0].Mnemonic = "z"
+			},
+		},
+		{
+			name: "bounds",
+			mutate: func(
+				_ *SnapshotV1,
+				control *ControlSnapshot,
+				details *TabbedPanelDetails,
+			) {
+				details.Tabs[0].Bounds.Width = control.Bounds.Width + 1
+			},
+		},
+		{
+			name: "page relationship",
+			mutate: func(
+				snapshot *SnapshotV1,
+				_ *ControlSnapshot,
+				details *TabbedPanelDetails,
+			) {
+				for index := range snapshot.Controls {
+					if snapshot.Controls[index].ID ==
+						details.Tabs[0].Page {
+						snapshot.Controls[index].Parent = ""
+					}
+				}
+			},
+		},
+		{
+			name: "nonselected visible",
+			mutate: func(
+				snapshot *SnapshotV1,
+				_ *ControlSnapshot,
+				details *TabbedPanelDetails,
+			) {
+				for index := range snapshot.Controls {
+					if snapshot.Controls[index].ID ==
+						details.Tabs[1].Page {
+						snapshot.Controls[index].Visible = true
+					}
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			control, details := find(&snapshot)
+			test.mutate(&snapshot, control, details)
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid TabbedPanel details")
 			}
 		})
 	}

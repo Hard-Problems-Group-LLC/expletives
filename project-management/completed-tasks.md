@@ -4,6 +4,52 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-31 — `EXPL-TASK-029` — Deliver Phase 14 Navigation and Chrome.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-31T03:47:00-07:00
+  - Completed: 2026-07-31T04:32:46-07:00
+  - Outcome:
+    - added focusable horizontal/vertical `ScrollBar` with copied viewport
+      state, exact track/thumb geometry, configurable arrow/page steps,
+      clamped keyboard movement, and optional user-only change routing;
+    - added distinct `TabbedPanel` and `Notebook` container kinds over copied
+      ordered `Tab` descriptors and direct child Panel pages, with complete
+      replacement/reorder/removal, destruction repair, nested page Layouts,
+      scoped mnemonics, and separate current focus from selection;
+    - derived selected-page visibility without overwriting caller visibility,
+      made managed pages fill the tab-container client area, and exposed exact
+      rendered/omitted/clipped tab-strip evidence;
+    - extended Theme, focus guidance, local snapshot, automation projection,
+      deep-copy, explicit kind validation, page-relationship validation, and
+      response-bound accounting for all Navigation kinds; and
+    - enabled Controls/Navigation in `expletives-test` with both ScrollBar
+      orientations, disabled-tab and Notebook examples, Scenario Reset, raw
+      key self-check, and attached automation coverage.
+  - Verification:
+    - `make verify` passed vet, ordinary and Unix-socket tests, the
+      controlling-PTY lifecycle, the complete race suite, all debug/release/
+      profiling builds, and smoke/self-check coverage;
+    - the race gate found and then verified the fix for an unlocked base-
+      behavior read shared by concurrent read/modify/write Transaction
+      setters;
+    - a fresh debug build passed live attached inspection at 100x30 with no
+      Layout overflow: raw Right advanced Offset from 40 to 41, tab focus and
+      selection remained distinct, and page visibility switched exactly; and
+    - `git diff --check`, `make fmt-check`, and the FieldManual bootstrap dry
+      run passed with zero planned writes.
+  - Contracts:
+    - [`Navigation and Chrome API v0`](../docs/specifications/navigation-chrome-api-v0.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+  - Process:
+    - completed without convening the Panel; and
+    - recorded contextual focus-kind and diagnostic improvements in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 15 Scrolling and Content is next.
+
 - 2026-07-31 — `EXPL-TASK-028` — Deliver Phase 13 Progress controls.
   - Requestor: project operator
   - Owner: Codex

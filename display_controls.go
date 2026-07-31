@@ -669,6 +669,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case scrollBarBehavior:
 		rightValue, ok := right.(scrollBarBehavior)
 		return ok && scrollBarBehaviorEqual(leftValue, rightValue)
+	case tabbedPanelBehavior:
+		rightValue, ok := right.(tabbedPanelBehavior)
+		return ok && tabbedPanelBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

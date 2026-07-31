@@ -187,6 +187,12 @@ type borderBehavior struct {
 	backgroundOverride *Color
 }
 
+type controlBorderProvider interface {
+	controlBorder() borderBehavior
+}
+
+func (b borderBehavior) controlBorder() borderBehavior { return b }
+
 func (b borderBehavior) clientInset() int {
 	if b.form == BorderNone {
 		return 0

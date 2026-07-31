@@ -396,6 +396,9 @@ func (a *App) paintControlLocked(
 	}
 	clip := absolute.Intersect(ancestorClip)
 	visible := ancestorsVisible && state.visible
+	if managed, selected := a.isManagedTabPageLocked(state); managed && !selected {
+		visible = false
+	}
 	if !visible {
 		clip.Width, clip.Height = 0, 0
 	}
@@ -406,7 +409,8 @@ func (a *App) paintControlLocked(
 	}
 	details := state.behavior.details()
 	if details.Border != nil {
-		border := state.behavior.(borderBehavior)
+		provider := state.behavior.(controlBorderProvider)
+		border := provider.controlBorder()
 		details.Border.ResolvedStyle = resolveBorderStyle(
 			a.styles[details.Border.Style],
 			border,
@@ -470,6 +474,9 @@ func (a *App) paintControlLocked(
 	case scrollBarBehavior:
 		scrollBar := scrollBarDetails(bounds, behavior)
 		details.ScrollBar = &scrollBar
+	case tabbedPanelBehavior:
+		tabbedPanel := tabbedPanelDetails(bounds, behavior)
+		details.TabbedPanel = &tabbedPanel
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

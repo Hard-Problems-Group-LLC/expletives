@@ -734,6 +734,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	statusBarCount := 0
 	selectionItemCount := 0
 	textInputBytes := 0
+	controlsByID := make(map[ControlID]*ControlSnapshot, len(snapshot.Controls))
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
 			(control.Key != "" && !validIdentifier(control.Key, limits.IdentifierBytes)) ||
@@ -760,6 +761,11 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				(control.LayoutIndex != -1 || control.StackIndex != -1)) {
 			return errors.New("snapshot control has invalid bounded identity, geometry, or style")
 		}
+		if controlsByID[control.ID] != nil {
+			return errors.New("snapshot control identity is duplicated")
+		}
+		controlCopy := control
+		controlsByID[control.ID] = &controlCopy
 		if len(control.Children) > limits.Controls-childCount {
 			return errors.New("snapshot child-reference count exceeds advertised bound")
 		}
@@ -790,7 +796,11 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 			control.Bounds.Height,
 			limits,
 		) {
-			return errors.New("snapshot control details are invalid for its kind")
+			return fmt.Errorf(
+				"snapshot control %q (%s) details are invalid for its kind",
+				control.Key,
+				control.Kind,
+			)
 		}
 		if control.Details.HotkeyBar != nil {
 			if len(control.Details.HotkeyBar.Items) >
@@ -819,6 +829,9 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 		}
 		if control.Details.ChoiceField != nil {
 			selectionItemCount += len(control.Details.ChoiceField.Options)
+		}
+		if control.Details.TabbedPanel != nil {
+			selectionItemCount += len(control.Details.TabbedPanel.Tabs)
 		}
 		if selectionItemCount > expletives.MaxSelectionItems {
 			return errors.New(
@@ -871,6 +884,27 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 			actionItemCount += len(control.Details.StatusBar.Segments)
+		}
+	}
+	for _, control := range snapshot.Controls {
+		if control.Details.TabbedPanel == nil {
+			continue
+		}
+		for _, tab := range control.Details.TabbedPanel.Tabs {
+			page := controlsByID[tab.Page]
+			if page == nil ||
+				page.Parent != control.ID ||
+				page.Kind != "panel" ||
+				page.Layout != "" ||
+				page.Bounds != (Rect{
+					Width:  max(0, control.Bounds.Width-2),
+					Height: max(0, control.Bounds.Height-2),
+				}) ||
+				(!tab.Selected && page.Visible) {
+				return errors.New(
+					"snapshot Tab page relationship is invalid",
+				)
+			}
 		}
 	}
 	if len(snapshot.Layouts) > limits.Layouts {
@@ -1029,6 +1063,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.ScrollBar != nil {
+		specialMembers++
+	}
+	if details.TabbedPanel != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1265,9 +1302,154 @@ func validControlDetails(
 				controlHeight,
 				limits,
 			)
+	case "tabbed_panel", "notebook":
+		return specialMembers == 1 &&
+			details.Container != nil &&
+			details.Container.ClientInset == 1 &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validTabbedPanelDetails(
+				details.TabbedPanel,
+				controlWidth,
+				limits,
+			)
 	default:
 		return false
 	}
+}
+
+func validTabbedPanelDetails(
+	details *TabbedPanelDetails,
+	controlWidth int,
+	limits Limits,
+) bool {
+	if details == nil ||
+		len(details.Tabs) > expletives.MaxSelectionOptions ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) {
+		return false
+	}
+	if len(details.Tabs) == 0 {
+		return details.Selected == "" &&
+			details.Current == "" &&
+			!details.LeadingOmitted &&
+			!details.TrailingOmitted
+	}
+	keys := make(map[string]bool, len(details.Tabs))
+	values := make(map[string]bool, len(details.Tabs))
+	pages := make(map[ControlID]bool, len(details.Tabs))
+	mnemonics := make(map[Key]bool, len(details.Tabs))
+	selectedCount := 0
+	currentCount := 0
+	enabledCount := 0
+	renderedCount := 0
+	lastRight := 0
+	for index := range details.Tabs {
+		tab := details.Tabs[index]
+		if !validIdentifier(tab.Key, limits.IdentifierBytes) ||
+			keys[tab.Key] ||
+			!validIdentifier(tab.Value, limits.IdentifierBytes) ||
+			values[tab.Value] ||
+			!validIdentifier(string(tab.Page), limits.IdentifierBytes) ||
+			pages[tab.Page] ||
+			(tab.PageKey != "" &&
+				!validIdentifier(tab.PageKey, limits.IdentifierBytes)) ||
+			!canonicalDisplayText(tab.Label, false) ||
+			tab.Label == "" ||
+			len(tab.DisabledReason) > expletives.MaxCommandDescriptionBytes ||
+			(tab.Enabled && tab.DisabledReason != "") ||
+			(!tab.Enabled && tab.DisabledReason == "") ||
+			tab.Bounds.X < 0 ||
+			tab.Bounds.Y != 0 ||
+			tab.Bounds.Width < 0 ||
+			tab.Bounds.Height < 0 ||
+			tab.Bounds.X+tab.Bounds.Width > controlWidth {
+			return false
+		}
+		if tab.Mnemonic != "" {
+			if !validTabMnemonic(tab.Mnemonic, tab.Label) ||
+				mnemonics[tab.Mnemonic] {
+				return false
+			}
+			mnemonics[tab.Mnemonic] = true
+		}
+		if tab.Omitted {
+			if tab.Bounds != (Rect{}) || tab.Clipped {
+				return false
+			}
+		} else {
+			labelCells := len(display.Normalize(tab.Label))
+			if tab.Bounds.Height != 1 ||
+				tab.Bounds.Width < 1 ||
+				tab.Bounds.X < lastRight ||
+				(!tab.Clipped &&
+					tab.Bounds.Width != labelCells+2) ||
+				(tab.Clipped &&
+					tab.Bounds.Width >= labelCells+2) {
+				return false
+			}
+			lastRight = tab.Bounds.X + tab.Bounds.Width
+			renderedCount++
+		}
+		if tab.Selected {
+			selectedCount++
+			if tab.Value != details.Selected {
+				return false
+			}
+		}
+		if tab.Current {
+			currentCount++
+			if tab.Value != details.Current {
+				return false
+			}
+		}
+		if tab.Enabled {
+			enabledCount++
+		}
+		keys[tab.Key] = true
+		values[tab.Value] = true
+		pages[tab.Page] = true
+	}
+	selectedIndex := -1
+	currentIndex := -1
+	for index := range details.Tabs {
+		if details.Tabs[index].Value == details.Selected {
+			selectedIndex = index
+		}
+		if details.Tabs[index].Value == details.Current {
+			currentIndex = index
+		}
+	}
+	if selectedCount != 1 || currentCount != 1 ||
+		selectedIndex < 0 || currentIndex < 0 ||
+		(enabledCount > 0 && !details.Tabs[currentIndex].Enabled) ||
+		(enabledCount == 0 && currentIndex != 0) {
+		return false
+	}
+	if controlWidth <= 0 {
+		return renderedCount == 0
+	}
+	return renderedCount > 0
+}
+
+func validTabMnemonic(mnemonic Key, label string) bool {
+	value := string(mnemonic)
+	if len(value) != 1 ||
+		!((value[0] >= 'a' && value[0] <= 'z') ||
+			(value[0] >= '0' && value[0] <= '9')) {
+		return false
+	}
+	for _, cell := range display.Normalize(label) {
+		if strings.ToLower(cell) == value {
+			return true
+		}
+	}
+	return false
 }
 
 func validScrollBarDetails(
@@ -1815,7 +1997,7 @@ func validFocusTargetKind(kind ControlKind) bool {
 	switch kind {
 	case "button", "checkbox", "radio_button", "cycle_field",
 		"select_field", "text_field", "number_field", "spin_box",
-		"text_area", "menu_bar":
+		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook":
 		return true
 	default:
 		return false

@@ -11,57 +11,58 @@ import (
 )
 
 const (
-	ScenarioID                                   = "toolkit.catalog"
-	CommandFixtureToggle    expletives.CommandID = "fixture.toggle"
-	CommandPanelRaise       expletives.CommandID = "layout.panel.raise"
-	CommandPanelLower       expletives.CommandID = "layout.panel.lower"
-	CommandLayerRaise       expletives.CommandID = "layout.layer.raise"
-	CommandLayerLower       expletives.CommandID = "layout.layer.lower"
-	CommandScenarioReset    expletives.CommandID = "scenario.reset"
-	CommandAutomationNotice expletives.CommandID = "fixture.automation_notice"
-	CommandViewHome         expletives.CommandID = "view.home"
-	CommandViewText         expletives.CommandID = "view.text"
-	CommandViewActions      expletives.CommandID = "view.actions"
-	CommandViewMenus        expletives.CommandID = "view.menus"
-	CommandViewAbout        expletives.CommandID = "view.about"
-	CommandViewPanelsCore   expletives.CommandID = "view.panels.core"
-	CommandViewPanelStyles  expletives.CommandID = "view.panels.styles"
-	CommandViewLayoutBox    expletives.CommandID = "view.layouts.box"
-	CommandViewLayoutGrid   expletives.CommandID = "view.layouts.grid"
-	CommandPanelScrollbars  expletives.CommandID = "catalog.panels.scrollbars"
-	CommandLayoutAbsolute   expletives.CommandID = "catalog.layouts.absolute"
-	CommandStatusBar        expletives.CommandID = "chrome.status.show"
-	CommandHeadersShow      expletives.CommandID = "chrome.headers.show"
-	CommandHeadersAdd       expletives.CommandID = "chrome.headers.add"
-	CommandHeadersRemoveTop expletives.CommandID = "chrome.headers.remove_highest"
-	CommandHeadersRemoveLow expletives.CommandID = "chrome.headers.remove_lowest"
-	CommandFooterGlobalShow expletives.CommandID = "chrome.footer.global.show"
-	CommandFooterScreenShow expletives.CommandID = "chrome.footer.screen.show"
-	CommandFooterFocusShow  expletives.CommandID = "chrome.footer.focus.show"
-	CommandSelection        expletives.CommandID = "catalog.controls.selection"
-	CommandSelectionChanged expletives.CommandID = "selection.changed"
-	CommandTextInput        expletives.CommandID = "catalog.controls.input"
-	CommandTextChanged      expletives.CommandID = "text.changed"
-	CommandNumberChanged    expletives.CommandID = "number.changed"
-	CommandProgress         expletives.CommandID = "catalog.controls.progress"
-	CommandProgressTick     expletives.CommandID = "progress.tick"
-	CommandProgressReset    expletives.CommandID = "progress.reset"
-	CommandProgressComplete expletives.CommandID = "progress.complete"
-	CommandProgressFail     expletives.CommandID = "progress.fail"
-	CommandProgressCancel   expletives.CommandID = "progress.cancel"
-	CommandProgressMotion   expletives.CommandID = "progress.reduced_motion"
-	CommandNavigation       expletives.CommandID = "catalog.controls.navigation"
-	CommandScrolling        expletives.CommandID = "catalog.controls.scrolling"
-	CommandCollections      expletives.CommandID = "catalog.controls.collections"
-	CommandPanelMenu        expletives.CommandID = "catalog.menus.panel"
-	CommandContextMenu      expletives.CommandID = "catalog.menus.context"
-	CommandDialogMessage    expletives.CommandID = "catalog.dialogs.message"
-	CommandDialogConfirm    expletives.CommandID = "catalog.dialogs.confirm"
-	CommandDialogInput      expletives.CommandID = "catalog.dialogs.input"
-	CommandDialogProgress   expletives.CommandID = "catalog.dialogs.progress"
-	CommandUnavailable      expletives.CommandID = "fixture.unavailable"
-	CommandAppQuit          expletives.CommandID = "app.quit"
-	CommandAppInterrupt     expletives.CommandID = "app.interrupt"
+	ScenarioID                                    = "toolkit.catalog"
+	CommandFixtureToggle     expletives.CommandID = "fixture.toggle"
+	CommandPanelRaise        expletives.CommandID = "layout.panel.raise"
+	CommandPanelLower        expletives.CommandID = "layout.panel.lower"
+	CommandLayerRaise        expletives.CommandID = "layout.layer.raise"
+	CommandLayerLower        expletives.CommandID = "layout.layer.lower"
+	CommandScenarioReset     expletives.CommandID = "scenario.reset"
+	CommandAutomationNotice  expletives.CommandID = "fixture.automation_notice"
+	CommandViewHome          expletives.CommandID = "view.home"
+	CommandViewText          expletives.CommandID = "view.text"
+	CommandViewActions       expletives.CommandID = "view.actions"
+	CommandViewMenus         expletives.CommandID = "view.menus"
+	CommandViewAbout         expletives.CommandID = "view.about"
+	CommandViewPanelsCore    expletives.CommandID = "view.panels.core"
+	CommandViewPanelStyles   expletives.CommandID = "view.panels.styles"
+	CommandViewLayoutBox     expletives.CommandID = "view.layouts.box"
+	CommandViewLayoutGrid    expletives.CommandID = "view.layouts.grid"
+	CommandPanelScrollbars   expletives.CommandID = "catalog.panels.scrollbars"
+	CommandLayoutAbsolute    expletives.CommandID = "catalog.layouts.absolute"
+	CommandStatusBar         expletives.CommandID = "chrome.status.show"
+	CommandHeadersShow       expletives.CommandID = "chrome.headers.show"
+	CommandHeadersAdd        expletives.CommandID = "chrome.headers.add"
+	CommandHeadersRemoveTop  expletives.CommandID = "chrome.headers.remove_highest"
+	CommandHeadersRemoveLow  expletives.CommandID = "chrome.headers.remove_lowest"
+	CommandFooterGlobalShow  expletives.CommandID = "chrome.footer.global.show"
+	CommandFooterScreenShow  expletives.CommandID = "chrome.footer.screen.show"
+	CommandFooterFocusShow   expletives.CommandID = "chrome.footer.focus.show"
+	CommandSelection         expletives.CommandID = "catalog.controls.selection"
+	CommandSelectionChanged  expletives.CommandID = "selection.changed"
+	CommandTextInput         expletives.CommandID = "catalog.controls.input"
+	CommandTextChanged       expletives.CommandID = "text.changed"
+	CommandNumberChanged     expletives.CommandID = "number.changed"
+	CommandProgress          expletives.CommandID = "catalog.controls.progress"
+	CommandProgressTick      expletives.CommandID = "progress.tick"
+	CommandProgressReset     expletives.CommandID = "progress.reset"
+	CommandProgressComplete  expletives.CommandID = "progress.complete"
+	CommandProgressFail      expletives.CommandID = "progress.fail"
+	CommandProgressCancel    expletives.CommandID = "progress.cancel"
+	CommandProgressMotion    expletives.CommandID = "progress.reduced_motion"
+	CommandNavigation        expletives.CommandID = "catalog.controls.navigation"
+	CommandNavigationChanged expletives.CommandID = "navigation.changed"
+	CommandScrolling         expletives.CommandID = "catalog.controls.scrolling"
+	CommandCollections       expletives.CommandID = "catalog.controls.collections"
+	CommandPanelMenu         expletives.CommandID = "catalog.menus.panel"
+	CommandContextMenu       expletives.CommandID = "catalog.menus.context"
+	CommandDialogMessage     expletives.CommandID = "catalog.dialogs.message"
+	CommandDialogConfirm     expletives.CommandID = "catalog.dialogs.confirm"
+	CommandDialogInput       expletives.CommandID = "catalog.dialogs.input"
+	CommandDialogProgress    expletives.CommandID = "catalog.dialogs.progress"
+	CommandUnavailable       expletives.CommandID = "fixture.unavailable"
+	CommandAppQuit           expletives.CommandID = "app.quit"
+	CommandAppInterrupt      expletives.CommandID = "app.interrupt"
 )
 
 var catalogScreens = []struct {
@@ -78,6 +79,7 @@ var catalogScreens = []struct {
 	{CommandSelection, "Selection"},
 	{CommandTextInput, "Text / Numeric Input"},
 	{CommandProgress, "Progress"},
+	{CommandNavigation, "Navigation"},
 	{CommandViewMenus, "Menu Bar"},
 	{CommandViewAbout, "About"},
 }
@@ -276,6 +278,10 @@ type Scene struct {
 	progressVerticalMeter   *expletives.Meter
 	progressSpinner         *expletives.Spinner
 	progressDots            *expletives.ActivityDots
+	navigationHorizontal    *expletives.ScrollBar
+	navigationVertical      *expletives.ScrollBar
+	navigationTabs          *expletives.TabbedPanel
+	navigationNotebook      *expletives.Notebook
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -424,6 +430,96 @@ func NewWithRootConstraints(
 			ID:         "progress.cancelled",
 			Foreground: yellowStyle.Foreground,
 			Background: yellowStyle.Background,
+		},
+		expletives.Style{
+			ID:         "scroll_bar",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "scrollbar.page",
+			Foreground: expletives.RGB(0x80, 0x80, 0x80),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "scrollbar.arrow",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "scrollbar.thumb",
+			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "scrollbar.focused",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID:         "scrollbar.disabled",
+			Foreground: expletives.RGB(0x80, 0x80, 0x80),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "tabbed_panel",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "notebook",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "tabbed_panel.border",
+			Foreground: borderStyle.Foreground,
+			Background: borderStyle.Background,
+		},
+		expletives.Style{
+			ID:         "notebook.border",
+			Foreground: borderStyle.Foreground,
+			Background: borderStyle.Background,
+		},
+		expletives.Style{
+			ID:         "tab.normal",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		},
+		expletives.Style{
+			ID:         "tab.mnemonic",
+			Foreground: expletives.RGB(0xAA, 0x00, 0x00),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		},
+		expletives.Style{
+			ID:         "tab.selected",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		},
+		expletives.Style{
+			ID:         "tab.selected_mnemonic",
+			Foreground: expletives.RGB(0xAA, 0x00, 0x00),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		},
+		expletives.Style{
+			ID:         "tab.focused",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID:         "tab.focused_mnemonic",
+			Foreground: expletives.RGB(0xAA, 0x00, 0x00),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID:         "tab.disabled",
+			Foreground: expletives.RGB(0x80, 0x80, 0x80),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		},
+		expletives.Style{
+			ID:         "tab.continuation",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
 		},
 	)
 	if err != nil {
@@ -652,6 +748,17 @@ func NewWithRootConstraints(
 		content,
 		expletives.PanelOptions{
 			AutomationKey: "screen.progress",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	navigationScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.navigation",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
 		},
@@ -1906,6 +2013,211 @@ func NewWithRootConstraints(
 		progressButtons = append(progressButtons, button)
 	}
 
+	navigationGroups := make([]expletives.Control, 0, 4)
+	newNavigationGroup := func(
+		key string,
+		title string,
+	) (*expletives.GroupBox, error) {
+		group, groupErr := transaction.NewGroupBox(
+			navigationScreen,
+			expletives.GroupBoxOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "navigation.group." + key,
+					MinimumSize: expletives.Size{
+						Width: 20, Height: 6,
+					},
+					Style: canvasStyle.ID,
+				},
+				Title:       title,
+				BorderStyle: borderStyle.ID,
+				BorderForm:  expletives.BorderSingle,
+			},
+		)
+		if groupErr == nil {
+			navigationGroups = append(navigationGroups, group)
+		}
+		return group, groupErr
+	}
+	scrollBarGroup, err := newNavigationGroup("scrollbars", "ScrollBar")
+	if err != nil {
+		return nil, err
+	}
+	navigationHorizontal, err := transaction.NewScrollBar(
+		scrollBarGroup,
+		expletives.ScrollBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "navigation.scrollbar.horizontal",
+			},
+			State: expletives.ScrollBarState{
+				ContentSize: 100, ViewportSize: 20, Offset: 40,
+			},
+			ChangeCommand: CommandNavigationChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	navigationVertical, err := transaction.NewScrollBar(
+		scrollBarGroup,
+		expletives.ScrollBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "navigation.scrollbar.vertical",
+			},
+			Orientation: expletives.Vertical,
+			State: expletives.ScrollBarState{
+				ContentSize: 80, ViewportSize: 16, Offset: 32,
+			},
+			ChangeCommand: CommandNavigationChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	tabbedGroup, err := newNavigationGroup("tabs", "TabbedPanel")
+	if err != nil {
+		return nil, err
+	}
+	navigationTabs, err := transaction.NewTabbedPanel(
+		tabbedGroup,
+		expletives.TabbedPanelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "navigation.tabs",
+				Style:         canvasStyle.ID,
+			},
+			BorderStyle:   borderStyle.ID,
+			BorderForm:    expletives.BorderSingle,
+			ChangeCommand: CommandNavigationChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	tabbedDescriptors := make([]expletives.Tab, 3)
+	for index, definition := range []struct {
+		key      string
+		label    string
+		mnemonic expletives.Key
+	}{
+		{"overview", "Overview", "o"},
+		{"details", "Details", "d"},
+		{"disabled", "Disabled", "i"},
+	} {
+		page, pageErr := transaction.NewPanel(
+			navigationTabs,
+			expletives.PanelOptions{
+				AutomationKey: "navigation.tabs.page." + definition.key,
+				Style:         canvasStyle.ID,
+			},
+		)
+		if pageErr != nil {
+			return nil, pageErr
+		}
+		tabbedDescriptors[index] = expletives.Tab{
+			Key:      "navigation.tabs.tab." + definition.key,
+			Value:    definition.key,
+			Label:    definition.label,
+			Mnemonic: definition.mnemonic,
+			Page:     page,
+		}
+		if definition.key == "disabled" {
+			tabbedDescriptors[index].Disabled = true
+			tabbedDescriptors[index].DisabledReason = "Demonstrates disabled tabs"
+		}
+		if _, textErr := transaction.NewStaticText(
+			page,
+			expletives.StaticTextOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "navigation.tabs.text." + definition.key,
+					Bounds: expletives.Rect{
+						X: 1, Y: 1, Width: 16, Height: 2,
+					},
+					Style: canvasStyle.ID,
+				},
+				Text: "TabbedPanel page: " + definition.label,
+				Wrap: expletives.TextWrapWords,
+			},
+		); textErr != nil {
+			return nil, textErr
+		}
+	}
+	if err := transaction.SetTabs(
+		navigationTabs,
+		tabbedDescriptors,
+		"overview",
+	); err != nil {
+		return nil, err
+	}
+
+	notebookGroup, err := newNavigationGroup("notebook", "Notebook")
+	if err != nil {
+		return nil, err
+	}
+	navigationNotebook, err := transaction.NewNotebook(
+		notebookGroup,
+		expletives.TabbedPanelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "navigation.notebook",
+				Style:         canvasStyle.ID,
+			},
+			BorderStyle:   borderStyle.ID,
+			BorderForm:    expletives.BorderDouble,
+			ChangeCommand: CommandNavigationChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	notebookDescriptors := make([]expletives.Tab, 2)
+	for index, definition := range []struct {
+		key      string
+		label    string
+		mnemonic expletives.Key
+	}{
+		{"one", "One", "n"},
+		{"two", "Two", "w"},
+	} {
+		page, pageErr := transaction.NewPanel(
+			navigationNotebook,
+			expletives.PanelOptions{
+				AutomationKey: "navigation.notebook.page." + definition.key,
+				Style:         canvasStyle.ID,
+			},
+		)
+		if pageErr != nil {
+			return nil, pageErr
+		}
+		notebookDescriptors[index] = expletives.Tab{
+			Key:      "navigation.notebook.tab." + definition.key,
+			Value:    definition.key,
+			Label:    definition.label,
+			Mnemonic: definition.mnemonic,
+			Page:     page,
+		}
+		if _, textErr := transaction.NewStaticText(
+			page,
+			expletives.StaticTextOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "navigation.notebook.text." + definition.key,
+					Bounds: expletives.Rect{
+						X: 1, Y: 1, Width: 12, Height: 1,
+					},
+					Style: canvasStyle.ID,
+				},
+				Text: "Notebook page " + definition.label,
+			},
+		); textErr != nil {
+			return nil, textErr
+		}
+	}
+	if err := transaction.SetTabs(
+		navigationNotebook,
+		notebookDescriptors,
+		"one",
+	); err != nil {
+		return nil, err
+	}
+
 	hotkeyBar, err := transaction.NewHotkeyBar(
 		recentFooter,
 		expletives.HotkeyBarOptions{
@@ -1968,6 +2280,7 @@ func NewWithRootConstraints(
 		{"selection", selectionScreen},
 		{"input", inputScreen},
 		{"progress", progressScreen},
+		{"navigation", navigationScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
 		{"headers_footers", chromeScreen},
@@ -2756,6 +3069,80 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
+	navigationGrid, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
+			AutomationKey: "layout.navigation.grid",
+			Columns:       2,
+			HorizontalGap: 1,
+			VerticalGap:   1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, group := range navigationGroups {
+		if err := navigationGrid.AddPanel(
+			group,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	navigationScrollBarsLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.navigation.scrollbars",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := navigationScrollBarsLayout.AddPanel(
+		navigationHorizontal,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
+	if err := navigationScrollBarsLayout.AddPanel(
+		navigationVertical,
+		expletives.LayoutItemOptions{
+			Grow:            1,
+			HorizontalAlign: expletives.AlignEnd,
+		},
+	); err != nil {
+		return nil, err
+	}
+	navigationTabsLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.navigation.tabs",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := navigationTabsLayout.AddPanel(
+		navigationTabs,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	navigationNotebookLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.navigation.notebook",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := navigationNotebookLayout.AddPanel(
+		navigationNotebook,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(app.Root(), rootLayout); err != nil {
 		return nil, err
 	}
@@ -2884,6 +3271,24 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
+	if err := transaction.SetLayout(
+		navigationScreen,
+		navigationGrid,
+	); err != nil {
+		return nil, err
+	}
+	for _, entry := range []struct {
+		group  expletives.Container
+		layout *expletives.BoxLayout
+	}{
+		{scrollBarGroup, navigationScrollBarsLayout},
+		{tabbedGroup, navigationTabsLayout},
+		{notebookGroup, navigationNotebookLayout},
+	} {
+		if err := transaction.SetLayout(entry.group, entry.layout); err != nil {
+			return nil, err
+		}
+	}
 	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
 		return nil, err
 	}
@@ -2960,6 +3365,10 @@ func NewWithRootConstraints(
 		progressVerticalMeter:   progressVerticalMeter,
 		progressSpinner:         progressSpinner,
 		progressDots:            progressDots,
+		navigationHorizontal:    navigationHorizontal,
+		navigationVertical:      navigationVertical,
+		navigationTabs:          navigationTabs,
+		navigationNotebook:      navigationNotebook,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -2986,6 +3395,7 @@ func NewWithRootConstraints(
 			CommandSelection:       selectionScreen,
 			CommandTextInput:       inputScreen,
 			CommandProgress:        progressScreen,
+			CommandNavigation:      navigationScreen,
 			CommandViewMenus:       menusScreen,
 			CommandViewAbout:       aboutScreen,
 		},
@@ -3163,6 +3573,11 @@ func initialCommandDefinitions(
 			"Use reduced-motion presentation for live Progress examples",
 			false,
 		),
+		{
+			ID: CommandNavigationChanged, Label: "Navigation Changed",
+			Description: "Report a user-originated ScrollBar or tab selection change",
+			Enabled:     true, Automation: true,
+		},
 		unavailableCatalogDefinition(
 			CommandPanelScrollbars,
 			"Panel Scroll Bars",
@@ -3172,11 +3587,6 @@ func initialCommandDefinitions(
 			CommandLayoutAbsolute,
 			"Absolute Positioning",
 			"future Layout",
-		),
-		unavailableCatalogDefinition(
-			CommandNavigation,
-			"Navigation",
-			"Navigation and Chrome",
 		),
 		unavailableCatalogDefinition(
 			CommandScrolling,
@@ -3790,7 +4200,15 @@ func (s *Scene) handleCommand(
 		return s.removeHeaderLocked(false)
 	case CommandScenarioReset:
 		resetSequence := s.App.Snapshot().Sequence
-		changed := s.toggled || s.progressTick != 0 || s.progressReduced
+		changed := s.toggled || s.progressTick != 0 || s.progressReduced ||
+			s.navigationHorizontal.State() != (expletives.ScrollBarState{
+				ContentSize: 100, ViewportSize: 20, Offset: 40,
+			}) ||
+			s.navigationVertical.State() != (expletives.ScrollBarState{
+				ContentSize: 80, ViewportSize: 16, Offset: 32,
+			}) ||
+			s.navigationTabs.Selected() != "overview" ||
+			s.navigationNotebook.Selected() != "one"
 		s.toggled = false
 		s.progressTick = 0
 		s.progressReduced = false
@@ -3908,6 +4326,34 @@ func (s *Scene) handleCommand(
 				return expletives.OutcomeFailed, err
 			}
 		}
+		if err := transaction.SetScrollBarState(
+			s.navigationHorizontal,
+			expletives.ScrollBarState{
+				ContentSize: 100, ViewportSize: 20, Offset: 40,
+			},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetScrollBarState(
+			s.navigationVertical,
+			expletives.ScrollBarState{
+				ContentSize: 80, ViewportSize: 16, Offset: 32,
+			},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetSelectedTab(
+			s.navigationTabs,
+			"overview",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetSelectedTab(
+			s.navigationNotebook,
+			"one",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -3940,7 +4386,7 @@ func (s *Scene) handleCommand(
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
 		CommandViewActions, CommandSelection, CommandTextInput, CommandProgress,
-		CommandViewMenus, CommandViewAbout:
+		CommandNavigation, CommandViewMenus, CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
 	case CommandProgressTick:
 		return s.progressTickLocked()
@@ -3954,7 +4400,8 @@ func (s *Scene) handleCommand(
 		return s.setProgressStatusLocked(expletives.ProgressCancelled)
 	case CommandProgressMotion:
 		return s.toggleProgressMotionLocked()
-	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged:
+	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged,
+		CommandNavigationChanged:
 		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -4520,6 +4967,7 @@ func SelfCheck() error {
 		"screen.selection",
 		"screen.input",
 		"screen.progress",
+		"screen.navigation",
 		"screen.menus",
 		"screen.status",
 		"screen.headers_footers",
@@ -4599,6 +5047,18 @@ func SelfCheck() error {
 		"progress.action.tick",
 		"progress.action.reset",
 		"progress.action.motion",
+		"navigation.group.scrollbars",
+		"navigation.group.tabs",
+		"navigation.group.notebook",
+		"navigation.scrollbar.horizontal",
+		"navigation.scrollbar.vertical",
+		"navigation.tabs",
+		"navigation.tabs.page.overview",
+		"navigation.tabs.page.details",
+		"navigation.tabs.page.disabled",
+		"navigation.notebook",
+		"navigation.notebook.page.one",
+		"navigation.notebook.page.two",
 		"layer.back",
 		"layer.front",
 	} {
@@ -4624,14 +5084,15 @@ func SelfCheck() error {
 	}
 	seenRootMnemonics := make(map[string]bool, len(expectedRootMnemonics))
 	catalogLabels := map[string]string{
-		"menu.file.home":          "Home",
-		"menu.panels.core":        "Core Panels",
-		"menu.panels.styles":      "Visual Styles",
-		"menu.layouts.box":        "Box Layout",
-		"menu.layouts.grid":       "Grid Layout",
-		"menu.controls.selection": "Selection",
-		"menu.controls.input":     "Text / Numeric Input",
-		"menu.controls.progress":  "Progress",
+		"menu.file.home":           "Home",
+		"menu.panels.core":         "Core Panels",
+		"menu.panels.styles":       "Visual Styles",
+		"menu.layouts.box":         "Box Layout",
+		"menu.layouts.grid":        "Grid Layout",
+		"menu.controls.selection":  "Selection",
+		"menu.controls.input":      "Text / Numeric Input",
+		"menu.controls.progress":   "Progress",
+		"menu.controls.navigation": "Navigation",
 	}
 	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
 	homeChecked := false
@@ -4718,6 +5179,7 @@ func SelfCheck() error {
 		controls["screen.selection"].Visible ||
 		controls["screen.input"].Visible ||
 		controls["screen.progress"].Visible ||
+		controls["screen.navigation"].Visible ||
 		controls["screen.menus"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
@@ -5074,6 +5536,157 @@ func SelfCheck() error {
 		controls["progress.spinner"].Details.Progress.ReducedMotion {
 		return errors.New("Progress Reset did not restore initial state")
 	}
+	if err := invoke("show-navigation", CommandNavigation); err != nil {
+		return err
+	}
+	horizontal := controls["navigation.scrollbar.horizontal"]
+	vertical := controls["navigation.scrollbar.vertical"]
+	tabs := controls["navigation.tabs"].Details.TabbedPanel
+	notebook := controls["navigation.notebook"].Details.TabbedPanel
+	if !controls["screen.navigation"].Visible ||
+		!horizontal.Focused ||
+		horizontal.Details.ScrollBar == nil ||
+		horizontal.Details.ScrollBar.Orientation != expletives.Horizontal ||
+		horizontal.Details.ScrollBar.Offset != 40 ||
+		horizontal.Details.ScrollBar.MaximumOffset != 80 ||
+		horizontal.Details.ScrollBar.TrackSize < 1 ||
+		vertical.Details.ScrollBar == nil ||
+		vertical.Details.ScrollBar.Orientation != expletives.Vertical ||
+		vertical.Details.ScrollBar.Offset != 32 ||
+		tabs == nil || tabs.Selected != "overview" ||
+		tabs.Current != "overview" || len(tabs.Tabs) != 3 ||
+		notebook == nil || notebook.Selected != "one" ||
+		notebook.Current != "one" || len(notebook.Tabs) != 2 ||
+		!controls["navigation.tabs.page.overview"].Visible ||
+		controls["navigation.tabs.page.details"].Visible ||
+		!controls["navigation.notebook.page.one"].Visible ||
+		controls["navigation.notebook.page.two"].Visible {
+		return errors.New("Navigation catalog typed evidence is incomplete")
+	}
+	scrollCompletion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"navigation-scroll-right",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyRight,
+		},
+	)
+	if inputErr != nil ||
+		scrollCompletion.Command != CommandNavigationChanged ||
+		scrollCompletion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf(
+			"ScrollBar raw Right dispatch = %+v, %v",
+			scrollCompletion,
+			inputErr,
+		)
+	}
+	snapshot = scene.App.Snapshot()
+	controls = indexControls(snapshot)
+	if controls["navigation.scrollbar.horizontal"].Details.ScrollBar.Offset !=
+		41 {
+		return errors.New("ScrollBar raw Right did not advance Offset")
+	}
+	if err := scene.navigationTabs.Focus(); err != nil {
+		return fmt.Errorf("TabbedPanel focus: %w", err)
+	}
+	tabMove, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"navigation-tab-right",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyRight,
+		},
+	)
+	if inputErr != nil || tabMove.Outcome != expletives.OutcomeApplied ||
+		tabMove.Command != "" {
+		return fmt.Errorf(
+			"TabbedPanel raw Right dispatch = %+v, %v",
+			tabMove,
+			inputErr,
+		)
+	}
+	snapshot = scene.App.Snapshot()
+	controls = indexControls(snapshot)
+	tabs = controls["navigation.tabs"].Details.TabbedPanel
+	if tabs.Selected != "overview" || tabs.Current != "details" {
+		return errors.New("TabbedPanel Right changed selection instead of focus")
+	}
+	tabSelect, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"navigation-tab-select",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeySpace,
+		},
+	)
+	if inputErr != nil ||
+		tabSelect.Command != CommandNavigationChanged ||
+		tabSelect.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf(
+			"TabbedPanel raw Space dispatch = %+v, %v",
+			tabSelect,
+			inputErr,
+		)
+	}
+	snapshot = scene.App.Snapshot()
+	controls = indexControls(snapshot)
+	tabs = controls["navigation.tabs"].Details.TabbedPanel
+	if tabs.Selected != "details" || tabs.Current != "details" ||
+		controls["navigation.tabs.page.overview"].Visible ||
+		!controls["navigation.tabs.page.details"].Visible {
+		return errors.New("TabbedPanel selection did not switch page visibility")
+	}
+	if _, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"navigation-alt-down",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventDown,
+			Key:  expletives.KeyAlt,
+		},
+	); inputErr != nil {
+		return fmt.Errorf("Notebook Alt down: %w", inputErr)
+	}
+	notebookSelect, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"navigation-notebook-mnemonic",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  "w",
+		},
+	)
+	if _, releaseErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"navigation-alt-up",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventUp,
+			Key:  expletives.KeyAlt,
+		},
+	); releaseErr != nil {
+		return fmt.Errorf("Notebook Alt up: %w", releaseErr)
+	}
+	if inputErr != nil ||
+		notebookSelect.Command != CommandNavigationChanged ||
+		notebookSelect.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf(
+			"Notebook raw mnemonic dispatch = %+v, %v",
+			notebookSelect,
+			inputErr,
+		)
+	}
+	snapshot = scene.App.Snapshot()
+	controls = indexControls(snapshot)
+	notebook = controls["navigation.notebook"].Details.TabbedPanel
+	if notebook.Selected != "two" || notebook.Current != "two" ||
+		controls["navigation.notebook.page.one"].Visible ||
+		!controls["navigation.notebook.page.two"].Visible {
+		return errors.New("Notebook mnemonic did not switch page visibility")
+	}
 	if err := invoke("hide-status", CommandStatusBar); err != nil {
 		return err
 	}
@@ -5116,6 +5729,7 @@ func SelfCheck() error {
 		controls["screen.actions"].Visible ||
 		controls["screen.selection"].Visible ||
 		controls["screen.progress"].Visible ||
+		controls["screen.navigation"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
 		!controls["header.primary"].Visible ||

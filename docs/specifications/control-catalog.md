@@ -441,6 +441,11 @@ Required controls:
 
 This phase adds honest viewport-based scrollbars, tab focus, and page
 navigation on top of the already-delivered Action and Menu command routing.
+It is implemented with copied viewport/Tab state, exact semantic geometry,
+direct child Panel pages, separate current/selected tab state, derived page
+visibility, scoped mnemonics, and user-only optional change commands. The
+enabled Controls/Navigation catalog page demonstrates both ScrollBar
+orientations, a disabled Tab, two tab-container forms, and raw-key behavior.
 
 ### 15. Scrolling And Content
 

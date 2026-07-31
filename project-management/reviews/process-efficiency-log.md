@@ -773,6 +773,25 @@ Improvement candidate:
 - adopt this only if Tabs repeats the same omission risk enough to justify the
   helper, rather than pausing feature delivery for infrastructure now.
 
+### 25. Audit Contextual Registries With Every New Focusable Kind
+
+The first attached Navigation transition exposed a valid ScrollBar-focused
+snapshot that the automation client rejected. ScrollBar, TabbedPanel, and
+Notebook were complete in their own typed-detail paths, but the older
+FocusGuideBar target-kind allow-list still ended at the prior control phase.
+The generic error initially obscured which cross-control record failed.
+
+Improvement applied:
+
+- extended the control-details checklist with focus guidance and other
+  exhaustive cross-control kind switches;
+- added accurate generic guidance and explicit wire acceptance tests for all
+  three new focusable kinds;
+- made invalid-detail diagnostics identify the bounded automation key and
+  kind; and
+- retained one attached screen transition in the phase gate so contextual
+  chrome is validated with the newly focused control, not only in isolation.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

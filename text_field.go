@@ -607,6 +607,11 @@ func (t *Transaction) recordedControlBehavior(
 			return t.mutations[index].behavior
 		}
 	}
+	if state == nil || state.app == nil {
+		return nil
+	}
+	state.app.mu.RLock()
+	defer state.app.mu.RUnlock()
 	return state.behavior
 }
 
