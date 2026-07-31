@@ -584,20 +584,21 @@ type HotkeyBarDetails struct {
 
 // MenuEntryDetails is one flattened immutable MenuItem observation.
 type MenuEntryDetails struct {
-	Key            string       `json:"key"`
-	ParentKey      string       `json:"parent_key,omitempty"`
-	Depth          int          `json:"depth"`
-	Kind           MenuItemKind `json:"kind"`
-	Label          string       `json:"label,omitempty"`
-	Command        CommandID    `json:"command,omitempty"`
-	Enabled        bool         `json:"enabled"`
-	DisabledReason string       `json:"disabled_reason,omitempty"`
-	Checked        bool         `json:"checked"`
-	Mnemonic       Key          `json:"mnemonic,omitempty"`
-	Chord          *Chord       `json:"chord,omitempty"`
-	Selected       bool         `json:"selected"`
-	Open           bool         `json:"open"`
-	ChildCount     int          `json:"child_count"`
+	Key            string           `json:"key"`
+	ParentKey      string           `json:"parent_key,omitempty"`
+	Depth          int              `json:"depth"`
+	Kind           MenuItemKind     `json:"kind"`
+	Label          string           `json:"label,omitempty"`
+	Command        CommandID        `json:"command,omitempty"`
+	Enabled        bool             `json:"enabled"`
+	DisabledReason string           `json:"disabled_reason,omitempty"`
+	Checked        bool             `json:"checked"`
+	Mnemonic       Key              `json:"mnemonic,omitempty"`
+	Placement      MenuBarPlacement `json:"placement,omitempty"`
+	Chord          *Chord           `json:"chord,omitempty"`
+	Selected       bool             `json:"selected"`
+	Open           bool             `json:"open"`
+	ChildCount     int              `json:"child_count"`
 }
 
 // MenuBarDetails is the bounded flattened state of one MenuBar and session.

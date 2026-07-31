@@ -20,13 +20,22 @@ const (
     MenuItemSubmenu   MenuItemKind = "submenu"
 )
 
+type MenuBarPlacement string
+
+const (
+    MenuBarPlacementDefault MenuBarPlacement = ""
+    MenuBarPlacementStart   MenuBarPlacement = "start"
+    MenuBarPlacementEnd     MenuBarPlacement = "end"
+)
+
 type MenuItem struct {
-    Key      string
-    Kind     MenuItemKind
-    Label    string
-    Command  CommandID
-    Mnemonic Key
-    Menu     *Menu
+    Key       string
+    Kind      MenuItemKind
+    Label     string
+    Command   CommandID
+    Mnemonic  Key
+    Placement MenuBarPlacement
+    Menu      *Menu
 }
 
 type MenuOptions struct {
@@ -70,9 +79,11 @@ state, and first binding come from the current shared `CommandDefinition`. A
 separator has no label, command, mnemonic, or child. A submenu has a bounded
 Label, optional mnemonic, and required child Menu.
 
-Top-level items are submenus. Item keys are required and unique across the
-complete tree. Mnemonics are unique among siblings. Aliased Menu instances
-and cycles are rejected. Limits are `MaxMenuDepth == 8`,
+Top-level items are submenus. Their empty Placement canonicalizes to `start`;
+`end` places an item in the opposite edge group. Popup items reject any
+Placement. Item keys are required and unique across the complete tree.
+Mnemonics are unique among siblings. Aliased Menu instances and cycles are
+rejected. Limits are `MaxMenuDepth == 8`,
 `MaxMenuItemsPerMenu == 64`, `MaxMenus == 256`, and
 `MaxMenuItems == 512`.
 
@@ -166,7 +177,13 @@ The default semantic palette roles are:
 
 Top-level labels have one blank cell on each side and no brackets or
 synthetic selection marker. Their mnemonic letter alone uses the mnemonic
-role. The rest of the physical row is filled with MenuBar style.
+role. Start-group items are laid out from column 1 toward the right.
+End-group items are measured as one block and laid out toward the left from
+the last column, preserving declaration order within that group. The last
+column is therefore the final end-item padding cell. End items paint after
+start items so the explicitly edge-anchored group remains legible when a
+surface is narrower than the MenuBar minimum. The rest of the physical row
+is filled with MenuBar style.
 
 Popups use a light-gray body, single-line border, red mnemonic letters,
 green selected row, disabled roles, right-aligned structured shortcut,
@@ -180,6 +197,11 @@ triangle, separator, and line glyphs to DEC Special Graphics or ASCII.
 Every popup measures all current effective labels, shortcut text, check
 column, submenu indicator, padding, and border. It is sized to fit the widest
 entry when the surface permits.
+
+A top-level popup starts at its root label's resolved start- or end-group X
+position, then backsets as needed to fit the surface. It does not use a
+declaration-order offset that would detach an end-aligned popup from its
+label.
 
 A child popup prefers a small right/down cascade from its selected parent
 row. If that rectangle would cross the right edge, its X position is backset
@@ -195,9 +217,10 @@ Resize never changes identity or activates an item.
 
 `MenuBarDetails` contains a bounded depth-first flat entry list. Entries
 expose key, parent, depth, kind, effective label, command state, mnemonic,
-structured chord, selected/open flags, and child count. Ordered selected and
-open key paths distinguish bar-active selection from popup state: bar-active
-has a root SelectedPath and an empty OpenPath.
+top-level placement, structured chord, selected/open flags, and child count.
+Nested entries have no placement. Ordered selected and open key paths
+distinguish bar-active selection from popup state: bar-active has a root
+SelectedPath and an empty OpenPath.
 
 Core and automation snapshots deep-copy all slices and chord modifiers.
 Automation validates resource, identity, sibling mnemonic, command-state, and
@@ -207,16 +230,21 @@ need no menu-specific wire representation.
 ## Catalog And Verification
 
 `expletives-test` owns one root-level persistent MenuBar and exactly one
-visible purpose-specific catalog screen. File, View, and Actions commands use
-ordinary public commands and transactions; screen switching never reparents
-controls or introduces test-only automation operations.
+visible purpose-specific catalog screen. Start-aligned File, Panels, Layouts,
+Controls, Menus, and Dialogs roots organize current and future demonstration
+pages; end-aligned Help contains About. Implemented pages and operations are
+enabled. Future pages remain visible but disabled with the phase that owns
+their implementation. Screen switching uses ordinary public commands and
+transactions; it never reparents controls or introduces test-only automation
+operations.
 
 Normal Go tests cover construction, immutable copies, invalid trees,
 root-chrome ownership, geometry mutation and Layout rejection, surface and
 root-constraint resize, row reservation, F10 bar activation, traversal,
 disabled selection/nonactivation, mnemonics, nesting, focus restoration,
 exact style roles, separators, shadows, measured popup width, child backset,
-tiny viewports, snapshot paths, concurrency, and response bounds.
+start/end alignment and popup anchoring, tiny viewports, snapshot paths,
+concurrency, and response bounds.
 
 Attached and PTY tests exercise raw Alt-F, F10, Ctrl-Space, arrows, Enter,
 Escape, nested popups, commands, resize, Ctrl-C, and clean terminal

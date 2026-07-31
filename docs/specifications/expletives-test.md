@@ -136,11 +136,13 @@ The application must maintain an inspectable catalog that covers every
 public UI element. Each catalog entry needs a stable scenario ID, a concise
 purpose, deterministic reset behavior, and the important applicable states.
 The implemented `toolkit.catalog` scene has one persistent MenuBar and exactly
-one visible purpose-specific Core/Layout, Text/Display, or Actions screen.
-Screen selection uses the normal `view.core`, `view.text`, and `view.actions`
-commands reached through menu input or automation; it has no private
-test-only navigation path. The disabled `view.future` item demonstrates
-unavailable screen presentation.
+one visible purpose-specific Core/Layout, Text/Display, Actions, Menus, or
+About screen.
+Screen selection uses normal `view.*` commands reached through menu input or
+automation; it has no private test-only navigation path. Current Panel and
+Layout aliases route to the combined core screen with distinct catalog
+labels. Disabled `catalog.*` commands retain future pages in their intended
+namespaces and expose an explicit phase-owned unavailability reason.
 
 The coverage inventory must include, as the library gains them:
 
@@ -194,15 +196,30 @@ Panel.
 The persistent root-owned `menu.main` MenuBar occupies physical row 0 from
 the first through last terminal column, independently of root centering or
 maximum constraints. It reserves that row from the catalog Layout and exposes
-File, View, and Actions roots.
-File contains Quit; View contains checked Core/Layout, Text/Display, and
-Actions screen commands plus a disabled future item; Actions contains Toggle,
-Reset, and a nested Stacking submenu. Alt-F, Alt-V, Alt-A, F10, Ctrl-Space,
+start-aligned File, Panels, Layouts, Controls, Menus, and Dialogs roots plus
+an end-aligned Help root.
+
+- File contains Quit.
+- Panels links the current Panel/Frame and visual-style page and reserves
+  Panel scroll-bar coverage.
+- Layouts links Box/Grid coverage, contains the nested Stacking operations,
+  and reserves absolute-positioning coverage.
+- Controls links current Text/Display and Actions pages, then uses separators
+  to group disabled phase-owned Status, Header/Footer, Selection, Input,
+  Progress, Navigation, Scrolling/Content, and Collection pages.
+- Menus links the Menu overview and reserves Panel-owned and context-menu
+  demonstrations.
+- Dialogs reserves Message, Confirm, Input, and Progress dialog tests.
+- Help contains an enabled About page and is right-justified as the end group.
+
+Alt-F, Alt-P, Alt-L, Alt-C, Alt-M, Alt-D, Alt-H, F10, Ctrl-Space,
 arrows, Home/End, Enter, sibling mnemonics, and Escape all use the ordinary
 raw logical key path. F10 and Ctrl-Space first activate the root-label row;
 Down or Enter opens its popup. Menus use the Turbo Vision black/light-gray,
 red-mnemonic, and green-selection look; child menus measure complete entries
 and backset left when their preferred cascade would cross the right edge.
+Top-level end placement remains typed snapshot data, and Help popup placement
+is derived from its right-justified label rather than declaration offset.
 Popups remain visible in typed snapshots as a flat bounded tree with open and
 selected paths.
 

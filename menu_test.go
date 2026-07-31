@@ -178,8 +178,8 @@ func TestMenuConstructionSnapshotCopyAndRendering(t *testing.T) {
 	if _, ok := any(bar).(Container); ok {
 		t.Fatal("MenuBar unexpectedly implements Container")
 	}
-	if got := bar.MinimumSize(); got != (Size{Width: 12, Height: 1}) {
-		t.Fatalf("MenuBar minimum = %+v, want 12x1", got)
+	if got := bar.MinimumSize(); got != (Size{Width: 13, Height: 1}) {
+		t.Fatalf("MenuBar minimum = %+v, want 13x1", got)
 	}
 	items := bar.Items()
 	items[0].Label = "Changed"
@@ -237,6 +237,66 @@ func TestMenuConstructionSnapshotCopyAndRendering(t *testing.T) {
 	}
 	if got := cellAt(t, snapshot, 2, 2); got.Grapheme == ">" {
 		t.Fatalf("popup retained synthetic selection marker: %#v", got)
+	}
+}
+
+func TestMenuBarEndPlacementRightJustifiesLabelAndAnchorsPopup(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 30, Height: 8})
+	registerActionCommand(t, app, "menu.quit", "Quit", true)
+	registerActionCommand(t, app, "menu.about", "About", true)
+	file, err := NewMenu(MenuOptions{Items: []MenuItem{{
+		Key: "file.quit", Kind: MenuItemCommand, Command: "menu.quit",
+		Mnemonic: "q",
+	}}})
+	if err != nil {
+		t.Fatalf("NewMenu(file) error = %v", err)
+	}
+	help, err := NewMenu(MenuOptions{Items: []MenuItem{{
+		Key: "help.about", Kind: MenuItemCommand, Command: "menu.about",
+		Mnemonic: "a",
+	}}})
+	if err != nil {
+		t.Fatalf("NewMenu(help) error = %v", err)
+	}
+	bar, err := NewMenuBar(app.Root(), MenuBarOptions{
+		PanelOptions: PanelOptions{AutomationKey: "menu.aligned"},
+		Items: []MenuItem{
+			{
+				Key: "root.file", Kind: MenuItemSubmenu,
+				Label: "File", Mnemonic: "f", Menu: file,
+			},
+			{
+				Key: "root.help", Kind: MenuItemSubmenu,
+				Label: "Help", Mnemonic: "h", Menu: help,
+				Placement: MenuBarPlacementEnd,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewMenuBar() error = %v", err)
+	}
+	if got := bar.MinimumSize(); got != (Size{Width: 14, Height: 1}) {
+		t.Fatalf("aligned MenuBar minimum = %+v, want 14x1", got)
+	}
+	snapshot := app.Snapshot()
+	if got := cellAt(t, snapshot, 25, 0); got.Grapheme != "H" ||
+		got.Style != "menu.mnemonic" {
+		t.Fatalf("right-aligned Help mnemonic = %#v", got)
+	}
+	details := menuBarByKey(t, snapshot, "menu.aligned").Details.MenuBar
+	if details.Entries[0].Placement != MenuBarPlacementStart ||
+		details.Entries[2].Placement != MenuBarPlacementEnd {
+		t.Fatalf("MenuBar placements = %#v", details.Entries)
+	}
+	pressChord(t, app, "open-help", KeyAlt, "h")
+	snapshot = app.Snapshot()
+	if got := cellAt(t, snapshot, 25, 0); got.Style !=
+		"menu.focused_mnemonic" {
+		t.Fatalf("focused Help mnemonic = %#v", got)
+	}
+	if got := cellAt(t, snapshot, 18, 1); got.Grapheme != "┌" {
+		t.Fatalf("Help popup did not anchor/backset from right label: %#v", got)
 	}
 }
 
@@ -518,6 +578,12 @@ func TestMenuValidationIsAtomic(t *testing.T) {
 	}}); !errors.Is(err, ErrInvalidControl) {
 		t.Fatalf("duplicate sibling mnemonic error = %v", err)
 	}
+	if _, err := NewMenu(MenuOptions{Items: []MenuItem{{
+		Key: "placed.popup", Kind: MenuItemCommand,
+		Command: "menu.action", Placement: MenuBarPlacementEnd,
+	}}}); !errors.Is(err, ErrInvalidControl) {
+		t.Fatalf("popup placement error = %v", err)
+	}
 
 	child, err := NewMenu(MenuOptions{Items: []MenuItem{{
 		Key: "child", Kind: MenuItemCommand, Command: "menu.action",
@@ -539,6 +605,14 @@ func TestMenuValidationIsAtomic(t *testing.T) {
 		},
 	}); !errors.Is(err, ErrInvalidControl) {
 		t.Fatalf("aliased Menu tree error = %v", err)
+	}
+	if _, err := NewMenuBar(app.Root(), MenuBarOptions{
+		Items: []MenuItem{{
+			Key: "placed.invalid", Kind: MenuItemSubmenu,
+			Label: "Placed", Menu: child, Placement: "middle",
+		}},
+	}); !errors.Is(err, ErrInvalidControl) {
+		t.Fatalf("invalid top-level placement error = %v", err)
 	}
 	after := app.Snapshot()
 	if after.Sequence != before.Sequence ||

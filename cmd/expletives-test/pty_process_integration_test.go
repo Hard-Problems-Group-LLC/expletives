@@ -88,9 +88,9 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		waitForFrameHeight(t, ctx, process, controlSpaceEscapeStart, 30)
 
 		nestedStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{0x1b, 'A', 's'})
+		writePTY(t, process.pair.master, []byte{0x1b, 'L', 's'})
 		if err := process.pair.waitInputDrained(ctx); err != nil {
-			t.Fatalf("deliver Alt-A/S: %v", err)
+			t.Fatalf("deliver Alt-L/S: %v", err)
 		}
 		waitForFrameHeight(t, ctx, process, nestedStart, 30)
 		nestedEscapeStart := process.output.mark()
@@ -105,6 +105,13 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 			t.Fatalf("dismiss root menu: %v", err)
 		}
 		waitForFrameHeight(t, ctx, process, rootEscapeStart, 30)
+
+		helpStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b, 'H', 'a'})
+		if err := process.pair.waitInputDrained(ctx); err != nil {
+			t.Fatalf("deliver Alt-H/A: %v", err)
+		}
+		waitForFrameHeight(t, ctx, process, helpStart, 30)
 
 		quitStart := process.output.mark()
 		writePTY(t, process.pair.master, []byte{'q'})

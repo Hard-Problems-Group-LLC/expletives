@@ -11,20 +11,41 @@ import (
 )
 
 const (
-	ScenarioID                                = "toolkit.catalog"
-	CommandFixtureToggle expletives.CommandID = "fixture.toggle"
-	CommandPanelRaise    expletives.CommandID = "layout.panel.raise"
-	CommandPanelLower    expletives.CommandID = "layout.panel.lower"
-	CommandLayerRaise    expletives.CommandID = "layout.layer.raise"
-	CommandLayerLower    expletives.CommandID = "layout.layer.lower"
-	CommandScenarioReset expletives.CommandID = "scenario.reset"
-	CommandViewCore      expletives.CommandID = "view.core"
-	CommandViewText      expletives.CommandID = "view.text"
-	CommandViewActions   expletives.CommandID = "view.actions"
-	CommandViewFuture    expletives.CommandID = "view.future"
-	CommandUnavailable   expletives.CommandID = "fixture.unavailable"
-	CommandAppQuit       expletives.CommandID = "app.quit"
-	CommandAppInterrupt  expletives.CommandID = "app.interrupt"
+	ScenarioID                                  = "toolkit.catalog"
+	CommandFixtureToggle   expletives.CommandID = "fixture.toggle"
+	CommandPanelRaise      expletives.CommandID = "layout.panel.raise"
+	CommandPanelLower      expletives.CommandID = "layout.panel.lower"
+	CommandLayerRaise      expletives.CommandID = "layout.layer.raise"
+	CommandLayerLower      expletives.CommandID = "layout.layer.lower"
+	CommandScenarioReset   expletives.CommandID = "scenario.reset"
+	CommandViewCore        expletives.CommandID = "view.core"
+	CommandViewText        expletives.CommandID = "view.text"
+	CommandViewActions     expletives.CommandID = "view.actions"
+	CommandViewMenus       expletives.CommandID = "view.menus"
+	CommandViewAbout       expletives.CommandID = "view.about"
+	CommandViewPanelsCore  expletives.CommandID = "view.panels.core"
+	CommandViewPanelStyles expletives.CommandID = "view.panels.styles"
+	CommandViewLayoutBox   expletives.CommandID = "view.layouts.box"
+	CommandViewLayoutGrid  expletives.CommandID = "view.layouts.grid"
+	CommandPanelScrollbars expletives.CommandID = "catalog.panels.scrollbars"
+	CommandLayoutAbsolute  expletives.CommandID = "catalog.layouts.absolute"
+	CommandStatusBar       expletives.CommandID = "catalog.controls.status"
+	CommandHeadersFooters  expletives.CommandID = "catalog.controls.headers_footers"
+	CommandSelection       expletives.CommandID = "catalog.controls.selection"
+	CommandTextInput       expletives.CommandID = "catalog.controls.input"
+	CommandProgress        expletives.CommandID = "catalog.controls.progress"
+	CommandNavigation      expletives.CommandID = "catalog.controls.navigation"
+	CommandScrolling       expletives.CommandID = "catalog.controls.scrolling"
+	CommandCollections     expletives.CommandID = "catalog.controls.collections"
+	CommandPanelMenu       expletives.CommandID = "catalog.menus.panel"
+	CommandContextMenu     expletives.CommandID = "catalog.menus.context"
+	CommandDialogMessage   expletives.CommandID = "catalog.dialogs.message"
+	CommandDialogConfirm   expletives.CommandID = "catalog.dialogs.confirm"
+	CommandDialogInput     expletives.CommandID = "catalog.dialogs.input"
+	CommandDialogProgress  expletives.CommandID = "catalog.dialogs.progress"
+	CommandUnavailable     expletives.CommandID = "fixture.unavailable"
+	CommandAppQuit         expletives.CommandID = "app.quit"
+	CommandAppInterrupt    expletives.CommandID = "app.interrupt"
 )
 
 var (
@@ -244,6 +265,58 @@ func NewWithRootConstraints(
 		Style:         canvasStyle.ID,
 		Hidden:        true,
 	})
+	if err != nil {
+		return nil, err
+	}
+	menusScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
+		AutomationKey: "screen.menus",
+		Style:         canvasStyle.ID,
+		Hidden:        true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	aboutScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
+		AutomationKey: "screen.about",
+		Style:         canvasStyle.ID,
+		Hidden:        true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	menusText, err := transaction.NewStaticText(
+		menusScreen,
+		expletives.StaticTextOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "menus.overview",
+				Style:         canvasStyle.ID,
+			},
+			Text: "Menu demonstrations\n\n" +
+				"Use Alt plus a red mnemonic, F10, arrows, Enter, and Escape. " +
+				"Panel-owned and context menus arrive with their required controls.",
+			HorizontalAlignment: expletives.TextAlignCenter,
+			VerticalAlignment:   expletives.TextAlignCenter,
+			Wrap:                expletives.TextWrapWords,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	aboutText, err := transaction.NewStaticText(
+		aboutScreen,
+		expletives.StaticTextOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "help.about",
+				Style:         canvasStyle.ID,
+			},
+			Text: "expletives\n\n" +
+				"A reusable Go character-cell TUI toolkit.\n" +
+				"This catalog is its human and automation test application.",
+			HorizontalAlignment: expletives.TextAlignCenter,
+			VerticalAlignment:   expletives.TextAlignCenter,
+			Wrap:                expletives.TextWrapWords,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -586,10 +659,26 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	menusScreenLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.screen.menus"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	aboutScreenLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{AutomationKey: "layout.screen.about"},
+	)
+	if err != nil {
+		return nil, err
+	}
 	for layout, screen := range map[*expletives.BoxLayout]expletives.Control{
 		coreScreenLayout:    coreScreen,
 		textScreenLayout:    textScreen,
 		actionsScreenLayout: actionsScreen,
+		menusScreenLayout:   menusScreen,
+		aboutScreenLayout:   aboutScreen,
 	} {
 		if err := layout.AddPanel(
 			screen,
@@ -597,6 +686,42 @@ func NewWithRootConstraints(
 		); err != nil {
 			return nil, err
 		}
+	}
+	menusLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.menus",
+			Insets: expletives.Insets{
+				Top: 1, Right: 2, Bottom: 1, Left: 2,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := menusLayout.AddPanel(
+		menusText,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	aboutLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.about",
+			Insets: expletives.Insets{
+				Top: 1, Right: 2, Bottom: 1, Left: 2,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := aboutLayout.AddPanel(
+		aboutText,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
 	}
 
 	coreGrid, err := expletives.NewGridLayout(expletives.GridLayoutOptions{
@@ -814,6 +939,12 @@ func NewWithRootConstraints(
 	if err := transaction.AddLayout(content, actionsScreenLayout); err != nil {
 		return nil, err
 	}
+	if err := transaction.AddLayout(content, menusScreenLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.AddLayout(content, aboutScreenLayout); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(coreScreen, coreLayout); err != nil {
 		return nil, err
 	}
@@ -844,6 +975,12 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(aboutScreen, aboutLayout); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(actionPanel, actionLayout); err != nil {
 		return nil, err
 	}
@@ -870,6 +1007,8 @@ func NewWithRootConstraints(
 			CommandViewCore:    coreScreen,
 			CommandViewText:    textScreen,
 			CommandViewActions: actionsScreen,
+			CommandViewMenus:   menusScreen,
+			CommandViewAbout:   aboutScreen,
 		},
 	}
 	if err := app.SetCommandRouter(scene.routeCommand); err != nil {
@@ -944,13 +1083,108 @@ func initialCommandDefinitions() []expletives.CommandDefinition {
 		screenDefinition(CommandViewCore, true),
 		screenDefinition(CommandViewText, false),
 		screenDefinition(CommandViewActions, false),
-		{
-			ID: CommandViewFuture, Label: "Future Controls",
-			Description:    "Reserved for the next control catalog phase",
-			Enabled:        false,
-			DisabledReason: "No later control phase has been implemented",
-			Automation:     true,
-		},
+		screenDefinition(CommandViewMenus, false),
+		screenDefinition(CommandViewAbout, false),
+		catalogScreenDefinition(
+			CommandViewPanelsCore,
+			"Core Panels",
+			true,
+		),
+		catalogScreenDefinition(
+			CommandViewPanelStyles,
+			"Visual Styles",
+			true,
+		),
+		catalogScreenDefinition(
+			CommandViewLayoutBox,
+			"Box Layout",
+			true,
+		),
+		catalogScreenDefinition(
+			CommandViewLayoutGrid,
+			"Grid Layout",
+			true,
+		),
+		unavailableCatalogDefinition(
+			CommandPanelScrollbars,
+			"Panel Scroll Bars",
+			"Scrolling and Content",
+		),
+		unavailableCatalogDefinition(
+			CommandLayoutAbsolute,
+			"Absolute Positioning",
+			"future Layout",
+		),
+		unavailableCatalogDefinition(
+			CommandStatusBar,
+			"Status Bar",
+			"Status Bar",
+		),
+		unavailableCatalogDefinition(
+			CommandHeadersFooters,
+			"Headers / Footers",
+			"Headers and Footers",
+		),
+		unavailableCatalogDefinition(
+			CommandSelection,
+			"Selection",
+			"Selection",
+		),
+		unavailableCatalogDefinition(
+			CommandTextInput,
+			"Text / Numeric Input",
+			"Text and Numeric Input",
+		),
+		unavailableCatalogDefinition(
+			CommandProgress,
+			"Progress",
+			"Progress",
+		),
+		unavailableCatalogDefinition(
+			CommandNavigation,
+			"Navigation",
+			"Navigation and Chrome",
+		),
+		unavailableCatalogDefinition(
+			CommandScrolling,
+			"Scrolling / Content",
+			"Scrolling and Content",
+		),
+		unavailableCatalogDefinition(
+			CommandCollections,
+			"Collections",
+			"Collections",
+		),
+		unavailableCatalogDefinition(
+			CommandPanelMenu,
+			"Panel Menu",
+			"panel-owned Menu",
+		),
+		unavailableCatalogDefinition(
+			CommandContextMenu,
+			"Context Menu",
+			"Collections and context Menu",
+		),
+		unavailableCatalogDefinition(
+			CommandDialogMessage,
+			"Message Box",
+			"Modal Controls",
+		),
+		unavailableCatalogDefinition(
+			CommandDialogConfirm,
+			"Confirm Dialog",
+			"Modal Controls",
+		),
+		unavailableCatalogDefinition(
+			CommandDialogInput,
+			"Input Dialog",
+			"Modal Controls",
+		),
+		unavailableCatalogDefinition(
+			CommandDialogProgress,
+			"Progress Dialog",
+			"Modal Controls",
+		),
 		{
 			ID: CommandAppQuit, Label: "Quit",
 			Description: "Exit the demonstration application",
@@ -961,6 +1195,20 @@ func initialCommandDefinitions() []expletives.CommandDefinition {
 			Description: "Interrupt the demonstration application",
 			Enabled:     true, Automation: true,
 		},
+	}
+}
+
+func unavailableCatalogDefinition(
+	id expletives.CommandID,
+	label string,
+	phase string,
+) expletives.CommandDefinition {
+	return expletives.CommandDefinition{
+		ID: id, Label: label,
+		Description:    "Open the " + label + " demonstration",
+		Enabled:        false,
+		DisabledReason: "Available after the " + phase + " phase",
+		Automation:     true,
 	}
 }
 
@@ -980,11 +1228,26 @@ func screenDefinition(
 		CommandViewCore:    "Core / Layout",
 		CommandViewText:    "Text / Display",
 		CommandViewActions: "Actions",
+		CommandViewMenus:   "Menu Bar",
+		CommandViewAbout:   "About",
 	}
 	return expletives.CommandDefinition{
 		ID: id, Label: labels[id],
 		Description: "Show one purpose-specific toolkit catalog screen",
 		Enabled:     true, Checked: checked, Automation: true,
+	}
+}
+
+func catalogScreenDefinition(
+	id expletives.CommandID,
+	label string,
+	checked bool,
+) expletives.CommandDefinition {
+	return expletives.CommandDefinition{
+		ID: id, Label: label,
+		Description: "Show the existing combined core demonstration at the " +
+			label + " section",
+		Enabled: true, Checked: checked, Automation: true,
 	}
 }
 
@@ -998,24 +1261,20 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	view, err := expletives.NewMenu(expletives.MenuOptions{
+	panels, err := expletives.NewMenu(expletives.MenuOptions{
 		Items: []expletives.MenuItem{
 			{
-				Key: "menu.view.core", Kind: expletives.MenuItemCommand,
-				Command: CommandViewCore, Mnemonic: "c",
+				Key: "menu.panels.core", Kind: expletives.MenuItemCommand,
+				Command: CommandViewPanelsCore, Mnemonic: "c",
 			},
 			{
-				Key: "menu.view.text", Kind: expletives.MenuItemCommand,
-				Command: CommandViewText, Mnemonic: "t",
+				Key: "menu.panels.styles", Kind: expletives.MenuItemCommand,
+				Command: CommandViewPanelStyles, Mnemonic: "v",
 			},
+			{Key: "menu.panels.separator", Kind: expletives.MenuItemSeparator},
 			{
-				Key: "menu.view.actions", Kind: expletives.MenuItemCommand,
-				Command: CommandViewActions, Mnemonic: "a",
-			},
-			{Key: "menu.view.separator", Kind: expletives.MenuItemSeparator},
-			{
-				Key: "menu.view.future", Kind: expletives.MenuItemCommand,
-				Command: CommandViewFuture, Mnemonic: "f",
+				Key: "menu.panels.scrollbars", Kind: expletives.MenuItemCommand,
+				Command: CommandPanelScrollbars, Mnemonic: "s",
 			},
 		},
 	})
@@ -1049,25 +1308,140 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	actions, err := expletives.NewMenu(expletives.MenuOptions{
+	layouts, err := expletives.NewMenu(expletives.MenuOptions{
 		Items: []expletives.MenuItem{
 			{
-				Key: "menu.actions.toggle", Kind: expletives.MenuItemCommand,
-				Command: CommandFixtureToggle, Mnemonic: "t",
+				Key: "menu.layouts.box", Kind: expletives.MenuItemCommand,
+				Command: CommandViewLayoutBox, Mnemonic: "b",
 			},
 			{
-				Key: "menu.actions.reset", Kind: expletives.MenuItemCommand,
-				Command: CommandScenarioReset, Mnemonic: "r",
+				Key: "menu.layouts.grid", Kind: expletives.MenuItemCommand,
+				Command: CommandViewLayoutGrid, Mnemonic: "g",
 			},
 			{
-				Key:  "menu.actions.separator",
+				Key:  "menu.layouts.separator.engines",
 				Kind: expletives.MenuItemSeparator,
 			},
 			{
-				Key: "menu.actions.stacking", Kind: expletives.MenuItemSubmenu,
+				Key: "menu.layouts.stacking", Kind: expletives.MenuItemSubmenu,
 				Label: "Stacking", Mnemonic: "s", Menu: stacking,
 			},
+			{
+				Key:  "menu.layouts.separator.future",
+				Kind: expletives.MenuItemSeparator,
+			},
+			{
+				Key: "menu.layouts.absolute", Kind: expletives.MenuItemCommand,
+				Command: CommandLayoutAbsolute, Mnemonic: "a",
+			},
 		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	controls, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key: "menu.controls.text", Kind: expletives.MenuItemCommand,
+				Command: CommandViewText, Mnemonic: "t",
+			},
+			{
+				Key: "menu.controls.actions", Kind: expletives.MenuItemCommand,
+				Command: CommandViewActions, Mnemonic: "a",
+			},
+			{
+				Key:  "menu.controls.separator.chrome",
+				Kind: expletives.MenuItemSeparator,
+			},
+			{
+				Key: "menu.controls.status", Kind: expletives.MenuItemCommand,
+				Command: CommandStatusBar, Mnemonic: "s",
+			},
+			{
+				Key: "menu.controls.headers", Kind: expletives.MenuItemCommand,
+				Command: CommandHeadersFooters, Mnemonic: "h",
+			},
+			{
+				Key:  "menu.controls.separator.future",
+				Kind: expletives.MenuItemSeparator,
+			},
+			{
+				Key: "menu.controls.selection", Kind: expletives.MenuItemCommand,
+				Command: CommandSelection, Mnemonic: "e",
+			},
+			{
+				Key: "menu.controls.input", Kind: expletives.MenuItemCommand,
+				Command: CommandTextInput, Mnemonic: "n",
+			},
+			{
+				Key: "menu.controls.progress", Kind: expletives.MenuItemCommand,
+				Command: CommandProgress, Mnemonic: "p",
+			},
+			{
+				Key: "menu.controls.navigation", Kind: expletives.MenuItemCommand,
+				Command: CommandNavigation, Mnemonic: "v",
+			},
+			{
+				Key: "menu.controls.scrolling", Kind: expletives.MenuItemCommand,
+				Command: CommandScrolling, Mnemonic: "c",
+			},
+			{
+				Key: "menu.controls.collections", Kind: expletives.MenuItemCommand,
+				Command: CommandCollections, Mnemonic: "o",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	menus, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key: "menu.menus.overview", Kind: expletives.MenuItemCommand,
+				Command: CommandViewMenus, Mnemonic: "o",
+			},
+			{Key: "menu.menus.separator", Kind: expletives.MenuItemSeparator},
+			{
+				Key: "menu.menus.panel", Kind: expletives.MenuItemCommand,
+				Command: CommandPanelMenu, Mnemonic: "p",
+			},
+			{
+				Key: "menu.menus.context", Kind: expletives.MenuItemCommand,
+				Command: CommandContextMenu, Mnemonic: "c",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	dialogs, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key: "menu.dialogs.message", Kind: expletives.MenuItemCommand,
+				Command: CommandDialogMessage, Mnemonic: "m",
+			},
+			{
+				Key: "menu.dialogs.confirm", Kind: expletives.MenuItemCommand,
+				Command: CommandDialogConfirm, Mnemonic: "c",
+			},
+			{
+				Key: "menu.dialogs.input", Kind: expletives.MenuItemCommand,
+				Command: CommandDialogInput, Mnemonic: "i",
+			},
+			{
+				Key: "menu.dialogs.progress", Kind: expletives.MenuItemCommand,
+				Command: CommandDialogProgress, Mnemonic: "p",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	help, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{{
+			Key: "menu.help.about", Kind: expletives.MenuItemCommand,
+			Command: CommandViewAbout, Mnemonic: "a",
+		}},
 	})
 	if err != nil {
 		return nil, err
@@ -1078,12 +1452,29 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 			Label: "File", Mnemonic: "f", Menu: file,
 		},
 		{
-			Key: "menu.view", Kind: expletives.MenuItemSubmenu,
-			Label: "View", Mnemonic: "v", Menu: view,
+			Key: "menu.panels", Kind: expletives.MenuItemSubmenu,
+			Label: "Panels", Mnemonic: "p", Menu: panels,
 		},
 		{
-			Key: "menu.actions", Kind: expletives.MenuItemSubmenu,
-			Label: "Actions", Mnemonic: "a", Menu: actions,
+			Key: "menu.layouts", Kind: expletives.MenuItemSubmenu,
+			Label: "Layouts", Mnemonic: "l", Menu: layouts,
+		},
+		{
+			Key: "menu.controls", Kind: expletives.MenuItemSubmenu,
+			Label: "Controls", Mnemonic: "c", Menu: controls,
+		},
+		{
+			Key: "menu.menus", Kind: expletives.MenuItemSubmenu,
+			Label: "Menus", Mnemonic: "m", Menu: menus,
+		},
+		{
+			Key: "menu.dialogs", Kind: expletives.MenuItemSubmenu,
+			Label: "Dialogs", Mnemonic: "d", Menu: dialogs,
+		},
+		{
+			Key: "menu.help", Kind: expletives.MenuItemSubmenu,
+			Label: "Help", Mnemonic: "h", Menu: help,
+			Placement: expletives.MenuBarPlacementEnd,
 		},
 	}, nil
 }
@@ -1186,8 +1577,12 @@ func (s *Scene) handleCommand(
 			return expletives.OutcomeNoOp, nil
 		}
 		return expletives.OutcomeApplied, nil
-	case CommandViewCore, CommandViewText, CommandViewActions:
+	case CommandViewCore, CommandViewText, CommandViewActions,
+		CommandViewMenus, CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
+	case CommandViewPanelsCore, CommandViewPanelStyles,
+		CommandViewLayoutBox, CommandViewLayoutGrid:
+		return s.switchScreenLocked(CommandViewCore)
 	case CommandPanelRaise:
 		return mutationOutcome(s.App, s.accent.Raise)
 	case CommandPanelLower:
@@ -1228,10 +1623,29 @@ func (s *Scene) switchScreenLocked(
 		CommandViewCore,
 		CommandViewText,
 		CommandViewActions,
+		CommandViewMenus,
+		CommandViewAbout,
 	} {
 		if err := s.App.ReplaceCommand(
 			screenDefinition(command, command == target),
 		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+	}
+	for _, definition := range []struct {
+		id    expletives.CommandID
+		label string
+	}{
+		{CommandViewPanelsCore, "Core Panels"},
+		{CommandViewPanelStyles, "Visual Styles"},
+		{CommandViewLayoutBox, "Box Layout"},
+		{CommandViewLayoutGrid, "Grid Layout"},
+	} {
+		if err := s.App.ReplaceCommand(catalogScreenDefinition(
+			definition.id,
+			definition.label,
+			target == CommandViewCore,
+		)); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 	}
@@ -1272,6 +1686,10 @@ func SelfCheck() error {
 		"screen.core",
 		"screen.text",
 		"screen.actions",
+		"screen.menus",
+		"screen.about",
+		"menus.overview",
+		"help.about",
 		"panel.red",
 		"panel.accent",
 		"display.label",
@@ -1286,13 +1704,46 @@ func SelfCheck() error {
 		}
 	}
 	menu := controls["menu.main"].Details.MenuBar
-	if menu == nil || len(menu.Entries) != 17 ||
+	if menu == nil || len(menu.Entries) != 43 ||
 		len(menu.OpenPath) != 0 {
 		return errors.New("MenuBar typed evidence is incomplete")
 	}
+	helpAtEnd := false
+	catalogLabels := map[string]string{
+		"menu.panels.core":   "Core Panels",
+		"menu.panels.styles": "Visual Styles",
+		"menu.layouts.box":   "Box Layout",
+		"menu.layouts.grid":  "Grid Layout",
+	}
+	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
+	for _, entry := range menu.Entries {
+		if entry.Key == "menu.help" &&
+			entry.Placement == expletives.MenuBarPlacementEnd {
+			helpAtEnd = true
+		}
+		if label, ok := catalogLabels[entry.Key]; ok {
+			if entry.Label != label {
+				return fmt.Errorf(
+					"%s label = %q, want %q",
+					entry.Key,
+					entry.Label,
+					label,
+				)
+			}
+			seenCatalogLabels[entry.Key] = true
+		}
+	}
+	if !helpAtEnd {
+		return errors.New("Help menu is not in the end-aligned group")
+	}
+	if len(seenCatalogLabels) != len(catalogLabels) {
+		return errors.New("catalog navigation labels are incomplete")
+	}
 	if !controls["screen.core"].Visible ||
 		controls["screen.text"].Visible ||
-		controls["screen.actions"].Visible {
+		controls["screen.actions"].Visible ||
+		controls["screen.menus"].Visible ||
+		controls["screen.about"].Visible {
 		return errors.New("initial catalog screen visibility is invalid")
 	}
 	for _, key := range []string{"panel.red", "panel.accent"} {

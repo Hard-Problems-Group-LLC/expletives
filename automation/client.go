@@ -1077,7 +1077,10 @@ func validMenuBarDetails(
 			return false
 		}
 		if entry.Depth == 0 {
-			if entry.ParentKey != "" {
+			if entry.ParentKey != "" ||
+				(entry.Placement != "" &&
+					entry.Placement != "start" &&
+					entry.Placement != "end") {
 				return false
 			}
 			rootCount++
@@ -1087,7 +1090,8 @@ func validMenuBarDetails(
 		} else {
 			parent, exists := entries[entry.ParentKey]
 			if !exists || parent.Kind != "submenu" ||
-				parent.Depth+1 != entry.Depth {
+				parent.Depth+1 != entry.Depth ||
+				entry.Placement != "" {
 				return false
 			}
 			children[entry.ParentKey]++

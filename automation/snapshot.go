@@ -34,6 +34,8 @@ type (
 	Orientation uint8
 	// MenuItemKind identifies a command, separator, or submenu entry.
 	MenuItemKind string
+	// MenuBarPlacement identifies a top-level start or end edge group.
+	MenuBarPlacement string
 )
 
 // Point is a zero-based snapshot cell coordinate.
@@ -240,20 +242,21 @@ type HotkeyBarDetails struct {
 
 // MenuEntryDetails is one flattened immutable menu entry.
 type MenuEntryDetails struct {
-	Key            string       `json:"key"`
-	ParentKey      string       `json:"parent_key,omitempty"`
-	Depth          int          `json:"depth"`
-	Kind           MenuItemKind `json:"kind"`
-	Label          string       `json:"label,omitempty"`
-	Command        string       `json:"command,omitempty"`
-	Enabled        bool         `json:"enabled"`
-	DisabledReason string       `json:"disabled_reason,omitempty"`
-	Checked        bool         `json:"checked"`
-	Mnemonic       Key          `json:"mnemonic,omitempty"`
-	Chord          *Chord       `json:"chord,omitempty"`
-	Selected       bool         `json:"selected"`
-	Open           bool         `json:"open"`
-	ChildCount     int          `json:"child_count"`
+	Key            string           `json:"key"`
+	ParentKey      string           `json:"parent_key,omitempty"`
+	Depth          int              `json:"depth"`
+	Kind           MenuItemKind     `json:"kind"`
+	Label          string           `json:"label,omitempty"`
+	Command        string           `json:"command,omitempty"`
+	Enabled        bool             `json:"enabled"`
+	DisabledReason string           `json:"disabled_reason,omitempty"`
+	Checked        bool             `json:"checked"`
+	Mnemonic       Key              `json:"mnemonic,omitempty"`
+	Placement      MenuBarPlacement `json:"placement,omitempty"`
+	Chord          *Chord           `json:"chord,omitempty"`
+	Selected       bool             `json:"selected"`
+	Open           bool             `json:"open"`
+	ChildCount     int              `json:"child_count"`
 }
 
 // MenuBarDetails is one bounded flattened menu tree and its session paths.
@@ -532,6 +535,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					DisabledReason: entry.DisabledReason,
 					Checked:        entry.Checked,
 					Mnemonic:       Key(entry.Mnemonic),
+					Placement:      MenuBarPlacement(entry.Placement),
 					Selected:       entry.Selected,
 					Open:           entry.Open,
 					ChildCount:     entry.ChildCount,

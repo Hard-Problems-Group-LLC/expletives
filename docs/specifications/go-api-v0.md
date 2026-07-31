@@ -396,9 +396,11 @@ func (b *MenuBar) Items() []MenuItem
 is a non-container leaf parented directly by `app.Root()`; version 0 permits
 one live MenuBar and popup session per App. It is physical application chrome
 at row 0, not an ordinary Layout item, and its full-surface Bounds are
-derived rather than caller-set. Command items derive label, enabled/disabled
-reason, checked state, and first binding from the same `CommandDefinition`
-used by Button and HotkeyBar.
+derived rather than caller-set. Top-level MenuItems select a start or end edge
+group; declaration order is stable within each, and right-justified Help is
+an end item. Command items derive label, enabled/disabled reason, checked
+state, and first binding from the same `CommandDefinition` used by Button and
+HotkeyBar.
 
 Exact Alt top-level mnemonics open popups. F10 and Ctrl-Space activate the
 menu row; Down or Enter opens the selected root. Arrow, Home, End, Enter,

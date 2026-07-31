@@ -18,6 +18,16 @@ const (
 	MenuItemSubmenu MenuItemKind = "submenu"
 )
 
+// MenuBarPlacement selects the top-level MenuBar edge group. Its empty value
+// selects MenuBarPlacementStart.
+type MenuBarPlacement string
+
+const (
+	MenuBarPlacementDefault MenuBarPlacement = ""
+	MenuBarPlacementStart   MenuBarPlacement = "start"
+	MenuBarPlacementEnd     MenuBarPlacement = "end"
+)
+
 // MenuItem is one immutable copied menu descriptor.
 type MenuItem struct {
 	// Key is stable within one complete MenuBar tree.
@@ -31,6 +41,9 @@ type MenuItem struct {
 	Command CommandID
 	// Mnemonic is an optional ASCII sibling access key.
 	Mnemonic Key
+	// Placement selects the start- or end-aligned MenuBar group. It is valid
+	// only for top-level submenu items.
+	Placement MenuBarPlacement
 	// Menu is required only for submenu items.
 	Menu *Menu
 }
@@ -312,6 +325,25 @@ func normalizeMenuItems(
 			}
 			mnemonics[mnemonic] = true
 		}
+		if topLevel {
+			switch item.Placement {
+			case MenuBarPlacementDefault, MenuBarPlacementStart:
+				item.Placement = MenuBarPlacementStart
+			case MenuBarPlacementEnd:
+			default:
+				return nil, fmt.Errorf(
+					"%w: invalid MenuBar placement %q",
+					ErrInvalidControl,
+					item.Placement,
+				)
+			}
+		} else if item.Placement != MenuBarPlacementDefault {
+			return nil, fmt.Errorf(
+				"%w: popup MenuItem %q has MenuBar placement",
+				ErrInvalidControl,
+				item.Key,
+			)
+		}
 		switch item.Kind {
 		case MenuItemCommand:
 			if topLevel ||
@@ -368,39 +400,73 @@ func (b menuBarBehavior) paintDecoration(
 	absolute Rect,
 	clip Rect,
 ) {
-	x := absolute.X + 1
-	for index, item := range b.items {
-		label, _ := normalizeDisplayText(item.Label, false)
-		style := state.style
-		mnemonicStyle := b.mnemonicStyle
-		if app.menu != nil && app.menu.bar == state &&
-			app.menu.rootIndex == index {
-			style = b.focusedStyle
-			mnemonicStyle = b.focusedMnemonicStyle
+	positions := b.itemPositions(absolute)
+	for _, placement := range []MenuBarPlacement{
+		MenuBarPlacementStart,
+		MenuBarPlacementEnd,
+	} {
+		for index, item := range b.items {
+			if item.Placement != placement {
+				continue
+			}
+			label, _ := normalizeDisplayText(item.Label, false)
+			style := state.style
+			mnemonicStyle := b.mnemonicStyle
+			if app.menu != nil && app.menu.bar == state &&
+				app.menu.rootIndex == index {
+				style = b.focusedStyle
+				mnemonicStyle = b.focusedMnemonicStyle
+			}
+			cells := append([]string{" "}, label.lines[0]...)
+			cells = append(cells, " ")
+			app.paintMenuCellsLocked(
+				frame,
+				clip,
+				positions[index],
+				absolute.Y,
+				cells,
+				style,
+				state.id,
+			)
+			app.paintMnemonicLocked(
+				frame,
+				clip,
+				positions[index]+1,
+				absolute.Y,
+				label.lines[0],
+				item.Mnemonic,
+				mnemonicStyle,
+				state.id,
+			)
 		}
-		cells := append([]string{" "}, label.lines[0]...)
-		cells = append(cells, " ")
-		app.paintMenuCellsLocked(
-			frame,
-			clip,
-			x,
-			absolute.Y,
-			cells,
-			style,
-			state.id,
-		)
-		app.paintMnemonicLocked(
-			frame,
-			clip,
-			x+1,
-			absolute.Y,
-			label.lines[0],
-			item.Mnemonic,
-			mnemonicStyle,
-			state.id,
-		)
-		x += len(cells)
 	}
+}
+
+func (b menuBarBehavior) itemPositions(absolute Rect) []int {
+	positions := make([]int, len(b.items))
+	startX := absolute.X + 1
+	endWidth := 0
+	for _, item := range b.items {
+		if item.Placement == MenuBarPlacementEnd {
+			endWidth += menuBarItemWidth(item)
+		}
+	}
+	endX := absolute.X + absolute.Width - endWidth
+	for index, item := range b.items {
+		if item.Placement == MenuBarPlacementEnd {
+			positions[index] = endX
+			endX += menuBarItemWidth(item)
+			continue
+		}
+		positions[index] = startX
+		startX += menuBarItemWidth(item)
+	}
+	return positions
+}
+
+func menuBarItemWidth(item MenuItem) int {
+	label, _ := normalizeDisplayText(item.Label, false)
+	return len(label.lines[0]) + 2
 }
 
 func (b menuBarBehavior) details() ControlDetails {
@@ -416,9 +482,18 @@ func (b menuBarBehavior) details() ControlDetails {
 
 func (b menuBarBehavior) intrinsicMinimum() Size {
 	width := 0
+	start, end := false, false
 	for _, item := range b.items {
-		label, _ := normalizeDisplayText(item.Label, false)
-		width += len(label.lines[0]) + 2
+		width += menuBarItemWidth(item)
+		if item.Placement == MenuBarPlacementEnd {
+			end = true
+		} else {
+			start = true
+		}
+	}
+	width++
+	if start && end {
+		width++
 	}
 	return Size{Width: width, Height: 1}
 }
@@ -492,7 +567,7 @@ func (a *App) menuEntryDetailsLocked(
 ) MenuEntryDetails {
 	entry := MenuEntryDetails{
 		Key: item.Key, ParentKey: parent, Depth: depth, Kind: item.Kind,
-		Mnemonic: item.Mnemonic,
+		Mnemonic: item.Mnemonic, Placement: item.Placement,
 	}
 	switch item.Kind {
 	case MenuItemCommand:
@@ -911,12 +986,8 @@ func (a *App) paintMenuOverlayLocked(frame *IntendedFrame) {
 		return
 	}
 	behavior := a.menu.bar.behavior.(menuBarBehavior)
-	topOffset := 0
-	for index := 0; index < a.menu.rootIndex; index++ {
-		label, _ := normalizeDisplayText(behavior.items[index].Label, false)
-		topOffset += len(label.lines[0]) + 2
-	}
-	desiredX := 1 + topOffset
+	barRect := menuBarSurfaceRect(a.size)
+	desiredX := behavior.itemPositions(barRect)[a.menu.rootIndex]
 	desiredY := 1
 	var parentRect Rect
 	var parentRow int

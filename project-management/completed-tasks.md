@@ -4,6 +4,56 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-021` — Add end-aligned Help and scalable catalog
+  Menu namespaces.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T21:35:00-07:00
+  - Completed: 2026-07-30T21:56:10-07:00
+  - Outcome:
+    - added stable start/end placement for top-level MenuBar items, with
+      declaration-order preservation inside each group, deterministic
+      overlap painting, and popup anchoring at resolved positions;
+    - added conventional right-aligned Help with an Alt-H-accessible About
+      page built from existing controls;
+    - reorganized the persistent catalog under File, Panels, Layouts,
+      Controls, Menus, Dialogs, and Help, with distinct navigation labels and
+      sensible separators;
+    - routed existing core, text, action, menu, and About demonstrations
+      through the catalog while leaving later control, dialog, panel-menu,
+      context-menu, scrollbar, and layout demonstrations visible but disabled
+      with explicit phase reasons; and
+    - projected and validated placement through the typed core snapshot and
+      automation protocol without permitting placement on popup entries.
+  - Verification:
+    - `make verify` passed vet, ordinary and Unix-socket tests, the
+      controlling-PTY integration test, the full race suite, and debug,
+      release, and profiling builds for both executables;
+    - focused tests cover end-group geometry, mnemonic styling, right-edge
+      popup anchoring, malformed and nested placement rejection, automation
+      projection, and demo self-check labels;
+    - the conservative response proof measured 37,255,187 JSON bytes and
+      111,765,561 bytes for three retained maxima, below the 36 MiB and
+      128 MiB bounds; and
+    - a live 80x24 attached run observed the six start-aligned namespaces,
+      end-aligned Help, raw Alt-H/A About navigation, grouped Controls entries
+      and deferred reasons, final shutdown, and socket cleanup.
+  - Contracts:
+    - [`Menus API v0`](../docs/specifications/menus-api-v0.md)
+    - [`Application Chrome v0`](../docs/specifications/application-chrome-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+  - Process:
+    - completed as a bounded Menu-phase extension without convening the
+      Panel; and
+    - ACP is authorized without review for this checkpoint.
+  - Follow-up:
+    - later phases enable their existing catalog entries when the required
+      controls and behaviors exist;
+    - Status Bar remains the next planned phase, followed by Headers and
+      Footers; and
+    - Structured Input remains deferred.
+
 - 2026-07-30 — `EXPL-TASK-020` — Correct Menu chrome and Turbo Vision
   look-and-feel; reorder the next chrome phases.
   - Requestor: project operator

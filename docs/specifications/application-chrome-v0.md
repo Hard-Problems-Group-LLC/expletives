@@ -40,6 +40,11 @@ The Main Menu and Status Bar are each optional and unique per App. Headers
 and Footers are optional ordered collections. Every individual Header and
 Footer is exactly one row high.
 
+Main Menu root items may form start- and end-aligned groups within row 0.
+Both remain part of the same MenuBar and keyboard sequence. This supports the
+conventional right-justified Help menu without creating another chrome
+control or changing row ownership.
+
 ## Ownership And Geometry
 
 Every chrome control is constructed with `app.Root()` as its immutable

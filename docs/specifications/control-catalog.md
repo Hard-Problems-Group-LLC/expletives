@@ -307,12 +307,16 @@ bindings. This phase also moves `expletives-test` from one accumulating
 catalog surface to persistent menu navigation among purpose-specific screens.
 It includes `Alt-F`, F10 and another documented fallback, checked/disabled
 items, separators, nested popups, dismissal, clipping, resize, and exact focus
-restoration.
+restoration. Top-level items support stable start/end edge placement so
+conventional right-justified Help remains part of the same MenuBar.
 
 The implemented exact contract is
 [`menus-api-v0.md`](menus-api-v0.md). The public-API catalog now uses its
-persistent MenuBar to show exactly one Core/Layout, Text/Display, or Actions
-screen while retaining all controls as observable stable nodes.
+persistent MenuBar to show exactly one current catalog screen while retaining
+all controls as observable stable nodes. File, Panels, Layouts, Controls,
+Menus, and Dialogs organize the growing test surface; right-justified Help
+contains About. Entries that depend on later phases remain disabled, named
+placeholders until that owning phase implements their pages.
 
 ### 8. Status Bar
 

@@ -269,6 +269,22 @@ The server writes exactly one `hello` before reading requests:
   "commands": [
     "app.interrupt",
     "app.quit",
+    "catalog.controls.collections",
+    "catalog.controls.headers_footers",
+    "catalog.controls.input",
+    "catalog.controls.navigation",
+    "catalog.controls.progress",
+    "catalog.controls.scrolling",
+    "catalog.controls.selection",
+    "catalog.controls.status",
+    "catalog.dialogs.confirm",
+    "catalog.dialogs.input",
+    "catalog.dialogs.message",
+    "catalog.dialogs.progress",
+    "catalog.layouts.absolute",
+    "catalog.menus.context",
+    "catalog.menus.panel",
+    "catalog.panels.scrollbars",
     "fixture.toggle",
     "fixture.unavailable",
     "layout.layer.lower",
@@ -277,9 +293,14 @@ The server writes exactly one `hello` before reading requests:
     "layout.panel.raise",
     "overflow.dismiss",
     "scenario.reset",
+    "view.about",
     "view.actions",
     "view.core",
-    "view.future",
+    "view.layouts.box",
+    "view.layouts.grid",
+    "view.menus",
+    "view.panels.core",
+    "view.panels.styles",
     "view.text"
   ],
   "limits": {
@@ -1072,8 +1093,8 @@ go test ./automation \
   -count=1
 ```
 
-That command passed. The current maximum fixture encoded to 37,214,739 bytes;
-three retained maximum records total 111,644,217 bytes.
+That command passed. The current maximum fixture encoded to 37,255,187 bytes;
+three retained maximum records total 111,765,561 bytes.
 
 The relevant integration assertions are:
 

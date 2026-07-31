@@ -137,7 +137,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   from the shared command registry, restore prior Button focus exactly when
   possible, and expose a bounded flat semantic tree. Preserve Turbo Vision
   appearance and keyboard behavior (not implementation), including red
-  mnemonic letters, green selection, measured/backset child popups, Alt
+  mnemonic letters, green selection, measured/backset child popups,
+  start/end top-level groups with conventional right-justified Help, Alt
   top-level mnemonics, F10 bar activation, Ctrl-Space,
   arrow/Home/End/Enter/Escape traversal, nested popup clipping, and
   command-route parity as defined in

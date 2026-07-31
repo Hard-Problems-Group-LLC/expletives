@@ -309,25 +309,30 @@ ordered backlog and the active-task record; it does not replace either.
   mnemonic letters, green selection, disabled roles and shadows; `Alt-F`
   popup access; F10 and Ctrl-Space bar activation; checked/disabled items;
   measured nested popups with right-edge backsetting; dismissal, clipping,
-  resize, focus restoration; and one active purpose-specific catalog screen.
+  resize, focus restoration; start/end top-level placement with conventional
+  right-justified Help; scalable File/Panels/Layouts/Controls/Menus/Dialogs/
+  Help catalog namespaces; and one active purpose-specific catalog screen.
 - `expletives-test` scenarios: `menus.navigation`, `menus.alt-f`,
   `menus.f10-fallback`, `menus.disabled-command`, and
-  `menus.popup-clipping`. The persistent MenuBar switches among Core/Layout,
-  Text/Display, Actions, and later purpose-specific screens so catalog growth
-  does not force every demonstration into one cluttered view.
+  `menus.popup-clipping`, and `menus.end-placement`. The persistent MenuBar
+  routes current screens through purpose-specific namespaces and holds
+  disabled phase-owned future entries so catalog growth does not force every
+  demonstration into one cluttered view.
 - Normal Go tests: command-route parity, binding precedence and ambiguous Alt,
   root-edge ownership and row reservation, exact palette/mnemonic cells,
   arrow/Home/End navigation, selectable-but-inactive disabled entries,
   separator skipping, measured/backset child popups, nested dismissal, screen
-  switching, clipping/resize/focus restoration, and raw automation key
-  lifecycle parity with applicable PTY input.
+  switching, end-group geometry and popup anchoring, Help/About, clipping/
+  resize/focus restoration, and raw automation key lifecycle parity with
+  applicable PTY input.
 - Acceptance gate: menu, HotkeyBar, Button, mnemonic, direct command, and
   automation routes converge on the same command outcome; both `Alt-F` and
   the documented fallback work; and screen navigation is deterministic and
   observable.
 - Completion evidence:
   [`EXPL-TASK-019`](completed-tasks.md) and corrective
-  [`EXPL-TASK-020`](completed-tasks.md).
+  [`EXPL-TASK-020`](completed-tasks.md), extended by
+  [`EXPL-TASK-021`](completed-tasks.md).
 
 ### 9. Status Bar
 

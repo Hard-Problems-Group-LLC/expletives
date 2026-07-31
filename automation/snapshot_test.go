@@ -98,7 +98,8 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 					Entries: []expletives.MenuEntryDetails{{
 						Key: "menu.file", Kind: expletives.MenuItemSubmenu,
 						Label: "File", Enabled: true, Mnemonic: "f",
-						Selected: true, Open: true, ChildCount: 1,
+						Placement: expletives.MenuBarPlacementEnd,
+						Selected:  true, Open: true, ChildCount: 1,
 					}, {
 						Key: "menu.open", ParentKey: "menu.file", Depth: 1,
 						Kind: expletives.MenuItemCommand, Label: "Open",
@@ -173,6 +174,9 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	}
 	if bytes.Contains(projectedJSON, []byte("local-only cause")) {
 		t.Fatal("projected JSON exposes local-only command cause")
+	}
+	if got := projected.Controls[0].Details.MenuBar.Entries[0].Placement; got != "end" {
+		t.Fatalf("projected MenuBar placement = %q, want end", got)
 	}
 
 	core.Frame.Cells[0].Grapheme = "Z"

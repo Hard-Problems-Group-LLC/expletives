@@ -508,6 +508,18 @@ func TestSnapshotRejectsInvalidMenuBarDetails(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid root placement",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[0].Placement = "middle"
+			},
+		},
+		{
+			name: "nested placement",
+			mutate: func(bar *MenuBarDetails) {
+				bar.Entries[1].Placement = "end"
+			},
+		},
+		{
 			name: "child count",
 			mutate: func(bar *MenuBarDetails) {
 				bar.Entries[0].ChildCount = 1
@@ -673,6 +685,7 @@ func maximumCompletionJSONBytes(
 		DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
 		Checked:        true,
 		Mnemonic:       Key(controlValue.ID),
+		Placement:      MenuBarPlacement(controlValue.ID),
 		Chord: &Chord{
 			Key: Key(controlValue.ID),
 			Modifiers: []Key{

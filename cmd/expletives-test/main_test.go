@@ -93,6 +93,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	actionEvidence := make(map[string]bool)
 	screenEvidence := make(map[string]bool)
 	menuEvidence := false
+	helpEnd := false
 	for _, control := range observe.Snapshot.Controls {
 		switch control.Key {
 		case "root":
@@ -106,13 +107,13 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			accentBounds = control.Bounds
 		case "screen.core":
 			screenEvidence[control.Key] = control.Visible
-		case "screen.text", "screen.actions":
+		case "screen.text", "screen.actions", "screen.menus", "screen.about":
 			screenEvidence[control.Key] = !control.Visible
 		case "menu.main":
 			menuEvidence =
 				control.Kind == "menu_bar" &&
 					control.Details.MenuBar != nil &&
-					len(control.Details.MenuBar.Entries) == 17 &&
+					len(control.Details.MenuBar.Entries) == 43 &&
 					len(control.Details.MenuBar.OpenPath) == 0 &&
 					control.Bounds == (automation.Rect{
 						Width:  observe.Snapshot.Frame.Size.Width,
@@ -122,6 +123,13 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 						Width:  observe.Snapshot.Frame.Size.Width,
 						Height: 1,
 					})
+			if control.Details.MenuBar != nil {
+				for _, entry := range control.Details.MenuBar.Entries {
+					if entry.Key == "menu.help" {
+						helpEnd = entry.Placement == "end"
+					}
+				}
+			}
 		case "display.label":
 			displayEvidence[control.Key] =
 				control.Kind == "label" &&
@@ -177,12 +185,14 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if len(observe.Snapshot.Frame.Cells) > 2 {
 		menuEvidence = menuEvidence &&
 			observe.Snapshot.Frame.Cells[0].Style == "menu_bar" &&
-			observe.Snapshot.Frame.Cells[2].Style == "menu.mnemonic"
+			observe.Snapshot.Frame.Cells[2].Style == "menu.mnemonic" &&
+			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-5].Grapheme == "H" &&
+			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-5].Style == "menu.mnemonic"
 	}
-	if !menuEvidence ||
+	if !menuEvidence || !helpEnd ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(screenEvidence) != 3 {
+		len(screenEvidence) != 5 {
 		t.Fatalf(
 			"catalog evidence: menu=%t screens=%#v display=%#v action=%#v",
 			menuEvidence,
@@ -282,57 +292,57 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 
 	if _, err := client.InjectInput(
 		ctx,
-		"menu-view-alt-down",
+		"menu-controls-alt-down",
 		automation.KeyEvent{Kind: automation.KeyDown, Key: "alt"},
 	); err != nil {
 		t.Fatalf("InjectInput(Alt down) error = %v", err)
 	}
-	openedView, err := client.InjectInput(
+	openedControls, err := client.InjectInput(
 		ctx,
-		"menu-view-open",
-		automation.KeyEvent{Kind: automation.KeyPress, Key: "v"},
+		"menu-controls-open",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "c"},
 	)
 	if err != nil {
-		t.Fatalf("InjectInput(Alt-V) error = %v", err)
+		t.Fatalf("InjectInput(Alt-C) error = %v", err)
 	}
 	if _, err := client.InjectInput(
 		ctx,
-		"menu-view-alt-up",
+		"menu-controls-alt-up",
 		automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
 	); err != nil {
 		t.Fatalf("InjectInput(Alt up) error = %v", err)
 	}
-	var openedViewMenu *automation.MenuBarDetails
-	if openedView.Snapshot != nil {
-		for index := range openedView.Snapshot.Controls {
-			control := &openedView.Snapshot.Controls[index]
+	var openedControlsMenu *automation.MenuBarDetails
+	if openedControls.Snapshot != nil {
+		for index := range openedControls.Snapshot.Controls {
+			control := &openedControls.Snapshot.Controls[index]
 			if control.Key == "menu.main" {
-				openedViewMenu = control.Details.MenuBar
+				openedControlsMenu = control.Details.MenuBar
 				break
 			}
 		}
 	}
-	if openedViewMenu == nil ||
-		len(openedViewMenu.OpenPath) != 1 ||
-		openedViewMenu.OpenPath[0] != "menu.view" ||
-		len(openedViewMenu.SelectedPath) != 2 ||
-		openedViewMenu.SelectedPath[1] != "menu.view.core" {
-		t.Fatalf("Alt-V MenuBar state = %#v", openedViewMenu)
+	if openedControlsMenu == nil ||
+		len(openedControlsMenu.OpenPath) != 1 ||
+		openedControlsMenu.OpenPath[0] != "menu.controls" ||
+		len(openedControlsMenu.SelectedPath) != 2 ||
+		openedControlsMenu.SelectedPath[1] != "menu.controls.text" {
+		t.Fatalf("Alt-C MenuBar state = %#v", openedControlsMenu)
 	}
 	shownActions, err := client.InjectInput(
 		ctx,
-		"menu-view-actions",
+		"menu-controls-actions",
 		automation.KeyEvent{Kind: automation.KeyPress, Key: "a"},
 	)
 	if err != nil {
-		t.Fatalf("InjectInput(View/A) error = %v", err)
+		t.Fatalf("InjectInput(Controls/A) error = %v", err)
 	}
 	if shownActions.Outcome != automation.OutcomeApplied ||
 		shownActions.Snapshot == nil ||
 		shownActions.Snapshot.Completion == nil ||
 		shownActions.Snapshot.Completion.Command !=
 			string(demo.CommandViewActions) {
-		t.Fatalf("View/Actions completion = %+v", shownActions)
+		t.Fatalf("Controls/Actions completion = %+v", shownActions)
 	}
 	actionsVisible := false
 	actionsFocused := false
@@ -349,7 +359,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		case "menu.main":
 			if control.Details.MenuBar != nil {
 				for _, entry := range control.Details.MenuBar.Entries {
-					if entry.Key == "menu.view.actions" {
+					if entry.Key == "menu.controls.actions" {
 						viewChecked = entry.Checked
 					}
 				}
@@ -368,35 +378,35 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 
 	if _, err := client.InjectInput(
 		ctx,
-		"menu-actions-alt-down",
+		"menu-layouts-alt-down",
 		automation.KeyEvent{Kind: automation.KeyDown, Key: "alt"},
 	); err != nil {
 		t.Fatalf("InjectInput(Alt down) error = %v", err)
 	}
 	if _, err := client.InjectInput(
 		ctx,
-		"menu-actions-open",
-		automation.KeyEvent{Kind: automation.KeyPress, Key: "a"},
+		"menu-layouts-open",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "l"},
 	); err != nil {
-		t.Fatalf("InjectInput(Alt-A) error = %v", err)
+		t.Fatalf("InjectInput(Alt-L) error = %v", err)
 	}
 	if _, err := client.InjectInput(
 		ctx,
-		"menu-actions-alt-up",
+		"menu-layouts-alt-up",
 		automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
 	); err != nil {
 		t.Fatalf("InjectInput(Alt up) error = %v", err)
 	}
 	nestedMenu, err := client.InjectInput(
 		ctx,
-		"menu-actions-stacking",
+		"menu-layouts-stacking",
 		automation.KeyEvent{Kind: automation.KeyPress, Key: "s"},
 	)
 	if err != nil {
-		t.Fatalf("InjectInput(Actions/S) error = %v", err)
+		t.Fatalf("InjectInput(Layouts/S) error = %v", err)
 	}
 	if nestedMenu.Snapshot == nil {
-		t.Fatal("Actions/Stacking completion has no snapshot")
+		t.Fatal("Layouts/Stacking completion has no snapshot")
 	}
 	var nestedOpen bool
 	for _, control := range nestedMenu.Snapshot.Controls {
@@ -404,17 +414,17 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			control.Details.MenuBar != nil {
 			path := control.Details.MenuBar.OpenPath
 			nestedOpen = len(path) == 2 &&
-				path[0] == "menu.actions" &&
-				path[1] == "menu.actions.stacking"
+				path[0] == "menu.layouts" &&
+				path[1] == "menu.layouts.stacking"
 		}
 	}
 	if !nestedOpen {
-		t.Fatal("Actions/Stacking submenu did not open")
+		t.Fatal("Layouts/Stacking submenu did not open")
 	}
 	for index := range 2 {
 		if _, err := client.InjectInput(
 			ctx,
-			"menu-actions-escape-"+string(rune('0'+index)),
+			"menu-layouts-escape-"+string(rune('0'+index)),
 			automation.KeyEvent{Kind: automation.KeyPress, Key: "escape"},
 		); err != nil {
 			t.Fatalf("InjectInput(Escape) error = %v", err)
@@ -459,6 +469,73 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
 	); err != nil {
 		t.Fatalf("InjectInput(Alt up) error = %v", err)
+	}
+	if _, err := client.InjectInput(
+		ctx,
+		"help-alt-down",
+		automation.KeyEvent{Kind: automation.KeyDown, Key: "alt"},
+	); err != nil {
+		t.Fatalf("InjectInput(Alt down) error = %v", err)
+	}
+	if _, err := client.InjectInput(
+		ctx,
+		"help-open",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "h"},
+	); err != nil {
+		t.Fatalf("InjectInput(Alt-H) error = %v", err)
+	}
+	if _, err := client.InjectInput(
+		ctx,
+		"help-alt-up",
+		automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
+	); err != nil {
+		t.Fatalf("InjectInput(Alt up) error = %v", err)
+	}
+	about, err := client.InjectInput(
+		ctx,
+		"help-about",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "a"},
+	)
+	if err != nil {
+		t.Fatalf("InjectInput(Help/About) error = %v", err)
+	}
+	aboutVisible := false
+	aboutChecked := false
+	if about.Snapshot != nil {
+		for _, control := range about.Snapshot.Controls {
+			switch control.Key {
+			case "screen.about":
+				aboutVisible = control.Visible
+			case "menu.main":
+				if control.Details.MenuBar == nil {
+					continue
+				}
+				for _, entry := range control.Details.MenuBar.Entries {
+					if entry.Key == "menu.help.about" {
+						aboutChecked = entry.Checked
+					}
+				}
+			}
+		}
+	}
+	if about.Outcome != automation.OutcomeApplied ||
+		about.Snapshot == nil ||
+		about.Snapshot.Completion == nil ||
+		about.Snapshot.Completion.Command != string(demo.CommandViewAbout) ||
+		!aboutVisible || !aboutChecked {
+		t.Fatalf(
+			"Help/About outcome=%q command=%q visible=%t checked=%t",
+			about.Outcome,
+			func() string {
+				if about.Snapshot == nil ||
+					about.Snapshot.Completion == nil {
+					return ""
+				}
+				return about.Snapshot.Completion.Command
+			}(),
+			aboutVisible,
+			aboutChecked,
+		)
 	}
 
 	requestID, err := automation.NewRequestID()
