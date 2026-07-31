@@ -9,6 +9,26 @@
 
 ## Observed Opportunities
 
+### 39. Normalize Shared Integrated-Control State Once
+
+The first ScrollablePanel response-bound proof modeled the maximum legal
+population of scroll owners and their mandatory Content children. Repeating
+the same disabled reason and change-command identifier in the parent record
+and both integrated scrollbar subrecords pushed that legal upper bound beyond
+the protocol line budget.
+
+Improvement applied:
+
+- keep shared enabled/disabled policy, reason, and command identity once on
+  `ScrollableDetails`;
+- retain exact per-axis state, geometry, steps, and thumb evidence in the
+  nested scrollbar subrecords;
+- validate nested records by composing the parent policy at the client trust
+  boundary rather than duplicating it on the wire; and
+- model the structural owner-plus-Content pairing in the maximum-response
+  proof instead of pessimistically treating all control slots as independent
+  scroll owners.
+
 ### 38. Keep Closed-Loop Shutdown And Snapshot Output Projected
 
 A live form check needed only outcome, selected control bounds, and a few

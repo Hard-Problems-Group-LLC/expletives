@@ -267,6 +267,82 @@ func TestExternalConsumerPublishesCopiedProgressState(t *testing.T) {
 	}
 }
 
+func TestExternalConsumerBuildsScrollableContent(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size:     expletives.Size{Width: 20, Height: 8},
+		Scenario: "external.scrollable",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := app.NewTransaction()
+	scrollable, err := transaction.NewScrollablePanel(
+		app.Root(),
+		expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "scroll",
+					Bounds: expletives.Rect{
+						Width: 10, Height: 6,
+					},
+				},
+				State: expletives.ViewportState{
+					ContentSize: expletives.Size{
+						Width: 20, Height: 10,
+					},
+				},
+			},
+			BorderForm: expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := transaction.NewPanel(
+		scrollable.Content(),
+		expletives.PanelOptions{
+			AutomationKey: "scroll.child",
+			MinimumSize:   expletives.Size{Width: 4, Height: 1},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "scroll.content.layout",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := layout.AddPanel(child, expletives.LayoutItemOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.SetLayout(scrollable.Content(), layout); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.EnsureViewportVisible(
+		scrollable,
+		expletives.Rect{X: 15, Y: 8, Width: 2, Height: 2},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if scrollable.Content().Parent() != scrollable ||
+		scrollable.State().Offset != (expletives.Point{X: 10, Y: 7}) {
+		t.Fatalf(
+			"external ScrollablePanel Content=%#v state=%+v",
+			scrollable.Content(),
+			scrollable.State(),
+		)
+	}
+}
+
 func TestExternalConsumerBuildsAndUpdatesScrollBar(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

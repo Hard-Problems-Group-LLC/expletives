@@ -1278,9 +1278,12 @@ func (a *App) controlAbsoluteLocked(state *controlState) Rect {
 	}
 	rect := state.bounds
 	for parent := state.parent; parent != nil; parent = parent.parent {
-		inset := parent.behavior.clientInset()
-		rect.X += parent.bounds.X + min(inset, parent.bounds.Width)
-		rect.Y += parent.bounds.Y + min(inset, parent.bounds.Height)
+		client := controlClientRect(
+			parent,
+			Rect{Width: parent.bounds.Width, Height: parent.bounds.Height},
+		)
+		rect.X += parent.bounds.X + client.X
+		rect.Y += parent.bounds.Y + client.Y
 	}
 	return rect
 }

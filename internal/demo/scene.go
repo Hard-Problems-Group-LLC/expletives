@@ -215,6 +215,11 @@ var (
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
 		Background: expletives.RGB(0x00, 0x38, 0x78),
 	}
+	inputFormStyle = expletives.Style{
+		ID:         "fixture.input_form",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
 	textFieldStyle = expletives.Style{
 		ID:         "text_field",
 		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
@@ -272,6 +277,7 @@ type Scene struct {
 	inputNumber             *expletives.NumberField
 	inputSpin               *expletives.SpinBox
 	inputArea               *expletives.TextArea
+	inputViewport           *expletives.ScrollablePanel
 	progressBar             *expletives.ProgressBar
 	progressIndeterminate   *expletives.ProgressBar
 	progressMeter           *expletives.Meter
@@ -364,6 +370,7 @@ func NewWithRootConstraints(
 		selectionFocusedStyle,
 		selectionFocusedMnemonicStyle,
 		selectionDisabledStyle,
+		inputFormStyle,
 		textFieldStyle,
 		textInputValidStyle,
 		textInputInvalidStyle,
@@ -437,6 +444,16 @@ func NewWithRootConstraints(
 			Background: canvasStyle.Background,
 		},
 		expletives.Style{
+			ID:         "scrollable_panel",
+			Foreground: inputFormStyle.Foreground,
+			Background: inputFormStyle.Background,
+		},
+		expletives.Style{
+			ID:         "scrollable_panel.border",
+			Foreground: inputFormStyle.Foreground,
+			Background: inputFormStyle.Background,
+		},
+		expletives.Style{
 			ID:         "scrollbar.page",
 			Foreground: expletives.RGB(0x80, 0x80, 0x80),
 			Background: canvasStyle.Background,
@@ -460,6 +477,11 @@ func NewWithRootConstraints(
 			ID:         "scrollbar.disabled",
 			Foreground: expletives.RGB(0x80, 0x80, 0x80),
 			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "scrollbar.corner",
+			Foreground: inputFormStyle.Foreground,
+			Background: inputFormStyle.Background,
 		},
 		expletives.Style{
 			ID:         "tabbed_panel",
@@ -1542,16 +1564,36 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
-	inputForm, err := transaction.NewPanel(
+	inputViewport, err := transaction.NewScrollablePanel(
 		inputScreen,
+		expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "input.viewport",
+					MinimumSize:   expletives.Size{Width: 1, Height: 1},
+					Style:         inputFormStyle.ID,
+				},
+				ContentStyle: inputFormStyle.ID,
+				State: expletives.ViewportState{
+					ContentSize: expletives.Size{
+						Width: 55, Height: 9,
+					},
+				},
+			},
+			BorderForm:    expletives.BorderNone,
+			HorizontalBar: expletives.ScrollBarVisibilityAuto,
+			VerticalBar:   expletives.ScrollBarVisibilityAuto,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputForm, err := transaction.NewPanel(
+		inputViewport.Content(),
 		expletives.PanelOptions{
 			AutomationKey: "input.form",
 			MinimumSize:   expletives.Size{Width: 55, Height: 9},
-			LayoutHints: expletives.LayoutHints{
-				Horizontal: expletives.LayoutSizeNatural,
-				Vertical:   expletives.LayoutSizeStretch,
-			},
-			Style: canvasStyle.ID,
+			Style:         inputFormStyle.ID,
 		},
 	)
 	if err != nil {
@@ -1580,7 +1622,7 @@ func NewWithRootConstraints(
 					Horizontal: expletives.LayoutSizeStretch,
 					Vertical:   vertical,
 				},
-				Style: canvasStyle.ID,
+				Style: inputFormStyle.ID,
 			},
 		)
 	}
@@ -1599,10 +1641,10 @@ func NewWithRootConstraints(
 					MinimumSize: expletives.Size{
 						Width: 24, Height: 1,
 					},
-					Style: canvasStyle.ID,
+					Style: inputFormStyle.ID,
 				},
 				Text:                text,
-				HorizontalAlignment: expletives.TextAlignEnd,
+				HorizontalAlignment: expletives.TextAlignStart,
 				Target:              field,
 				Mnemonic:            mnemonic,
 			},
@@ -2957,10 +2999,23 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	if err := inputScreenLayout.AddPanel(
-		inputForm,
-		expletives.LayoutItemOptions{
-			HorizontalAlign: expletives.AlignStart,
+		inputViewport,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
+	inputContentLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.input.viewport.content",
 		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := inputContentLayout.AddPanel(
+		inputForm,
+		expletives.LayoutItemOptions{},
 	); err != nil {
 		return nil, err
 	}
@@ -3007,6 +3062,12 @@ func NewWithRootConstraints(
 		}
 	}
 	if err := transaction.SetLayout(inputForm, inputFormLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		inputViewport.Content(),
+		inputContentLayout,
+	); err != nil {
 		return nil, err
 	}
 	progressGrid, err := expletives.NewGridLayout(
@@ -3438,6 +3499,7 @@ func NewWithRootConstraints(
 		inputNumber:             inputNumber,
 		inputSpin:               inputSpin,
 		inputArea:               inputArea,
+		inputViewport:           inputViewport,
 		progressBar:             progressBar,
 		progressIndeterminate:   progressIndeterminate,
 		progressMeter:           progressMeter,
@@ -3516,6 +3578,9 @@ func NewWithRootConstraints(
 		); err != nil {
 			return nil, err
 		}
+	}
+	if err := scene.syncInputViewportLocked(); err != nil {
+		return nil, err
 	}
 	return scene, nil
 }
@@ -4164,7 +4229,59 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 func (s *Scene) Resize(size expletives.Size) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.App.SetSize(size)
+	if err := s.App.SetSize(size); err != nil {
+		return err
+	}
+	return s.syncInputViewportLocked()
+}
+
+func (s *Scene) syncInputViewportLocked() error {
+	if s.inputViewport == nil {
+		return nil
+	}
+	const naturalWidth = 55
+	const naturalHeight = 9
+	bounds := s.inputViewport.Bounds()
+	horizontalVisible := false
+	verticalVisible := false
+	for range 3 {
+		viewportWidth := bounds.Width
+		viewportHeight := bounds.Height
+		if verticalVisible && viewportWidth > 0 {
+			viewportWidth--
+		}
+		if horizontalVisible && viewportHeight > 0 {
+			viewportHeight--
+		}
+		nextHorizontal := naturalWidth > viewportWidth &&
+			bounds.Width > 0 && bounds.Height > 0
+		nextVertical := naturalHeight > viewportHeight &&
+			bounds.Width > 0 && bounds.Height > 0
+		if nextHorizontal == horizontalVisible &&
+			nextVertical == verticalVisible {
+			break
+		}
+		horizontalVisible = nextHorizontal
+		verticalVisible = nextVertical
+	}
+	viewportWidth := bounds.Width
+	viewportHeight := bounds.Height
+	if verticalVisible && viewportWidth > 0 {
+		viewportWidth--
+	}
+	if horizontalVisible && viewportHeight > 0 {
+		viewportHeight--
+	}
+	state := s.inputViewport.State()
+	contentSize := expletives.Size{
+		Width:  max(naturalWidth, viewportWidth),
+		Height: max(naturalHeight, viewportHeight),
+	}
+	if state.ContentSize == contentSize {
+		return nil
+	}
+	state.ContentSize = contentSize
+	return s.inputViewport.SetState(state)
 }
 
 // Toggle reports whether the accent panels use the alternate style.
@@ -4186,6 +4303,13 @@ func (s *Scene) routeCommand(
 	command expletives.Command,
 ) expletives.CommandResult {
 	outcome, err := s.handleCommand(ctx, command)
+	if err == nil &&
+		outcome == expletives.OutcomeApplied &&
+		commandChangesClientGeometry(command.ID) {
+		s.mu.Lock()
+		err = s.syncInputViewportLocked()
+		s.mu.Unlock()
+	}
 	if err != nil {
 		return expletives.CommandResult{
 			Outcome: expletives.OutcomeFailed,
@@ -4195,6 +4319,18 @@ func (s *Scene) routeCommand(
 		}
 	}
 	return expletives.CommandResult{Outcome: outcome}
+}
+
+func commandChangesClientGeometry(command expletives.CommandID) bool {
+	switch command {
+	case CommandStatusBar, CommandHeadersShow, CommandHeadersAdd,
+		CommandHeadersRemoveTop, CommandHeadersRemoveLow,
+		CommandFooterGlobalShow, CommandFooterScreenShow,
+		CommandFooterFocusShow:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Scene) handleCommand(

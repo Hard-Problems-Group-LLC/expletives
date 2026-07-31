@@ -312,9 +312,14 @@ Vision, and other toolkits are design evidence, not compatibility targets.
 - Follow the directed Phase 15 Scrolling and Content contract in
   [`docs/specifications/scrolling-content-api-v0.md`](docs/specifications/scrolling-content-api-v0.md).
   Viewport and ScrollablePanel own one managed Content Panel and exact
-  viewport clipping; MarkdownView performs no I/O or execution; LogView and
-  StreamView retain bounded copied content with honest drop accounting and no
-  hidden reader, worker, channel, terminal emulator, or terminal access.
+  viewport clipping. Their container owns no caller Layout: applications
+  attach Layouts and controls beneath Content. Scrollbar visibility uses a
+  bounded fixed point, offsets clamp on state and geometry changes, focus
+  keeps descendants visible, and automation exposes the complete Content
+  relationship and integrated bar state. MarkdownView performs no I/O or
+  execution; LogView and StreamView retain bounded copied content with honest
+  drop accounting and no hidden reader, worker, channel, terminal emulator,
+  or terminal access.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
 - Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and

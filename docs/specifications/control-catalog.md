@@ -501,6 +501,23 @@ This phase includes modal capture, focus entry and restoration, stacking,
 default-button safety, cancellation, configurable interrupt behavior, and
 final-state automation evidence.
 
+### 18. File And Directory Picker Dialogs
+
+Required dialog specializations:
+
+- `FilePickerDialog`;
+- `MultiFilePickerDialog`; and
+- `DirectoryPickerDialog`.
+
+These compose the Phase 16 collection controls with the Phase 17 Dialog
+contract. They use an application-supplied filesystem/provider boundary so
+deterministic tests, remote or virtual filesystems, and the optional local
+filesystem adapter share one typed selection model. The single-file form
+activates one file, the multiple form commits an explicit set, and the
+directory form returns only a directory. Turbo Vision appearance, focus
+order, accelerators, default/cancel behavior, and keyboard navigation are the
+look-and-feel baseline where reasonable.
+
 ## Deferred Structured Input
 
 The following controls are deliberately deferred and are not part of the

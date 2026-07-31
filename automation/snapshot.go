@@ -191,6 +191,8 @@ type ControlDetails struct {
 	ScrollBar *ScrollBarDetails `json:"scroll_bar,omitempty"`
 	// TabbedPanel is present for TabbedPanel and Notebook.
 	TabbedPanel *TabbedPanelDetails `json:"tabbed_panel,omitempty"`
+	// Scrollable is present for Viewport and ScrollablePanel.
+	Scrollable *ScrollableDetails `json:"scrollable,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -481,6 +483,32 @@ type ScrollBarDetails struct {
 	Enabled        bool        `json:"enabled"`
 	DisabledReason string      `json:"disabled_reason,omitempty"`
 	ChangeCommand  string      `json:"change_command,omitempty"`
+}
+
+// ViewportState is one complete logical content extent and offset.
+type ViewportState struct {
+	ContentSize Size  `json:"content_size"`
+	Offset      Point `json:"offset"`
+}
+
+// ScrollableDetails describes one generic two-axis content viewport.
+type ScrollableDetails struct {
+	State             ViewportState     `json:"state"`
+	MaximumOffset     Point             `json:"maximum_offset"`
+	ViewportBounds    Rect              `json:"viewport_bounds"`
+	ArrowStep         Size              `json:"arrow_step"`
+	PageStep          Size              `json:"page_step"`
+	Enabled           bool              `json:"enabled"`
+	DisabledReason    string            `json:"disabled_reason,omitempty"`
+	ChangeCommand     string            `json:"change_command,omitempty"`
+	Content           ControlID         `json:"content"`
+	ContentKey        string            `json:"content_key,omitempty"`
+	HorizontalPolicy  string            `json:"horizontal_policy"`
+	VerticalPolicy    string            `json:"vertical_policy"`
+	HorizontalVisible bool              `json:"horizontal_visible"`
+	VerticalVisible   bool              `json:"vertical_visible"`
+	HorizontalBar     *ScrollBarDetails `json:"horizontal_bar,omitempty"`
+	VerticalBar       *ScrollBarDetails `json:"vertical_bar,omitempty"`
 }
 
 // TabDetails describes one copied page descriptor and rendered strip state.
@@ -1035,6 +1063,36 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				TrailingOmitted: details.TrailingOmitted,
 			}
 		}
+		if details := control.Details.Scrollable; details != nil {
+			scrollable := &ScrollableDetails{
+				State: ViewportState{
+					ContentSize: sizeFromCore(details.State.ContentSize),
+					Offset:      pointFromCore(details.State.Offset),
+				},
+				MaximumOffset:     pointFromCore(details.MaximumOffset),
+				ViewportBounds:    rectFromCore(details.ViewportBounds),
+				ArrowStep:         sizeFromCore(details.ArrowStep),
+				PageStep:          sizeFromCore(details.PageStep),
+				Enabled:           details.Enabled,
+				DisabledReason:    details.DisabledReason,
+				ChangeCommand:     string(details.ChangeCommand),
+				Content:           ControlID(details.Content),
+				ContentKey:        details.ContentKey,
+				HorizontalPolicy:  string(details.HorizontalPolicy),
+				VerticalPolicy:    string(details.VerticalPolicy),
+				HorizontalVisible: details.HorizontalVisible,
+				VerticalVisible:   details.VerticalVisible,
+			}
+			if details.HorizontalBar != nil {
+				scrollable.HorizontalBar =
+					scrollBarDetailsFromCore(details.HorizontalBar)
+			}
+			if details.VerticalBar != nil {
+				scrollable.VerticalBar =
+					scrollBarDetailsFromCore(details.VerticalBar)
+			}
+			projectedControl.Details.Scrollable = scrollable
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -1267,6 +1325,18 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 			)
 			cloned.Controls[index].Details.TabbedPanel = &tabbedPanel
 		}
+		if snapshot.Controls[index].Details.Scrollable != nil {
+			scrollable := *snapshot.Controls[index].Details.Scrollable
+			if scrollable.HorizontalBar != nil {
+				bar := *scrollable.HorizontalBar
+				scrollable.HorizontalBar = &bar
+			}
+			if scrollable.VerticalBar != nil {
+				bar := *scrollable.VerticalBar
+				scrollable.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.Scrollable = &scrollable
+		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)
 	for index := range cloned.Layouts {
@@ -1416,11 +1486,39 @@ func sizeFromCore(size expletives.Size) Size {
 	return Size{Width: size.Width, Height: size.Height}
 }
 
+func pointFromCore(point expletives.Point) Point {
+	return Point{X: point.X, Y: point.Y}
+}
+
 func rectFromCore(rect expletives.Rect) Rect {
 	return Rect{
 		X:      rect.X,
 		Y:      rect.Y,
 		Width:  rect.Width,
 		Height: rect.Height,
+	}
+}
+
+func scrollBarDetailsFromCore(
+	details *expletives.ScrollBarDetails,
+) *ScrollBarDetails {
+	if details == nil {
+		return nil
+	}
+	return &ScrollBarDetails{
+		Orientation:    Orientation(details.Orientation),
+		ContentSize:    details.ContentSize,
+		ViewportSize:   details.ViewportSize,
+		Offset:         details.Offset,
+		MaximumOffset:  details.MaximumOffset,
+		ArrowStep:      details.ArrowStep,
+		PageStep:       details.PageStep,
+		TrackStart:     details.TrackStart,
+		TrackSize:      details.TrackSize,
+		ThumbStart:     details.ThumbStart,
+		ThumbSize:      details.ThumbSize,
+		Enabled:        details.Enabled,
+		DisabledReason: details.DisabledReason,
+		ChangeCommand:  string(details.ChangeCommand),
 	}
 }

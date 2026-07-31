@@ -483,6 +483,9 @@ func (a *App) paintControlLocked(
 	case tabbedPanelBehavior:
 		tabbedPanel := tabbedPanelDetails(bounds, behavior)
 		details.TabbedPanel = &tabbedPanel
+	case scrollViewBehavior:
+		scrollable := scrollViewDetails(bounds, behavior)
+		details.Scrollable = &scrollable
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,
@@ -513,10 +516,7 @@ func (a *App) paintControlLocked(
 	if state.root {
 		clientRect = a.rootContentRectLocked()
 	} else {
-		clientInset := state.behavior.clientInset()
-		if clientInset != 0 {
-			clientRect = insetRect(absolute, clientInset)
-		}
+		clientRect = controlClientRect(state, absolute)
 	}
 	childClip := clip.Intersect(clientRect)
 	childOrigin := Point{X: clientRect.X, Y: clientRect.Y}

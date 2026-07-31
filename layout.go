@@ -160,7 +160,8 @@ func defaultControlLayoutHints(
 	switch kind {
 	case ControlRoot, ControlPanel, ControlFrame, ControlGroupBox,
 		ControlRadioGroup, ControlStaticText, ControlTextArea,
-		ControlTabbedPanel, ControlNotebook:
+		ControlTabbedPanel, ControlNotebook, ControlViewport,
+		ControlScrollablePanel:
 		return hints(LayoutSizeStretch, LayoutSizeStretch)
 	case ControlMenuBar, ControlStatusBar, ControlHeader, ControlFooter,
 		ControlHotkeyBar, ControlFocusGuideBar, ControlTextField,
@@ -951,6 +952,7 @@ func arrangeControlLayoutsLocked(app *App, owner *controlState) {
 	if owner == nil || owner.destroyed {
 		return
 	}
+	reconcileScrollViewLocked(owner)
 	for _, root := range owner.layoutRoots {
 		client := controlClientSize(owner)
 		if owner.root {
@@ -980,10 +982,13 @@ func arrangeControlLayoutsLocked(app *App, owner *controlState) {
 }
 
 func controlClientSize(state *controlState) Size {
-	inset := state.behavior.clientInset()
+	client := controlClientRect(
+		state,
+		Rect{Width: state.bounds.Width, Height: state.bounds.Height},
+	)
 	return Size{
-		Width:  max(0, state.bounds.Width-2*inset),
-		Height: max(0, state.bounds.Height-2*inset),
+		Width:  client.Width,
+		Height: client.Height,
 	}
 }
 

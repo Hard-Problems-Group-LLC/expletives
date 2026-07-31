@@ -146,20 +146,24 @@ including during the same construction Transaction. The scroll container
 itself rejects Layout attachment because it owns the physical viewport,
 border, and bar geometry.
 
-Content Bounds are logical and derived:
+Content Bounds are logical, relative to the owner's derived client origin,
+and derived:
 
 ```text
-X      = ViewportBounds.X - Offset.X
-Y      = ViewportBounds.Y - Offset.Y
+X      = -Offset.X
+Y      = -Offset.Y
 Width  = ContentSize.Width
 Height = ContentSize.Height
 ```
 
-The Content Panel and descendants are clipped by ViewportBounds, so no
-logical content paints into an optional border, integrated scrollbar,
-application chrome, sibling, or ancestor clip. A Layout minimum larger than
-ContentSize follows the existing structured Layout-overflow contract; it does
-not silently change the application-owned content extent.
+The client origin itself is at ViewportBounds `(X,Y)` within the owner, so the
+Content's surface-relative origin is
+`(ViewportBounds.X-Offset.X, ViewportBounds.Y-Offset.Y)`. The Content Panel and
+descendants are clipped by ViewportBounds, so no logical content paints into
+an optional border, integrated scrollbar, application chrome, sibling, or
+ancestor clip. A Layout minimum larger than ContentSize follows the existing
+structured Layout-overflow contract; it does not silently change the
+application-owned content extent.
 
 Viewport has no border or integrated bars. ScrollablePanel supports the
 normal independent border forms and bar policies. Both are focusable when
@@ -178,7 +182,9 @@ ChangeCommand after publication and outside toolkit locks.
 relative ViewportBounds, enabled/disabled policy, steps, change command,
 Content ControlID/key, bar policies, bar visibility, and optional complete
 horizontal/vertical `ScrollBarDetails` subrecords. Nested values are copied
-and bounded.
+and bounded. Integrated subrecords normalize their shared enabled policy,
+disabled reason, and change command to the containing `ScrollableDetails`;
+they do not repeat the parent's reason or command on the wire.
 
 ## MarkdownView
 

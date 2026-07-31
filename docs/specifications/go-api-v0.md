@@ -650,6 +650,44 @@ visible and fills the container client area. `SetTabs` performs complete
 ordered insertion/removal/reorder, and page destruction repairs the copied
 model before publication.
 
+## Scrolling And Content
+
+```go
+func NewViewport(Container, ScrollViewOptions) (*Viewport, error)
+func NewScrollablePanel(
+    Container,
+    ScrollablePanelOptions,
+) (*ScrollablePanel, error)
+func (v *Viewport) Content() *Panel
+func (s *ScrollablePanel) Content() *Panel
+func (v *Viewport) State() ViewportState
+func (s *ScrollablePanel) State() ViewportState
+func (v *Viewport) SetState(ViewportState) error
+func (s *ScrollablePanel) SetState(ViewportState) error
+func (v *Viewport) Update(context.Context, ViewportState) error
+func (s *ScrollablePanel) Update(context.Context, ViewportState) error
+func (v *Viewport) EnsureVisible(Rect) error
+func (s *ScrollablePanel) EnsureVisible(Rect) error
+func (v *Viewport) Focus() error
+func (s *ScrollablePanel) Focus() error
+```
+
+Both controls atomically create one toolkit-managed direct Content Panel.
+Applications create children under `Content()` and attach Layouts to it; the
+outer control rejects application Layouts and derives Content bounds from the
+copied content extent and offset. `Viewport` is unframed with no integrated
+bars. `ScrollablePanel` supports the normal border forms plus independently
+configured Auto, Always, or Never horizontal and vertical integrated bars.
+
+Offsets clamp after state and geometry changes. Arrow, page, Home, and End
+keys move a focused eligible viewport without wrapping. `EnsureVisible` and
+focused-descendant repair make the smallest required offset change.
+Programmatic changes are silent; direct user scrolling may route the optional
+change command outside toolkit locks. `ControlDetails.Scrollable` exposes the
+complete canonical state, viewport, managed Content relationship, policies,
+and integrated bar subrecords. The exact contract is
+[`scrolling-content-api-v0.md`](scrolling-content-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -684,6 +722,8 @@ func (t *Transaction) NewActivityDots(Container, ActivityDotsOptions) (*Activity
 func (t *Transaction) NewScrollBar(Container, ScrollBarOptions) (*ScrollBar, error)
 func (t *Transaction) NewTabbedPanel(Container, TabbedPanelOptions) (*TabbedPanel, error)
 func (t *Transaction) NewNotebook(Container, TabbedPanelOptions) (*Notebook, error)
+func (t *Transaction) NewViewport(Container, ScrollViewOptions) (*Viewport, error)
+func (t *Transaction) NewScrollablePanel(Container, ScrollablePanelOptions) (*ScrollablePanel, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -704,6 +744,8 @@ func (t *Transaction) SetActivityState(Control, ActivityState) error
 func (t *Transaction) SetScrollBarState(*ScrollBar, ScrollBarState) error
 func (t *Transaction) SetTabs(Control, []Tab, selected string) error
 func (t *Transaction) SetSelectedTab(Control, string) error
+func (t *Transaction) SetViewportState(Control, ViewportState) error
+func (t *Transaction) EnsureViewportVisible(Control, Rect) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
@@ -804,7 +846,8 @@ Selection, Text/Numeric Input, Progress, and Navigation controls add their
 kind-consistent `CheckboxDetails`, `RadioButtonDetails`,
 `RadioGroupDetails`, `ChoiceFieldDetails`, `TextFieldDetails`,
 `NumberFieldDetails`, `TextAreaDetails`, `ProgressDetails`,
-`ScrollBarDetails`, and `TabbedPanelDetails` members. These expose canonical bounded text,
+`ScrollBarDetails`, `TabbedPanelDetails`, and `ScrollableDetails` members.
+These expose canonical bounded text,
 alignment, wrap, Label target/mnemonic, divider orientation/form, generic
 focus, command presentation state, pressed/default/cancel roles, and
 structured current bindings. Menu details additionally expose immutable entry

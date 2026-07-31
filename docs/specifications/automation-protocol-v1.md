@@ -945,6 +945,14 @@ the root package's local snapshot. The client checks:
   and current record for a nonempty model; enabled-current policy; exact
   rendered/omitted/clipped strip geometry; selected-page Bounds; and
   nonselected effective invisibility;
+- kind-consistent Viewport/ScrollablePanel details with canonical bounded
+  ContentSize/Offset state, exact maximum offset, positive arrow/page steps,
+  valid enabled/disabled and bar-visibility policy, an in-owner
+  ViewportBounds, the exact sole managed Content ID/key/bounds relationship,
+  and matching horizontal/vertical ScrollBarDetails state and geometry
+  whenever those integrated bars are visible. Shared enabled policy,
+  disabled reason, and change command occur once on the containing Scrollable
+  record rather than being repeated by its integrated bar subrecords;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;

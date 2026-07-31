@@ -191,8 +191,11 @@ An ordinary `TextField`, `NumberField`, or `SpinBox` is a one-row field. It
 does not draw an implicit control-owned frame; the distinct field background
 across its complete arranged width is the primary visual affordance.
 Applications normally choose a minimum width between 10 and 30 cells and put
-a separate bound `Label` in an adjacent form column. The Label mnemonic
-focuses its target field.
+a separate left-aligned bound `Label` in an adjacent form column. The Label
+mnemonic focuses its target field. The classic palette places the white-on-
+blue input line against a light-neutral dialog/form surface so field and
+surrounding canvas remain physically distinct even after terminal palette
+quantization.
 
 These single-line editors default to horizontal stretch and vertical natural
 sizing. Their one-row minimum does not grow merely because a vertical Box has
@@ -204,7 +207,10 @@ Form Layouts control inter-row whitespace with their ordinary Gap setting.
 They must not invent vertical stretching or borders merely to fill a page.
 When the complete natural form exceeds its viewport, the containing
 ScrollablePanel supplies scrolling rather than shrinking or overlapping
-field rows.
+field rows. A form may keep its content extent equal to the available
+viewport above that minimum so horizontally stretching fields and multiline
+editors consume surplus space; it restores the natural extent and integrated
+bars when resized below it.
 
 ## NumberField And SpinBox
 

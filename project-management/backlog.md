@@ -8,6 +8,31 @@ specifications, and ISO 8601 timestamps.
 
 ## Current Queue
 
+- 2026-07-31 — `EXPL-TASK-031` — Deliver file and directory picker dialogs.
+  - Requestor: project operator
+  - Owner: unassigned
+  - Created: 2026-07-31T05:15:30-07:00
+  - Context: consuming applications need a reusable Turbo Vision-style file
+    picker after collection and modal primitives exist, including explicit
+    multiple-file and directory-only variants.
+  - Acceptance criteria:
+    - implement roadmap Phase 18 `FilePickerDialog`,
+      `MultiFilePickerDialog`, and `DirectoryPickerDialog`;
+    - keep enumeration and filesystem access behind a bounded
+      application-supplied provider, with an explicit local-filesystem
+      adapter;
+    - preserve distinct single, multiple, and directory typed results plus
+      honest error, cancel, interrupt, and final-snapshot outcomes;
+    - follow Turbo Vision appearance, accelerator, focus, and keyboard
+      conventions where reasonable; and
+    - add ordinary Go, deterministic-provider, public-consumer, headless, and
+      attached-automation coverage.
+  - Dependencies: Phase 16 Collections and Phase 17 Modals.
+  - Blockers: those phases are not yet complete.
+  - Related:
+    - [`development-roadmap.md`](development-roadmap.md)
+    - [`docs/specifications/control-catalog.md`](../docs/specifications/control-catalog.md)
+
 - 2026-07-30 — `EXPL-TASK-018` — Render a root-level undersized-geometry
   diagnostic.
   - Requestor: project operator

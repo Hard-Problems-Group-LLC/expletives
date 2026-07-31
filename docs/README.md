@@ -50,6 +50,9 @@ Keep durable project documentation here.
 - [Navigation and Chrome API v0](specifications/navigation-chrome-api-v0.md)
   defines ScrollBar viewport geometry and TabbedPanel/Notebook page
   navigation.
+- [Scrolling and Content API v0](specifications/scrolling-content-api-v0.md)
+  defines the Phase 15 Viewport/ScrollablePanel foundation and the directed
+  MarkdownView, LogView, and StreamView contracts.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

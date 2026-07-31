@@ -538,6 +538,8 @@ func TestSnapshotRejectsInvalidFocusGuideBarDetails(t *testing.T) {
 		"scroll_bar",
 		"tabbed_panel",
 		"notebook",
+		"viewport",
+		"scrollable_panel",
 	} {
 		completion := valid()
 		completion.Snapshot.Controls[0].Details.FocusGuideBar.TargetKind = kind
@@ -917,6 +919,184 @@ func TestSnapshotRejectsInvalidScrollBarDetails(t *testing.T) {
 			)
 			if err := validateCompletion(completion, limits); err == nil {
 				t.Fatal("validateCompletion() accepted invalid ScrollBar details")
+			}
+		})
+	}
+}
+
+func TestSnapshotRejectsInvalidScrollableDetailsAndRelationships(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 30, Height: 12},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewScrollablePanel(
+			app.Root(),
+			expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "scroll",
+						Bounds: expletives.Rect{
+							Width: 10, Height: 6,
+						},
+					},
+					State: expletives.ViewportState{
+						ContentSize: expletives.Size{
+							Width: 20, Height: 10,
+						},
+						Offset: expletives.Point{X: 2, Y: 3},
+					},
+				},
+				BorderForm: expletives.BorderSingle,
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(
+		snapshot *SnapshotV1,
+	) (*ControlSnapshot, *ControlSnapshot, *ScrollableDetails) {
+		var owner, content *ControlSnapshot
+		for index := range snapshot.Controls {
+			switch snapshot.Controls[index].Key {
+			case "scroll":
+				owner = &snapshot.Controls[index]
+			case "scroll.content":
+				content = &snapshot.Controls[index]
+			}
+		}
+		if owner == nil || content == nil ||
+			owner.Details.Scrollable == nil {
+			t.Fatal("fixture has no scroll owner or Content")
+		}
+		return owner, content, owner.Details.Scrollable
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid ScrollablePanel fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(
+			*SnapshotV1,
+			*ControlSnapshot,
+			*ControlSnapshot,
+			*ScrollableDetails,
+		)
+	}{
+		{
+			name: "maximum offset",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				_ *ControlSnapshot,
+				details *ScrollableDetails,
+			) {
+				details.MaximumOffset.X++
+			},
+		},
+		{
+			name: "viewport outside owner",
+			mutate: func(
+				_ *SnapshotV1,
+				owner *ControlSnapshot,
+				_ *ControlSnapshot,
+				details *ScrollableDetails,
+			) {
+				details.ViewportBounds.Width = owner.Bounds.Width
+			},
+		},
+		{
+			name: "visibility without bar",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				_ *ControlSnapshot,
+				details *ScrollableDetails,
+			) {
+				details.HorizontalBar = nil
+			},
+		},
+		{
+			name: "nested bar state",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				_ *ControlSnapshot,
+				details *ScrollableDetails,
+			) {
+				details.VerticalBar.Offset++
+			},
+		},
+		{
+			name: "invalid policy",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				_ *ControlSnapshot,
+				details *ScrollableDetails,
+			) {
+				details.HorizontalPolicy = "sometimes"
+			},
+		},
+		{
+			name: "Content parent",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				content *ControlSnapshot,
+				_ *ScrollableDetails,
+			) {
+				content.Parent = ""
+			},
+		},
+		{
+			name: "Content bounds",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				content *ControlSnapshot,
+				_ *ScrollableDetails,
+			) {
+				content.Bounds.X++
+			},
+		},
+		{
+			name: "Content key",
+			mutate: func(
+				_ *SnapshotV1,
+				_ *ControlSnapshot,
+				content *ControlSnapshot,
+				_ *ScrollableDetails,
+			) {
+				content.Key = "wrong.content"
+			},
+		},
+		{
+			name: "owner child list",
+			mutate: func(
+				_ *SnapshotV1,
+				owner *ControlSnapshot,
+				_ *ControlSnapshot,
+				_ *ScrollableDetails,
+			) {
+				owner.Children = nil
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			owner, content, details := find(&snapshot)
+			test.mutate(&snapshot, owner, content, details)
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid Scrollable details")
 			}
 		})
 	}
@@ -1499,6 +1679,7 @@ func maximumCompletionJSONBytes(
 	run := mustMarshal(t, completion.Snapshot.Frame.Runs[0])
 	controlValue := completion.Snapshot.Controls[0]
 	control := mustMarshal(t, controlValue)
+	baseControlBytes := len(control)
 	borderControl := controlValue
 	borderControl.Details = ControlDetails{
 		Version: 1,
@@ -1759,6 +1940,54 @@ func maximumCompletionJSONBytes(
 			FrameIndex:    math.MaxInt,
 		},
 	}
+	maximumScrollBar := &ScrollBarDetails{
+		Orientation:   Orientation(255),
+		ContentSize:   math.MaxInt,
+		ViewportSize:  math.MaxInt,
+		Offset:        math.MaxInt,
+		MaximumOffset: math.MaxInt,
+		ArrowStep:     math.MaxInt,
+		PageStep:      math.MaxInt,
+		TrackStart:    math.MaxInt,
+		TrackSize:     math.MaxInt,
+		ThumbStart:    math.MaxInt,
+		ThumbSize:     math.MaxInt,
+		Enabled:       false,
+	}
+	scrollableControl := controlValue
+	scrollableControl.Details = ControlDetails{
+		Version:   1,
+		Container: &ContainerDetails{ClientInset: math.MaxInt},
+		Border: &BorderDetails{
+			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
+			Form:          string(controlValue.ID),
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		Scrollable: &ScrollableDetails{
+			State: ViewportState{
+				ContentSize: Size{Width: math.MaxInt, Height: math.MaxInt},
+				Offset:      Point{X: math.MaxInt, Y: math.MaxInt},
+			},
+			MaximumOffset: Point{X: math.MaxInt, Y: math.MaxInt},
+			ViewportBounds: Rect{
+				X: math.MaxInt, Y: math.MaxInt,
+				Width: math.MaxInt, Height: math.MaxInt,
+			},
+			ArrowStep:         Size{Width: math.MaxInt, Height: math.MaxInt},
+			PageStep:          Size{Width: math.MaxInt, Height: math.MaxInt},
+			DisabledReason:    strings.Repeat("\x00", maxDisplayTextBytes),
+			ChangeCommand:     string(controlValue.ID),
+			Content:           controlValue.ID,
+			ContentKey:        string(controlValue.ID),
+			HorizontalPolicy:  string(controlValue.ID),
+			VerticalPolicy:    string(controlValue.ID),
+			HorizontalVisible: true,
+			VerticalVisible:   true,
+			HorizontalBar:     maximumScrollBar,
+			VerticalBar:       maximumScrollBar,
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -1774,6 +2003,27 @@ func maximumCompletionJSONBytes(
 			control = candidate
 		}
 	}
+	ordinaryControlBytes := len(control)
+	scrollableControlBytes := len(mustMarshal(t, scrollableControl))
+	contentControl := controlValue
+	contentControl.Kind = "panel"
+	contentControl.Details = ControlDetails{
+		Version:   1,
+		Container: &ContainerDetails{},
+	}
+	contentControlBytes := len(mustMarshal(t, contentControl))
+	ordinaryControlsBytes := limits.Controls * ordinaryControlBytes
+	scrollPairCount := limits.Controls / 2
+	scrollControlsBytes := scrollPairCount *
+		(scrollableControlBytes + contentControlBytes)
+	if limits.Controls%2 != 0 {
+		scrollControlsBytes += ordinaryControlBytes
+	}
+	controlArrayBytes := max(ordinaryControlsBytes, scrollControlsBytes)
+	if limits.Controls > 0 {
+		controlArrayBytes += limits.Controls - 1
+	}
+	controlExpansionBytes := max(0, controlArrayBytes-baseControlBytes)
 	source := mustMarshal(t, completion.Snapshot.InputSources[0])
 	overflow := mustMarshal(t, completion.Snapshot.Overflows[0])
 	layout := mustMarshal(t, completion.Snapshot.Layouts[0])
@@ -1796,14 +2046,18 @@ func maximumCompletionJSONBytes(
 		selectionControlBytes-len(control),
 	)
 	t.Logf(
-		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d status_item=%d status_control_overhead=%d selection_item=%d selection_control_overhead=%d text_input_payload=%d",
-		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem), len(menuItem), menuControlOverhead, len(statusItem), statusControlOverhead, selectionItemBytes, selectionControlOverhead,
+		"bound elements: base=%d run=%d ordinary_control=%d scroll_owner=%d scroll_content=%d control_array=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d status_item=%d status_control_overhead=%d selection_item=%d selection_control_overhead=%d text_input_payload=%d",
+		len(base), len(run), ordinaryControlBytes, scrollableControlBytes,
+		contentControlBytes, controlArrayBytes, len(source), len(overflow),
+		len(layout), len(layoutItem), len(menuItem), menuControlOverhead,
+		len(statusItem), statusControlOverhead, selectionItemBytes,
+		selectionControlOverhead,
 		2*expletives.MaxTextInputAggregateBytes,
 	)
 
 	return len(base) +
 		(limits.FrameRuns-1)*(len(run)+1) +
-		(limits.Controls-1)*(len(control)+1) +
+		controlExpansionBytes +
 		(limits.Controls-1)*(len(source)+1) +
 		(limits.Controls-1)*(len(overflow)+1) +
 		(limits.Layouts-1)*(len(layout)+1) +

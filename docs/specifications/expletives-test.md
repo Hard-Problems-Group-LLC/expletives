@@ -223,13 +223,17 @@ Scenario Reset restores the initial selection values without emitting user
 change callbacks.
 
 The Text / Numeric Input screen is a compact Turbo Vision-style form under
-`input.form`. Separate right-aligned bound Labels occupy one column under
+the public `input.viewport` ScrollablePanel and its `input.form` Content
+child. Separate left-aligned bound Labels occupy one column under
 stable `input.label.*` keys; borderless fields occupy the aligned second
-column with a distinct complete-width field background. Six
+column with a classic white-on-blue complete-width field background against
+the form's light-neutral Turbo Vision dialog surface. Six
 `input.row.*` single-line rows stay exactly one cell high while
 `input.row.multiline` and `input.text_area.multiline` consume the available
-vertical balance through their default stretch hints. The form retains its
-natural horizontal width instead of filling empty canvas.
+vertical balance through their default stretch hints. At roomy geometry the
+form and fields stretch to the available viewport. Below the 55-by-9 natural
+content geometry, fixed-point integrated scrollbars appear instead of
+shrinking, overlapping, or vertically stretching the single-line rows.
 
 The form contains four single-line TextFields under stable `input.text.*`
 keys: an unrestricted field, a soft whitelist, a hard filename-character
@@ -247,9 +251,9 @@ separate committed value; numeric changes route `number.changed`. Scenario
 `input.text_area.multiline` demonstrates word-wrapped multiline editing.
 Enter inserts LF, Ctrl-Enter commits, Shift movement selects, and normalized
 committed-text/paste events cannot become commands. Scenario Reset restores
-all seven initial committed values silently. Once Phase 15 supplies the
-public ScrollablePanel, a viewport smaller than the form's natural content
-uses that scrollbar rather than stretching or clipping single-line rows.
+all seven initial committed values silently. Resize, raw scroll keys, and
+focused-descendant keep-visible behavior are observable through
+`details.scrollable`.
 
 The Progress screen contains stable `progress.*` controls for a 42-percent
 determinate ProgressBar, an indeterminate ProgressBar, horizontal and vertical

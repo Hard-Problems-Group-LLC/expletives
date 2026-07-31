@@ -135,9 +135,11 @@ func TestFocusGuidanceValidationIsAtomic(t *testing.T) {
 func TestNavigationFocusGuidanceIsSpecific(t *testing.T) {
 	t.Parallel()
 	for kind, fragment := range map[ControlKind]string{
-		ControlScrollBar:   "Page Up or Page Down",
-		ControlTabbedPanel: "Space or Enter selects",
-		ControlNotebook:    "Space or Enter selects",
+		ControlScrollBar:       "Page Up or Page Down",
+		ControlTabbedPanel:     "Space or Enter selects",
+		ControlNotebook:        "Space or Enter selects",
+		ControlViewport:        "Page Up or Page Down",
+		ControlScrollablePanel: "Page Up or Page Down",
 	} {
 		if guidance := genericFocusGuidance(kind); !strings.Contains(
 			guidance,

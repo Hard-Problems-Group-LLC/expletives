@@ -556,13 +556,23 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 		t.Fatal("Input screen did not focus its first TextField")
 	}
 	form := control("input.form")
+	viewport := control("input.viewport")
 	screen := control("screen.input")
-	if form.AbsoluteBounds.Width != 55 ||
-		form.AbsoluteBounds.Height != screen.AbsoluteBounds.Height-1 {
+	if viewport.Details.Scrollable == nil ||
+		form.AbsoluteBounds != viewport.AbsoluteBounds ||
+		form.AbsoluteBounds.Width != screen.AbsoluteBounds.Width-2 ||
+		form.AbsoluteBounds.Height != screen.AbsoluteBounds.Height-1 ||
+		viewport.Details.Scrollable.State.ContentSize !=
+			(expletives.Size{
+				Width:  viewport.AbsoluteBounds.Width,
+				Height: viewport.AbsoluteBounds.Height,
+			}) {
 		t.Fatalf(
-			"form bounds=%+v screen bounds=%+v, want natural width and available height",
+			"form=%+v viewport=%+v screen=%+v details=%+v",
 			form.AbsoluteBounds,
+			viewport.AbsoluteBounds,
 			screen.AbsoluteBounds,
+			viewport.Details.Scrollable,
 		)
 	}
 	fieldKeys := []string{
@@ -577,9 +587,15 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	lastY := -1
 	for _, key := range fieldKeys {
 		field := control(key)
-		if field.AbsoluteBounds.Width != 30 ||
-			field.AbsoluteBounds.Height != 1 {
-			t.Fatalf("%s bounds = %+v, want 30x1", key, field.AbsoluteBounds)
+		if field.AbsoluteBounds.Width < 30 ||
+			field.AbsoluteBounds.Height != 1 ||
+			field.AbsoluteBounds.X+field.AbsoluteBounds.Width !=
+				form.AbsoluteBounds.X+form.AbsoluteBounds.Width {
+			t.Fatalf(
+				"%s bounds = %+v, want a one-row field expanded to the form edge",
+				key,
+				field.AbsoluteBounds,
+			)
 		}
 		if fieldX < 0 {
 			fieldX = field.AbsoluteBounds.X
@@ -598,7 +614,7 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	}
 	area := control("input.text_area.multiline")
 	if area.AbsoluteBounds.X != fieldX ||
-		area.AbsoluteBounds.Width != 30 ||
+		area.AbsoluteBounds.Width != control("input.text.plain").AbsoluteBounds.Width ||
 		area.AbsoluteBounds.Height <= 3 ||
 		area.AbsoluteBounds.Y <= lastY {
 		t.Fatalf("TextArea form bounds = %+v", area.AbsoluteBounds)
@@ -611,6 +627,8 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 		if row.Details.Border != nil ||
 			label.Details.Text == nil ||
 			label.Details.Text.Target == "" ||
+			label.Details.Text.HorizontalAlignment !=
+				expletives.TextAlignStart ||
 			label.AbsoluteBounds.X+label.AbsoluteBounds.Width+1 != fieldX {
 			t.Fatalf(
 				"%s form row/label evidence = row:%+v label:%+v",
@@ -622,13 +640,14 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	}
 	snapshot := scene.App.Snapshot()
 	blankPoint := expletives.Point{
-		X: control("input.text.plain").AbsoluteBounds.X + 29,
+		X: control("input.text.plain").AbsoluteBounds.X +
+			control("input.text.plain").AbsoluteBounds.Width - 1,
 		Y: control("input.text.plain").AbsoluteBounds.Y,
 	}
 	blankCell, ok := snapshot.Frame.Cell(blankPoint.X, blankPoint.Y)
 	if !ok || blankCell.Owner != control("input.text.plain").ID ||
 		blankCell.Background != textFieldStyle.Background ||
-		blankCell.Background == canvasStyle.Background {
+		blankCell.Background == inputFormStyle.Background {
 		t.Fatalf(
 			"TextField blank-cell treatment = %+v, want distinct field background",
 			blankCell,
@@ -710,6 +729,94 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	}
 	if details := control("input.spin.clamped").Details.NumberField; details == nil || details.Value != 1 {
 		t.Fatalf("Scenario Reset left SpinBox details = %#v", details)
+	}
+}
+
+func TestTextInputFormUsesViewportWhenNaturalGeometryDoesNotFit(t *testing.T) {
+	t.Parallel()
+	scene, err := New(expletives.Size{Width: 100, Height: 30}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scene.App.InvokeCommand(
+		context.Background(),
+		"input-viewport-test",
+		"show-input",
+		CommandTextInput,
+		"",
+	); err != nil {
+		t.Fatalf("show input command error = %v", err)
+	}
+	if err := scene.Resize(expletives.Size{Width: 48, Height: 16}); err != nil {
+		t.Fatalf("Resize(small) error = %v", err)
+	}
+	control := func(key string) expletives.ControlSnapshot {
+		t.Helper()
+		for _, current := range scene.App.Snapshot().Controls {
+			if current.Key == key {
+				return current
+			}
+		}
+		t.Fatalf("control %q is absent", key)
+		return expletives.ControlSnapshot{}
+	}
+	viewport := control("input.viewport")
+	details := viewport.Details.Scrollable
+	if details == nil ||
+		!details.HorizontalVisible ||
+		!details.VerticalVisible ||
+		details.State.ContentSize.Width < 55 ||
+		details.State.ContentSize.Height < 9 ||
+		details.MaximumOffset.X <= 0 ||
+		details.MaximumOffset.Y <= 0 {
+		t.Fatalf("small input viewport details = %#v", details)
+	}
+	if err := scene.inputViewport.Focus(); err != nil {
+		t.Fatalf("input Viewport.Focus() error = %v", err)
+	}
+	if _, err := scene.App.DispatchKey(
+		context.Background(),
+		"input-viewport-test",
+		"end",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyEnd,
+		},
+	); err != nil {
+		t.Fatalf("DispatchKey(End) error = %v", err)
+	}
+	details = control("input.viewport").Details.Scrollable
+	if details.State.Offset != details.MaximumOffset {
+		t.Fatalf(
+			"End offset = %+v, want maximum %+v",
+			details.State.Offset,
+			details.MaximumOffset,
+		)
+	}
+	snapshot := scene.App.Snapshot()
+	horizontalStart := expletives.Point{
+		X: viewport.AbsoluteBounds.X + details.ViewportBounds.X,
+		Y: viewport.AbsoluteBounds.Y + details.ViewportBounds.Y +
+			details.ViewportBounds.Height,
+	}
+	cell, ok := snapshot.Frame.Cell(horizontalStart.X, horizontalStart.Y)
+	if !ok || cell.Grapheme != "◄" || cell.Owner != viewport.ID {
+		t.Fatalf("integrated horizontal scrollbar cell = %#v", cell)
+	}
+
+	if err := scene.Resize(expletives.Size{Width: 100, Height: 30}); err != nil {
+		t.Fatalf("Resize(large) error = %v", err)
+	}
+	viewport = control("input.viewport")
+	details = viewport.Details.Scrollable
+	if details.HorizontalVisible ||
+		details.VerticalVisible ||
+		details.State.Offset != (expletives.Point{}) ||
+		details.State.ContentSize != (expletives.Size{
+			Width:  viewport.AbsoluteBounds.Width,
+			Height: viewport.AbsoluteBounds.Height,
+		}) {
+		t.Fatalf("large input viewport details = %#v", details)
 	}
 }
 

@@ -61,6 +61,7 @@ const (
 	mutationProgress
 	mutationScrollBar
 	mutationTabbedPanel
+	mutationScrollView
 )
 
 type transactionMutation struct {
@@ -242,6 +243,9 @@ func (t *Transaction) SetBounds(control Control, bounds Rect) error {
 			"expletives: application chrome bounds follow the application surface",
 		)
 	}
+	if state.managedBy != nil {
+		return errors.New("expletives: managed scroll Content bounds are derived")
+	}
 	if err := t.reserveOperation(); err != nil {
 		return err
 	}
@@ -267,6 +271,9 @@ func (t *Transaction) SetMinimumSize(control Control, size Size) error {
 	}
 	if isApplicationChrome(state.kind) {
 		return errors.New("expletives: application chrome minimum is intrinsic")
+	}
+	if state.managedBy != nil {
+		return errors.New("expletives: managed scroll Content minimum is derived")
 	}
 	if err := t.reserveOperation(); err != nil {
 		return err
@@ -414,7 +421,8 @@ func (t *Transaction) SetFocus(control Control) error {
 	case ControlButton, ControlCheckbox, ControlRadioButton,
 		ControlCycleField, ControlSelectField, ControlTextField,
 		ControlNumberField, ControlSpinBox, ControlTextArea,
-		ControlScrollBar, ControlTabbedPanel, ControlNotebook:
+		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
+		ControlViewport, ControlScrollablePanel:
 	default:
 		return ErrNotFocusable
 	}
@@ -463,6 +471,11 @@ func (t *Transaction) Destroy(control Control) error {
 	if state.root {
 		return errors.New("expletives: root cannot be destroyed")
 	}
+	if state.managedBy != nil {
+		return errors.New(
+			"expletives: managed scroll Content cannot be destroyed independently",
+		)
+	}
 	if err := t.reserveOperation(); err != nil {
 		return err
 	}
@@ -491,6 +504,13 @@ func (t *Transaction) attachLayout(
 	if owner == nil || owner.containerState() == nil ||
 		owner.containerState().app != t.app {
 		return ErrInvalidParent
+	}
+	switch owner.containerState().kind {
+	case ControlViewport, ControlScrollablePanel:
+		return fmt.Errorf(
+			"%w: scroll container reserves Layout ownership for its Content",
+			ErrInvalidLayout,
+		)
 	}
 	if layout == nil || layout.layoutState() == nil {
 		return ErrInvalidLayout
@@ -729,7 +749,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress, mutationScrollBar, mutationTabbedPanel:
+			mutationProgress, mutationScrollBar, mutationTabbedPanel,
+			mutationScrollView:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -885,6 +906,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		switch mutation.kind {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
+			mutationScrollView,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -1235,6 +1257,57 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					)
 				}
 			}
+		case scrollViewBehavior:
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"scroll container",
+			); err != nil {
+				return err
+			}
+			content := behavior.content
+			if content == nil ||
+				destroyed[content] ||
+				t.validateTargetLocked(content, provisional) != nil ||
+				content.parent != state ||
+				content.kind != ControlPanel ||
+				content.managedBy != state ||
+				content.layout != nil ||
+				plannedPanels[content] {
+				return fmt.Errorf(
+					"%w: invalid managed scroll Content",
+					ErrInvalidParent,
+				)
+			}
+			directChildren := 0
+			for _, child := range state.children {
+				if !destroyed[child] {
+					directChildren++
+					if child != content {
+						return fmt.Errorf(
+							"%w: unexpected scroll-container child",
+							ErrInvalidParent,
+						)
+					}
+				}
+			}
+			for _, child := range t.creates {
+				if child.parent == state && !destroyed[child] {
+					directChildren++
+					if child != content {
+						return fmt.Errorf(
+							"%w: unexpected scroll-container construction child",
+							ErrInvalidParent,
+						)
+					}
+				}
+			}
+			if directChildren != 1 {
+				return fmt.Errorf(
+					"%w: scroll container requires exactly one Content child",
+					ErrInvalidParent,
+				)
+			}
 		}
 		return nil
 	}
@@ -1448,7 +1521,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				changed = true
 			}
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress, mutationScrollBar, mutationTabbedPanel:
+			mutationProgress, mutationScrollBar, mutationTabbedPanel,
+			mutationScrollView:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,
@@ -1511,6 +1585,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	}
 	if changed {
 		arrangeAllLayoutsLocked(t.app)
+		t.app.ensureFocusLocked()
+		t.app.ensureFocusedControlVisibleLocked()
 		t.app.publishLocked(nil)
 	}
 	committed = true
@@ -1605,7 +1681,7 @@ func (t *Transaction) validateLayoutTreeLocked(
 			panel := item.panel
 			if panel == nil || panel.app != t.app || panel.parent != owner ||
 				panel.layout != nil || plannedPanels[panel] ||
-				destroyed[panel] {
+				destroyed[panel] || panel.managedBy != nil {
 				return 0, 0, fmt.Errorf(
 					"%w: Panel item is not an available direct child",
 					ErrInvalidLayout,

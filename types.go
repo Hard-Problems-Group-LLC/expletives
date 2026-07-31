@@ -317,6 +317,11 @@ const (
 	ControlTabbedPanel ControlKind = "tabbed_panel"
 	// ControlNotebook identifies the Notebook naming variant of TabbedPanel.
 	ControlNotebook ControlKind = "notebook"
+	// ControlViewport identifies one unframed scrolling container.
+	ControlViewport ControlKind = "viewport"
+	// ControlScrollablePanel identifies one framed scrolling container with
+	// integrated scrollbar decoration.
+	ControlScrollablePanel ControlKind = "scrollable_panel"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -601,6 +606,8 @@ type ControlDetails struct {
 	ScrollBar *ScrollBarDetails `json:"scroll_bar,omitempty"`
 	// TabbedPanel is present for TabbedPanel and Notebook.
 	TabbedPanel *TabbedPanelDetails `json:"tabbed_panel,omitempty"`
+	// Scrollable is present for Viewport and ScrollablePanel.
+	Scrollable *ScrollableDetails `json:"scrollable,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -897,6 +904,27 @@ type ScrollBarDetails struct {
 	ChangeCommand  CommandID   `json:"change_command,omitempty"`
 }
 
+// ScrollableDetails describes one generic two-axis logical content viewport.
+// ViewportBounds and integrated bar bounds are relative to the owner control.
+type ScrollableDetails struct {
+	State             ViewportState       `json:"state"`
+	MaximumOffset     Point               `json:"maximum_offset"`
+	ViewportBounds    Rect                `json:"viewport_bounds"`
+	ArrowStep         Size                `json:"arrow_step"`
+	PageStep          Size                `json:"page_step"`
+	Enabled           bool                `json:"enabled"`
+	DisabledReason    string              `json:"disabled_reason,omitempty"`
+	ChangeCommand     CommandID           `json:"change_command,omitempty"`
+	Content           ControlID           `json:"content"`
+	ContentKey        string              `json:"content_key,omitempty"`
+	HorizontalPolicy  ScrollBarVisibility `json:"horizontal_policy"`
+	VerticalPolicy    ScrollBarVisibility `json:"vertical_policy"`
+	HorizontalVisible bool                `json:"horizontal_visible"`
+	VerticalVisible   bool                `json:"vertical_visible"`
+	HorizontalBar     *ScrollBarDetails   `json:"horizontal_bar,omitempty"`
+	VerticalBar       *ScrollBarDetails   `json:"vertical_bar,omitempty"`
+}
+
 // TabDetails describes one copied page descriptor and its rendered strip
 // state. Bounds is relative to the owning tab container.
 type TabDetails struct {
@@ -1167,6 +1195,18 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				snapshot.Controls[index].Details.TabbedPanel.Tabs...,
 			)
 			cloned.Controls[index].Details.TabbedPanel = &tabbedPanel
+		}
+		if snapshot.Controls[index].Details.Scrollable != nil {
+			scrollable := *snapshot.Controls[index].Details.Scrollable
+			if scrollable.HorizontalBar != nil {
+				bar := *scrollable.HorizontalBar
+				scrollable.HorizontalBar = &bar
+			}
+			if scrollable.VerticalBar != nil {
+				bar := *scrollable.VerticalBar
+				scrollable.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.Scrollable = &scrollable
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

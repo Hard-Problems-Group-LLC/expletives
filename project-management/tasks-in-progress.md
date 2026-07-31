@@ -21,4 +21,8 @@ owner, known blockers, and brief status notes.
   - Status: directed contracts and the opening compatibility slice are
     complete: Cycle semantics, per-axis Layout hints/weights, and the compact
     Text/Numeric form pass the complete verification gate. Viewport and
-    ScrollablePanel implementation is active.
+    ScrollablePanel now have public construction/state APIs, managed Content,
+    clipping, fixed-point integrated bars, keyboard/focus behavior, typed
+    automation, and ordinary Go coverage. The Text/Numeric page uses the
+    public ScrollablePanel and has frame-verified Turbo Vision input contrast;
+    phase-wide verification and ACP remain in progress.

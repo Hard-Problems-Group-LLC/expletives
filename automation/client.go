@@ -907,6 +907,30 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 			}
 		}
 	}
+	for _, control := range snapshot.Controls {
+		scrollable := control.Details.Scrollable
+		if scrollable == nil {
+			continue
+		}
+		content := controlsByID[scrollable.Content]
+		if content == nil ||
+			content.Parent != control.ID ||
+			content.Kind != "panel" ||
+			content.Layout != "" ||
+			content.Key != scrollable.ContentKey ||
+			content.Bounds != (Rect{
+				X:      -scrollable.State.Offset.X,
+				Y:      -scrollable.State.Offset.Y,
+				Width:  scrollable.State.ContentSize.Width,
+				Height: scrollable.State.ContentSize.Height,
+			}) ||
+			len(control.Children) != 1 ||
+			control.Children[0] != content.ID {
+			return errors.New(
+				"snapshot scroll Content relationship is invalid",
+			)
+		}
+	}
 	if len(snapshot.Layouts) > limits.Layouts {
 		return errors.New("snapshot Layout count exceeds advertised bound")
 	}
@@ -1066,6 +1090,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.TabbedPanel != nil {
+		specialMembers++
+	}
+	if details.Scrollable != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1318,6 +1345,158 @@ func validControlDetails(
 				controlWidth,
 				limits,
 			)
+	case "viewport", "scrollable_panel":
+		return specialMembers == 1 &&
+			details.Container != nil &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validScrollableDetails(
+				kind,
+				details.Container,
+				details.Border,
+				details.Scrollable,
+				controlWidth,
+				controlHeight,
+				limits,
+			)
+	default:
+		return false
+	}
+}
+
+func validScrollableDetails(
+	kind ControlKind,
+	container *ContainerDetails,
+	border *BorderDetails,
+	details *ScrollableDetails,
+	controlWidth int,
+	controlHeight int,
+	limits Limits,
+) bool {
+	if details == nil ||
+		!validIdentifier(string(details.Content), limits.IdentifierBytes) ||
+		(details.ContentKey != "" &&
+			!validIdentifier(details.ContentKey, limits.IdentifierBytes)) ||
+		details.State.ContentSize.Width < 0 ||
+		details.State.ContentSize.Height < 0 ||
+		details.State.Offset.X < 0 ||
+		details.State.Offset.Y < 0 ||
+		details.ArrowStep.Width < 1 ||
+		details.ArrowStep.Height < 1 ||
+		details.PageStep.Width < 1 ||
+		details.PageStep.Height < 1 ||
+		details.ViewportBounds.X < 0 ||
+		details.ViewportBounds.Y < 0 ||
+		details.ViewportBounds.Width < 0 ||
+		details.ViewportBounds.Height < 0 ||
+		details.ViewportBounds.X+details.ViewportBounds.Width > controlWidth ||
+		details.ViewportBounds.Y+details.ViewportBounds.Height > controlHeight ||
+		len(details.DisabledReason) > expletives.MaxCommandDescriptionBytes ||
+		(!details.Enabled && details.DisabledReason == "") ||
+		(details.Enabled && details.DisabledReason != "") ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) ||
+		!validScrollVisibility(details.HorizontalPolicy) ||
+		!validScrollVisibility(details.VerticalPolicy) {
+		return false
+	}
+	if kind == "viewport" {
+		if container.ClientInset != 0 ||
+			border.Form != "none" ||
+			details.HorizontalPolicy != "never" ||
+			details.VerticalPolicy != "never" ||
+			details.HorizontalVisible ||
+			details.VerticalVisible {
+			return false
+		}
+	} else {
+		wantInset := 0
+		if border.Form != "none" {
+			wantInset = 1
+		}
+		if container.ClientInset != wantInset {
+			return false
+		}
+	}
+	maximum := Point{
+		X: max(
+			0,
+			details.State.ContentSize.Width-details.ViewportBounds.Width,
+		),
+		Y: max(
+			0,
+			details.State.ContentSize.Height-details.ViewportBounds.Height,
+		),
+	}
+	if details.MaximumOffset != maximum ||
+		details.State.Offset.X > maximum.X ||
+		details.State.Offset.Y > maximum.Y ||
+		(details.HorizontalVisible != (details.HorizontalBar != nil)) ||
+		(details.VerticalVisible != (details.VerticalBar != nil)) {
+		return false
+	}
+	if details.HorizontalBar != nil &&
+		(details.HorizontalBar.DisabledReason != "" ||
+			details.HorizontalBar.ChangeCommand != "" ||
+			!validIntegratedScrollBarDetails(
+				details.HorizontalBar,
+				details,
+				details.ViewportBounds.Width,
+				1,
+				limits,
+			) ||
+			details.HorizontalBar.Orientation !=
+				Orientation(expletives.Horizontal) ||
+			details.HorizontalBar.ContentSize != details.State.ContentSize.Width ||
+			details.HorizontalBar.ViewportSize != details.ViewportBounds.Width ||
+			details.HorizontalBar.Offset != details.State.Offset.X) {
+		return false
+	}
+	if details.VerticalBar != nil &&
+		(details.VerticalBar.DisabledReason != "" ||
+			details.VerticalBar.ChangeCommand != "" ||
+			!validIntegratedScrollBarDetails(
+				details.VerticalBar,
+				details,
+				1,
+				details.ViewportBounds.Height,
+				limits,
+			) ||
+			details.VerticalBar.Orientation !=
+				Orientation(expletives.Vertical) ||
+			details.VerticalBar.ContentSize != details.State.ContentSize.Height ||
+			details.VerticalBar.ViewportSize != details.ViewportBounds.Height ||
+			details.VerticalBar.Offset != details.State.Offset.Y) {
+		return false
+	}
+	return true
+}
+
+func validIntegratedScrollBarDetails(
+	bar *ScrollBarDetails,
+	parent *ScrollableDetails,
+	width int,
+	height int,
+	limits Limits,
+) bool {
+	if bar == nil || parent == nil {
+		return false
+	}
+	complete := *bar
+	complete.DisabledReason = parent.DisabledReason
+	complete.ChangeCommand = parent.ChangeCommand
+	return validScrollBarDetails(&complete, width, height, limits)
+}
+
+func validScrollVisibility(value string) bool {
+	switch value {
+	case "auto", "always", "never":
+		return true
 	default:
 		return false
 	}
@@ -1997,7 +2176,8 @@ func validFocusTargetKind(kind ControlKind) bool {
 	switch kind {
 	case "button", "checkbox", "radio_button", "cycle_field",
 		"select_field", "text_field", "number_field", "spin_box",
-		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook":
+		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook",
+		"viewport", "scrollable_panel":
 		return true
 	default:
 		return false

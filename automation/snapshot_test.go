@@ -742,6 +742,94 @@ func TestSnapshotProjectsScrollBarDetailsAndCopiesState(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsScrollableDetailsAndCopiesNestedBars(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 12},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	panel, err := expletives.NewScrollablePanel(
+		app.Root(),
+		expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "scroll",
+					Bounds: expletives.Rect{
+						Width: 10, Height: 6,
+					},
+				},
+				State: expletives.ViewportState{
+					ContentSize: expletives.Size{
+						Width: 20, Height: 10,
+					},
+					Offset: expletives.Point{X: 2, Y: 3},
+				},
+			},
+			BorderForm: expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var owner, content *ControlSnapshot
+	for index := range projected.Controls {
+		switch projected.Controls[index].Key {
+		case "scroll":
+			owner = &projected.Controls[index]
+		case "scroll.content":
+			content = &projected.Controls[index]
+		}
+	}
+	if owner == nil || content == nil || owner.Details.Scrollable == nil {
+		t.Fatalf("projected controls owner=%#v content=%#v", owner, content)
+	}
+	details := owner.Details.Scrollable
+	if details.State != (ViewportState{
+		ContentSize: Size{Width: 20, Height: 10},
+		Offset:      Point{X: 2, Y: 3},
+	}) ||
+		details.MaximumOffset != (Point{X: 13, Y: 7}) ||
+		details.ViewportBounds != (Rect{
+			X: 1, Y: 1, Width: 7, Height: 3,
+		}) ||
+		details.Content != content.ID ||
+		details.ContentKey != content.Key ||
+		details.HorizontalBar == nil ||
+		details.VerticalBar == nil ||
+		content.Bounds != (Rect{
+			X: -2, Y: -3, Width: 20, Height: 10,
+		}) {
+		t.Fatalf("projected Scrollable details = %#v", details)
+	}
+
+	cloned := cloneSnapshot(projected)
+	var clonedDetails *ScrollableDetails
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "scroll" {
+			clonedDetails = cloned.Controls[index].Details.Scrollable
+			break
+		}
+	}
+	if clonedDetails == nil {
+		t.Fatal("clone has no Scrollable details")
+	}
+	clonedDetails.HorizontalBar.Offset = 0
+	clonedDetails.VerticalBar.Offset = 0
+	if details.HorizontalBar.Offset != 2 ||
+		details.VerticalBar.Offset != 3 {
+		t.Fatal("cloneSnapshot exposed nested ScrollBarDetails storage")
+	}
+	if panel.Content().AutomationKey() != content.Key {
+		t.Fatal("projection changed core managed Content")
+	}
+}
+
 func TestSnapshotProjectsTabbedPanelDetailsAndCopiesTabs(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

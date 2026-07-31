@@ -552,13 +552,39 @@ ordered backlog and the active-task record; it does not replace either.
   associated snapshot; focus restoration is exact; Ctrl-C remains distinct
   from cancel, back, and quit.
 
-### 18. Terminal Compatibility And Operational Hardening
+### 18. File And Directory Pickers
+
+- Status: `planned`
+- Goal: deliver a general-purpose Turbo Vision-style `FilePickerDialog` plus
+  `MultiFilePickerDialog` and `DirectoryPickerDialog` specializations.
+- Dependencies: Phase 16 collection controls and Phase 17 modal/dialog
+  lifecycle, focus, validation, and result contracts.
+- Includes: application-supplied filesystem/provider models, current-directory
+  and path editing, parent navigation, directory and file lists, sorting,
+  filtering, typed selection results, inaccessible/missing-path errors,
+  single-file activation, explicit multiple-selection commit, directory-only
+  selection, resize/small-screen degradation, and safe cancel/interrupt
+  behavior. Appearance, focus order, accelerators, default/cancel buttons, and
+  keyboard behavior follow Turbo Vision conventions where reasonable.
+- `expletives-test` scenarios: `dialogs.file-picker`,
+  `dialogs.file-picker-multiple`, `dialogs.directory-picker`,
+  `dialogs.file-picker-errors`, and `dialogs.file-picker-resize`.
+- Normal Go tests: deterministic provider fixtures, empty/root/parent
+  navigation, filtering and sorting, single/multiple/directory result types,
+  selection preservation, inaccessible and disappearing entries, validation,
+  resize, cancel/interrupt distinctions, and attached automation.
+- Acceptance gate: no dialog performs hidden or unbounded filesystem work;
+  every close path publishes an explicit typed result and final snapshot; the
+  same dialog behavior works against deterministic test providers and an
+  explicitly selected local-filesystem adapter.
+
+### 19. Terminal Compatibility And Operational Hardening
 
 - Status: `planned`
 - Goal: validate terminal capabilities, terminfo integration, input parsing,
   resize, signals, suspension/resume, remote transports, physical rendering,
   bounded concurrency, profiling, and failure recovery.
-- Dependencies: Phase 17 supplies the complete interaction and control-state
+- Dependencies: Phase 18 supplies the complete interaction and control-state
   matrix to exercise at the physical boundary.
 - `expletives-test` scenarios: terminal-lab cases for supported one-cell
   Unicode and combining-sequence alignment, exact one-cell `U+FFFD`
@@ -575,13 +601,13 @@ ordered backlog and the active-task record; it does not replace either.
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.
 
-### 19. Release Readiness
+### 20. Release Readiness
 
 - Status: `planned`
 - Goal: stabilize the public Go API, documentation, examples, compatibility
   policy, release builds, provenance, security review, and downstream
   consumption.
-- Dependencies: Phase 18 and completion of every non-deferred catalog phase.
+- Dependencies: Phase 19 and completion of every non-deferred catalog phase.
 - `expletives-test` scenario: a catalog-completeness check fails whenever an
   exported control or required important state lacks a stable scenario and
   state-matrix entry.

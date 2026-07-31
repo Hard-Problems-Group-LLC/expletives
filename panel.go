@@ -124,6 +124,7 @@ type controlState struct {
 	children      []*controlState
 	layoutRoots   []*layoutState
 	layout        *layoutState
+	managedBy     *controlState
 	bounds        Rect
 	minimumSize   Size
 	autoMinimum   bool
@@ -148,6 +149,24 @@ type controlBehavior interface {
 		clip Rect,
 	)
 	details() ControlDetails
+}
+
+type controlClientRectProvider interface {
+	controlClientRect(Rect) Rect
+}
+
+func controlClientRect(state *controlState, bounds Rect) Rect {
+	if state == nil || state.behavior == nil {
+		return Rect{}
+	}
+	if provider, ok := state.behavior.(controlClientRectProvider); ok {
+		return provider.controlClientRect(bounds)
+	}
+	inset := state.behavior.clientInset()
+	if inset == 0 {
+		return bounds
+	}
+	return insetRect(bounds, inset)
 }
 
 func isApplicationChrome(kind ControlKind) bool {
@@ -391,6 +410,13 @@ func preparePanel(
 	if parentState == nil || parentState.app == nil {
 		return nil, fmt.Errorf(
 			"%w: parent is not owned by an App",
+			ErrInvalidParent,
+		)
+	}
+	if behavior, ok := parentState.behavior.(scrollViewBehavior); ok &&
+		behavior.content != nil {
+		return nil, fmt.Errorf(
+			"%w: scroll container owns its only direct child",
 			ErrInvalidParent,
 		)
 	}

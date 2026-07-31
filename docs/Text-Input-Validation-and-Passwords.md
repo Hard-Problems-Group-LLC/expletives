@@ -118,8 +118,11 @@ both that value and the current working text.
 
 An ordinary text, number, or spin field is one row high and has no implicit
 frame. Give it a practical minimum width—usually 10 to 30 cells—and place a
-separate bound `Label` in the preceding form column. The field's distinct
-background fills its complete arranged width, including blank cells.
+separate left-aligned bound `Label` in the preceding form column. The classic
+white-on-blue field background fills its complete arranged width, including
+blank cells, against a light-neutral dialog/form surface. Keeping those
+physical palette classes distinct avoids both surfaces quantizing to the same
+terminal blue.
 
 Single-line fields default to horizontal stretch and natural vertical size.
 `TextArea` defaults to stretch in both directions. `BoxLayout` preserves

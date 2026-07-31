@@ -703,6 +703,10 @@ func (a *App) DispatchKey(
 			scrollChanged := false
 			if noHeldModifiers(held) {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.scrollViewKeyLocked(a.focus, event.Key)
+			}
+			if noHeldModifiers(held) && !scrollHandled {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.scrollBarKeyLocked(a.focus, event.Key)
 			}
 			if scrollHandled {
@@ -773,6 +777,10 @@ func (a *App) DispatchKey(
 				}
 			}
 		}
+	}
+	if a.ensureFocusedControlVisibleLocked() &&
+		result.Outcome == OutcomeNoOp {
+		result.Outcome = OutcomeApplied
 	}
 	a.mu.Unlock()
 
