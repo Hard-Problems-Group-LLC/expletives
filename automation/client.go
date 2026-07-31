@@ -787,6 +787,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 			control.Kind,
 			control.Details,
 			control.Bounds.Width,
+			control.Bounds.Height,
 			limits,
 		) {
 			return errors.New("snapshot control details are invalid for its kind")
@@ -993,6 +994,7 @@ func validControlDetails(
 	kind ControlKind,
 	details ControlDetails,
 	controlWidth int,
+	controlHeight int,
 	limits Limits,
 ) bool {
 	if details.Version != 1 {
@@ -1024,6 +1026,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.Progress != nil {
+		specialMembers++
+	}
+	if details.ScrollBar != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1244,9 +1249,98 @@ func validControlDetails(
 				details.Progress,
 				controlWidth,
 			)
+	case "scroll_bar":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validScrollBarDetails(
+				details.ScrollBar,
+				controlWidth,
+				controlHeight,
+				limits,
+			)
 	default:
 		return false
 	}
+}
+
+func validScrollBarDetails(
+	details *ScrollBarDetails,
+	controlWidth int,
+	controlHeight int,
+	limits Limits,
+) bool {
+	if details == nil ||
+		(details.Orientation != Orientation(expletives.Horizontal) &&
+			details.Orientation != Orientation(expletives.Vertical)) ||
+		details.ContentSize < 0 ||
+		details.ContentSize > expletives.MaxFrameCells ||
+		details.ViewportSize < 0 ||
+		details.ViewportSize > expletives.MaxFrameCells ||
+		details.Offset < 0 ||
+		details.ArrowStep < 1 ||
+		details.ArrowStep > expletives.MaxFrameCells ||
+		details.PageStep < 1 ||
+		details.PageStep > expletives.MaxFrameCells ||
+		len(details.DisabledReason) > expletives.MaxCommandDescriptionBytes ||
+		(!details.Enabled && details.DisabledReason == "") ||
+		(details.Enabled && details.DisabledReason != "") ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) {
+		return false
+	}
+	maximum := details.ContentSize - details.ViewportSize
+	if maximum < 0 {
+		maximum = 0
+	}
+	if details.MaximumOffset != maximum || details.Offset > maximum {
+		return false
+	}
+	axis := controlWidth
+	if details.Orientation == Orientation(expletives.Vertical) {
+		axis = controlHeight
+	}
+	core := expletives.ScrollBarState{
+		ContentSize:  details.ContentSize,
+		ViewportSize: details.ViewportSize,
+		Offset:       details.Offset,
+	}
+	trackStart := 0
+	trackSize := axis
+	if axis >= 3 {
+		trackStart = 1
+		trackSize = axis - 2
+	}
+	thumbSize := 0
+	if trackSize > 0 {
+		switch {
+		case maximum == 0:
+			thumbSize = trackSize
+		case core.ViewportSize == 0:
+			thumbSize = 1
+		default:
+			thumbSize = max(
+				1,
+				trackSize*core.ViewportSize/core.ContentSize,
+			)
+			thumbSize = min(thumbSize, trackSize)
+		}
+	}
+	thumbStart := trackStart
+	travel := trackSize - thumbSize
+	if travel > 0 && maximum > 0 {
+		thumbStart += core.Offset * travel / maximum
+	}
+	return details.TrackStart == trackStart &&
+		details.TrackSize == trackSize &&
+		details.ThumbStart == thumbStart &&
+		details.ThumbSize == thumbSize
 }
 
 func validProgressDetails(

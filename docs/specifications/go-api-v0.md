@@ -602,6 +602,24 @@ exact ratio rendering, and `ControlDetails.Progress` evidence are fixed by
 Transactions atomically publish a related group of states. Identical
 canonical updates publish nothing.
 
+## Navigation And Chrome
+
+```go
+func NewScrollBar(Container, ScrollBarOptions) (*ScrollBar, error)
+func (s *ScrollBar) State() ScrollBarState
+func (s *ScrollBar) SetState(ScrollBarState) error
+func (s *ScrollBar) Update(context.Context, ScrollBarState) error
+func (s *ScrollBar) Focus() error
+```
+
+`ScrollBar` is a focusable Panel-derived leaf over copied nonnegative
+`ContentSize`, `ViewportSize`, and `Offset` state. It derives
+`MaximumOffset`, track, and thumb geometry; clamps matching arrow, page,
+Home, and End navigation; leaves an orientation-mismatched arrow available
+to spatial focus; and routes an optional ChangeCommand only for user changes.
+The complete contract, including Theme roles and typed evidence, is
+[`navigation-chrome-api-v0.md`](navigation-chrome-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -633,6 +651,7 @@ func (t *Transaction) NewProgressBar(Container, ProgressBarOptions) (*ProgressBa
 func (t *Transaction) NewMeter(Container, MeterOptions) (*Meter, error)
 func (t *Transaction) NewSpinner(Container, SpinnerOptions) (*Spinner, error)
 func (t *Transaction) NewActivityDots(Container, ActivityDotsOptions) (*ActivityDots, error)
+func (t *Transaction) NewScrollBar(Container, ScrollBarOptions) (*ScrollBar, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -650,6 +669,7 @@ func (t *Transaction) SetTextAreaWrap(*TextArea, TextWrap) error
 func (t *Transaction) SetProgressBarState(*ProgressBar, ProgressBarState) error
 func (t *Transaction) SetMeterState(*Meter, MeterState) error
 func (t *Transaction) SetActivityState(Control, ActivityState) error
+func (t *Transaction) SetScrollBarState(*ScrollBar, ScrollBarState) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
@@ -746,7 +766,11 @@ The typed details union contains `TextDetails` for Label/StaticText and
 `DividerDetails` for Separator/Rule, `ActionDetails` for Button, and
 `HotkeyBarDetails` for HotkeyBar, `FocusGuideBarDetails` for FocusGuideBar,
 flat `MenuBarDetails` for MenuBar, and `StatusBarDetails` for StatusBar.
-These expose canonical bounded text,
+Selection, Text/Numeric Input, Progress, and Navigation controls add their
+kind-consistent `CheckboxDetails`, `RadioButtonDetails`,
+`RadioGroupDetails`, `ChoiceFieldDetails`, `TextFieldDetails`,
+`NumberFieldDetails`, `TextAreaDetails`, `ProgressDetails`, and
+`ScrollBarDetails` members. These expose canonical bounded text,
 alignment, wrap, Label target/mnemonic, divider orientation/form, generic
 focus, command presentation state, pressed/default/cancel roles, and
 structured current bindings. Menu details additionally expose immutable entry

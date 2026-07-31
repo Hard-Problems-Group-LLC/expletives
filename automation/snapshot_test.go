@@ -682,6 +682,65 @@ func TestSnapshotProjectsProgressDetailsAndCopiesState(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsScrollBarDetailsAndCopiesState(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 3},
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	if _, err := expletives.NewScrollBar(
+		app.Root(),
+		expletives.ScrollBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "scroll.bar",
+				Bounds:        expletives.Rect{Width: 12, Height: 1},
+			},
+			State: expletives.ScrollBarState{
+				ContentSize: 100, ViewportSize: 20, Offset: 40,
+			},
+			ArrowStep: 2,
+			PageStep:  25,
+		},
+	); err != nil {
+		t.Fatalf("NewScrollBar() error = %v", err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *ScrollBarDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "scroll.bar" {
+			details = projected.Controls[index].Details.ScrollBar
+			break
+		}
+	}
+	if details == nil ||
+		details.ContentSize != 100 ||
+		details.ViewportSize != 20 ||
+		details.Offset != 40 ||
+		details.MaximumOffset != 80 ||
+		details.ArrowStep != 2 ||
+		details.PageStep != 25 ||
+		details.TrackStart != 1 ||
+		details.TrackSize != 10 ||
+		details.ThumbStart != 5 ||
+		details.ThumbSize != 2 ||
+		!details.Enabled {
+		t.Fatalf("projected ScrollBarDetails = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	details.Offset = 9
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "scroll.bar" &&
+			cloned.Controls[index].Details.ScrollBar.Offset != 40 {
+			t.Fatal("cloned ScrollBar state aliases projected storage")
+		}
+	}
+}
+
 func TestExpandFrameRejectsDisagreeingCompactAndExpandedViews(t *testing.T) {
 	t.Parallel()
 

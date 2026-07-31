@@ -12,13 +12,15 @@ to that explicitly enabled endpoint.
 
 Core/Containers, Basic Presentation, Basic Automation, Basic Layouts,
 Text/Display, Actions, Menus, Status Bar, Headers/Footers, Selection, and
-Text and Numeric Input, and Progress are implemented.
+Text and Numeric Input, Progress, and the first Navigation/Chrome slice are
+implemented.
 The public Go package includes non-container `Label`, `StaticText`,
 `Separator`, `Rule`, `Button`, `HotkeyBar`, `MenuBar`, and `StatusBar`
 controls; `Checkbox`, `RadioButton`/`RadioGroup`, `CycleField`, `SelectField`,
 validated/password-safe `TextField`, ranged `NumberField`, and clamped
 `SpinBox`, plus wrapped multiline `TextArea`; deterministic `ProgressBar`,
-horizontal/vertical `Meter`, `Spinner`, and `ActivityDots`; root-owned
+horizontal/vertical `Meter`, `Spinner`, and `ActivityDots`; focusable
+horizontal/vertical `ScrollBar`; root-owned
 one-row `Header` and `Footer` containers; immutable
 `Menu` models; Box/Grid and nested Layouts;
 independent arrangement and stacking order; structured overflow; optional
@@ -59,6 +61,11 @@ StatusBar, one-row Header/Footer Layout examples, grouped Selection controls,
 unrestricted/soft/hard/password TextField examples, and ranged/steppable
 numeric input, plus multiline wrapping, selection, bounded paste, determinate
 and indeterminate progress, terminal states, and reduced-motion activity.
+
+`ScrollBar` copies bounded content, viewport, and offset state; derives exact
+track/thumb geometry; and supports arrow, PageUp/PageDown, Home, and End
+navigation with optional user-only change notification. See
+[`navigation-chrome-api-v0.md`](docs/specifications/navigation-chrome-api-v0.md).
 
 The attached commands `layout.panel.raise`, `layout.panel.lower`,
 `layout.layer.raise`, and `layout.layer.lower` exercise the new stack paths.

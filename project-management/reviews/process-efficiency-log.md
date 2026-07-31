@@ -755,6 +755,24 @@ Improvement:
 - do not broaden the public toolkit API merely to reduce test-application
   duplication.
 
+### 24. Centralize Typed-Details Kind Registration
+
+Adding ScrollBar correctly required touching the core detail union and clone,
+automation DTO and clone, projection, special-member counting, kind
+validation, response-bound tests, and public-consumer tests. The explicit
+surface is valuable for wire safety, but repeated nil checks and kind
+registration are mechanical and easy to omit.
+
+Improvement candidate:
+
+- retain explicit per-kind validators and projection code;
+- investigate one private exhaustive kind/member registry or generated
+  checklist test that fails when a new `ControlKind` or detail member is not
+  registered everywhere;
+- avoid reflection or a generic property bag in the public/runtime path; and
+- adopt this only if Tabs repeats the same omission risk enough to justify the
+  helper, rather than pausing feature delivery for infrastructure now.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

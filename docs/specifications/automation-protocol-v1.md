@@ -936,6 +936,9 @@ the root package's local snapshot. The client checks:
   recognized status, exact bounded numeric state, finite ordered Meter
   ranges, canonical absolute ticks, reduced-motion state, text policy,
   orientation, and geometry-derived frame index;
+- kind-consistent ScrollBar details with bounded viewport state, exact maximum
+  offset, positive arrow/page steps, enabled/disabled policy, optional change
+  command, orientation, and control-size-derived track/thumb geometry;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;

@@ -47,6 +47,9 @@ Keep durable project documentation here.
 - [Progress API v0](specifications/progress-api-v0.md) defines deterministic,
   reduced-motion, bounded, thread-safe ProgressBar, Meter, Spinner, and
   ActivityDots behavior.
+- [Navigation and Chrome API v0](specifications/navigation-chrome-api-v0.md)
+  defines ScrollBar viewport geometry and TabbedPanel/Notebook page
+  navigation.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

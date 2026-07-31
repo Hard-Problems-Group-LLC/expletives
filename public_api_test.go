@@ -266,3 +266,72 @@ func TestExternalConsumerPublishesCopiedProgressState(t *testing.T) {
 		)
 	}
 }
+
+func TestExternalConsumerBuildsAndUpdatesScrollBar(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size:     expletives.Size{Width: 24, Height: 4},
+		Scenario: "external.scrollbar",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scrollBar, err := expletives.NewScrollBar(
+		app.Root(),
+		expletives.ScrollBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "scrollbar",
+				Bounds:        expletives.Rect{Width: 12, Height: 1},
+			},
+			State: expletives.ScrollBarState{
+				ContentSize:  80,
+				ViewportSize: 20,
+				Offset:       10,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := scrollBar.Update(
+		context.Background(),
+		expletives.ScrollBarState{
+			ContentSize:  80,
+			ViewportSize: 20,
+			Offset:       30,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	transaction := app.NewTransaction()
+	if err := transaction.SetScrollBarState(
+		scrollBar,
+		expletives.ScrollBarState{
+			ContentSize:  80,
+			ViewportSize: 20,
+			Offset:       60,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if state := scrollBar.State(); state.Offset != 60 {
+		t.Fatalf("ScrollBar.State() = %#v", state)
+	}
+	var details *expletives.ScrollBarDetails
+	for index := range app.Snapshot().Controls {
+		control := app.Snapshot().Controls[index]
+		if control.Key == "scrollbar" {
+			details = control.Details.ScrollBar
+			break
+		}
+	}
+	if details == nil ||
+		details.Offset != 60 ||
+		details.MaximumOffset != 60 ||
+		details.ThumbStart != 9 {
+		t.Fatalf("external ScrollBar details = %#v", details)
+	}
+}

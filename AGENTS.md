@@ -291,6 +291,15 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   Use absolute caller-supplied ticks, canonical reduced-motion state,
   synchronous cancellation-aware worker updates, atomic multi-control
   Transactions, and exact kind-consistent snapshot/automation evidence.
+- Preserve the Phase 14 Navigation and Chrome contract in
+  [`docs/specifications/navigation-chrome-api-v0.md`](docs/specifications/navigation-chrome-api-v0.md).
+  ScrollBar is a focusable Panel-derived leaf over copied viewport state:
+  arrow and page steps clamp offsets, orientation-mismatched arrows remain
+  spatial-focus keys, programmatic updates are silent, user changes may route
+  one optional command outside toolkit locks, and snapshots expose exact
+  track/thumb geometry. TabbedPanel and Notebook use copied Tab descriptors
+  over direct child Panel pages; the strip is one focus stop and page
+  visibility is derived without overwriting caller visibility policy.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
 - Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and

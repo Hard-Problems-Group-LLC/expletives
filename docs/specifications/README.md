@@ -69,6 +69,8 @@ do not use them as retrospective decoration.
 - [`progress-api-v0.md`](progress-api-v0.md) defines deterministic
   ProgressBar, Meter, Spinner, and ActivityDots state, rendering,
   worker-update, and typed evidence.
+- [`navigation-chrome-api-v0.md`](navigation-chrome-api-v0.md) defines honest
+  ScrollBar viewport state and TabbedPanel/Notebook page navigation.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

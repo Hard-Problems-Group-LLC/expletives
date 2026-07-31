@@ -469,7 +469,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 14. Navigation/Chrome
 
-- Status: `planned`
+- Status: `active`
 - Goal: deliver `ScrollBar`, `TabbedPanel`, `Notebook`, and `Tab` on the
   already-complete menu and action foundation.
 - Dependencies: Phase 13 plus approved tab focus and viewport contracts.

@@ -666,6 +666,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case progressBehavior:
 		rightValue, ok := right.(progressBehavior)
 		return ok && progressBehaviorEqual(leftValue, rightValue)
+	case scrollBarBehavior:
+		rightValue, ok := right.(scrollBarBehavior)
+		return ok && scrollBarBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

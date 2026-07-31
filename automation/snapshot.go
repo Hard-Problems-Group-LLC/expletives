@@ -187,6 +187,8 @@ type ControlDetails struct {
 	TextArea *TextAreaDetails `json:"text_area,omitempty"`
 	// Progress is present for ProgressBar, Meter, Spinner, and ActivityDots.
 	Progress *ProgressDetails `json:"progress,omitempty"`
+	// ScrollBar is present for ScrollBar.
+	ScrollBar *ScrollBarDetails `json:"scroll_bar,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -460,6 +462,24 @@ type ProgressDetails struct {
 	ReducedMotion bool        `json:"reduced_motion"`
 	TextMode      string      `json:"text_mode"`
 	FrameIndex    int         `json:"frame_index"`
+}
+
+// ScrollBarDetails describes one canonical viewport and rendered thumb.
+type ScrollBarDetails struct {
+	Orientation    Orientation `json:"orientation"`
+	ContentSize    int         `json:"content_size"`
+	ViewportSize   int         `json:"viewport_size"`
+	Offset         int         `json:"offset"`
+	MaximumOffset  int         `json:"maximum_offset"`
+	ArrowStep      int         `json:"arrow_step"`
+	PageStep       int         `json:"page_step"`
+	TrackStart     int         `json:"track_start"`
+	TrackSize      int         `json:"track_size"`
+	ThumbStart     int         `json:"thumb_start"`
+	ThumbSize      int         `json:"thumb_size"`
+	Enabled        bool        `json:"enabled"`
+	DisabledReason string      `json:"disabled_reason,omitempty"`
+	ChangeCommand  string      `json:"change_command,omitempty"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -940,6 +960,24 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				FrameIndex:    details.FrameIndex,
 			}
 		}
+		if details := control.Details.ScrollBar; details != nil {
+			projectedControl.Details.ScrollBar = &ScrollBarDetails{
+				Orientation:    Orientation(details.Orientation),
+				ContentSize:    details.ContentSize,
+				ViewportSize:   details.ViewportSize,
+				Offset:         details.Offset,
+				MaximumOffset:  details.MaximumOffset,
+				ArrowStep:      details.ArrowStep,
+				PageStep:       details.PageStep,
+				TrackStart:     details.TrackStart,
+				TrackSize:      details.TrackSize,
+				ThumbStart:     details.ThumbStart,
+				ThumbSize:      details.ThumbSize,
+				Enabled:        details.Enabled,
+				DisabledReason: details.DisabledReason,
+				ChangeCommand:  string(details.ChangeCommand),
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -1159,6 +1197,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.Progress != nil {
 			progress := *snapshot.Controls[index].Details.Progress
 			cloned.Controls[index].Details.Progress = &progress
+		}
+		if snapshot.Controls[index].Details.ScrollBar != nil {
+			scrollBar := *snapshot.Controls[index].Details.ScrollBar
+			cloned.Controls[index].Details.ScrollBar = &scrollBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

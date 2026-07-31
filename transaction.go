@@ -59,6 +59,7 @@ const (
 	mutationNumberField
 	mutationTextArea
 	mutationProgress
+	mutationScrollBar
 )
 
 type transactionMutation struct {
@@ -411,7 +412,8 @@ func (t *Transaction) SetFocus(control Control) error {
 	switch state.kind {
 	case ControlButton, ControlCheckbox, ControlRadioButton,
 		ControlCycleField, ControlSelectField, ControlTextField,
-		ControlNumberField, ControlSpinBox, ControlTextArea:
+		ControlNumberField, ControlSpinBox, ControlTextArea,
+		ControlScrollBar:
 	default:
 		return ErrNotFocusable
 	}
@@ -726,7 +728,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress:
+			mutationProgress, mutationScrollBar:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -881,7 +883,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress,
+			mutationProgress, mutationScrollBar,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -1196,6 +1198,14 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+		case scrollBarBehavior:
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"ScrollBar",
+			); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -1405,7 +1415,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				changed = true
 			}
 		case mutationTextField, mutationNumberField, mutationTextArea,
-			mutationProgress:
+			mutationProgress, mutationScrollBar:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

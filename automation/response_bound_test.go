@@ -819,6 +819,97 @@ func TestSnapshotRejectsInvalidProgressDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidScrollBarDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "scroll_bar"
+		control.Bounds = Rect{Width: 12, Height: 1}
+		control.AbsoluteBounds = control.Bounds
+		control.Details = ControlDetails{
+			Version: 1,
+			ScrollBar: &ScrollBarDetails{
+				Orientation:   0,
+				ContentSize:   100,
+				ViewportSize:  20,
+				Offset:        40,
+				MaximumOffset: 80,
+				ArrowStep:     1,
+				PageStep:      20,
+				TrackStart:    1,
+				TrackSize:     10,
+				ThumbStart:    5,
+				ThumbSize:     2,
+				Enabled:       true,
+			},
+		}
+		return completion
+	}
+	if err := validateCompletion(valid(), limits); err != nil {
+		t.Fatalf("valid ScrollBar fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ScrollBarDetails)
+	}{
+		{
+			name: "orientation",
+			mutate: func(details *ScrollBarDetails) {
+				details.Orientation = 9
+			},
+		},
+		{
+			name: "negative content",
+			mutate: func(details *ScrollBarDetails) {
+				details.ContentSize = -1
+			},
+		},
+		{
+			name: "maximum",
+			mutate: func(details *ScrollBarDetails) {
+				details.MaximumOffset = 81
+			},
+		},
+		{
+			name: "offset",
+			mutate: func(details *ScrollBarDetails) {
+				details.Offset = 81
+			},
+		},
+		{
+			name: "step",
+			mutate: func(details *ScrollBarDetails) {
+				details.PageStep = 0
+			},
+		},
+		{
+			name: "geometry",
+			mutate: func(details *ScrollBarDetails) {
+				details.ThumbStart = 6
+			},
+		},
+		{
+			name: "enabled reason",
+			mutate: func(details *ScrollBarDetails) {
+				details.DisabledReason = "not disabled"
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			completion := valid()
+			test.mutate(
+				completion.Snapshot.Controls[0].Details.ScrollBar,
+			)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid ScrollBar details")
+			}
+		})
+	}
+}
+
 func TestSnapshotRejectsInvalidNumberFieldDetails(t *testing.T) {
 	t.Parallel()
 	limits := DefaultLimits()

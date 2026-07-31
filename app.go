@@ -467,6 +467,9 @@ func (a *App) paintControlLocked(
 	case progressBehavior:
 		progress := progressDetails(state.kind, bounds, behavior)
 		details.Progress = &progress
+	case scrollBarBehavior:
+		scrollBar := scrollBarDetails(bounds, behavior)
+		details.ScrollBar = &scrollBar
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

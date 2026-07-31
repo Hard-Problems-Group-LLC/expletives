@@ -95,6 +95,7 @@ func DefaultTheme() Theme {
 		"meter":            resolved,
 		"spinner":          resolved,
 		"activity_dots":    resolved,
+		"scroll_bar":       resolved,
 		"progress.fill": {
 			Foreground: black,
 			Background: RGB(0x00, 0xAA, 0x00),
@@ -115,6 +116,23 @@ func DefaultTheme() Theme {
 		"progress.cancelled": {
 			Foreground: black,
 			Background: RGB(0xAA, 0xAA, 0x00),
+		},
+		"scrollbar.page": resolved,
+		"scrollbar.arrow": {
+			Foreground: white,
+			Background: RGB(0x00, 0x00, 0xAA),
+		},
+		"scrollbar.thumb": {
+			Foreground: black,
+			Background: RGB(0xC0, 0xC0, 0xC0),
+		},
+		"scrollbar.focused": {
+			Foreground: black,
+			Background: RGB(0x00, 0xAA, 0x00),
+		},
+		"scrollbar.disabled": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: resolved.Background,
 		},
 		"text_input.valid": {
 			Foreground: RGB(0x00, 0xAA, 0x00),

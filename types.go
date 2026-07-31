@@ -311,6 +311,8 @@ const (
 	ControlSpinner ControlKind = "spinner"
 	// ControlActivityDots identifies one deterministic dot activity mark.
 	ControlActivityDots ControlKind = "activity_dots"
+	// ControlScrollBar identifies one focusable viewport-position control.
+	ControlScrollBar ControlKind = "scroll_bar"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -591,6 +593,8 @@ type ControlDetails struct {
 	TextArea *TextAreaDetails `json:"text_area,omitempty"`
 	// Progress is present for ProgressBar, Meter, Spinner, and ActivityDots.
 	Progress *ProgressDetails `json:"progress,omitempty"`
+	// ScrollBar is present for ScrollBar.
+	ScrollBar *ScrollBarDetails `json:"scroll_bar,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -869,6 +873,25 @@ type ProgressDetails struct {
 	FrameIndex    int              `json:"frame_index"`
 }
 
+// ScrollBarDetails describes one canonical viewport and rendered thumb.
+// TrackStart and ThumbStart are relative to the control's orientation axis.
+type ScrollBarDetails struct {
+	Orientation    Orientation `json:"orientation"`
+	ContentSize    int         `json:"content_size"`
+	ViewportSize   int         `json:"viewport_size"`
+	Offset         int         `json:"offset"`
+	MaximumOffset  int         `json:"maximum_offset"`
+	ArrowStep      int         `json:"arrow_step"`
+	PageStep       int         `json:"page_step"`
+	TrackStart     int         `json:"track_start"`
+	TrackSize      int         `json:"track_size"`
+	ThumbStart     int         `json:"thumb_start"`
+	ThumbSize      int         `json:"thumb_size"`
+	Enabled        bool        `json:"enabled"`
+	DisabledReason string      `json:"disabled_reason,omitempty"`
+	ChangeCommand  CommandID   `json:"change_command,omitempty"`
+}
+
 // InputSourceSnapshot reports held logical keys for one isolated source.
 type InputSourceSnapshot struct {
 	// Source is the caller-selected input-source ID.
@@ -1099,6 +1122,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		if snapshot.Controls[index].Details.Progress != nil {
 			progress := *snapshot.Controls[index].Details.Progress
 			cloned.Controls[index].Details.Progress = &progress
+		}
+		if snapshot.Controls[index].Details.ScrollBar != nil {
+			scrollBar := *snapshot.Controls[index].Details.ScrollBar
+			cloned.Controls[index].Details.ScrollBar = &scrollBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

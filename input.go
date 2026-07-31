@@ -663,7 +663,27 @@ func (a *App) DispatchKey(
 			if textHandled {
 				break
 			}
-			if noHeldModifiers(held) && isDirectionalFocusKey(event.Key) {
+			scrollCommand := CommandID("")
+			scrollTarget := ControlID("")
+			scrollHandled := false
+			scrollChanged := false
+			if noHeldModifiers(held) {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.scrollBarKeyLocked(a.focus, event.Key)
+			}
+			if scrollHandled {
+				command = scrollCommand
+				target = scrollTarget
+				result.Outcome = OutcomeNoOp
+				if scrollChanged {
+					result.Outcome = OutcomeApplied
+				}
+				if command != "" {
+					router, result, execute =
+						a.resolveCommandLocked(command)
+				}
+			} else if noHeldModifiers(held) &&
+				isDirectionalFocusKey(event.Key) {
 				result.Outcome = OutcomeNoOp
 				if a.moveDirectionalFocusLocked(event.Key) {
 					result.Outcome = OutcomeApplied
