@@ -280,6 +280,154 @@ func TestSnapshotRejectsInvalidDisplayControlDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidActionControlDetails(t *testing.T) {
+	t.Parallel()
+
+	limits := DefaultLimits()
+	button := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "button"
+		control.Details = ControlDetails{
+			Version: 1,
+			Action: &ActionDetails{
+				Label: "Run", Command: "action.run", Enabled: true,
+				Mnemonic: "r", Default: true,
+			},
+		}
+		return completion
+	}
+	buttonTests := []struct {
+		name   string
+		mutate func(*ActionDetails)
+	}{
+		{
+			name: "wide label",
+			mutate: func(action *ActionDetails) {
+				action.Label = "界"
+			},
+		},
+		{
+			name: "enabled reason",
+			mutate: func(action *ActionDetails) {
+				action.DisabledReason = "not valid while enabled"
+			},
+		},
+		{
+			name: "disabled without reason",
+			mutate: func(action *ActionDetails) {
+				action.Enabled = false
+			},
+		},
+		{
+			name: "pressed disabled",
+			mutate: func(action *ActionDetails) {
+				action.Enabled = false
+				action.DisabledReason = "disabled"
+				action.Pressed = true
+			},
+		},
+		{
+			name: "two roles",
+			mutate: func(action *ActionDetails) {
+				action.Cancel = true
+			},
+		},
+		{
+			name: "modifier mnemonic",
+			mutate: func(action *ActionDetails) {
+				action.Mnemonic = "alt"
+			},
+		},
+	}
+	for _, test := range buttonTests {
+		test := test
+		t.Run("button/"+test.name, func(t *testing.T) {
+			t.Parallel()
+			completion := button()
+			test.mutate(completion.Snapshot.Controls[0].Details.Action)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid ActionDetails")
+			}
+		})
+	}
+
+	hotkey := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "hotkey_bar"
+		control.Details = ControlDetails{
+			Version: 1,
+			HotkeyBar: &HotkeyBarDetails{
+				Items: []HotkeyBarItemDetails{{
+					Label: "Run", Command: "action.run", Enabled: true,
+					Chord: &Chord{
+						Key: "r", Modifiers: []Key{"control"},
+					},
+				}},
+			},
+		}
+		return completion
+	}
+	hotkeyTests := []struct {
+		name   string
+		mutate func(*HotkeyBarDetails)
+	}{
+		{
+			name: "duplicate command",
+			mutate: func(bar *HotkeyBarDetails) {
+				bar.Items = append(bar.Items, bar.Items[0])
+			},
+		},
+		{
+			name: "modifier key",
+			mutate: func(bar *HotkeyBarDetails) {
+				bar.Items[0].Chord.Key = "control"
+			},
+		},
+		{
+			name: "modifier order",
+			mutate: func(bar *HotkeyBarDetails) {
+				bar.Items[0].Chord.Modifiers = []Key{"shift", "alt"}
+			},
+		},
+		{
+			name: "enabled reason",
+			mutate: func(bar *HotkeyBarDetails) {
+				bar.Items[0].DisabledReason = "invalid"
+			},
+		},
+	}
+	for _, test := range hotkeyTests {
+		test := test
+		t.Run("hotkey/"+test.name, func(t *testing.T) {
+			t.Parallel()
+			completion := hotkey()
+			test.mutate(completion.Snapshot.Controls[0].Details.HotkeyBar)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid HotkeyBarDetails")
+			}
+		})
+	}
+
+	t.Run("aggregate items", func(t *testing.T) {
+		t.Parallel()
+		completion := hotkey()
+		bounded := limits
+		bounded.Controls = 1
+		item := completion.Snapshot.Controls[0].Details.HotkeyBar.Items[0]
+		item.Command = "action.second"
+		completion.Snapshot.Controls[0].Details.HotkeyBar.Items =
+			append(
+				completion.Snapshot.Controls[0].Details.HotkeyBar.Items,
+				item,
+			)
+		if err := validateCompletion(completion, bounded); err == nil {
+			t.Fatal("validateCompletion() accepted excess Action items")
+		}
+	})
+}
+
 func TestSnapshotRejectsAggregateChildReferencesBeyondBound(t *testing.T) {
 	t.Parallel()
 
@@ -343,9 +491,48 @@ func maximumCompletionJSONBytes(
 			Alignment:   TextAlignment(controlValue.ID),
 		},
 	}
+	actionControl := controlValue
+	actionControl.Details = ControlDetails{
+		Version: 1,
+		Action: &ActionDetails{
+			Label:          strings.Repeat("\x00", maxDisplayTextBytes),
+			Command:        string(controlValue.ID),
+			Enabled:        false,
+			DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+			Checked:        true,
+			Mnemonic:       Key(controlValue.ID),
+			Pressed:        true,
+			Default:        true,
+			Cancel:         true,
+		},
+	}
+	hotkeyControl := controlValue
+	hotkeyControl.Details = ControlDetails{
+		Version: 1,
+		HotkeyBar: &HotkeyBarDetails{
+			Items: []HotkeyBarItemDetails{{
+				Label:          strings.Repeat("\x00", maxDisplayTextBytes),
+				Command:        string(controlValue.ID),
+				Enabled:        false,
+				DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+				Checked:        true,
+				Chord: &Chord{
+					Key: Key(controlValue.ID),
+					Modifiers: []Key{
+						Key(controlValue.ID),
+						Key(controlValue.ID),
+						Key(controlValue.ID),
+						Key(controlValue.ID),
+					},
+				},
+			}},
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
+		mustMarshal(t, actionControl),
+		mustMarshal(t, hotkeyControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

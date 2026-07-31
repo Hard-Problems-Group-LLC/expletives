@@ -4,6 +4,55 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-017` — Deliver Actions and the shared activation
+  foundation required by Menus.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T19:50:00-07:00
+  - Completed: 2026-07-30T20:19:43-07:00
+  - Outcome:
+    - delivered copy-safe non-container `Button` and `HotkeyBar` controls,
+      copied ordered `HotkeyBarItem` values, automatic Button minima, and
+      bounded aggregate Action resources;
+    - made canonical label, enabled/disabled reason, and checked state one
+      App command definition reused by controls, bindings, raw keys, direct
+      commands, and the following Menu phase;
+    - delivered deterministic Button focus, Tab/Shift-Tab traversal,
+      Enter/Space pressed capture and activation, default/cancel roles, Label
+      and Button Alt mnemonics, focus repair, and source-local reset;
+    - added generic focus plus bounded typed Action and HotkeyBar details to
+      core and explicitly projected automation snapshots; and
+    - expanded the public-API demo to 19 controls and ten Layouts with focused,
+      ordinary, disabled, default, cancel, checked, mnemonic, and structured
+      shortcut evidence.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the controlling-PTY lifecycle test, the full race suite, every debug,
+      release, and profiling build, executable checks, and smoke/self-checks;
+    - the display/command-label normalization fuzzer executed 323,473 cases
+      in three seconds, and the complete package set compiled for CGO-free
+      Linux arm64;
+    - the conservative response proof measured 35,182,459 JSON bytes and
+      105,547,377 bytes for three retained maxima, below the 36 MiB and
+      128 MiB bounds; and
+    - an attached debug session observed all Action states with no overflow,
+      raw pressed capture, Tab/Enter and Alt mnemonic routing, checked/view
+      updates, exact correlated completions, final shutdown, and socket
+      cleanup.
+  - Contracts:
+    - [`Actions API v0`](../docs/specifications/actions-api-v0.md)
+    - [`Foundational Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Process:
+    - completed as one routine feature without convening the Panel;
+    - used one contract, one implementation loop, one live closed loop, and
+      one full verification gate; and
+    - recorded the multi-event controller-output opportunity in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 8 Menus is active immediately and reuses this command, focus,
+      mnemonic, raw-key, snapshot, and automation foundation.
+
 - 2026-07-30 — `EXPL-TASK-016` — Deliver the Text and Display control phase.
   - Requestor: project operator
   - Owner: Codex

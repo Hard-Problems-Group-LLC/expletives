@@ -726,6 +726,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 		return errors.New("snapshot control count exceeds advertised bound")
 	}
 	childCount := 0
+	actionItemCount := 0
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
 			(control.Key != "" && !validIdentifier(control.Key, limits.IdentifierBytes)) ||
@@ -763,6 +764,17 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 		}
 		if !validControlDetails(control.Kind, control.Details, limits) {
 			return errors.New("snapshot control details are invalid for its kind")
+		}
+		if control.Details.HotkeyBar != nil {
+			if len(control.Details.HotkeyBar.Items) >
+				expletives.MaxHotkeyBarItems ||
+				len(control.Details.HotkeyBar.Items) >
+					limits.Controls-actionItemCount {
+				return errors.New(
+					"snapshot Action item count exceeds advertised bound",
+				)
+			}
+			actionItemCount += len(control.Details.HotkeyBar.Items)
 		}
 	}
 	if len(snapshot.Layouts) > limits.Layouts {
@@ -896,7 +908,9 @@ func validControlDetails(
 			details.Container.ClientInset == 0 &&
 			details.Border == nil &&
 			details.Text == nil &&
-			details.Divider == nil
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil
 	case "frame", "group_box":
 		return details.Container != nil &&
 			validBorderDetails(details.Border, limits) &&
@@ -905,31 +919,126 @@ func validControlDetails(
 				(details.Border.Form != "none" &&
 					details.Container.ClientInset == 1)) &&
 			details.Text == nil &&
-			details.Divider == nil
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil
 	case "label":
 		return details.Container == nil &&
 			details.Border == nil &&
 			validTextDetails(details.Text, limits, false) &&
 			details.Text.Wrap == "none" &&
-			details.Divider == nil
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil
 	case "static_text":
 		return details.Container == nil &&
 			details.Border == nil &&
 			validTextDetails(details.Text, limits, true) &&
 			details.Text.Target == "" &&
 			details.Text.Mnemonic == "" &&
-			details.Divider == nil
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil
 	case "separator":
 		return details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			validDividerDetails(details.Divider) &&
-			details.Divider.Text == ""
+			details.Divider.Text == "" &&
+			details.Action == nil &&
+			details.HotkeyBar == nil
 	case "rule":
 		return details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
-			validDividerDetails(details.Divider)
+			validDividerDetails(details.Divider) &&
+			details.Action == nil &&
+			details.HotkeyBar == nil
+	case "button":
+		return details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			validActionDetails(details.Action, limits) &&
+			details.HotkeyBar == nil
+	case "hotkey_bar":
+		return details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			validHotkeyBarDetails(details.HotkeyBar, limits)
+	default:
+		return false
+	}
+}
+
+func validActionDetails(action *ActionDetails, limits Limits) bool {
+	if action == nil ||
+		!canonicalDisplayText(action.Label, false) ||
+		!validIdentifier(action.Command, limits.IdentifierBytes) ||
+		len(action.DisabledReason) > maxDisplayTextBytes ||
+		!utf8.ValidString(action.DisabledReason) ||
+		strings.ContainsRune(action.DisabledReason, 0) ||
+		(action.Enabled && action.DisabledReason != "") ||
+		(!action.Enabled && action.DisabledReason == "") ||
+		(action.Pressed && !action.Enabled) ||
+		(action.Default && action.Cancel) {
+		return false
+	}
+	return action.Mnemonic == "" ||
+		(len(action.Mnemonic) == 1 &&
+			validLogicalKey(string(action.Mnemonic)))
+}
+
+func validHotkeyBarDetails(
+	bar *HotkeyBarDetails,
+	limits Limits,
+) bool {
+	if bar == nil || len(bar.Items) > expletives.MaxHotkeyBarItems {
+		return false
+	}
+	seen := make(map[string]bool, len(bar.Items))
+	for _, item := range bar.Items {
+		if !canonicalDisplayText(item.Label, false) ||
+			!validIdentifier(item.Command, limits.IdentifierBytes) ||
+			seen[item.Command] ||
+			len(item.DisabledReason) > maxDisplayTextBytes ||
+			!utf8.ValidString(item.DisabledReason) ||
+			strings.ContainsRune(item.DisabledReason, 0) ||
+			(item.Enabled && item.DisabledReason != "") ||
+			(!item.Enabled && item.DisabledReason == "") ||
+			(item.Chord != nil && !validChord(*item.Chord)) {
+			return false
+		}
+		seen[item.Command] = true
+	}
+	return true
+}
+
+func validChord(chord Chord) bool {
+	if !validLogicalKey(string(chord.Key)) ||
+		isLogicalModifier(chord.Key) ||
+		len(chord.Modifiers) > 4 {
+		return false
+	}
+	seen := make(map[Key]bool, len(chord.Modifiers))
+	previous := Key("")
+	for _, modifier := range chord.Modifiers {
+		if !isLogicalModifier(modifier) || seen[modifier] ||
+			(previous != "" && modifier < previous) {
+			return false
+		}
+		seen[modifier] = true
+		previous = modifier
+	}
+	return true
+}
+
+func isLogicalModifier(key Key) bool {
+	switch key {
+	case "alt", "control", "meta", "shift":
+		return true
 	default:
 		return false
 	}

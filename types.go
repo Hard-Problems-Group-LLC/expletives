@@ -50,6 +50,10 @@ const (
 	// MaxDisplayTextCells bounds canonical cells, including line separators,
 	// in one Text/Display control.
 	MaxDisplayTextCells = 256
+	// MaxHotkeyBarItems bounds one HotkeyBar's copied ordered inventory.
+	MaxHotkeyBarItems = 64
+	// MaxActionItems bounds aggregate HotkeyBar items across one App.
+	MaxActionItems = MaxControls
 	// MaxInputSources bounds sources that may hold keys concurrently.
 	MaxInputSources = MaxControls
 	// MaxHeldKeysPerSource bounds one source's simultaneous held-key state.
@@ -235,6 +239,10 @@ const (
 	ControlSeparator ControlKind = "separator"
 	// ControlRule identifies a titled structural divider.
 	ControlRule ControlKind = "rule"
+	// ControlButton identifies one focusable command-activation control.
+	ControlButton ControlKind = "button"
+	// ControlHotkeyBar identifies a non-focusable command-shortcut summary.
+	ControlHotkeyBar ControlKind = "hotkey_bar"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -466,6 +474,8 @@ type ControlSnapshot struct {
 	ResolvedStyle ResolvedStyle `json:"resolved_style"`
 	// Visible reports effective visibility through the ancestor chain.
 	Visible bool `json:"visible"`
+	// Focused reports that this control owns the App's keyboard focus.
+	Focused bool `json:"focused"`
 	// Details is the versioned control-specific state.
 	Details ControlDetails `json:"details"`
 }
@@ -487,6 +497,10 @@ type ControlDetails struct {
 	Text *TextDetails `json:"text,omitempty"`
 	// Divider is present for Separator and Rule.
 	Divider *DividerDetails `json:"divider,omitempty"`
+	// Action is present for Button and later command-activation controls.
+	Action *ActionDetails `json:"action,omitempty"`
+	// HotkeyBar is present for HotkeyBar.
+	HotkeyBar *HotkeyBarDetails `json:"hotkey_bar,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -526,6 +540,34 @@ type DividerDetails struct {
 	Form        BorderForm    `json:"form"`
 	Text        string        `json:"text,omitempty"`
 	Alignment   TextAlignment `json:"alignment"`
+}
+
+// ActionDetails describes one command-backed activation control.
+type ActionDetails struct {
+	Label          string    `json:"label"`
+	Command        CommandID `json:"command"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+	Checked        bool      `json:"checked"`
+	Mnemonic       Key       `json:"mnemonic,omitempty"`
+	Pressed        bool      `json:"pressed"`
+	Default        bool      `json:"default"`
+	Cancel         bool      `json:"cancel"`
+}
+
+// HotkeyBarItemDetails describes one command and its current first binding.
+type HotkeyBarItemDetails struct {
+	Label          string    `json:"label"`
+	Command        CommandID `json:"command"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+	Checked        bool      `json:"checked"`
+	Chord          *Chord    `json:"chord,omitempty"`
+}
+
+// HotkeyBarDetails describes one bounded ordered command summary.
+type HotkeyBarDetails struct {
+	Items []HotkeyBarItemDetails `json:"items"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -638,6 +680,28 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		if snapshot.Controls[index].Details.Divider != nil {
 			divider := *snapshot.Controls[index].Details.Divider
 			cloned.Controls[index].Details.Divider = &divider
+		}
+		if snapshot.Controls[index].Details.Action != nil {
+			action := *snapshot.Controls[index].Details.Action
+			cloned.Controls[index].Details.Action = &action
+		}
+		if snapshot.Controls[index].Details.HotkeyBar != nil {
+			hotkeyBar := *snapshot.Controls[index].Details.HotkeyBar
+			hotkeyBar.Items = append(
+				[]HotkeyBarItemDetails(nil),
+				snapshot.Controls[index].Details.HotkeyBar.Items...,
+			)
+			for itemIndex := range hotkeyBar.Items {
+				if hotkeyBar.Items[itemIndex].Chord != nil {
+					chord := *hotkeyBar.Items[itemIndex].Chord
+					chord.Modifiers = append(
+						[]Key(nil),
+						hotkeyBar.Items[itemIndex].Chord.Modifiers...,
+					)
+					hotkeyBar.Items[itemIndex].Chord = &chord
+				}
+			}
+			cloned.Controls[index].Details.HotkeyBar = &hotkeyBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

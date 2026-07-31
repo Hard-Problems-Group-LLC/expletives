@@ -41,6 +41,9 @@ do not use them as retrospective decoration.
   Frame/Layout borders, and capability-aware physical glyph projection.
 - [`text-and-display-api-v0.md`](text-and-display-api-v0.md) defines the
   first non-container leaf controls: Label, StaticText, Separator, and Rule.
+- [`actions-api-v0.md`](actions-api-v0.md) defines Button, HotkeyBar,
+  command-owned presentation state, focus traversal, mnemonics, and unified
+  activation used by the following Menu phase.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

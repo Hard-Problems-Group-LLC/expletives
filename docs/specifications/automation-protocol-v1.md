@@ -861,6 +861,11 @@ the root package's local snapshot. The client checks:
 - kind-consistent typed control details, including canonical bounded border
   titles, Label/StaticText values, target/mnemonic associations, and
   Separator/Rule orientation, form, title, alignment, and wrapping state;
+- generic focus plus Button label, command, enabled/disabled reason, checked,
+  mnemonic, pressed/default/cancel state, and HotkeyBar ordered command state
+  with canonical structured bindings;
+- at most 64 entries in one HotkeyBar and at most 4,096 aggregate HotkeyBar
+  entries across one snapshot;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -883,8 +888,8 @@ cell. Control-detail union members must match the control kind. A nested public
 snapshot-completion message is at most 1,024 UTF-8 bytes without NUL. A
 top-level protocol `error.message` is trimmed to at most 256 valid UTF-8
 bytes. Every encoded response must also fit the 36 MiB response-line limit.
-The conservative legal-maximum completion proof is 28,388,838 JSON bytes;
-three such records total 85,166,514 bytes and remain below the 128 MiB
+The conservative legal-maximum completion proof is 35,182,459 JSON bytes;
+three such records total 105,547,377 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
 
 ## Public Go Client Contract

@@ -320,8 +320,9 @@ Layout membership, stacking, parentage, and destruction behavior without
 exposing `Children`, `SetLayout`, or `AddLayout`.
 
 `Label` is single-line and supports horizontal/vertical alignment plus an
-observable target and lowercase ASCII mnemonic association. Mnemonic
-activation is deferred to the Actions phase. `StaticText` supports LF/CRLF
+observable target and lowercase ASCII mnemonic association. Alt plus that
+mnemonic focuses an eligible target through the Actions resolver.
+`StaticText` supports LF/CRLF
 lines and none, word, or cell wrapping. `Separator` is an untitled horizontal
 or vertical divider; `Rule` adds aligned text. Dividers support none, single,
 double, shade, and block forms.
@@ -335,6 +336,40 @@ mnemonic without destroying the Label. The complete options, wrapping,
 clipping, truncation, minima, snapshot, and automation behavior is defined in
 [`text-and-display-api-v0.md`](text-and-display-api-v0.md).
 
+## Actions
+
+The first command-backed controls are:
+
+```go
+func NewButton(Container, ButtonOptions) (*Button, error)
+func NewHotkeyBar(Container, HotkeyBarOptions) (*HotkeyBar, error)
+func (b *Button) Focus() error
+func (b *Button) Activate(
+    context.Context, source, requestID string,
+) (Completion, error)
+func (b *HotkeyBar) Items() []HotkeyBarItem
+func (a *App) Focused() Control
+```
+
+Both controls are non-container leaves. Button is focusable and references one
+registered command. Its effective label, enabled/disabled reason, and checked
+state come from that command definition. Default and cancel are exclusive
+roles, and an optional ASCII mnemonic activates through the ordinary router.
+HotkeyBar copies an ordered unique command inventory and projects the current
+first App binding for each entry; it does not retain a second binding table.
+
+Tab and Shift-Tab traverse eligible Buttons. Plain Enter/Space activates the
+focused Button, Enter falls back to the applicable default Button, and Escape
+uses the applicable cancel Button. Raw Enter/Space down-up pairs publish and
+clear source-local pressed capture; input reset and disconnect clear capture
+without activation. An exact Alt mnemonic is resolved before a global Alt
+binding. `ControlSnapshot.Focused`, `ActionDetails`, and `HotkeyBarDetails`
+make the complete state atomically inspectable.
+
+The complete construction, validation, rendering, focus, routing, snapshot,
+automation, and resource-bound contract is in
+[`actions-api-v0.md`](actions-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -347,6 +382,8 @@ func (t *Transaction) NewLabel(Container, LabelOptions) (*Label, error)
 func (t *Transaction) NewStaticText(Container, StaticTextOptions) (*StaticText, error)
 func (t *Transaction) NewSeparator(Container, SeparatorOptions) (*Separator, error)
 func (t *Transaction) NewRule(Container, RuleOptions) (*Rule, error)
+func (t *Transaction) NewButton(Container, ButtonOptions) (*Button, error)
+func (t *Transaction) NewHotkeyBar(Container, HotkeyBarOptions) (*HotkeyBar, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
 func (t *Transaction) SetBounds(Control, Rect) error
@@ -354,6 +391,7 @@ func (t *Transaction) SetMinimumSize(Control, Size) error
 func (t *Transaction) SetStyle(Control, StyleID) error
 func (t *Transaction) SetVisible(Control, bool) error
 func (t *Transaction) SetText(Control, string) error
+func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) Destroy(Control) error
 func (t *Transaction) SetTheme(Theme) error
 func (t *Transaction) Commit(context.Context) error
@@ -437,8 +475,11 @@ and an optional local `Completion`. Control and Layout records expose separate
 arrangement and current stack indices. A `ControlSnapshot` contains semantic
 `StyleID` and its Theme-resolved `ResolvedStyle`; border detail does the same.
 The typed details union contains `TextDetails` for Label/StaticText and
-`DividerDetails` for Separator/Rule. These expose canonical bounded text,
-alignment, wrap, Label target/mnemonic, divider orientation, and divider form.
+`DividerDetails` for Separator/Rule, `ActionDetails` for Button, and
+`HotkeyBarDetails` for HotkeyBar. These expose canonical bounded text,
+alignment, wrap, Label target/mnemonic, divider orientation/form, generic
+focus, command presentation state, pressed/default/cancel roles, and
+structured current bindings.
 
 Snapshot storage is independent, including frame cells, child IDs, Layout
 items, held keys, typed detail, overflow records, and completion. History is
@@ -483,10 +524,13 @@ pressed key cannot itself be a modifier.
 
 ```go
 type CommandDefinition struct {
-    ID          CommandID
-    Description string
-    Enabled     bool
-    Automation  bool
+    ID             CommandID
+    Label          string
+    Description    string
+    Enabled        bool
+    DisabledReason string
+    Checked        bool
+    Automation     bool
 }
 
 type CommandResult struct {
@@ -500,10 +544,14 @@ type CommandRouter func(context.Context, Command) CommandResult
 ```
 
 `RegisterCommand`, `ReplaceCommand`, `RemoveCommand`, and `Commands` own the
-App-scoped command inventory. `Commands` is a deterministic copy.
-Descriptions must be valid UTF-8 without NUL and fit
-`MaxCommandDescriptionBytes`. Removing a command removes its current chord
-bindings.
+App-scoped command inventory. `Commands` is a deterministic copy. Labels are
+canonical bounded one-cell display text; an empty label displays the command
+ID. Descriptions and disabled reasons must be valid UTF-8 without NUL and fit
+`MaxCommandDescriptionBytes`. An enabled command cannot retain a disabled
+reason; a disabled command receives a sensible reason when none is supplied.
+Replacing or removing a command republishes affected Action presentation and
+repairs focus. Removing a command removes its current chord bindings while
+existing controls retain a safely disabled unknown-command reference.
 
 Every App includes the immutable, enabled, automation-visible
 `CommandOverflowDismiss` (`"overflow.dismiss"`). Direct invocation, or
@@ -550,7 +598,7 @@ A direct nonempty target must identify an active control. Automation resolves
 its stable `target_key` to this runtime ID at the boundary.
 
 `ClearInputSource` is uncorrelated disconnect cleanup. It publishes only when
-held state actually changed and the App is not final.
+held or pressed-capture state actually changed and the App is not final.
 
 ## Concurrency, Dispatch, And Callbacks
 

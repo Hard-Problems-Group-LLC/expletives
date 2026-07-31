@@ -180,6 +180,15 @@ Separator, and a titled Rule in two child BoxLayouts. Their stable automation
 keys are `display.label`, `display.static_text`, `display.separator`, and
 `display.rule`.
 
+The Actions catalog embeds default/focused, ordinary, disabled-with-reason,
+and cancel Buttons in `panel.nested`, plus a live HotkeyBar in the automation
+status Frame. Their stable keys are `action.toggle`, `action.reset`,
+`action.disabled`, `action.quit`, and `action.hotkeys`. Raw Alt-T, Tab plus
+Enter/Space, the existing Ctrl-R binding, and direct command invocation all
+enter the shared command router. The Toggle command's checked presentation
+state changes with the same controller transition observed in the accent
+Panel.
+
 The authoritative inventory and order are in
 [`control-catalog.md`](control-catalog.md). `FormPanel`, `Wizard`, and
 `StepContainer` are explicitly deferred Structured Input controls; they do

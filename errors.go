@@ -46,6 +46,8 @@ var (
 	ErrLayoutManaged = errors.New("expletives: control geometry is layout-managed")
 	// ErrNotLayoutMember reports stacking requested for an unmanaged Panel.
 	ErrNotLayoutMember = errors.New("expletives: control is not a layout member")
+	// ErrNotFocusable reports focus requested for a non-focusable control.
+	ErrNotFocusable = errors.New("expletives: control is not focusable")
 	// ErrSnapshotNotRetained reports a sequence outside the retained history.
 	ErrSnapshotNotRetained = errors.New("expletives: snapshot is not retained")
 	// ErrStyleConflict reports incompatible definitions for one semantic style.

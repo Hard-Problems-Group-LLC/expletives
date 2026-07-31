@@ -24,6 +24,8 @@ type Transaction struct {
 	size        *Size
 	constraints *RootConstraints
 	theme       *Theme
+	focus       *controlState
+	focusSet    bool
 	consumed    bool
 }
 
@@ -324,6 +326,26 @@ func (t *Transaction) SetVisible(control Control, visible bool) error {
 	return nil
 }
 
+// SetFocus records keyboard focus for one Button. Eligibility is revalidated
+// atomically at Commit.
+func (t *Transaction) SetFocus(control Control) error {
+	state, err := t.control(control)
+	if err != nil {
+		return err
+	}
+	if state.kind != ControlButton {
+		return ErrNotFocusable
+	}
+	if !t.focusSet {
+		if err := t.reserveOperation(); err != nil {
+			return err
+		}
+	}
+	t.focus = state
+	t.focusSet = true
+	return nil
+}
+
 // Destroy records recursive logical destruction of a non-root control.
 func (t *Transaction) Destroy(control Control) error {
 	state, err := t.control(control)
@@ -537,6 +559,37 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		}
 		markDestroyedStates(state, destroyed)
 	}
+	if t.focusSet {
+		if err := t.validateTargetLocked(t.focus, provisional); err != nil {
+			return err
+		}
+		if destroyed[t.focus] {
+			return ErrDestroyed
+		}
+		behavior, ok := t.focus.behavior.(buttonBehavior)
+		if !ok {
+			return ErrNotFocusable
+		}
+		definition, exists := t.app.commands[behavior.command]
+		if !exists || !definition.Enabled {
+			return ErrNotFocusable
+		}
+		plannedVisibility := make(map[*controlState]bool)
+		for _, mutation := range t.mutations {
+			if mutation.kind == mutationVisible {
+				plannedVisibility[mutation.state] = mutation.visible
+			}
+		}
+		for current := t.focus; current != nil; current = current.parent {
+			visible := current.visible
+			if planned, found := plannedVisibility[current]; found {
+				visible = planned
+			}
+			if !visible || destroyed[current] {
+				return ErrNotFocusable
+			}
+		}
+	}
 	for _, state := range t.creates {
 		if destroyed[state.parent] {
 			return fmt.Errorf("%w: transaction destroys a construction parent", ErrInvalidParent)
@@ -578,6 +631,21 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		}
 		if err := t.validateTargetLocked(target, provisional); err != nil {
 			return fmt.Errorf("%w: invalid Label target", err)
+		}
+	}
+	for _, state := range t.creates {
+		behavior, ok := state.behavior.(buttonBehavior)
+		if !ok || !state.autoMinimum || destroyed[state] {
+			continue
+		}
+		if definition, exists := t.app.commands[behavior.command]; exists {
+			state.minimumSize = Size{
+				Width: len(effectiveCommandLabel(
+					definition,
+					behavior.command,
+				).lines[0]) + 5,
+				Height: 1,
+			}
 		}
 	}
 
@@ -732,12 +800,86 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	}
 
 	activeCount := 0
+	actionItems := 0
+	mnemonics := make(map[Key]*controlState)
+	defaults := make(map[*controlState]*controlState)
+	cancels := make(map[*controlState]*controlState)
+	validateAction := func(state *controlState, requireCommand bool) error {
+		switch behavior := state.behavior.(type) {
+		case buttonBehavior:
+			if requireCommand {
+				if _, exists := t.app.commands[behavior.command]; !exists {
+					return fmt.Errorf(
+						"%w: Button command %q is not registered",
+						ErrInvalidControl,
+						behavior.command,
+					)
+				}
+			}
+			if behavior.mnemonic != "" {
+				if existing := mnemonics[behavior.mnemonic]; existing != nil {
+					return fmt.Errorf(
+						"%w: duplicate Action mnemonic %q",
+						ErrInvalidControl,
+						behavior.mnemonic,
+					)
+				}
+				mnemonics[behavior.mnemonic] = state
+			}
+			if behavior.default_ {
+				if defaults[state.parent] != nil {
+					return fmt.Errorf(
+						"%w: duplicate default Button under one parent",
+						ErrInvalidControl,
+					)
+				}
+				defaults[state.parent] = state
+			}
+			if behavior.cancel {
+				if cancels[state.parent] != nil {
+					return fmt.Errorf(
+						"%w: duplicate cancel Button under one parent",
+						ErrInvalidControl,
+					)
+				}
+				cancels[state.parent] = state
+			}
+		case hotkeyBarBehavior:
+			actionItems += len(behavior.items)
+			if requireCommand {
+				for _, item := range behavior.items {
+					if _, exists := t.app.commands[item.Command]; !exists {
+						return fmt.Errorf(
+							"%w: HotkeyBar command %q is not registered",
+							ErrInvalidControl,
+							item.Command,
+						)
+					}
+				}
+			}
+		case textBehavior:
+			if behavior.mnemonic != "" && !destroyed[behavior.target] {
+				if existing := mnemonics[behavior.mnemonic]; existing != nil {
+					return fmt.Errorf(
+						"%w: duplicate Action mnemonic %q",
+						ErrInvalidControl,
+						behavior.mnemonic,
+					)
+				}
+				mnemonics[behavior.mnemonic] = state
+			}
+		}
+		return nil
+	}
 	for _, state := range t.app.controlsByID {
 		if destroyed[state] {
 			continue
 		}
 		activeCount++
 		if err := validateStyleReferences(state); err != nil {
+			return err
+		}
+		if err := validateAction(state, false); err != nil {
 			return err
 		}
 	}
@@ -749,8 +891,14 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if err := validateStyleReferences(state); err != nil {
 			return err
 		}
+		if err := validateAction(state, true); err != nil {
+			return err
+		}
 	}
 	if activeCount > MaxControls {
+		return ErrControlCapacity
+	}
+	if actionItems > MaxActionItems {
 		return ErrControlCapacity
 	}
 	if err := ctx.Err(); err != nil {
@@ -809,6 +957,16 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		t.app.controlsByID[state.id] = state
 		if state.automationKey != "" {
 			t.app.controlsByKey[state.automationKey] = state
+		}
+		if behavior, ok := state.behavior.(buttonBehavior); ok &&
+			state.autoMinimum {
+			state.minimumSize = Size{
+				Width: len(effectiveCommandLabel(
+					t.app.commands[behavior.command],
+					behavior.command,
+				).lines[0]) + 5,
+				Height: 1,
+			}
 		}
 		changed = true
 	}
@@ -893,6 +1051,16 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		t.app.styles = stagedStyles
 		changed = true
 	}
+	if t.focusSet {
+		if t.app.focus != t.focus {
+			t.app.focus = t.focus
+			t.app.clearInvalidPressesLocked()
+			changed = true
+		}
+	}
+	if t.app.ensureFocusLocked() {
+		changed = true
+	}
 	if changed {
 		arrangeAllLayoutsLocked(t.app)
 		t.app.publishLocked(nil)
@@ -921,6 +1089,9 @@ func (t *Transaction) reserveOperation() error {
 		count++
 	}
 	if t.theme != nil {
+		count++
+	}
+	if t.focusSet {
 		count++
 	}
 	if count >= MaxTransactionOperations {

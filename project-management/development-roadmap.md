@@ -278,7 +278,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 7. Actions
 
-- Status: `planned`
+- Status: `complete`
 - Goal: deliver `Button`, `HotkeyBar`, and `HotkeyBarItem` while completing
   structured command and binding routing.
 - Dependencies: Phase 6 and the approved command, focus, mnemonic,
@@ -293,10 +293,12 @@ ordered backlog and the active-task record; it does not replace either.
   automation activation.
 - Acceptance gate: every activation route reaches the same stable command,
   enabled-state check, explicit outcome, and associated frame.
+- Completion evidence:
+  [`EXPL-TASK-017`](completed-tasks.md).
 
 ### 8. Menus
 
-- Status: `planned`
+- Status: `active`
 - Goal: deliver `MenuBar`, popup `Menu`, and `MenuItem` immediately after the
   Action controls they invoke, then use them to navigate the growing
   `expletives-test` catalog.
@@ -319,6 +321,7 @@ ordered backlog and the active-task record; it does not replace either.
   automation routes converge on the same command outcome; both `Alt-F` and
   the documented fallback work; and screen navigation is deterministic and
   observable.
+- Active work: [`EXPL-TASK-019`](tasks-in-progress.md).
 
 ### 9. Selection
 

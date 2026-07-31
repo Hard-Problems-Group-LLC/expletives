@@ -139,6 +139,8 @@ type ControlSnapshot struct {
 	ResolvedStyle ResolvedStyle `json:"resolved_style"`
 	// Visible reports effective visibility through the ancestor chain.
 	Visible bool `json:"visible"`
+	// Focused reports that this control owns keyboard focus.
+	Focused bool `json:"focused"`
 	// Details is versioned control-specific state.
 	Details ControlDetails `json:"details"`
 }
@@ -155,6 +157,10 @@ type ControlDetails struct {
 	Text *TextDetails `json:"text,omitempty"`
 	// Divider is present for Separator and Rule controls.
 	Divider *DividerDetails `json:"divider,omitempty"`
+	// Action is present for Button and later activation controls.
+	Action *ActionDetails `json:"action,omitempty"`
+	// HotkeyBar is present for HotkeyBar.
+	HotkeyBar *HotkeyBarDetails `json:"hotkey_bar,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -192,6 +198,40 @@ type DividerDetails struct {
 	Form        string        `json:"form"`
 	Text        string        `json:"text,omitempty"`
 	Alignment   TextAlignment `json:"alignment"`
+}
+
+// ActionDetails describes one command-backed activation control.
+type ActionDetails struct {
+	Label          string `json:"label"`
+	Command        string `json:"command"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Checked        bool   `json:"checked"`
+	Mnemonic       Key    `json:"mnemonic,omitempty"`
+	Pressed        bool   `json:"pressed"`
+	Default        bool   `json:"default"`
+	Cancel         bool   `json:"cancel"`
+}
+
+// Chord describes one non-modifier key and its canonical modifiers.
+type Chord struct {
+	Key       Key   `json:"key"`
+	Modifiers []Key `json:"modifiers"`
+}
+
+// HotkeyBarItemDetails describes one current command shortcut.
+type HotkeyBarItemDetails struct {
+	Label          string `json:"label"`
+	Command        string `json:"command"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Checked        bool   `json:"checked"`
+	Chord          *Chord `json:"chord,omitempty"`
+}
+
+// HotkeyBarDetails describes a bounded ordered shortcut inventory.
+type HotkeyBarDetails struct {
+	Items []HotkeyBarItemDetails `json:"items"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -339,6 +379,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			Style:          StyleID(control.Style),
 			ResolvedStyle:  resolvedStyleFromCore(control.ResolvedStyle),
 			Visible:        control.Visible,
+			Focused:        control.Focused,
 			Details: ControlDetails{
 				Version: control.Details.Version,
 			},
@@ -392,6 +433,49 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				Alignment: TextAlignment(
 					control.Details.Divider.Alignment,
 				),
+			}
+		}
+		if control.Details.Action != nil {
+			projectedControl.Details.Action = &ActionDetails{
+				Label:          control.Details.Action.Label,
+				Command:        string(control.Details.Action.Command),
+				Enabled:        control.Details.Action.Enabled,
+				DisabledReason: control.Details.Action.DisabledReason,
+				Checked:        control.Details.Action.Checked,
+				Mnemonic:       Key(control.Details.Action.Mnemonic),
+				Pressed:        control.Details.Action.Pressed,
+				Default:        control.Details.Action.Default,
+				Cancel:         control.Details.Action.Cancel,
+			}
+		}
+		if control.Details.HotkeyBar != nil {
+			items := control.Details.HotkeyBar.Items
+			projectedControl.Details.HotkeyBar = &HotkeyBarDetails{
+				Items: make([]HotkeyBarItemDetails, len(items)),
+			}
+			for itemIndex, item := range items {
+				projectedItem := HotkeyBarItemDetails{
+					Label:          item.Label,
+					Command:        string(item.Command),
+					Enabled:        item.Enabled,
+					DisabledReason: item.DisabledReason,
+					Checked:        item.Checked,
+				}
+				if item.Chord != nil {
+					projectedItem.Chord = &Chord{
+						Key: Key(item.Chord.Key),
+						Modifiers: make(
+							[]Key,
+							len(item.Chord.Modifiers),
+						),
+					}
+					for modifierIndex, modifier := range item.Chord.Modifiers {
+						projectedItem.Chord.Modifiers[modifierIndex] =
+							Key(modifier)
+					}
+				}
+				projectedControl.Details.HotkeyBar.Items[itemIndex] =
+					projectedItem
 			}
 		}
 		projected.Controls[index] = projectedControl
@@ -493,6 +577,28 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.Divider != nil {
 			divider := *snapshot.Controls[index].Details.Divider
 			cloned.Controls[index].Details.Divider = &divider
+		}
+		if snapshot.Controls[index].Details.Action != nil {
+			action := *snapshot.Controls[index].Details.Action
+			cloned.Controls[index].Details.Action = &action
+		}
+		if snapshot.Controls[index].Details.HotkeyBar != nil {
+			hotkeyBar := *snapshot.Controls[index].Details.HotkeyBar
+			hotkeyBar.Items = append(
+				[]HotkeyBarItemDetails{},
+				snapshot.Controls[index].Details.HotkeyBar.Items...,
+			)
+			for itemIndex := range hotkeyBar.Items {
+				if hotkeyBar.Items[itemIndex].Chord != nil {
+					chord := *hotkeyBar.Items[itemIndex].Chord
+					chord.Modifiers = append(
+						[]Key{},
+						hotkeyBar.Items[itemIndex].Chord.Modifiers...,
+					)
+					hotkeyBar.Items[itemIndex].Chord = &chord
+				}
+			}
+			cloned.Controls[index].Details.HotkeyBar = &hotkeyBar
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

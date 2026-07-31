@@ -663,6 +663,14 @@ func (a *App) destroyStateLocked(state *controlState) {
 	}
 	state.children = nil
 	state.destroyed = true
+	if a.focus == state {
+		a.focus = nil
+	}
+	for source, press := range a.pressed {
+		if press.control == state {
+			delete(a.pressed, source)
+		}
+	}
 	delete(a.controlsByID, state.id)
 	if state.automationKey != "" {
 		delete(a.controlsByKey, state.automationKey)

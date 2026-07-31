@@ -54,6 +54,7 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 			Style:          "control.style",
 			ResolvedStyle:  resolved,
 			Visible:        true,
+			Focused:        true,
 			Details: expletives.ControlDetails{
 				Version: expletives.ControlDetailsVersion,
 				Container: &expletives.ContainerDetails{
@@ -78,6 +79,20 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 					Form:        expletives.BorderDouble,
 					Text:        "Rule",
 					Alignment:   expletives.TextAlignStart,
+				},
+				Action: &expletives.ActionDetails{
+					Label: "Run", Command: "action.run", Enabled: true,
+					Mnemonic: "r", Pressed: true, Default: true,
+				},
+				HotkeyBar: &expletives.HotkeyBarDetails{
+					Items: []expletives.HotkeyBarItemDetails{{
+						Label: "Run", Command: "action.run", Enabled: true,
+						Chord: &expletives.Chord{
+							Key: "r", Modifiers: []expletives.Key{
+								expletives.KeyControl,
+							},
+						},
+					}},
 				},
 			},
 		}},
@@ -148,6 +163,10 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	core.Controls[0].Details.Border.Title = "Changed"
 	core.Controls[0].Details.Text.Text = "Changed"
 	core.Controls[0].Details.Divider.Text = "Changed"
+	core.Controls[0].Details.Action.Label = "Changed"
+	core.Controls[0].Details.HotkeyBar.Items[0].Label = "Changed"
+	core.Controls[0].Details.HotkeyBar.Items[0].Chord.Modifiers[0] =
+		expletives.KeyAlt
 	core.Layouts[0].Items[0].Kind = "layout"
 	core.InputSources[0].Held[0] = expletives.KeyAlt
 	core.Overflows[0].State = "changed"
@@ -167,6 +186,10 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	projected.Controls[0].Details.Border.Title = "Mutated"
 	projected.Controls[0].Details.Text.Text = "Mutated"
 	projected.Controls[0].Details.Divider.Text = "Mutated"
+	projected.Controls[0].Details.Action.Label = "Mutated"
+	projected.Controls[0].Details.HotkeyBar.Items[0].Label = "Mutated"
+	projected.Controls[0].Details.HotkeyBar.Items[0].Chord.Modifiers[0] =
+		Key(expletives.KeyShift)
 	projected.Layouts[0].Items[0].Kind = "layout"
 	projected.InputSources[0].Held[0] = Key(expletives.KeyShift)
 	projected.Overflows[0].State = "mutated"

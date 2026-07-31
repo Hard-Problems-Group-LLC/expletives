@@ -8,6 +8,35 @@ specifications, and ISO 8601 timestamps.
 
 ## Current Queue
 
+- 2026-07-30 — `EXPL-TASK-018` — Render a root-level undersized-geometry
+  diagnostic.
+  - Requestor: project operator
+  - Owner: unassigned
+  - Created: 2026-07-30T20:00:00-07:00
+  - Context: an application whose offered surface is smaller than its
+    recursively determined usable minimum needs an unmistakable diagnostic
+    instead of a clipped or misleading ordinary scene.
+  - Acceptance criteria:
+    - compute the effective minimum recursively from the root, attached
+      Layouts, and participating controls using the existing checked geometry
+      rules;
+    - when either offered dimension is below that effective minimum, render
+      `TOO SMALL - MINIMUM GEOMETRY (XxY)` beginning at cell `(0,0)` with
+      deterministic clipping on extremely small surfaces;
+    - give this diagnostic precedence over ordinary scene rendering without
+      changing the retained logical control or Layout geometry;
+    - expose the condition and required minimum through typed core and
+      automation snapshots; and
+    - cover entry, resize while active, recovery, zero geometry, clipping,
+      recursive minima, headless automation, and attached-terminal behavior.
+  - Dependencies: the existing Layout measurement and root-sizing contracts.
+  - Blockers: intentionally deferred until after the active Actions and Menus
+    work.
+  - Related:
+    - [`docs/specifications/layouts-and-overflow.md`](../docs/specifications/layouts-and-overflow.md)
+    - [`docs/specifications/root-sizing-and-borders-v0.md`](../docs/specifications/root-sizing-and-borders-v0.md)
+    - [`docs/specifications/application-architecture.md`](../docs/specifications/application-architecture.md)
+
 - 2026-07-24 — `EXPL-TASK-002` — Reconcile foundational toolkit contracts.
   - Requestor: project operator
   - Owner: unassigned

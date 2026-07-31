@@ -46,6 +46,8 @@ type App struct {
 	styles          map[StyleID]ResolvedStyle
 	cursor          CursorState
 	held            map[string]map[Key]bool
+	focus           *controlState
+	pressed         map[string]pressedAction
 	bindings        map[string]CommandID
 	commandRouter   CommandRouter
 	legacyRouter    bool
@@ -107,6 +109,7 @@ func NewApp(options AppOptions) (*App, error) {
 		layoutsByKey:    make(map[string]*layoutState),
 		styles:          cloneStyleMap(theme.styles),
 		held:            make(map[string]map[Key]bool),
+		pressed:         make(map[string]pressedAction),
 		bindings:        make(map[string]CommandID),
 		commands:        make(map[CommandID]CommandDefinition),
 		mutationGate:    make(chan struct{}, 1),
@@ -139,6 +142,7 @@ func NewApp(options AppOptions) (*App, error) {
 	app.root = root
 	app.commands[CommandOverflowDismiss] = CommandDefinition{
 		ID:          CommandOverflowDismiss,
+		Label:       "OK",
 		Description: "Acknowledge the active Layout overflow warning",
 		Enabled:     true,
 		Automation:  true,
@@ -387,6 +391,15 @@ func (a *App) paintControlLocked(
 			border,
 		)
 	}
+	if behavior, ok := state.behavior.(buttonBehavior); ok {
+		action := a.actionDetailsLocked(state, behavior)
+		details.Action = &action
+	}
+	if behavior, ok := state.behavior.(hotkeyBarBehavior); ok {
+		details.HotkeyBar = &HotkeyBarDetails{
+			Items: a.hotkeyBarItemDetailsLocked(behavior.items),
+		}
+	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,
 		Key:            state.automationKey,
@@ -403,6 +416,7 @@ func (a *App) paintControlLocked(
 		Style:          state.style,
 		ResolvedStyle:  a.styles[state.style],
 		Visible:        visible,
+		Focused:        a.focus == state,
 		Details:        details,
 	})
 

@@ -18,6 +18,7 @@ const (
 	CommandLayerRaise    expletives.CommandID = "layout.layer.raise"
 	CommandLayerLower    expletives.CommandID = "layout.layer.lower"
 	CommandScenarioReset expletives.CommandID = "scenario.reset"
+	CommandUnavailable   expletives.CommandID = "fixture.unavailable"
 	CommandAppQuit       expletives.CommandID = "app.quit"
 	CommandAppInterrupt  expletives.CommandID = "app.interrupt"
 )
@@ -116,6 +117,59 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	definitions := []expletives.CommandDefinition{
+		{
+			ID: CommandFixtureToggle, Label: "Toggle",
+			Description: "Toggle the accent Panel color",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandScenarioReset, Label: "Reset",
+			Description: "Reset the active demonstration scenario",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandUnavailable, Label: "Disabled",
+			Description: "Demonstrate disabled Action presentation",
+			Enabled:     false, DisabledReason: "Demonstration command is disabled",
+			Automation: true,
+		},
+		{
+			ID: CommandPanelRaise, Label: "Raise Panel",
+			Description: "Raise the accent Panel among Grid Panel peers",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandPanelLower, Label: "Lower Panel",
+			Description: "Lower the accent Panel among Grid Panel peers",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandLayerRaise, Label: "Raise Layer",
+			Description: "Raise the red Layout layer above the green layer",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandLayerLower, Label: "Lower Layer",
+			Description: "Lower the red Layout layer below the green layer",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandAppQuit, Label: "Quit",
+			Description: "Exit the demonstration application",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandAppInterrupt, Label: "Interrupt",
+			Description: "Interrupt the demonstration application",
+			Enabled:     true, Automation: true,
+		},
+	}
+	for _, definition := range definitions {
+		if err := app.RegisterCommand(definition); err != nil {
+			return nil, err
+		}
+	}
 
 	transaction := app.NewTransaction()
 	outer, err := transaction.NewFrame(app.Root(), expletives.FrameOptions{
@@ -211,7 +265,7 @@ func NewWithRootConstraints(
 		expletives.GroupBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "group",
-				MinimumSize:   expletives.Size{Width: 16, Height: 7},
+				MinimumSize:   expletives.Size{Width: 16, Height: 8},
 				Style:         canvasStyle.ID,
 			},
 			Title:       "Nested",
@@ -224,9 +278,66 @@ func NewWithRootConstraints(
 	}
 	nestedPanel, err := transaction.NewPanel(group, expletives.PanelOptions{
 		AutomationKey: "panel.nested",
-		MinimumSize:   expletives.Size{Width: 8, Height: 3},
+		MinimumSize:   expletives.Size{Width: 14, Height: 4},
 		Style:         yellowStyle.ID,
 	})
+	if err != nil {
+		return nil, err
+	}
+	toggleButton, err := transaction.NewButton(
+		nestedPanel,
+		expletives.ButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "action.toggle",
+				Style:         yellowStyle.ID,
+			},
+			Command:  CommandFixtureToggle,
+			Mnemonic: "t",
+			Default:  true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	resetButton, err := transaction.NewButton(
+		nestedPanel,
+		expletives.ButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "action.reset",
+				Style:         yellowStyle.ID,
+			},
+			Command:  CommandScenarioReset,
+			Mnemonic: "s",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	disabledButton, err := transaction.NewButton(
+		nestedPanel,
+		expletives.ButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "action.disabled",
+				Style:         yellowStyle.ID,
+			},
+			Command: CommandUnavailable,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	quitButton, err := transaction.NewButton(
+		nestedPanel,
+		expletives.ButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "action.quit",
+				Style:         yellowStyle.ID,
+			},
+			Command:  CommandAppQuit,
+			Mnemonic: "q",
+			Cancel:   true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +386,24 @@ func NewWithRootConstraints(
 			Title:       bannerTitle,
 			BorderStyle: bannerStyle.ID,
 			BorderForm:  expletives.BorderShadeMedium,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	hotkeyBar, err := transaction.NewHotkeyBar(
+		banner,
+		expletives.HotkeyBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "action.hotkeys",
+				Style:         bannerStyle.ID,
+			},
+			Items: []expletives.HotkeyBarItem{
+				{Command: CommandFixtureToggle},
+				{Command: CommandScenarioReset},
+				{Command: CommandAppQuit},
+				{Command: CommandAppInterrupt},
+			},
 		},
 	)
 	if err != nil {
@@ -399,6 +528,43 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	actionLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.actions",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, button := range []expletives.Control{
+		toggleButton,
+		resetButton,
+		disabledButton,
+		quitButton,
+	} {
+		if err := actionLayout.AddPanel(
+			button,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	hotkeyLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.hotkeys",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := hotkeyLayout.AddPanel(
+		hotkeyBar,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
 	backLayout, err := expletives.NewBoxLayout(
 		expletives.Horizontal,
 		expletives.BoxLayoutOptions{
@@ -446,6 +612,12 @@ func NewWithRootConstraints(
 	if err := transaction.SetLayout(group, nestedLayout); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(nestedPanel, actionLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(banner, hotkeyLayout); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(layerFrame, backLayout); err != nil {
 		return nil, err
 	}
@@ -459,61 +631,6 @@ func NewWithRootConstraints(
 	scene := &Scene{
 		App: app, accent: accent, accentText: staticText,
 		accentRule: rule, layer: backLayout,
-	}
-	definitions := []expletives.CommandDefinition{
-		{
-			ID:          CommandFixtureToggle,
-			Description: "Toggle the accent Panel color",
-			Enabled:     true,
-			Automation:  true,
-		},
-		{
-			ID:          CommandScenarioReset,
-			Description: "Reset the active demonstration scenario",
-			Enabled:     true,
-			Automation:  true,
-		},
-		{
-			ID:          CommandPanelRaise,
-			Description: "Raise the accent Panel among Grid Panel peers",
-			Enabled:     true,
-			Automation:  true,
-		},
-		{
-			ID:          CommandPanelLower,
-			Description: "Lower the accent Panel among Grid Panel peers",
-			Enabled:     true,
-			Automation:  true,
-		},
-		{
-			ID:          CommandLayerRaise,
-			Description: "Raise the red Layout layer above the green layer",
-			Enabled:     true,
-			Automation:  true,
-		},
-		{
-			ID:          CommandLayerLower,
-			Description: "Lower the red Layout layer below the green layer",
-			Enabled:     true,
-			Automation:  true,
-		},
-		{
-			ID:          CommandAppQuit,
-			Description: "Exit the demonstration application",
-			Enabled:     true,
-			Automation:  true,
-		},
-		{
-			ID:          CommandAppInterrupt,
-			Description: "Interrupt the demonstration application",
-			Enabled:     true,
-			Automation:  true,
-		},
-	}
-	for _, definition := range definitions {
-		if err := app.RegisterCommand(definition); err != nil {
-			return nil, err
-		}
 	}
 	if err := app.SetCommandRouter(scene.routeCommand); err != nil {
 		return nil, err
@@ -607,6 +724,13 @@ func (s *Scene) handleCommand(
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := s.App.ReplaceCommand(expletives.CommandDefinition{
+			ID: CommandFixtureToggle, Label: "Toggle",
+			Description: "Toggle the accent Panel color",
+			Enabled:     true, Checked: s.toggled, Automation: true,
+		}); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		return expletives.OutcomeApplied, nil
 	case CommandScenarioReset:
 		changed := s.toggled
@@ -622,6 +746,13 @@ func (s *Scene) handleCommand(
 			}
 		}
 		if err := transaction.Commit(context.Background()); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := s.App.ReplaceCommand(expletives.CommandDefinition{
+			ID: CommandFixtureToggle, Label: "Toggle",
+			Description: "Toggle the accent Panel color",
+			Enabled:     true, Checked: false, Automation: true,
+		}); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 		before := s.App.Snapshot().Sequence
@@ -691,11 +822,11 @@ func SelfCheck() error {
 	if snapshot.Version != expletives.SnapshotVersion {
 		return errors.New("unexpected snapshot version")
 	}
-	if len(snapshot.Controls) != 14 {
-		return fmt.Errorf("control count = %d, want 14", len(snapshot.Controls))
+	if len(snapshot.Controls) != 19 {
+		return fmt.Errorf("control count = %d, want 19", len(snapshot.Controls))
 	}
-	if len(snapshot.Layouts) != 8 {
-		return fmt.Errorf("Layout count = %d, want 8", len(snapshot.Layouts))
+	if len(snapshot.Layouts) != 10 {
+		return fmt.Errorf("Layout count = %d, want 10", len(snapshot.Layouts))
 	}
 	checks := []struct {
 		x     int
@@ -706,7 +837,7 @@ func SelfCheck() error {
 		{x: 0, y: 0, key: "root", color: rootStyle.Background},
 		{x: 4, y: 4, key: "display.label", color: redStyle.Background},
 		{x: 24, y: 4, key: "display.static_text", color: greenStyle.Background},
-		{x: 45, y: 6, key: "panel.nested", color: yellowStyle.Background},
+		{x: 45, y: 6, key: "action.reset", color: yellowStyle.Background},
 		{x: 4, y: 13, key: "layer.front", color: greenStyle.Background},
 	}
 	ids := make(map[string]expletives.ControlID)

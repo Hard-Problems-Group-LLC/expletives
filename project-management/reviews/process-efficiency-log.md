@@ -29,6 +29,28 @@ Applied immediately: the `expletives-test` attached integration assertions now
 emit concise scenario/count/outcome/geometry evidence instead of expanding
 the complete frame on failure.
 
+### 24. Make Multi-Event Controller Output Easier To Query
+
+The Actions closed loop correctly required one persistent controller
+connection for a raw KeyDown/KeyUp pair: invoking `expletivesctl key`
+separately disconnects between events and therefore clears source-local held
+and pressed state by design. The supported `keys` command solves that
+lifecycle problem, but it changes the JSON result from one completion object
+to an array. A routine projection initially assumed the single-command shape
+and had to be corrected.
+
+Improvement:
+
+- retain `keys` as the documented way to send one stateful chord or
+  press/release sequence from a single input source;
+- add a future concise/final-result output option that selects the last
+  completion while preserving the full completion array as the default
+  evidence;
+- make `expletivesctl` help state explicitly that separate process
+  invocations intentionally cannot preserve held or pressed input; and
+- keep core disconnect cleanup strict rather than weakening input isolation
+  to make shell composition appear stateful.
+
 ### 1. Use A Small Contract-First Packet
 
 The first design packet inventories 71 files and asks every reviewer to scan

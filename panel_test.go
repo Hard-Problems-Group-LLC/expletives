@@ -28,6 +28,8 @@ func mustApp(t *testing.T, size Size) *App {
 		testStyle("static_text", RGB(0, 0, 0)),
 		testStyle("separator", RGB(0, 0, 0)),
 		testStyle("rule", RGB(0, 0, 0)),
+		testStyle("button", RGB(0, 0, 0)),
+		testStyle("hotkey_bar", RGB(0, 0, 0)),
 		testStyle("before", RGB(1, 1, 1)),
 		testStyle("after", RGB(9, 8, 7)),
 		testStyle("moving", RGB(7, 8, 9)),

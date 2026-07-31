@@ -108,10 +108,16 @@ type Command struct {
 type CommandDefinition struct {
 	// ID is the bounded stable semantic identity.
 	ID CommandID `json:"id"`
+	// Label is canonical one-cell display text. Empty displays ID.
+	Label string `json:"label,omitempty"`
 	// Description is bounded human-readable help text.
 	Description string `json:"description,omitempty"`
 	// Enabled permits structured-router resolution and invocation.
 	Enabled bool `json:"enabled"`
+	// DisabledReason explains an unavailable command.
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	// Checked is shared presentation state for checkable action surfaces.
+	Checked bool `json:"checked,omitempty"`
 	// Automation marks the command for attached-automation discovery.
 	Automation bool `json:"automation"`
 }
@@ -177,9 +183,9 @@ type Completion struct {
 // Chord combines one non-modifier pressed key with distinct modifiers.
 type Chord struct {
 	// Key is the pressed non-modifier key.
-	Key Key
+	Key Key `json:"key"`
 	// Modifiers is copied during binding; caller order is insignificant.
-	Modifiers []Key
+	Modifiers []Key `json:"modifiers"`
 }
 
 // CommandBinding selects the semantic command resolved by a chord.
@@ -246,7 +252,8 @@ func (a *App) setCommandRouter(router CommandRouter, legacy bool) error {
 
 // RegisterCommand adds one copied definition to the App-scoped registry.
 func (a *App) RegisterCommand(definition CommandDefinition) error {
-	if err := validateCommandDefinition(definition); err != nil {
+	normalized, err := normalizeCommandDefinition(definition)
+	if err != nil {
 		return err
 	}
 	a.mu.Lock()
@@ -254,19 +261,22 @@ func (a *App) RegisterCommand(definition CommandDefinition) error {
 	if a.final {
 		return ErrClosed
 	}
-	if _, exists := a.commands[definition.ID]; exists {
+	if _, exists := a.commands[normalized.ID]; exists {
 		return ErrDuplicateCommand
 	}
-	a.commands[definition.ID] = definition
+	a.commands[normalized.ID] = normalized
+	a.refreshActionPresentationLocked()
+	a.publishLocked(nil)
 	return nil
 }
 
 // ReplaceCommand replaces one existing command definition.
 func (a *App) ReplaceCommand(definition CommandDefinition) error {
-	if err := validateCommandDefinition(definition); err != nil {
+	normalized, err := normalizeCommandDefinition(definition)
+	if err != nil {
 		return err
 	}
-	if definition.ID == CommandOverflowDismiss {
+	if normalized.ID == CommandOverflowDismiss {
 		return fmt.Errorf("%w: built-in command is immutable", ErrInvalidRequest)
 	}
 	a.mu.Lock()
@@ -274,10 +284,12 @@ func (a *App) ReplaceCommand(definition CommandDefinition) error {
 	if a.final {
 		return ErrClosed
 	}
-	if _, exists := a.commands[definition.ID]; !exists {
-		return fmt.Errorf("%w: command %q", ErrInvalidRequest, definition.ID)
+	if _, exists := a.commands[normalized.ID]; !exists {
+		return fmt.Errorf("%w: command %q", ErrInvalidRequest, normalized.ID)
 	}
-	a.commands[definition.ID] = definition
+	a.commands[normalized.ID] = normalized
+	a.refreshActionPresentationLocked()
+	a.publishLocked(nil)
 	return nil
 }
 
@@ -303,6 +315,8 @@ func (a *App) RemoveCommand(command CommandID) error {
 			delete(a.bindings, chord)
 		}
 	}
+	a.refreshActionPresentationLocked()
+	a.publishLocked(nil)
 	return nil
 }
 
@@ -349,6 +363,7 @@ func (a *App) BindChord(chord Chord, binding CommandBinding) error {
 		}
 	}
 	a.bindings[encoded] = binding.Command
+	a.publishLocked(nil)
 	return nil
 }
 
@@ -373,6 +388,7 @@ func (a *App) ReplaceChord(chord Chord, binding CommandBinding) error {
 		return fmt.Errorf("%w: command is not registered", ErrInvalidChord)
 	}
 	a.bindings[encoded] = binding.Command
+	a.publishLocked(nil)
 	return nil
 }
 
@@ -391,19 +407,57 @@ func (a *App) UnbindChord(chord Chord) error {
 		return fmt.Errorf("%w: binding does not exist", ErrInvalidChord)
 	}
 	delete(a.bindings, encoded)
+	a.publishLocked(nil)
 	return nil
 }
 
 func validateCommandDefinition(definition CommandDefinition) error {
+	_, err := normalizeCommandDefinition(definition)
+	return err
+}
+
+func normalizeCommandDefinition(
+	definition CommandDefinition,
+) (CommandDefinition, error) {
 	if !validBoundedIdentifier(string(definition.ID)) {
-		return fmt.Errorf("%w: invalid command ID", ErrInvalidRequest)
+		return CommandDefinition{}, fmt.Errorf(
+			"%w: invalid command ID",
+			ErrInvalidRequest,
+		)
 	}
 	if len(definition.Description) > MaxCommandDescriptionBytes ||
 		!utf8.ValidString(definition.Description) ||
 		strings.ContainsRune(definition.Description, 0) {
-		return fmt.Errorf("%w: invalid command description", ErrTextLimit)
+		return CommandDefinition{}, fmt.Errorf(
+			"%w: invalid command description",
+			ErrTextLimit,
+		)
 	}
-	return nil
+	if len(definition.DisabledReason) > MaxCommandDescriptionBytes ||
+		!utf8.ValidString(definition.DisabledReason) ||
+		strings.ContainsRune(definition.DisabledReason, 0) {
+		return CommandDefinition{}, fmt.Errorf(
+			"%w: invalid disabled reason",
+			ErrTextLimit,
+		)
+	}
+	if definition.Enabled && definition.DisabledReason != "" {
+		return CommandDefinition{}, fmt.Errorf(
+			"%w: enabled command has a disabled reason",
+			ErrInvalidRequest,
+		)
+	}
+	if !definition.Enabled && definition.DisabledReason == "" {
+		definition.DisabledReason = "Command is disabled"
+	}
+	if definition.Label != "" {
+		label, err := normalizeDisplayText(definition.Label, false)
+		if err != nil {
+			return CommandDefinition{}, err
+		}
+		definition.Label = label.text
+	}
+	return definition, nil
 }
 
 // DispatchKey serializes and applies one raw logical key event for an isolated
@@ -437,6 +491,7 @@ func (a *App) DispatchKey(
 	defer a.endDispatch()
 
 	var command CommandID
+	var target ControlID
 	result := CommandResult{Outcome: OutcomeNoOp}
 	var router CommandRouter
 	var execute bool
@@ -471,10 +526,25 @@ func (a *App) DispatchKey(
 			}
 			held[event.Key] = true
 			result.Outcome = OutcomeApplied
+			if (event.Key == KeyEnter || event.Key == KeySpace) &&
+				noHeldModifiers(held) &&
+				a.buttonEligibleLocked(a.focus) {
+				a.pressed[source] = pressedAction{
+					control: a.focus,
+					key:     event.Key,
+				}
+			}
 		}
 	case KeyEventUp:
+		press, pressed := a.pressed[source]
+		matchedPress := pressed && press.key == event.Key
+		if matchedPress {
+			delete(a.pressed, source)
+		}
 		if !held[event.Key] {
-			result.Outcome = OutcomeNoOp
+			if !matchedPress {
+				result.Outcome = OutcomeNoOp
+			}
 		} else {
 			delete(held, event.Key)
 			if len(held) == 0 {
@@ -482,11 +552,61 @@ func (a *App) DispatchKey(
 			}
 			result.Outcome = OutcomeApplied
 		}
+		if matchedPress && a.buttonEligibleLocked(press.control) {
+			behavior := press.control.behavior.(buttonBehavior)
+			command = behavior.command
+			target = press.control.id
+			router, result, execute = a.resolveCommandLocked(command)
+		}
 	case KeyEventPress:
 		if (event.Key == KeyEnter || event.Key == KeyEscape) &&
 			a.dismissOverflowLocked() {
 			command = CommandOverflowDismiss
 			result.Outcome = OutcomeApplied
+		} else if mnemonicKeyEvent(event.Key, held) {
+			control, activate := a.mnemonicControlLocked(event.Key)
+			if control != nil && activate {
+				behavior := control.behavior.(buttonBehavior)
+				command = behavior.command
+				target = control.id
+				router, result, execute = a.resolveCommandLocked(command)
+			} else if control != nil {
+				if a.focus != control {
+					a.focus = control
+					a.clearInvalidPressesLocked()
+					result.Outcome = OutcomeApplied
+				}
+			} else {
+				command = a.bindings[chordKey(event.Key, held)]
+				if command != "" {
+					router, result, execute = a.resolveCommandLocked(command)
+				}
+			}
+		} else if event.Key == KeyTab && tabModifiers(held) {
+			result.Outcome = OutcomeNoOp
+			if a.moveFocusLocked(held[KeyShift]) {
+				result.Outcome = OutcomeApplied
+			}
+		} else if noHeldModifiers(held) &&
+			(event.Key == KeyEnter || event.Key == KeySpace) {
+			control := a.focus
+			if !a.buttonEligibleLocked(control) && event.Key == KeyEnter {
+				control = a.roleButtonLocked(false)
+			}
+			if a.buttonEligibleLocked(control) {
+				behavior := control.behavior.(buttonBehavior)
+				command = behavior.command
+				target = control.id
+				router, result, execute = a.resolveCommandLocked(command)
+			}
+		} else if noHeldModifiers(held) && event.Key == KeyEscape {
+			control := a.roleButtonLocked(true)
+			if control != nil {
+				behavior := control.behavior.(buttonBehavior)
+				command = behavior.command
+				target = control.id
+				router, result, execute = a.resolveCommandLocked(command)
+			}
 		} else {
 			command = a.bindings[chordKey(event.Key, held)]
 			if command != "" {
@@ -499,6 +619,7 @@ func (a *App) DispatchKey(
 	if execute {
 		result = a.callRouter(ctx, router, Command{
 			ID:     command,
+			Target: target,
 			Source: source,
 		})
 	}
@@ -599,6 +720,10 @@ func (a *App) ResetInput(
 		delete(a.held, source)
 		outcome = OutcomeApplied
 	}
+	if _, exists := a.pressed[source]; exists {
+		delete(a.pressed, source)
+		outcome = OutcomeApplied
+	}
 	return a.associateLocked(
 		requestID,
 		CommandResult{Outcome: outcome},
@@ -612,14 +737,31 @@ func (a *App) ResetInput(
 func (a *App) ClearInputSource(source string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.held[source]) == 0 {
+	_, pressed := a.pressed[source]
+	if len(a.held[source]) == 0 && !pressed {
 		delete(a.held, source)
 		return
 	}
 	delete(a.held, source)
+	delete(a.pressed, source)
 	if !a.final {
 		a.publishLocked(nil)
 	}
+}
+
+func noHeldModifiers(held map[Key]bool) bool {
+	return !held[KeyAlt] && !held[KeyControl] &&
+		!held[KeyMeta] && !held[KeyShift]
+}
+
+func tabModifiers(held map[Key]bool) bool {
+	return !held[KeyAlt] && !held[KeyControl] && !held[KeyMeta]
+}
+
+func mnemonicKeyEvent(key Key, held map[Key]bool) bool {
+	return held[KeyAlt] && !held[KeyControl] &&
+		!held[KeyMeta] && !held[KeyShift] &&
+		len(key) == 1
 }
 
 func (a *App) resolveCommandLocked(
@@ -646,7 +788,7 @@ func (a *App) resolveCommandLocked(
 			return nil, publicResult(
 				OutcomeRejected,
 				"command_disabled",
-				"command is disabled",
+				effectiveDisabledReason(definition, true),
 				nil,
 			), false
 		}

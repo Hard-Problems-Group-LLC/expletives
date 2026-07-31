@@ -290,7 +290,8 @@ Required controls:
 
 This phase establishes stable command IDs, activation, enabled/disabled
 state, structured hotkey data, focus, and command parity across human input
-and automation.
+and automation. The implemented exact contract is
+[`actions-api-v0.md`](actions-api-v0.md).
 
 ### 7. Menus
 

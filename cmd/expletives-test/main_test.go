@@ -75,7 +75,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	}
 	if observe.Snapshot == nil ||
 		observe.Snapshot.Scenario != demo.ScenarioID ||
-		len(observe.Snapshot.Layouts) != 8 ||
+		len(observe.Snapshot.Layouts) != 10 ||
 		len(observe.Snapshot.Overflows) != 0 {
 		if observe.Snapshot == nil {
 			t.Fatal("initial observation has no snapshot")
@@ -91,6 +91,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	var backID, frontID automation.ControlID
 	var accentBounds, frontBounds, rootBounds automation.Rect
 	displayEvidence := make(map[string]bool)
+	actionEvidence := make(map[string]bool)
 	for _, control := range observe.Snapshot.Controls {
 		switch control.Key {
 		case "root":
@@ -123,15 +124,54 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 				control.Kind == "rule" &&
 					control.Details.Divider != nil &&
 					control.Details.Divider.Text == "Rule"
+		case "action.toggle":
+			actionEvidence[control.Key] =
+				control.Kind == "button" &&
+					control.Focused &&
+					control.Details.Action != nil &&
+					control.Details.Action.Command ==
+						string(demo.CommandFixtureToggle) &&
+					control.Details.Action.Default
+		case "action.reset":
+			actionEvidence[control.Key] =
+				control.Kind == "button" &&
+					control.Details.Action != nil &&
+					control.Details.Action.Enabled
+		case "action.disabled":
+			actionEvidence[control.Key] =
+				control.Kind == "button" &&
+					control.Details.Action != nil &&
+					!control.Details.Action.Enabled &&
+					control.Details.Action.DisabledReason != ""
+		case "action.quit":
+			actionEvidence[control.Key] =
+				control.Kind == "button" &&
+					control.Details.Action != nil &&
+					control.Details.Action.Cancel
+		case "action.hotkeys":
+			actionEvidence[control.Key] =
+				control.Kind == "hotkey_bar" &&
+					control.Details.HotkeyBar != nil &&
+					len(control.Details.HotkeyBar.Items) == 4
 		}
 	}
-	if len(observe.Snapshot.Controls) != 14 ||
-		len(displayEvidence) != 4 {
-		t.Fatalf("display catalog evidence = %#v", displayEvidence)
+	if len(observe.Snapshot.Controls) != 19 ||
+		len(displayEvidence) != 4 ||
+		len(actionEvidence) != 5 {
+		t.Fatalf(
+			"catalog evidence: display=%#v action=%#v",
+			displayEvidence,
+			actionEvidence,
+		)
 	}
 	for key, valid := range displayEvidence {
 		if !valid {
 			t.Fatalf("display control %q has invalid typed evidence", key)
+		}
+	}
+	for key, valid := range actionEvidence {
+		if !valid {
+			t.Fatalf("Action control %q has invalid typed evidence", key)
 		}
 	}
 	if rootBounds != (automation.Rect{
@@ -206,6 +246,46 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			loweredAccent,
 			accentBounds,
 		)
+	}
+
+	if _, err := client.InjectInput(
+		ctx,
+		"action-alt-down",
+		automation.KeyEvent{Kind: automation.KeyDown, Key: "alt"},
+	); err != nil {
+		t.Fatalf("InjectInput(Alt down) error = %v", err)
+	}
+	toggled, err := client.InjectInput(
+		ctx,
+		"action-toggle",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "t"},
+	)
+	if err != nil {
+		t.Fatalf("InjectInput(Alt-T) error = %v", err)
+	}
+	if toggled.Outcome != automation.OutcomeApplied ||
+		toggled.Snapshot == nil ||
+		toggled.Snapshot.Completion == nil ||
+		toggled.Snapshot.Completion.Command !=
+			string(demo.CommandFixtureToggle) {
+		t.Fatalf("Alt-T completion = %+v", toggled)
+	}
+	var checked bool
+	for _, control := range toggled.Snapshot.Controls {
+		if control.Key == "action.toggle" &&
+			control.Details.Action != nil {
+			checked = control.Details.Action.Checked
+		}
+	}
+	if !checked {
+		t.Fatal("Alt-T did not publish checked command state")
+	}
+	if _, err := client.InjectInput(
+		ctx,
+		"action-alt-up",
+		automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
+	); err != nil {
+		t.Fatalf("InjectInput(Alt up) error = %v", err)
 	}
 
 	requestID, err := automation.NewRequestID()

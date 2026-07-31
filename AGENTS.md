@@ -122,6 +122,13 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   [`docs/specifications/text-and-display-api-v0.md`](docs/specifications/text-and-display-api-v0.md)
   for their exact text, wrapping, alignment, mnemonic-target, divider, and
   one-cell Unicode contracts.
+- `Button` and `HotkeyBar` are non-container Action leaves. Command
+  definitions are the single source for label, enabled/disabled reason, and
+  checked presentation state; Button, HotkeyBar, raw keys, bindings, direct
+  commands, and the following Menu controls must converge on the same router.
+  Preserve source-local pressed capture, deterministic focus traversal, and
+  typed automation evidence as defined in
+  [`docs/specifications/actions-api-v0.md`](docs/specifications/actions-api-v0.md).
 - Follow
   [`docs/specifications/layouts-and-overflow.md`](docs/specifications/layouts-and-overflow.md)
   for logical versus clipped geometry, attachment, overflow episodes,

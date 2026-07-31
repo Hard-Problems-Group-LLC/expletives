@@ -71,6 +71,8 @@ func DefaultTheme() Theme {
 		"static_text":      resolved,
 		"separator":        resolved,
 		"rule":             resolved,
+		"button":           resolved,
+		"hotkey_bar":       resolved,
 	}
 	return Theme{styles: styles}
 }
