@@ -468,6 +468,23 @@ func TestSnapshotRejectsInvalidMenuBarDetails(t *testing.T) {
 	if err := validateCompletion(menuBar(), limits); err != nil {
 		t.Fatalf("valid MenuBar fixture rejected: %v", err)
 	}
+	barActive := menuBar()
+	activeDetails := barActive.Snapshot.Controls[0].Details.MenuBar
+	activeDetails.OpenPath = nil
+	activeDetails.SelectedPath = []string{"menu.file"}
+	activeDetails.Entries[0].Open = false
+	activeDetails.Entries[1].Selected = false
+	if err := validateCompletion(barActive, limits); err != nil {
+		t.Fatalf("valid bar-active MenuBar fixture rejected: %v", err)
+	}
+	disabledSelected := menuBar()
+	disabledEntry := &disabledSelected.Snapshot.Controls[0].
+		Details.MenuBar.Entries[1]
+	disabledEntry.Enabled = false
+	disabledEntry.DisabledReason = "Unavailable"
+	if err := validateCompletion(disabledSelected, limits); err != nil {
+		t.Fatalf("valid selected-disabled MenuBar fixture rejected: %v", err)
+	}
 	tests := []struct {
 		name   string
 		mutate func(*MenuBarDetails)

@@ -130,13 +130,24 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   typed automation evidence as defined in
   [`docs/specifications/actions-api-v0.md`](docs/specifications/actions-api-v0.md).
 - `MenuBar` is one persistent non-container leaf and popup-session owner per
-  App; `Menu` and `MenuItem` are copied immutable models rather than Controls
-  or nested event loops. Menu commands derive presentation and enabled state
+  App; it is parented directly by `app.Root()` but occupies the complete
+  physical top row as application chrome and may not be placed in a Layout.
+  `Menu` and `MenuItem` are copied immutable models rather than Controls or
+  nested event loops. Menu commands derive presentation and enabled state
   from the shared command registry, restore prior Button focus exactly when
-  possible, and expose a bounded flat semantic tree. Preserve Alt top-level
-  mnemonics, F10, Ctrl-Space, arrow/Home/End/Enter/Escape traversal, nested
-  popup clipping, and command-route parity as defined in
+  possible, and expose a bounded flat semantic tree. Preserve Turbo Vision
+  appearance and keyboard behavior (not implementation), including red
+  mnemonic letters, green selection, measured/backset child popups, Alt
+  top-level mnemonics, F10 bar activation, Ctrl-Space,
+  arrow/Home/End/Enter/Escape traversal, nested popup clipping, and
+  command-route parity as defined in
   [`docs/specifications/menus-api-v0.md`](docs/specifications/menus-api-v0.md).
+- Application chrome is anchored to physical terminal edges in this order:
+  Main Menu, Headers, root content, Footers, Status Bar. Main Menu and Status
+  Bar are full-width edge rows; every Header/Footer is exactly one row and
+  accepts only a Layout tree compatible with that height. Deliver Status Bar
+  immediately after Menus, then Headers and Footers, following
+  [`docs/specifications/application-chrome-v0.md`](docs/specifications/application-chrome-v0.md).
 - Follow
   [`docs/specifications/layouts-and-overflow.md`](docs/specifications/layouts-and-overflow.md)
   for logical versus clipped geometry, attachment, overflow episodes,
@@ -197,7 +208,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   tested across views, editors, modals, long-running work, and automation.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
-- Deliver Menus immediately after Actions. Use the persistent
+- Deliver Menus immediately after Actions, then Status Bar, then Headers and
+  Footers. Use the persistent
   `expletives-test` MenuBar to navigate purpose-specific catalog screens as
   the public control set grows, rather than crowding every demonstration onto
   one surface.

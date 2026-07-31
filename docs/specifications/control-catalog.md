@@ -3,7 +3,7 @@
 Status: Directed requirements; detailed APIs remain under design
 Authority: Direct operator request on 2026-07-24
 Related decisions: `EXPL-DEC-002`, `EXPL-DEC-004`, `EXPL-DEC-005`,
-`EXPL-DEC-006`, and `EXPL-DEC-007` in
+`EXPL-DEC-006`, `EXPL-DEC-007`, and `EXPL-DEC-013` in
 [`project-management/decision-log.md`](../../project-management/decision-log.md)
 Related roadmap:
 [`project-management/development-roadmap.md`](../../project-management/development-roadmap.md)
@@ -314,7 +314,33 @@ The implemented exact contract is
 persistent MenuBar to show exactly one Core/Layout, Text/Display, or Actions
 screen while retaining all controls as observable stable nodes.
 
-### 8. Selection
+### 8. Status Bar
+
+Required controls:
+
+- `StatusBar`; and
+- bounded contextual Status segments.
+
+The optional Status Bar occupies the complete last physical row and is
+parented by `app.Root()` without becoming an ordinary root Layout item. It
+delivers stable contextual segments, narrow-terminal behavior, semantic
+snapshot evidence, and the bottom-edge reservation defined by
+[`application-chrome-v0.md`](application-chrome-v0.md).
+
+### 9. Headers And Footers
+
+Required controls:
+
+- `Header`; and
+- `Footer`.
+
+Each instance is exactly one physical row and a root-parented one-row
+container. Headers stack directly below the Main Menu. Footers stack directly
+above the Status Bar, with the most recently added Footer highest. Their
+Layout attachment accepts only trees whose complete measured and decorated
+minimum height fits one row, as defined by the application-chrome contract.
+
+### 10. Selection
 
 Required controls:
 
@@ -327,7 +353,7 @@ Required controls:
 Supporting item/selection models should be introduced deliberately and reused
 by later collection controls.
 
-### 9. Text And Numeric Input
+### 11. Text And Numeric Input
 
 Required controls:
 
@@ -343,20 +369,19 @@ configurable commit/cancel behavior, and the project's edit-gate policy.
 `TextArea` may use a private viewport/offset primitive without publishing the
 later `ScrollablePanel` API early.
 
-### 10. Progress And Status
+### 12. Progress
 
 Required controls:
 
 - `ProgressBar`;
 - `Meter`;
 - `Spinner`;
-- `ActivityDots`; and
-- `StatusBar`.
+- `ActivityDots`.
 
 Animations and progress updates must use explicit deterministic tick or state
 events, honor reduced motion, and remain bounded.
 
-### 11. Navigation And Chrome
+### 13. Navigation And Chrome
 
 Required controls:
 
@@ -367,7 +392,7 @@ Required controls:
 This phase adds honest viewport-based scrollbars, tab focus, and page
 navigation on top of the already-delivered Action and Menu command routing.
 
-### 12. Scrolling And Content
+### 14. Scrolling And Content
 
 Required controls:
 
@@ -381,7 +406,7 @@ This phase makes the earlier private viewport/offset behavior a supported
 public contract and adds bounded streaming, follow/scrollback, and honest
 drop reporting.
 
-### 13. Collections
+### 15. Collections
 
 Required controls:
 
@@ -397,7 +422,7 @@ selection/data-source contracts. Composition and capability reuse must be
 chosen deliberately; the older Draft's deep inheritance relationships are
 not approved by this ordering decision.
 
-### 14. Modal Controls
+### 16. Modal Controls
 
 Required controls:
 

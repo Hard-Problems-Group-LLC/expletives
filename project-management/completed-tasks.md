@@ -4,6 +4,57 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-020` — Correct Menu chrome and Turbo Vision
+  look-and-feel; reorder the next chrome phases.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T21:00:00-07:00
+  - Completed: 2026-07-30T21:28:43-07:00
+  - Outcome:
+    - made the root-parented MenuBar immutable full-width physical-row
+      application chrome, independent of centered/constrained root geometry
+      and excluded from ordinary Layouts;
+    - reserved visible top chrome from root content and returned the row
+      atomically on hide/destroy;
+    - implemented the Turbo Vision look-and-feel through native expletives
+      rendering: black/light-gray menus, red mnemonics, green selection,
+      disabled roles, single-line borders, tee separators, submenu
+      indicators, checkmarks, and black shadows;
+    - made F10/Ctrl-Space activate the menu row before Down/Enter opens a
+      popup, retained direct Alt-root access, and made disabled entries
+      selectable but not activatable;
+    - measured popup widths from complete effective entries and backset child
+      menus left when their preferred cascade would cross the right edge;
+    - updated the demo, terminal glyph fallbacks, core and automation
+      validators/tests, and durable Menu/application-chrome contracts; and
+    - inserted Status Bar and then Headers/Footers immediately after Menus in
+      the catalog and roadmap.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      controlling-PTY integration, the full race suite, all debug/release/
+      profiling builds, and all-mode smoke/self-checks;
+    - focused tests cover physical edge ownership, constrained roots, content
+      reservation, geometry/Layout rejection, palette roles, disabled
+      selection, measured child widths, right-edge backsetting, and structured
+      terminal fallbacks; and
+    - a live attached debug run observed full 80-column row-0 ownership,
+      black/red-on-green F10 bar selection with an empty OpenPath, the File
+      popup after Down, and a complete untruncated Actions/Stacking child
+      popup before orderly final shutdown and socket cleanup.
+  - Contracts and decision:
+    - [`Application Chrome v0`](../docs/specifications/application-chrome-v0.md)
+    - [`Menus API v0`](../docs/specifications/menus-api-v0.md)
+    - [`EXPL-DEC-013`](decision-log.md#expl-dec-013--anchor-application-chrome-and-adopt-turbo-vision-menu-look)
+  - Process:
+    - completed as routine corrective work without convening the Panel;
+    - used Turbo Vision only as a visual/behavioral reference; and
+    - recorded the early-public-client semantic-state check in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 9 Status Bar is next, followed by Phase 10 Headers and Footers;
+    - `EXPL-TASK-018` retains the recursive minimum-geometry diagnostic; and
+    - Structured Input remains deferred.
+
 - 2026-07-30 — `EXPL-TASK-019` — Deliver Menus and purpose-specific catalog
   screen navigation.
   - Requestor: project operator

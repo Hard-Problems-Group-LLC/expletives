@@ -800,16 +800,20 @@ func arrangeAllLayoutsLocked(app *App) {
 			measureLayoutLocked(state)
 		}
 	}
-	arrangeControlLayoutsLocked(app.root.state)
+	arrangeControlLayoutsLocked(app, app.root.state)
 	app.reconcileOverflowsLocked()
 }
 
-func arrangeControlLayoutsLocked(owner *controlState) {
+func arrangeControlLayoutsLocked(app *App, owner *controlState) {
 	if owner == nil || owner.destroyed {
 		return
 	}
 	for _, root := range owner.layoutRoots {
 		client := controlClientSize(owner)
+		if owner.root {
+			content := app.rootContentRectLocked()
+			client = Size{Width: content.Width, Height: content.Height}
+		}
 		arrangeLayoutLocked(
 			root,
 			Rect{Width: client.Width, Height: client.Height},
@@ -817,7 +821,7 @@ func arrangeControlLayoutsLocked(owner *controlState) {
 		)
 	}
 	for _, child := range owner.children {
-		arrangeControlLayoutsLocked(child)
+		arrangeControlLayoutsLocked(app, child)
 	}
 }
 

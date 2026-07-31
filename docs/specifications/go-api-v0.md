@@ -393,18 +393,23 @@ func (b *MenuBar) Items() []MenuItem
 
 `Menu` is a copied immutable model, not a Control or an event loop.
 `MenuItem` is a copied command, separator, or submenu descriptor. `MenuBar`
-is a non-container leaf; version 0 permits one live MenuBar and popup session
-per App. Command items derive label, enabled/disabled reason, checked state,
-and first binding from the same `CommandDefinition` used by Button and
-HotkeyBar.
+is a non-container leaf parented directly by `app.Root()`; version 0 permits
+one live MenuBar and popup session per App. It is physical application chrome
+at row 0, not an ordinary Layout item, and its full-surface Bounds are
+derived rather than caller-set. Command items derive label, enabled/disabled
+reason, checked state, and first binding from the same `CommandDefinition`
+used by Button and HotkeyBar.
 
-Exact Alt top-level mnemonics, F10, and Ctrl-Space open or switch menus.
-Arrow, Home, End, Enter, Escape, and unmodified sibling mnemonics traverse
-without activation surprises. Opening saves prior Button focus; complete
-close or command activation restores it when still eligible. Popups are
-clipped semantic overlays painted after ordinary controls and before the
-overflow fallback. `MenuBarDetails` exposes a bounded depth-first flat tree
-plus open and selected key paths.
+Exact Alt top-level mnemonics open popups. F10 and Ctrl-Space activate the
+menu row; Down or Enter opens the selected root. Arrow, Home, End, Enter,
+Escape, and unmodified sibling mnemonics traverse without activation
+surprises, and disabled items remain selectable but not activatable. Opening
+saves prior Button focus; complete close or command activation restores it
+when still eligible. Turbo Vision palette roles distinguish normal,
+mnemonic, selected, selected-mnemonic, disabled, selected-disabled, and
+shadow cells. Measured child popups backset left when their preferred cascade
+would overflow. `MenuBarDetails` exposes a bounded depth-first flat tree plus
+distinct open and selected key paths.
 
 The complete ownership, validation, focus, rendering, keyboard, snapshot,
 automation, and catalog-screen contract is in

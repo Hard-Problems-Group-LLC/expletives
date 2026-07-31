@@ -113,7 +113,15 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 				control.Kind == "menu_bar" &&
 					control.Details.MenuBar != nil &&
 					len(control.Details.MenuBar.Entries) == 17 &&
-					len(control.Details.MenuBar.OpenPath) == 0
+					len(control.Details.MenuBar.OpenPath) == 0 &&
+					control.Bounds == (automation.Rect{
+						Width:  observe.Snapshot.Frame.Size.Width,
+						Height: 1,
+					}) &&
+					control.AbsoluteBounds == (automation.Rect{
+						Width:  observe.Snapshot.Frame.Size.Width,
+						Height: 1,
+					})
 		case "display.label":
 			displayEvidence[control.Key] =
 				control.Kind == "label" &&
@@ -165,6 +173,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.HotkeyBar != nil &&
 					len(control.Details.HotkeyBar.Items) == 4
 		}
+	}
+	if len(observe.Snapshot.Frame.Cells) > 2 {
+		menuEvidence = menuEvidence &&
+			observe.Snapshot.Frame.Cells[0].Style == "menu_bar" &&
+			observe.Snapshot.Frame.Cells[2].Style == "menu.mnemonic"
 	}
 	if !menuEvidence ||
 		len(displayEvidence) != 4 ||

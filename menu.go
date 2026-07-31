@@ -3,6 +3,7 @@ package expletives
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // MenuItemKind identifies one immutable MenuItem role.
@@ -48,10 +49,18 @@ type MenuBarOptions struct {
 	PopupStyle StyleID
 	// BorderStyle defaults to "menu.border".
 	BorderStyle StyleID
+	// MnemonicStyle defaults to "menu.mnemonic".
+	MnemonicStyle StyleID
 	// FocusedStyle defaults to "menu.focused".
 	FocusedStyle StyleID
+	// FocusedMnemonicStyle defaults to "menu.focused_mnemonic".
+	FocusedMnemonicStyle StyleID
 	// DisabledStyle defaults to "menu.disabled".
 	DisabledStyle StyleID
+	// FocusedDisabledStyle defaults to "menu.focused_disabled".
+	FocusedDisabledStyle StyleID
+	// ShadowStyle defaults to "menu.shadow".
+	ShadowStyle StyleID
 }
 
 // Menu is a copy-safe immutable popup model. It is not a Control.
@@ -63,11 +72,15 @@ type Menu struct {
 type MenuBar struct{ controlHandle }
 
 type menuBarBehavior struct {
-	items         []MenuItem
-	popupStyle    StyleID
-	borderStyle   StyleID
-	focusedStyle  StyleID
-	disabledStyle StyleID
+	items                []MenuItem
+	popupStyle           StyleID
+	borderStyle          StyleID
+	mnemonicStyle        StyleID
+	focusedStyle         StyleID
+	focusedMnemonicStyle StyleID
+	disabledStyle        StyleID
+	focusedDisabledStyle StyleID
+	shadowStyle          StyleID
 }
 
 type menuSession struct {
@@ -119,6 +132,22 @@ func (t *Transaction) NewMenuBar(
 	parent Container,
 	options MenuBarOptions,
 ) (*MenuBar, error) {
+	if err := t.usable(); err != nil {
+		return nil, err
+	}
+	if parent == nil || parent.containerState() == nil ||
+		parent.containerState() != t.app.root.state {
+		return nil, fmt.Errorf(
+			"%w: MenuBar must be parented directly by App.Root()",
+			ErrInvalidParent,
+		)
+	}
+	if options.Bounds != (Rect{}) || options.MinimumSize != (Size{}) {
+		return nil, fmt.Errorf(
+			"%w: MenuBar geometry is derived from the application surface",
+			ErrInvalidGeometry,
+		)
+	}
 	items, err := normalizeMenuItems(options.Items, true)
 	if err != nil {
 		return nil, err
@@ -131,9 +160,23 @@ func (t *Transaction) NewMenuBar(
 	if err != nil {
 		return nil, err
 	}
+	mnemonicStyle, err := normalizeStyleID(
+		options.MnemonicStyle,
+		"menu.mnemonic",
+	)
+	if err != nil {
+		return nil, err
+	}
 	focusedStyle, err := normalizeStyleID(
 		options.FocusedStyle,
 		"menu.focused",
+	)
+	if err != nil {
+		return nil, err
+	}
+	focusedMnemonicStyle, err := normalizeStyleID(
+		options.FocusedMnemonicStyle,
+		"menu.focused_mnemonic",
 	)
 	if err != nil {
 		return nil, err
@@ -145,10 +188,26 @@ func (t *Transaction) NewMenuBar(
 	if err != nil {
 		return nil, err
 	}
+	focusedDisabledStyle, err := normalizeStyleID(
+		options.FocusedDisabledStyle,
+		"menu.focused_disabled",
+	)
+	if err != nil {
+		return nil, err
+	}
+	shadowStyle, err := normalizeStyleID(options.ShadowStyle, "menu.shadow")
+	if err != nil {
+		return nil, err
+	}
 	behavior := menuBarBehavior{
 		items: items, popupStyle: popupStyle, borderStyle: borderStyle,
-		focusedStyle: focusedStyle, disabledStyle: disabledStyle,
+		mnemonicStyle: mnemonicStyle, focusedStyle: focusedStyle,
+		focusedMnemonicStyle: focusedMnemonicStyle,
+		disabledStyle:        disabledStyle,
+		focusedDisabledStyle: focusedDisabledStyle,
+		shadowStyle:          shadowStyle,
 	}
+	options.Bounds = menuBarSurfaceRect(t.app.size)
 	state, err := t.newLeafControl(
 		parent,
 		options.PanelOptions,
@@ -309,23 +368,35 @@ func (b menuBarBehavior) paintDecoration(
 	absolute Rect,
 	clip Rect,
 ) {
-	x := absolute.X
+	x := absolute.X + 1
 	for index, item := range b.items {
 		label, _ := normalizeDisplayText(item.Label, false)
-		left, right := " ", " "
+		style := state.style
+		mnemonicStyle := b.mnemonicStyle
 		if app.menu != nil && app.menu.bar == state &&
 			app.menu.rootIndex == index {
-			left, right = "[", "]"
+			style = b.focusedStyle
+			mnemonicStyle = b.focusedMnemonicStyle
 		}
-		cells := append([]string{left}, label.lines[0]...)
-		cells = append(cells, right)
+		cells := append([]string{" "}, label.lines[0]...)
+		cells = append(cells, " ")
 		app.paintMenuCellsLocked(
 			frame,
 			clip,
 			x,
-			absolute.Y+alignedOffset(absolute.Height, 1, TextAlignCenter),
+			absolute.Y,
 			cells,
-			state.style,
+			style,
+			state.id,
+		)
+		app.paintMnemonicLocked(
+			frame,
+			clip,
+			x+1,
+			absolute.Y,
+			label.lines[0],
+			item.Mnemonic,
+			mnemonicStyle,
 			state.id,
 		)
 		x += len(cells)
@@ -356,8 +427,12 @@ func (b menuBarBehavior) additionalStyles() []StyleID {
 	return []StyleID{
 		b.popupStyle,
 		b.borderStyle,
+		b.mnemonicStyle,
 		b.focusedStyle,
+		b.focusedMnemonicStyle,
 		b.disabledStyle,
+		b.focusedDisabledStyle,
+		b.shadowStyle,
 	}
 }
 
@@ -374,10 +449,12 @@ func (a *App) menuBarDetailsLocked(
 	open := make(map[string]bool)
 	if a.menu != nil && a.menu.bar == state {
 		root := behavior.items[a.menu.rootIndex]
-		details.OpenPath = append(details.OpenPath, root.Key)
 		details.SelectedPath = append(details.SelectedPath, root.Key)
-		open[root.Key] = true
 		selected[root.Key] = true
+		if len(a.menu.menus) != 0 {
+			details.OpenPath = append(details.OpenPath, root.Key)
+			open[root.Key] = true
+		}
 		for depth, menu := range a.menu.menus {
 			index := a.menu.selected[depth]
 			if index < 0 || index >= len(menu.items) {
@@ -438,6 +515,21 @@ func (a *App) openMenuBarLocked(
 	state *controlState,
 	rootIndex int,
 ) bool {
+	return a.startMenuSessionLocked(state, rootIndex, true)
+}
+
+func (a *App) activateMenuBarLocked(
+	state *controlState,
+	rootIndex int,
+) bool {
+	return a.startMenuSessionLocked(state, rootIndex, false)
+}
+
+func (a *App) startMenuSessionLocked(
+	state *controlState,
+	rootIndex int,
+	openPopup bool,
+) bool {
 	behavior, ok := state.behavior.(menuBarBehavior)
 	if !ok || !a.effectivelyVisibleLocked(state) ||
 		rootIndex < 0 || rootIndex >= len(behavior.items) {
@@ -445,7 +537,8 @@ func (a *App) openMenuBarLocked(
 	}
 	prior := a.focus
 	if a.menu != nil {
-		if a.menu.bar == state && a.menu.rootIndex == rootIndex {
+		if a.menu.bar == state && a.menu.rootIndex == rootIndex &&
+			(len(a.menu.menus) != 0) == openPopup {
 			return false
 		}
 		prior = a.menu.priorFocus
@@ -453,9 +546,11 @@ func (a *App) openMenuBarLocked(
 	root := behavior.items[rootIndex]
 	a.menu = &menuSession{
 		bar: state, rootIndex: rootIndex,
-		menus:      []*Menu{root.Menu},
-		selected:   []int{a.firstEligibleMenuItemLocked(root.Menu)},
 		priorFocus: prior,
+	}
+	if openPopup {
+		a.menu.menus = []*Menu{root.Menu}
+		a.menu.selected = []int{a.firstSelectableMenuItemLocked(root.Menu)}
 	}
 	a.focus = state
 	a.clearInvalidPressesLocked()
@@ -490,17 +585,21 @@ func (a *App) repairMenuLocked() bool {
 	for depth, menu := range a.menu.menus {
 		index := a.menu.selected[depth]
 		if index >= 0 && index < len(menu.items) &&
-			a.menuItemEligibleLocked(menu.items[index]) {
+			menuItemSelectable(menu.items[index]) {
 			continue
 		}
-		a.menu.selected[depth] = a.firstEligibleMenuItemLocked(menu)
+		a.menu.selected[depth] = a.firstSelectableMenuItemLocked(menu)
 		changed = true
 	}
 	a.focus = a.menu.bar
 	return changed
 }
 
-func (a *App) menuItemEligibleLocked(item MenuItem) bool {
+func menuItemSelectable(item MenuItem) bool {
+	return item.Kind != MenuItemSeparator
+}
+
+func (a *App) menuItemActivatableLocked(item MenuItem) bool {
 	switch item.Kind {
 	case MenuItemSubmenu:
 		return item.Menu != nil
@@ -512,24 +611,24 @@ func (a *App) menuItemEligibleLocked(item MenuItem) bool {
 	}
 }
 
-func (a *App) firstEligibleMenuItemLocked(menu *Menu) int {
+func (a *App) firstSelectableMenuItemLocked(menu *Menu) int {
 	if menu == nil {
 		return -1
 	}
 	for index, item := range menu.items {
-		if a.menuItemEligibleLocked(item) {
+		if menuItemSelectable(item) {
 			return index
 		}
 	}
 	return -1
 }
 
-func (a *App) lastEligibleMenuItemLocked(menu *Menu) int {
+func (a *App) lastSelectableMenuItemLocked(menu *Menu) int {
 	if menu == nil {
 		return -1
 	}
 	for index := len(menu.items) - 1; index >= 0; index-- {
-		if a.menuItemEligibleLocked(menu.items[index]) {
+		if menuItemSelectable(menu.items[index]) {
 			return index
 		}
 	}
@@ -556,7 +655,7 @@ func (a *App) moveMenuSelectionLocked(delta int) bool {
 	}
 	for range len(menu.items) {
 		index = (index + delta + len(menu.items)) % len(menu.items)
-		if a.menuItemEligibleLocked(menu.items[index]) {
+		if menuItemSelectable(menu.items[index]) {
 			if start == index {
 				return false
 			}
@@ -574,11 +673,15 @@ func (a *App) switchRootMenuLocked(delta int) bool {
 	behavior := a.menu.bar.behavior.(menuBarBehavior)
 	index := (a.menu.rootIndex + delta + len(behavior.items)) %
 		len(behavior.items)
-	return a.openMenuBarLocked(a.menu.bar, index)
+	return a.startMenuSessionLocked(
+		a.menu.bar,
+		index,
+		len(a.menu.menus) != 0,
+	)
 }
 
 func (a *App) openSelectedSubmenuLocked() bool {
-	if a.menu == nil {
+	if a.menu == nil || len(a.menu.menus) == 0 {
 		return false
 	}
 	depth := len(a.menu.menus) - 1
@@ -593,7 +696,7 @@ func (a *App) openSelectedSubmenuLocked() bool {
 	a.menu.menus = append(a.menu.menus, item.Menu)
 	a.menu.selected = append(
 		a.menu.selected,
-		a.firstEligibleMenuItemLocked(item.Menu),
+		a.firstSelectableMenuItemLocked(item.Menu),
 	)
 	return true
 }
@@ -602,7 +705,7 @@ func (a *App) closeOneMenuLevelLocked() bool {
 	if a.menu == nil {
 		return false
 	}
-	if len(a.menu.menus) == 1 {
+	if len(a.menu.menus) <= 1 {
 		return a.closeMenuLocked()
 	}
 	a.menu.menus = a.menu.menus[:len(a.menu.menus)-1]
@@ -611,13 +714,13 @@ func (a *App) closeOneMenuLevelLocked() bool {
 }
 
 func (a *App) menuMnemonicLocked(key Key) (CommandID, bool) {
-	if a.menu == nil {
+	if a.menu == nil || len(a.menu.menus) == 0 {
 		return "", false
 	}
 	depth := len(a.menu.menus) - 1
 	menu := a.menu.menus[depth]
 	for index, item := range menu.items {
-		if item.Mnemonic != key || !a.menuItemEligibleLocked(item) {
+		if item.Mnemonic != key || !a.menuItemActivatableLocked(item) {
 			continue
 		}
 		a.menu.selected[depth] = index
@@ -665,7 +768,7 @@ func (a *App) dispatchMenuKeyLocked(
 		if bar == nil {
 			return "", false, false
 		}
-		return "", true, a.openMenuBarLocked(bar, 0)
+		return "", true, a.activateMenuBarLocked(bar, 0)
 	}
 	if mnemonicKeyEvent(key, held) {
 		found, changed := a.topMenuMnemonicLocked(key)
@@ -683,6 +786,34 @@ func (a *App) dispatchMenuKeyLocked(
 	if !noHeldModifiers(held) {
 		return "", true, false
 	}
+	if len(a.menu.menus) == 0 {
+		switch key {
+		case KeyLeft:
+			return "", true, a.switchRootMenuLocked(-1)
+		case KeyRight:
+			return "", true, a.switchRootMenuLocked(1)
+		case KeyDown, KeyEnter:
+			return "", true, a.openMenuBarLocked(
+				a.menu.bar,
+				a.menu.rootIndex,
+			)
+		case KeyEscape:
+			return "", true, a.closeMenuLocked()
+		default:
+			if len(key) == 1 {
+				behavior := a.menu.bar.behavior.(menuBarBehavior)
+				for index, item := range behavior.items {
+					if item.Mnemonic == key {
+						return "", true, a.openMenuBarLocked(
+							a.menu.bar,
+							index,
+						)
+					}
+				}
+			}
+			return "", true, false
+		}
+	}
 	switch key {
 	case KeyUp:
 		return "", true, a.moveMenuSelectionLocked(-1)
@@ -690,13 +821,13 @@ func (a *App) dispatchMenuKeyLocked(
 		return "", true, a.moveMenuSelectionLocked(1)
 	case KeyHome:
 		depth := len(a.menu.menus) - 1
-		next := a.firstEligibleMenuItemLocked(a.menu.menus[depth])
+		next := a.firstSelectableMenuItemLocked(a.menu.menus[depth])
 		changed := a.menu.selected[depth] != next
 		a.menu.selected[depth] = next
 		return "", true, changed
 	case KeyEnd:
 		depth := len(a.menu.menus) - 1
-		next := a.lastEligibleMenuItemLocked(a.menu.menus[depth])
+		next := a.lastSelectableMenuItemLocked(a.menu.menus[depth])
 		changed := a.menu.selected[depth] != next
 		a.menu.selected[depth] = next
 		return "", true, changed
@@ -743,7 +874,7 @@ func (a *App) activateSelectedMenuItemLocked() (
 		return "", true, false
 	}
 	item := menu.items[index]
-	if !a.menuItemEligibleLocked(item) {
+	if !a.menuItemActivatableLocked(item) {
 		return "", true, false
 	}
 	if item.Kind == MenuItemSubmenu {
@@ -775,18 +906,18 @@ func (a *App) firstMenuBarLocked() *controlState {
 }
 
 func (a *App) paintMenuOverlayLocked(frame *IntendedFrame) {
-	if a.menu == nil || frame.Size.Width <= 0 || frame.Size.Height <= 0 {
+	if a.menu == nil || len(a.menu.menus) == 0 ||
+		frame.Size.Width <= 0 || frame.Size.Height <= 0 {
 		return
 	}
 	behavior := a.menu.bar.behavior.(menuBarBehavior)
-	barRect := a.controlAbsoluteLocked(a.menu.bar)
 	topOffset := 0
 	for index := 0; index < a.menu.rootIndex; index++ {
 		label, _ := normalizeDisplayText(behavior.items[index].Label, false)
 		topOffset += len(label.lines[0]) + 2
 	}
-	desiredX := barRect.X + topOffset
-	desiredY := barRect.Y + max(1, barRect.Height)
+	desiredX := 1 + topOffset
+	desiredY := 1
 	var parentRect Rect
 	var parentRow int
 	for depth, menu := range a.menu.menus {
@@ -810,8 +941,8 @@ func (a *App) paintMenuOverlayLocked(frame *IntendedFrame) {
 		)
 		parentRect = rect
 		parentRow = rect.Y + 1 + a.menu.selected[depth] - start
-		desiredX = rect.X + rect.Width
-		desiredY = parentRow
+		desiredX = rect.X + 2
+		desiredY = parentRow + 1
 	}
 }
 
@@ -823,9 +954,9 @@ func (a *App) menuPopupGeometryLocked(
 	submenu bool,
 	parent Rect,
 ) (Rect, int) {
-	width := 4
+	width := 8
 	for _, item := range menu.items {
-		width = max(width, a.menuItemDisplayWidthLocked(item)+4)
+		width = max(width, a.menuItemDisplayWidthLocked(item)+7)
 	}
 	width = min(width, a.size.Width)
 	height := min(len(menu.items)+2, a.size.Height)
@@ -839,7 +970,7 @@ func (a *App) menuPopupGeometryLocked(
 	}
 	x := desiredX
 	if submenu && x+width > a.size.Width {
-		x = parent.X - width
+		x = a.size.Width - width
 	}
 	x = max(0, min(x, a.size.Width-width))
 	y := max(0, min(desiredY, a.size.Height-height))
@@ -850,7 +981,9 @@ func (a *App) menuItemDisplayWidthLocked(item MenuItem) int {
 	entry := a.menuEntryDetailsLocked(item, "", 0)
 	width := len(normalizeCells(entry.Label))
 	if entry.Chord != nil {
-		width += len(displayChord(*entry.Chord)) + 1
+		width += len(displayChord(*entry.Chord))
+	} else if entry.Kind == MenuItemSubmenu {
+		width++
 	}
 	return width
 }
@@ -867,6 +1000,29 @@ func (a *App) paintOneMenuLocked(
 	if rect.Empty() {
 		return
 	}
+	surface := Rect{Width: frame.Size.Width, Height: frame.Size.Height}
+	a.fillLocked(
+		frame,
+		Rect{
+			X:      rect.X + rect.Width,
+			Y:      rect.Y + 1,
+			Width:  2,
+			Height: max(0, rect.Height),
+		}.Intersect(surface),
+		behavior.shadowStyle,
+		state.id,
+	)
+	a.fillLocked(
+		frame,
+		Rect{
+			X:      rect.X + 2,
+			Y:      rect.Y + rect.Height,
+			Width:  max(0, rect.Width),
+			Height: 1,
+		}.Intersect(surface),
+		behavior.shadowStyle,
+		state.id,
+	)
 	a.fillLocked(frame, rect, behavior.popupStyle, state.id)
 	a.paintBorderLocked(
 		frame,
@@ -884,9 +1040,15 @@ func (a *App) paintOneMenuLocked(
 		y := rect.Y + 1 + index - start
 		item := menu.items[index]
 		if item.Kind == MenuItemSeparator {
-			for x := rect.X + 1; x < rect.X+rect.Width-1; x++ {
+			for x := rect.X; x < rect.X+rect.Width; x++ {
+				glyph := "─"
+				if x == rect.X {
+					glyph = "├"
+				} else if x == rect.X+rect.Width-1 {
+					glyph = "┤"
+				}
 				a.setClippedCellLocked(
-					frame, rect, x, y, "─",
+					frame, rect, x, y, glyph,
 					behavior.borderStyle,
 					a.styles[behavior.borderStyle],
 					state.id,
@@ -896,39 +1058,53 @@ func (a *App) paintOneMenuLocked(
 		}
 		entry := a.menuEntryDetailsLocked(item, "", 0)
 		style := behavior.popupStyle
+		mnemonicStyle := behavior.mnemonicStyle
+		if index == selected {
+			style = behavior.focusedStyle
+			mnemonicStyle = behavior.focusedMnemonicStyle
+		}
 		if !entry.Enabled {
 			style = behavior.disabledStyle
-		} else if index == selected {
-			style = behavior.focusedStyle
-		}
-		marker := " "
-		if index == selected {
-			marker = ">"
+			mnemonicStyle = behavior.disabledStyle
+			if index == selected {
+				style = behavior.focusedDisabledStyle
+				mnemonicStyle = behavior.focusedDisabledStyle
+			}
 		}
 		check := " "
 		if entry.Checked {
-			check = "*"
+			check = "√"
 		}
-		cells := []string{marker, check, " "}
-		cells = append(cells, normalizeCells(entry.Label)...)
+		label := normalizeCells(entry.Label)
+		available := max(0, rect.Width-2)
+		cells := make([]string, available)
+		for index := range cells {
+			cells[index] = " "
+		}
+		if available > 0 {
+			cells[0] = check
+		}
+		labelStart := 2
+		for offset, cell := range label {
+			if labelStart+offset >= available {
+				break
+			}
+			cells[labelStart+offset] = cell
+		}
 		trailer := []string{}
 		if entry.Kind == MenuItemSubmenu {
-			trailer = []string{">"}
+			trailer = []string{"►"}
 		} else if entry.Chord != nil {
 			trailer = displayChord(*entry.Chord)
 		}
-		available := max(0, rect.Width-2)
-		spaces := max(1, available-len(cells)-len(trailer))
-		cells = append(cells, make([]string, spaces)...)
-		for index := len(cells) - spaces; index < len(cells); index++ {
-			cells[index] = " "
+		trailerStart := available - len(trailer) - 1
+		if trailerStart < labelStart+len(label)+1 {
+			trailerStart = labelStart + len(label) + 1
 		}
-		cells = append(cells, trailer...)
-		if len(cells) > available {
-			cells = cells[:available]
-		}
-		for len(cells) < available {
-			cells = append(cells, " ")
+		for offset, cell := range trailer {
+			if trailerStart+offset >= 0 && trailerStart+offset < available {
+				cells[trailerStart+offset] = cell
+			}
 		}
 		a.paintMenuCellsLocked(
 			frame,
@@ -937,6 +1113,16 @@ func (a *App) paintOneMenuLocked(
 			y,
 			cells,
 			style,
+			state.id,
+		)
+		a.paintMnemonicLocked(
+			frame,
+			rect,
+			rect.X+1+labelStart,
+			y,
+			label,
+			item.Mnemonic,
+			mnemonicStyle,
 			state.id,
 		)
 	}
@@ -952,6 +1138,10 @@ func (a *App) paintOneMenuLocked(
 			behavior.borderStyle, a.styles[behavior.borderStyle], state.id,
 		)
 	}
+}
+
+func menuBarSurfaceRect(size Size) Rect {
+	return Rect{Width: size.Width, Height: min(1, size.Height)}
 }
 
 func normalizeCells(text string) []string {
@@ -976,6 +1166,37 @@ func (a *App) paintMenuCellsLocked(
 		a.setClippedCellLocked(
 			frame, clip, x+index, y, cell, style, resolved, owner,
 		)
+	}
+}
+
+func (a *App) paintMnemonicLocked(
+	frame *IntendedFrame,
+	clip Rect,
+	x int,
+	y int,
+	cells []string,
+	mnemonic Key,
+	style StyleID,
+	owner ControlID,
+) {
+	if mnemonic == "" {
+		return
+	}
+	for index, cell := range cells {
+		if Key(strings.ToLower(cell)) != mnemonic {
+			continue
+		}
+		a.setClippedCellLocked(
+			frame,
+			clip,
+			x+index,
+			y,
+			cell,
+			style,
+			a.styles[style],
+			owner,
+		)
+		return
 	}
 }
 

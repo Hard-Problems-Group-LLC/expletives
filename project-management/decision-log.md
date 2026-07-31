@@ -10,6 +10,49 @@ For each entry, include:
 - rationale
 - related files, proposals, or backlog items
 
+## EXPL-DEC-013 — Anchor Application Chrome And Adopt Turbo Vision Menu Look
+
+- Date: 2026-07-30
+- Status: Directed and adopted
+- Authority: Direct operator instruction
+
+### Decision
+
+- Treat the Main Menu as root-parented application chrome on the complete
+  physical top row, independent of root centering, maximum, or aspect
+  constraints and outside ordinary Layout membership.
+- Reserve chrome rows from the intersecting root-content rectangle.
+- Use Turbo Vision as the Menu appearance and keyboard-behavior reference
+  without copying or depending on its implementation.
+- Use the classic role distinctions: black on light gray normal Menu,
+  red mnemonic letters, black on green selection, selected/ordinary disabled
+  roles, single-line popup border, tee separators, and black shadow.
+- F10 and Ctrl-Space activate a root label before Down/Enter opens its popup;
+  exact Alt mnemonics open a popup directly. Disabled entries remain
+  selectable but cannot activate.
+- Measure popups from their complete effective entries. Cascade child menus
+  with a small offset and backset them left until they fit the right edge
+  whenever the physical width permits.
+- Deliver Status Bar immediately after Menus, then Headers and Footers. The
+  Status Bar is the full physical bottom row; each Header/Footer is exactly
+  one row and accepts only a Layout tree compatible with that height.
+
+### Rationale
+
+Global edge chrome must remain predictable when the ordinary application root
+is constrained. The Turbo Vision visual and keyboard vocabulary provides the
+requested familiar terminal look-and-feel, while semantic style roles retain
+theme customizability and native expletives ownership, threading, rendering,
+and automation architecture. Measured backsetting prevents nested-menu
+content from being truncated merely because the preferred cascade is near an
+edge.
+
+### Related Records
+
+- [`Application Chrome v0`](../docs/specifications/application-chrome-v0.md)
+- [`Menus API v0`](../docs/specifications/menus-api-v0.md)
+- [`EXPL-TASK-020`](completed-tasks.md)
+
 ## EXPL-DEC-012 — Use Allocation-Based Sizing And Independent Borders
 
 - Date: 2026-07-30

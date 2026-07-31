@@ -114,6 +114,27 @@ func TestEncodeSnapshotSelectsUnicodeDECAndASCIILineArt(t *testing.T) {
 	}
 }
 
+func TestMenuGlyphsHaveStructuredDECAndASCIIFallbacks(t *testing.T) {
+	t.Parallel()
+	for glyph, wantASCII := range map[string]string{
+		"├": "+",
+		"┤": "+",
+		"►": ">",
+		"√": "*",
+	} {
+		if got, degraded, dec := physicalCharacter(glyph, glyphASCII); got != wantASCII || degraded || dec {
+			t.Errorf(
+				"physicalCharacter(%q, ASCII) = %q, %t, %t; want %q, false, false",
+				glyph,
+				got,
+				degraded,
+				dec,
+				wantASCII,
+			)
+		}
+	}
+}
+
 func TestEncodeSnapshotDoesNotMutateCanonicalSnapshot(t *testing.T) {
 	snapshot := expletives.Snapshot{
 		Frame: expletives.IntendedFrame{

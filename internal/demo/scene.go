@@ -68,6 +68,51 @@ var (
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0xFF, 0xD7, 0x00),
 	}
+	menuStyle = expletives.Style{
+		ID:         "menu_bar",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
+	menuPopupStyle = expletives.Style{
+		ID:         "menu.popup",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
+	menuBorderStyle = expletives.Style{
+		ID:         "menu.border",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
+	menuMnemonicStyle = expletives.Style{
+		ID:         "menu.mnemonic",
+		Foreground: expletives.RGB(0xAA, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
+	menuFocusedStyle = expletives.Style{
+		ID:         "menu.focused",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0xAA, 0x00),
+	}
+	menuFocusedMnemonicStyle = expletives.Style{
+		ID:         "menu.focused_mnemonic",
+		Foreground: expletives.RGB(0xAA, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0xAA, 0x00),
+	}
+	menuDisabledStyle = expletives.Style{
+		ID:         "menu.disabled",
+		Foreground: expletives.RGB(0x80, 0x80, 0x80),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+	}
+	menuFocusedDisabledStyle = expletives.Style{
+		ID:         "menu.focused_disabled",
+		Foreground: expletives.RGB(0x80, 0x80, 0x80),
+		Background: expletives.RGB(0x00, 0xAA, 0x00),
+	}
+	menuShadowStyle = expletives.Style{
+		ID:         "menu.shadow",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0x00, 0x00),
+	}
 )
 
 // Scene owns the catalog controls and its small application controller state.
@@ -108,6 +153,15 @@ func NewWithRootConstraints(
 		magentaStyle,
 		yellowStyle,
 		bannerStyle,
+		menuStyle,
+		menuPopupStyle,
+		menuBorderStyle,
+		menuMnemonicStyle,
+		menuFocusedStyle,
+		menuFocusedMnemonicStyle,
+		menuDisabledStyle,
+		menuFocusedDisabledStyle,
+		menuShadowStyle,
 	)
 	if err != nil {
 		return nil, err
@@ -145,16 +199,20 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	menuBar, err := transaction.NewMenuBar(outer, expletives.MenuBarOptions{
+	_, err = transaction.NewMenuBar(app.Root(), expletives.MenuBarOptions{
 		PanelOptions: expletives.PanelOptions{
 			AutomationKey: "menu.main",
-			Style:         bannerStyle.ID,
+			Style:         menuStyle.ID,
 		},
-		Items:         menuItems,
-		PopupStyle:    canvasStyle.ID,
-		BorderStyle:   borderStyle.ID,
-		FocusedStyle:  yellowStyle.ID,
-		DisabledStyle: borderStyle.ID,
+		Items:                menuItems,
+		PopupStyle:           menuPopupStyle.ID,
+		BorderStyle:          menuBorderStyle.ID,
+		MnemonicStyle:        menuMnemonicStyle.ID,
+		FocusedStyle:         menuFocusedStyle.ID,
+		FocusedMnemonicStyle: menuFocusedMnemonicStyle.ID,
+		DisabledStyle:        menuDisabledStyle.ID,
+		FocusedDisabledStyle: menuFocusedDisabledStyle.ID,
+		ShadowStyle:          menuShadowStyle.ID,
 	})
 	if err != nil {
 		return nil, err
@@ -473,7 +531,7 @@ func NewWithRootConstraints(
 		expletives.BoxLayoutOptions{
 			AutomationKey: "layout.root",
 			Insets: expletives.Insets{
-				Top: 1, Right: 1, Bottom: 1, Left: 1,
+				Right: 1, Bottom: 1, Left: 1,
 			},
 		},
 	)
@@ -497,7 +555,6 @@ func NewWithRootConstraints(
 		control expletives.Control
 		grow    int
 	}{
-		{menuBar, 0},
 		{content, 1},
 		{banner, 0},
 	} {

@@ -191,13 +191,20 @@ enter the shared command router. The Toggle command's checked presentation
 state changes with the same controller transition observed in the accent
 Panel.
 
-The persistent `menu.main` MenuBar exposes File, View, and Actions roots.
+The persistent root-owned `menu.main` MenuBar occupies physical row 0 from
+the first through last terminal column, independently of root centering or
+maximum constraints. It reserves that row from the catalog Layout and exposes
+File, View, and Actions roots.
 File contains Quit; View contains checked Core/Layout, Text/Display, and
 Actions screen commands plus a disabled future item; Actions contains Toggle,
 Reset, and a nested Stacking submenu. Alt-F, Alt-V, Alt-A, F10, Ctrl-Space,
 arrows, Home/End, Enter, sibling mnemonics, and Escape all use the ordinary
-raw logical key path. Popups remain visible in typed snapshots as a flat
-bounded tree with open and selected paths.
+raw logical key path. F10 and Ctrl-Space first activate the root-label row;
+Down or Enter opens its popup. Menus use the Turbo Vision black/light-gray,
+red-mnemonic, and green-selection look; child menus measure complete entries
+and backset left when their preferred cascade would cross the right edge.
+Popups remain visible in typed snapshots as a flat bounded tree with open and
+selected paths.
 
 The authoritative inventory and order are in
 [`control-catalog.md`](control-catalog.md). `FormPanel`, `Wizard`, and

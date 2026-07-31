@@ -1,10 +1,13 @@
 # Menus API v0
 
 - Status: Implemented pre-v1 contract
-- Authority: Direct operator instruction to proceed automatically through
-  Actions and Menus on 2026-07-30
-- Scope: `MenuBar`, immutable popup `Menu` models, `MenuItem`, keyboard popup
-  sessions, and `expletives-test` screen navigation
+- Authority: Direct operator instructions through 2026-07-30
+- Scope: `MenuBar`, immutable popup `Menu` models, `MenuItem`, keyboard
+  sessions, Turbo Vision look-and-feel, and `expletives-test` navigation
+
+Turbo Vision is a visual and interaction reference only. The implementation
+is native expletives code and does not copy or depend on Turbo Vision
+implementation details.
 
 ## Public Model
 
@@ -35,11 +38,15 @@ func (m *Menu) Items() []MenuItem
 
 type MenuBarOptions struct {
     PanelOptions
-    Items         []MenuItem
-    PopupStyle    StyleID
-    BorderStyle   StyleID
-    FocusedStyle  StyleID
-    DisabledStyle StyleID
+    Items                  []MenuItem
+    PopupStyle             StyleID
+    BorderStyle            StyleID
+    MnemonicStyle          StyleID
+    FocusedStyle           StyleID
+    FocusedMnemonicStyle   StyleID
+    DisabledStyle          StyleID
+    FocusedDisabledStyle   StyleID
+    ShadowStyle            StyleID
 }
 
 func NewMenuBar(Container, MenuBarOptions) (*MenuBar, error)
@@ -52,41 +59,61 @@ func (b *MenuBar) Close() error
 func (b *MenuBar) Items() []MenuItem
 ```
 
-`Menu` is a copy-safe immutable popup model, not a Control and not an
-independent event loop. `MenuItem` is a copied immutable descriptor.
-`MenuBar` is a non-container leaf Control and the sole visual/session owner.
-An App has at most one live MenuBar in v0.
+`Menu` is a copy-safe immutable popup model, not a Control or event loop.
+`MenuItem` is a copied immutable descriptor. `MenuBar` is a non-container
+leaf and the sole visual/session owner. An App permits at most one live
+MenuBar in v0.
 
-A command item has a required registered `Command`, optional ASCII mnemonic,
-and no caller label or child Menu; its current label, enabled/disabled reason,
-checked state, and first binding come from the shared `CommandDefinition`.
-A separator has no label, command, mnemonic, or child. A submenu has canonical
-bounded `Label`, optional mnemonic, and required child `Menu`.
+A command item has a required registered Command, optional ASCII mnemonic,
+and no caller label or child Menu. Its label, enabled/disabled reason, checked
+state, and first binding come from the current shared `CommandDefinition`. A
+separator has no label, command, mnemonic, or child. A submenu has a bounded
+Label, optional mnemonic, and required child Menu.
 
-Top-level MenuBar items are submenus. Item keys are bounded, required, and
-unique across one complete MenuBar tree. Mnemonics are unique among sibling
-items. Aliased Menu instances and cycles are rejected so one attached value
-forms one deterministic tree.
+Top-level items are submenus. Item keys are required and unique across the
+complete tree. Mnemonics are unique among siblings. Aliased Menu instances
+and cycles are rejected. Limits are `MaxMenuDepth == 8`,
+`MaxMenuItemsPerMenu == 64`, `MaxMenus == 256`, and
+`MaxMenuItems == 512`.
 
-Limits are `MaxMenuDepth == 8`, `MaxMenuItemsPerMenu == 64`,
-`MaxMenus == 256`, and `MaxMenuItems == 512`.
+## Application Chrome
 
-## Focus And Session
+The MenuBar must be constructed directly under `app.Root()`. It is physical
+application chrome, not an ordinary root-content or Layout-managed control:
 
-One App owns at most one menu session. Opening saves the currently focused
-Button, gives generic focus to the MenuBar, opens one top-level popup, and
-selects its first enabled non-separator item. A menu with no eligible item may
-open for inspection but has no selection.
+- it occupies physical row 0 from column 0 through the last column;
+- Bounds and AbsoluteBounds are derived from the App surface;
+- nonzero caller Bounds or MinimumSize are rejected;
+- `SetBounds`, `SetMinimumSize`, and Layout membership are rejected;
+- a visible MenuBar reserves row 0 from intersecting root content; and
+- root constraints never center, narrow, or move it.
 
-Closing the complete session restores the saved Button when it is still live,
-visible, and enabled; otherwise ordinary stable-tree automatic focus selects
-the first eligible Button. Programmatic Button focus closes an open menu and
-selects that Button. Hiding, destroying, or invalidating the MenuBar closes
-the session safely.
+Resize, visibility, and destruction update MenuBar and root-content geometry
+atomically. The complete edge-row contract is in
+[`application-chrome-v0.md`](application-chrome-v0.md).
 
-Changing command state while a menu is open repairs each invalid selection to
-the first eligible item in that level, or leaves that level unselected. It
-never permits activation of a disabled or unknown command.
+## Focus And Session State
+
+One App owns at most one menu session. A session saves the focused Button,
+gives focus to the MenuBar, and is in one of two states:
+
+- **bar active:** one root label is selected but no popup is open; or
+- **popup active:** the selected root popup and zero or more child popups are
+  open.
+
+`MenuBar.Open()` opens the first root popup. F10 and Ctrl-Space enter the
+bar-active state. Exact Alt plus a root mnemonic opens that root popup
+directly.
+
+Opening saves current Button focus. Complete close restores it when still
+eligible; otherwise stable-tree focus repair chooses the first eligible
+Button. Hiding, destroying, or invalidating the MenuBar closes safely.
+
+Every non-separator item, including a disabled or unknown command, is
+selectable so disabled presentation can be inspected. Only a submenu or an
+enabled registered command is activatable. Command-state changes retain a
+still-structural selection and update its enabled style and reason; they
+never activate a disabled or unknown command.
 
 ## Keyboard Resolution
 
@@ -95,97 +122,102 @@ mnemonics and global chords.
 
 When closed:
 
-- exact Alt plus a top-level mnemonic opens that popup (`Alt-F` is the
-  required acceptance path);
-- F10 opens the first top-level popup; and
-- Ctrl-Space is the documented non-Alt/non-function-key fallback.
+- exact Alt plus a root mnemonic opens that popup;
+- F10 activates the first root label without opening its popup; and
+- Ctrl-Space provides the documented non-Alt/non-function-key fallback with
+  the same bar-active behavior.
 
-F10 and Ctrl-Space close an already open session. While open:
+F10 and Ctrl-Space close an existing session. While only the bar is active:
 
-- Up/Down move cyclically among enabled non-separator items;
-- Home/End select the first/last eligible item;
-- Right opens a selected submenu, or switches to the next top-level menu;
-- Left closes one nested submenu, or switches to the previous top-level menu;
-- Enter opens a selected submenu or activates a selected command;
-- an unmodified sibling mnemonic selects and opens/activates that item;
-- Alt plus a top-level mnemonic switches directly to that popup; and
-- Escape closes one nested submenu, then closes/restores the complete session
-  at the root popup.
+- Left/Right select the previous/next root cyclically;
+- Down or Enter opens the selected root popup;
+- an unmodified root mnemonic selects and opens that root; and
+- Escape closes and restores focus.
 
-Selection never activates. Command activation closes and restores focus
-before invoking the shared router outside toolkit locks. Button, HotkeyBar,
-MenuItem, mnemonic, bound chord, and direct automation routes therefore use
-the same command definition, target-independent command identity, outcome,
-and correlated snapshot path.
+While a popup is active:
 
-## Rendering And Geometry
+- Up/Down move cyclically among non-separator items, including disabled ones;
+- Home/End select the first/last non-separator item;
+- Right opens a selected submenu, or switches the root popup;
+- Left closes one child popup, or switches the root popup;
+- Enter opens a selected submenu or activates an enabled command;
+- an unmodified sibling mnemonic opens/activates only an activatable item;
+- Alt plus a root mnemonic switches directly to that popup; and
+- Escape closes one child level, then closes/restores at the root popup.
 
-MenuBar occupies one ordinary Layout-managed row. It renders every top-level
-label in stable order with a non-color selection/open cue. The App paints open
-popup menus as a deterministic overlay after the ordinary control tree and
-before the existing overflow warning.
+Selection never activates. Activation closes/restores before the router runs
+outside toolkit locks. Button, HotkeyBar, MenuItem, mnemonic, bound chord, and
+direct automation routes use the same command definition and correlated
+completion path.
 
-Popups use single-line canonical borders, checked markers, submenu arrows,
-structured current shortcut text, a non-color focus marker, and explicit
-disabled presentation. Popup, border, focused-row, and disabled-row styles
-are semantic MenuBar options with Theme defaults.
+## Turbo Vision Look And Feel
 
-Popup rectangles clamp to the current App surface. A constrained popup keeps
-the selected row visible using a deterministic viewport and top/bottom
-continuation markers. Nested popups prefer the right side and fall back left
-when needed. Zero/tiny geometry retains semantic open/selection state without
-invalid cells. Resize never changes item identity or activates an item.
+The default semantic palette roles are:
+
+| Role | Default presentation |
+|---|---|
+| MenuBar, popup, and border | black on light gray |
+| mnemonic | red on light gray |
+| selected item/root | black on green |
+| selected mnemonic | red on green |
+| disabled item | dark gray on light gray |
+| selected disabled item | dark gray on green |
+| shadow | black on black |
+
+Top-level labels have one blank cell on each side and no brackets or
+synthetic selection marker. Their mnemonic letter alone uses the mnemonic
+role. The rest of the physical row is filled with MenuBar style.
+
+Popups use a light-gray body, single-line border, red mnemonic letters,
+green selected row, disabled roles, right-aligned structured shortcut,
+checkmark column, right-pointing submenu indicator, tee-connected separator,
+and a two-column-right/one-row-down black shadow. A selected row has no
+synthetic `>` marker. Terminal projection may map the canonical check,
+triangle, separator, and line glyphs to DEC Special Graphics or ASCII.
+
+## Popup Measurement And Placement
+
+Every popup measures all current effective labels, shortcut text, check
+column, submenu indicator, padding, and border. It is sized to fit the widest
+entry when the surface permits.
+
+A child popup prefers a small right/down cascade from its selected parent
+row. If that rectangle would cross the right edge, its X position is backset
+left until the complete measured popup fits. This may overlap its parent.
+Only a popup wider or taller than the physical surface is clipped.
+
+A vertically constrained popup keeps the selection visible through a
+deterministic viewport and top/bottom continuation markers. Zero/tiny
+geometry retains semantic open and selection state without invalid cells.
+Resize never changes identity or activates an item.
 
 ## Snapshots And Automation
 
-`MenuBarDetails` contains one bounded flattened entry list in stable
-depth-first order. Every entry exposes key, parent key, depth, kind, effective
-label, command state, mnemonic, current structured chord, selected/open
-flags, and child count. It also exposes the ordered open and selected item-key
-paths. Flattening prevents recursive wire depth from tracking Menu depth.
+`MenuBarDetails` contains a bounded depth-first flat entry list. Entries
+expose key, parent, depth, kind, effective label, command state, mnemonic,
+structured chord, selected/open flags, and child count. Ordered selected and
+open key paths distinguish bar-active selection from popup state: bar-active
+has a root SelectedPath and an empty OpenPath.
 
 Core and automation snapshots deep-copy all slices and chord modifiers.
-Automation validates per-menu, aggregate, depth, identity, sibling mnemonic,
-command-state, and path consistency bounds. The response-size proof includes
-the maximum aggregate Menu contribution.
+Automation validates resource, identity, sibling mnemonic, command-state, and
+path bounds. Popup pixels remain ordinary intended-frame cells and therefore
+need no menu-specific wire representation.
 
-## Catalog Screens
+## Catalog And Verification
 
-`expletives-test` retains one persistent MenuBar and one visible
-purpose-specific screen under a shared content Panel. Normal stable commands
-select Core/Layout, Text/Display, or Actions screens. Screen switching is an
-ordinary public transaction that changes Panel visibility; it does not
-reparent controls, create a test-only automation operation, or bypass command
-policy.
+`expletives-test` owns one root-level persistent MenuBar and exactly one
+visible purpose-specific catalog screen. File, View, and Actions commands use
+ordinary public commands and transactions; screen switching never reparents
+controls or introduces test-only automation operations.
 
-The initial menus are:
+Normal Go tests cover construction, immutable copies, invalid trees,
+root-chrome ownership, geometry mutation and Layout rejection, surface and
+root-constraint resize, row reservation, F10 bar activation, traversal,
+disabled selection/nonactivation, mnemonics, nesting, focus restoration,
+exact style roles, separators, shadows, measured popup width, child backset,
+tiny viewports, snapshot paths, concurrency, and response bounds.
 
-- File: Quit;
-- View: Core/Layout, Text/Display, Actions, a separator, and a disabled future
-  screen item; and
-- Actions: Toggle, Reset, and a nested Stacking menu.
-
-The current screen command is checked. Menu commands, direct commands, and
-attached automation produce the same screen state and semantic snapshot.
-
-## Verification
-
-Normal Go tests cover construction/copying, invalid item shapes, tree alias
-and capacity rejection, command replacement/removal, focus save/restore,
-every open/close path, traversal and skipping, mnemonics, F10, Ctrl-Space,
-nested popups, checked/disabled/shortcut rendering, clipping/viewports,
-resize, transactions, snapshots, concurrency, and response bounds.
-
-The attached demo proof opens View with raw Alt-V, selects Actions, activates
-an Action menu item, opens a nested popup, dismisses/restores focus, switches
-screens through the shared command path, and exits through ordinary
-application quit policy. PTY coverage proves physical Alt-F, F10, arrows,
-Enter, Escape, Ctrl-Space, resize, Ctrl-C, and terminal restoration where the
-selected decoder profile exposes those keys.
-
-The 2026-07-30 acceptance run passed `make verify`, including ordinary,
-Unix-socket, controlling-PTY, full-race, all-mode build, and smoke/self-check
-coverage. The response proof measured 37,214,739 JSON bytes and 111,644,217
-bytes for three retained maxima, within the 36 MiB line and 128 MiB retained
-budgets. The three-second display/command-label fuzz run executed 285,312
-cases, and all packages compiled for CGO-free Linux arm64.
+Attached and PTY tests exercise raw Alt-F, F10, Ctrl-Space, arrows, Enter,
+Escape, nested popups, commands, resize, Ctrl-C, and clean terminal
+restoration through the same logical input path.

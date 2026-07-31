@@ -9,6 +9,26 @@
 
 ## Observed Opportunities
 
+### 26. Exercise New Semantic States Through The Public Client Early
+
+The core Menu tests accepted the new F10 bar-active state, but the first live
+attached request exposed a duplicated automation-client invariant that still
+required every selected root to be open. The full gate would also have caught
+it, but only after more unrelated work and output.
+
+Improvement:
+
+- add a focused automation validation fixture whenever a core semantic state
+  gains a new legal path shape;
+- run one reduced public-client projection immediately after that state first
+  works in core tests; and
+- keep the reduced query limited to the changed semantic path and a few frame
+  cells rather than serializing the complete expanded snapshot.
+
+Applied immediately: bar-active and selected-disabled Menu fixtures now pass
+the public-client validator, invalid deeper selections without an open popup
+remain rejected, and the live check used a compact menu/row projection.
+
 ### 23. Bound Frame-Heavy Failure Diagnostics
 
 One attached-automation assertion formatted an entire completion when a

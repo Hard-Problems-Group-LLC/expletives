@@ -353,6 +353,7 @@ func (a *App) renderLocked() Snapshot {
 		Layouts:      layouts,
 		Overflows:    overflows,
 	}
+	a.paintMenuBarChromeLocked(&snapshot.Frame)
 	a.paintMenuOverlayLocked(&snapshot.Frame)
 	a.paintOverflowWarningLocked(&snapshot.Frame, overflows)
 	return snapshot
@@ -371,7 +372,12 @@ func (a *App) paintControlLocked(
 	}
 	bounds := state.bounds
 	absolute := bounds
-	if !state.root {
+	_, menuBar := state.behavior.(menuBarBehavior)
+	if menuBar {
+		bounds = menuBarSurfaceRect(a.size)
+		absolute = bounds
+		ancestorClip = Rect{Width: a.size.Width, Height: a.size.Height}
+	} else if !state.root {
 		absolute.X += parentOrigin.X
 		absolute.Y += parentOrigin.Y
 	}
@@ -426,15 +432,19 @@ func (a *App) paintControlLocked(
 		Details:        details,
 	})
 
-	if visible && !clip.Empty() {
+	if visible && !clip.Empty() && !menuBar {
 		a.fillLocked(frame, clip, state.style, state.id)
 		state.behavior.paintDecoration(a, frame, state, absolute, clip)
 	}
 
 	clientRect := absolute
-	clientInset := state.behavior.clientInset()
-	if clientInset != 0 {
-		clientRect = insetRect(absolute, clientInset)
+	if state.root {
+		clientRect = a.rootContentRectLocked()
+	} else {
+		clientInset := state.behavior.clientInset()
+		if clientInset != 0 {
+			clientRect = insetRect(absolute, clientInset)
+		}
 	}
 	childClip := clip.Intersect(clientRect)
 	childOrigin := Point{X: clientRect.X, Y: clientRect.Y}
@@ -476,6 +486,33 @@ func (a *App) paintControlLocked(
 			controls,
 		)
 	}
+}
+
+func (a *App) applicationContentRectLocked() Rect {
+	content := Rect{Width: a.size.Width, Height: a.size.Height}
+	if bar := a.firstMenuBarLocked(); bar != nil && content.Height > 0 {
+		content.Y++
+		content.Height--
+	}
+	return content
+}
+
+func (a *App) rootContentRectLocked() Rect {
+	return a.root.state.bounds.Intersect(a.applicationContentRectLocked())
+}
+
+func (a *App) paintMenuBarChromeLocked(frame *IntendedFrame) {
+	state := a.firstMenuBarLocked()
+	if state == nil {
+		return
+	}
+	behavior := state.behavior.(menuBarBehavior)
+	rect := menuBarSurfaceRect(a.size)
+	if rect.Empty() {
+		return
+	}
+	a.fillLocked(frame, rect, state.style, state.id)
+	behavior.paintDecoration(a, frame, state, rect, rect)
 }
 
 func (a *App) paintLayoutLocked(

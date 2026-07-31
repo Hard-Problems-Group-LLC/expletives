@@ -1138,9 +1138,6 @@ func validMenuBarDetails(
 		default:
 			return false
 		}
-		if entry.Selected && !entry.Enabled {
-			return false
-		}
 		entries[entry.Key] = entry
 	}
 	if menuCount > expletives.MaxMenus {
@@ -1156,7 +1153,7 @@ func validMenuBarDetails(
 		!validMenuPath(bar.SelectedPath, entries, false, limits) ||
 		len(bar.OpenPath) > len(bar.SelectedPath) ||
 		len(bar.SelectedPath) > len(bar.OpenPath)+1 ||
-		(len(bar.OpenPath) == 0 && len(bar.SelectedPath) != 0) {
+		(len(bar.OpenPath) == 0 && len(bar.SelectedPath) > 1) {
 		return false
 	}
 	for index, key := range bar.OpenPath {

@@ -59,6 +59,14 @@ func DefaultTheme() Theme {
 		Foreground: white,
 		Background: black,
 	}
+	menuNormal := ResolvedStyle{
+		Foreground: black,
+		Background: RGB(0xC0, 0xC0, 0xC0),
+	}
+	menuSelected := ResolvedStyle{
+		Foreground: black,
+		Background: RGB(0x00, 0xAA, 0x00),
+	}
 	styles := map[StyleID]ResolvedStyle{
 		"application.root": resolved,
 		"panel":            resolved,
@@ -73,15 +81,28 @@ func DefaultTheme() Theme {
 		"rule":             resolved,
 		"button":           resolved,
 		"hotkey_bar":       resolved,
-		"menu_bar":         resolved,
-		"menu.popup":       resolved,
-		"menu.border":      resolved,
-		"menu.focused": ResolvedStyle{
-			Foreground: black,
-			Background: white,
+		"menu_bar":         menuNormal,
+		"menu.popup":       menuNormal,
+		"menu.border":      menuNormal,
+		"menu.mnemonic": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: menuNormal.Background,
+		},
+		"menu.focused": menuSelected,
+		"menu.focused_mnemonic": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: menuSelected.Background,
 		},
 		"menu.disabled": ResolvedStyle{
 			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: menuNormal.Background,
+		},
+		"menu.focused_disabled": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: menuSelected.Background,
+		},
+		"menu.shadow": {
+			Foreground: black,
 			Background: black,
 		},
 	}

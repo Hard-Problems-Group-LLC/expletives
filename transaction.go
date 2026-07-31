@@ -221,6 +221,9 @@ func (t *Transaction) SetBounds(control Control, bounds Rect) error {
 	if state.root {
 		return errors.New("expletives: root bounds follow App root constraints")
 	}
+	if state.kind == ControlMenuBar {
+		return errors.New("expletives: MenuBar bounds follow the application surface")
+	}
 	if err := t.reserveOperation(); err != nil {
 		return err
 	}
@@ -243,6 +246,9 @@ func (t *Transaction) SetMinimumSize(control Control, size Size) error {
 	}
 	if state.root {
 		return errors.New("expletives: use SetRootConstraints for the root minimum")
+	}
+	if state.kind == ControlMenuBar {
+		return errors.New("expletives: MenuBar minimum is intrinsic")
 	}
 	if err := t.reserveOperation(); err != nil {
 		return err
@@ -1029,6 +1035,14 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		t.app.root.state.minimumSize = targetConstraints.Minimum
 		changed = true
 	}
+	menuBounds := menuBarSurfaceRect(targetSize)
+	for _, state := range t.app.controlsByID {
+		if state.kind == ControlMenuBar && !state.destroyed &&
+			state.bounds != menuBounds {
+			state.bounds = menuBounds
+			changed = true
+		}
+	}
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
 		case mutationBounds:
@@ -1188,6 +1202,12 @@ func (t *Transaction) validateLayoutTreeLocked(
 				destroyed[panel] {
 				return 0, 0, fmt.Errorf(
 					"%w: Panel item is not an available direct child",
+					ErrInvalidLayout,
+				)
+			}
+			if panel.kind == ControlMenuBar {
+				return 0, 0, fmt.Errorf(
+					"%w: application chrome cannot be a Layout item",
 					ErrInvalidLayout,
 				)
 			}

@@ -250,8 +250,22 @@ func lineArtFallback(value rune, mode glyphMode) (byte, bool, bool) {
 		ascii, dec = '+', 'm'
 	case '┘', '╝':
 		ascii, dec = '+', 'j'
+	case '├', '╠':
+		ascii, dec = '+', 't'
+	case '┤', '╣':
+		ascii, dec = '+', 'u'
+	case '┬', '╦':
+		ascii, dec = '+', 'w'
+	case '┴', '╩':
+		ascii, dec = '+', 'v'
+	case '┼', '╬':
+		ascii, dec = '+', 'n'
 	case '░', '▒', '▓', '█':
 		return '#', false, true
+	case '►':
+		return '>', false, true
+	case '√', '✓':
+		return '*', false, true
 	default:
 		return 0, false, false
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -137,7 +138,6 @@ func buildMenuFixture(
 	bar, err := NewMenuBar(app.Root(), MenuBarOptions{
 		PanelOptions: PanelOptions{
 			AutomationKey: "menu.main",
-			Bounds:        Rect{Width: 42, Height: 1},
 		},
 		Items: []MenuItem{
 			{
@@ -193,8 +193,17 @@ func TestMenuConstructionSnapshotCopyAndRendering(t *testing.T) {
 		len(state.Details.MenuBar.OpenPath) != 0 {
 		t.Fatalf("closed MenuBar snapshot = %#v", state)
 	}
-	if got := rowText(snapshot, 0)[:12]; got != " File  View " {
+	if got := rowText(snapshot, 0)[:12]; got != "  File  View" {
 		t.Fatalf("MenuBar row = %q", got)
+	}
+	if state.Bounds != (Rect{Width: 42, Height: 1}) ||
+		state.AbsoluteBounds != (Rect{Width: 42, Height: 1}) ||
+		state.EffectiveClip != (Rect{Width: 42, Height: 1}) {
+		t.Fatalf("MenuBar physical chrome geometry = %#v", state)
+	}
+	if got := cellAt(t, snapshot, 2, 0); got.Grapheme != "F" ||
+		got.Style != "menu.mnemonic" {
+		t.Fatalf("File mnemonic cell = %#v", got)
 	}
 
 	pressChord(t, app, "alt-file", KeyAlt, "f")
@@ -223,6 +232,40 @@ func TestMenuConstructionSnapshotCopyAndRendering(t *testing.T) {
 			foundFocused,
 		)
 	}
+	if got := cellAt(t, snapshot, 2, 0); got.Style != "menu.focused_mnemonic" {
+		t.Fatalf("focused File mnemonic cell = %#v", got)
+	}
+	if got := cellAt(t, snapshot, 2, 2); got.Grapheme == ">" {
+		t.Fatalf("popup retained synthetic selection marker: %#v", got)
+	}
+}
+
+func TestDefaultThemeUsesTurboVisionMenuPaletteRoles(t *testing.T) {
+	t.Parallel()
+	theme := DefaultTheme()
+	cases := map[StyleID]ResolvedStyle{
+		"menu_bar": {
+			Foreground: RGB(0x00, 0x00, 0x00),
+			Background: RGB(0xC0, 0xC0, 0xC0),
+		},
+		"menu.mnemonic": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: RGB(0xC0, 0xC0, 0xC0),
+		},
+		"menu.focused": {
+			Foreground: RGB(0x00, 0x00, 0x00),
+			Background: RGB(0x00, 0xAA, 0x00),
+		},
+		"menu.focused_mnemonic": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: RGB(0x00, 0xAA, 0x00),
+		},
+	}
+	for id, want := range cases {
+		if got, found := theme.Resolve(id); !found || got != want {
+			t.Errorf("DefaultTheme().Resolve(%q) = %+v, %t; want %+v", id, got, found, want)
+		}
+	}
 }
 
 func TestMenuKeyboardTraversalActivationAndFocusRestore(t *testing.T) {
@@ -247,8 +290,13 @@ func TestMenuKeyboardTraversalActivationAndFocusRestore(t *testing.T) {
 	}
 	pressKey(t, app, "down-skips", KeyDown)
 	details = menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar
+	if got := details.SelectedPath[len(details.SelectedPath)-1]; got != "item.disabled" {
+		t.Fatalf("Down selected %q, want item.disabled", got)
+	}
+	pressKey(t, app, "down-next", KeyDown)
+	details = menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar
 	if got := details.SelectedPath[len(details.SelectedPath)-1]; got != "item.advanced" {
-		t.Fatalf("Down selected %q, want item.advanced", got)
+		t.Fatalf("second Down selected %q, want item.advanced", got)
 	}
 	pressKey(t, app, "right-open", KeyRight)
 	details = menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar
@@ -292,9 +340,14 @@ func TestMenuKeyboardTraversalActivationAndFocusRestore(t *testing.T) {
 		t.Fatalf("Escape did not restore prior focus")
 	}
 	pressChord(t, app, "ctrl-space-open", KeyControl, KeySpace)
+	details = menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar
+	if len(details.OpenPath) != 0 || len(details.SelectedPath) != 1 {
+		t.Fatalf("Ctrl-Space did not activate menu bar: %#v", details)
+	}
+	pressKey(t, app, "down-opens", KeyDown)
 	if len(menuBarByKey(t, app.Snapshot(), "menu.main").
 		Details.MenuBar.OpenPath) == 0 {
-		t.Fatal("Ctrl-Space did not open menu")
+		t.Fatal("Down did not open active menu")
 	}
 	pressKey(t, app, "f10-close", "f10")
 	if app.Focused() != button {
@@ -337,7 +390,100 @@ func TestMenuProgrammaticSessionAndVisibilityRepair(t *testing.T) {
 	}
 }
 
-func TestMenuCommandInvalidationRepairsSelection(t *testing.T) {
+func TestMenuBarOwnsPhysicalTopRowAndReservesRootContent(t *testing.T) {
+	t.Parallel()
+	app, button, bar, _, _ := buildMenuFixture(t)
+	layout, err := NewBoxLayout(Vertical, BoxLayoutOptions{
+		AutomationKey: "layout.menu-content",
+	})
+	if err != nil {
+		t.Fatalf("NewBoxLayout() error = %v", err)
+	}
+	if err := layout.AddPanel(button, LayoutItemOptions{Grow: 1}); err != nil {
+		t.Fatalf("AddPanel(button) error = %v", err)
+	}
+	tx := app.NewTransaction()
+	if err := tx.SetLayout(app.Root(), layout); err != nil {
+		t.Fatalf("SetLayout(root) error = %v", err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("layout Commit() error = %v", err)
+	}
+	if got := button.Bounds(); got != (Rect{Y: 0, Width: 42, Height: 11}) {
+		t.Fatalf("root content bounds with MenuBar = %+v", got)
+	}
+	if got := controlByKey(t, app.Snapshot(), "button.focus").AbsoluteBounds; got != (Rect{Y: 1, Width: 42, Height: 11}) {
+		t.Fatalf("root content absolute bounds with MenuBar = %+v", got)
+	}
+	if err := bar.SetVisible(false); err != nil {
+		t.Fatalf("MenuBar.SetVisible(false) error = %v", err)
+	}
+	if got := button.Bounds(); got != (Rect{Width: 42, Height: 12}) {
+		t.Fatalf("root content bounds without MenuBar = %+v", got)
+	}
+
+	if err := bar.SetBounds(Rect{Width: 1, Height: 1}); err == nil {
+		t.Fatal("MenuBar.SetBounds() succeeded")
+	}
+	if err := bar.SetMinimumSize(Size{Width: 1, Height: 1}); err == nil {
+		t.Fatal("MenuBar.SetMinimumSize() succeeded")
+	}
+}
+
+func TestMenuBarRejectsOrdinaryParentAndLayoutMembership(t *testing.T) {
+	t.Parallel()
+	app, _, bar, _, _ := buildMenuFixture(t)
+	parent := mustPanel(t, app.Root(), PanelOptions{
+		AutomationKey: "ordinary.parent",
+	})
+	items := bar.Items()
+	if _, err := NewMenuBar(parent, MenuBarOptions{
+		Items: items,
+	}); !errors.Is(err, ErrInvalidParent) {
+		t.Fatalf("ordinary-parent MenuBar error = %v", err)
+	}
+	layout, err := NewBoxLayout(Vertical, BoxLayoutOptions{})
+	if err != nil {
+		t.Fatalf("NewBoxLayout() error = %v", err)
+	}
+	if err := layout.AddPanel(bar, LayoutItemOptions{}); err != nil {
+		t.Fatalf("AddPanel(MenuBar) staging error = %v", err)
+	}
+	tx := app.NewTransaction()
+	if err := tx.SetLayout(app.Root(), layout); err != nil {
+		t.Fatalf("SetLayout(MenuBar layout) staging error = %v", err)
+	}
+	if err := tx.Commit(context.Background()); !errors.Is(err, ErrInvalidLayout) {
+		t.Fatalf("MenuBar Layout Commit() error = %v", err)
+	}
+}
+
+func TestMenuBarIgnoresRootConstraintsAndTracksSurfaceResize(t *testing.T) {
+	t.Parallel()
+	app, _, _, _, _ := buildMenuFixture(t)
+	if err := app.SetRootConstraints(RootConstraints{
+		Maximum: Size{Width: 20, Height: 8},
+	}); err != nil {
+		t.Fatalf("SetRootConstraints() error = %v", err)
+	}
+	snapshot := app.Snapshot()
+	root := controlByKey(t, snapshot, "root")
+	bar := menuBarByKey(t, snapshot, "menu.main")
+	if root.Bounds != (Rect{X: 11, Y: 2, Width: 20, Height: 8}) ||
+		bar.AbsoluteBounds != (Rect{Width: 42, Height: 1}) {
+		t.Fatalf("constrained root/menu geometry = root:%+v menu:%+v", root.Bounds, bar.AbsoluteBounds)
+	}
+	if err := app.SetSize(Size{Width: 60, Height: 16}); err != nil {
+		t.Fatalf("SetSize() error = %v", err)
+	}
+	bar = menuBarByKey(t, app.Snapshot(), "menu.main")
+	if bar.Bounds != (Rect{Width: 60, Height: 1}) ||
+		bar.AbsoluteBounds != bar.Bounds {
+		t.Fatalf("resized MenuBar geometry = %+v", bar)
+	}
+}
+
+func TestMenuCommandInvalidationRetainsDisabledSelection(t *testing.T) {
 	t.Parallel()
 	app, _, _, _, _ := buildMenuFixture(t)
 	pressChord(t, app, "open-file", KeyAlt, "f")
@@ -345,8 +491,8 @@ func TestMenuCommandInvalidationRepairsSelection(t *testing.T) {
 		t.Fatalf("RemoveCommand() error = %v", err)
 	}
 	details := menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar
-	if got := details.SelectedPath[len(details.SelectedPath)-1]; got != "item.advanced" {
-		t.Fatalf("repaired selection = %q, want item.advanced", got)
+	if got := details.SelectedPath[len(details.SelectedPath)-1]; got != "item.open" {
+		t.Fatalf("retained selection = %q, want item.open", got)
 	}
 	for _, entry := range details.Entries {
 		if entry.Key == "item.open" &&
@@ -497,5 +643,34 @@ func TestMenuPopupClipsAcrossTinyResize(t *testing.T) {
 			Details.MenuBar.OpenPath) == 0 {
 			t.Fatalf("SetSize(%+v) closed menu session", size)
 		}
+	}
+}
+
+func TestChildMenuMeasuresEntriesAndBacksetsFromRightEdge(t *testing.T) {
+	t.Parallel()
+	app, _, _, _, _ := buildMenuFixture(t)
+	if err := app.SetSize(Size{Width: 22, Height: 12}); err != nil {
+		t.Fatalf("SetSize() error = %v", err)
+	}
+	pressChord(t, app, "open-file", KeyAlt, "f")
+	pressKey(t, app, "select-advanced", KeyEnd)
+	pressKey(t, app, "open-advanced", KeyRight)
+	snapshot := app.Snapshot()
+	found := false
+	for y := 0; y < snapshot.Frame.Size.Height; y++ {
+		if strings.Contains(rowText(snapshot, y), "Nested Action") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		rows := make([]string, snapshot.Frame.Size.Height)
+		for y := range rows {
+			rows[y] = rowText(snapshot, y)
+		}
+		t.Fatalf(
+			"measured/backset child menu clipped its entry:\n%s",
+			strings.Join(rows, "\n"),
+		)
 	}
 }
