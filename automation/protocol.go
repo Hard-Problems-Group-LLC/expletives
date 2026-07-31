@@ -153,7 +153,7 @@ type Limits struct {
 func DefaultLimits() Limits {
 	return Limits{
 		RequestLineBytes:         64 << 10,
-		ResponseLineBytes:        36 << 20,
+		ResponseLineBytes:        40 << 20,
 		JSONDepth:                16,
 		RequestIDBytes:           64,
 		IdentifierBytes:          64,

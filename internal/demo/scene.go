@@ -11,41 +11,49 @@ import (
 )
 
 const (
-	ScenarioID                                  = "toolkit.catalog"
-	CommandFixtureToggle   expletives.CommandID = "fixture.toggle"
-	CommandPanelRaise      expletives.CommandID = "layout.panel.raise"
-	CommandPanelLower      expletives.CommandID = "layout.panel.lower"
-	CommandLayerRaise      expletives.CommandID = "layout.layer.raise"
-	CommandLayerLower      expletives.CommandID = "layout.layer.lower"
-	CommandScenarioReset   expletives.CommandID = "scenario.reset"
-	CommandViewHome        expletives.CommandID = "view.home"
-	CommandViewText        expletives.CommandID = "view.text"
-	CommandViewActions     expletives.CommandID = "view.actions"
-	CommandViewMenus       expletives.CommandID = "view.menus"
-	CommandViewAbout       expletives.CommandID = "view.about"
-	CommandViewPanelsCore  expletives.CommandID = "view.panels.core"
-	CommandViewPanelStyles expletives.CommandID = "view.panels.styles"
-	CommandViewLayoutBox   expletives.CommandID = "view.layouts.box"
-	CommandViewLayoutGrid  expletives.CommandID = "view.layouts.grid"
-	CommandPanelScrollbars expletives.CommandID = "catalog.panels.scrollbars"
-	CommandLayoutAbsolute  expletives.CommandID = "catalog.layouts.absolute"
-	CommandStatusBar       expletives.CommandID = "catalog.controls.status"
-	CommandHeadersFooters  expletives.CommandID = "catalog.controls.headers_footers"
-	CommandSelection       expletives.CommandID = "catalog.controls.selection"
-	CommandTextInput       expletives.CommandID = "catalog.controls.input"
-	CommandProgress        expletives.CommandID = "catalog.controls.progress"
-	CommandNavigation      expletives.CommandID = "catalog.controls.navigation"
-	CommandScrolling       expletives.CommandID = "catalog.controls.scrolling"
-	CommandCollections     expletives.CommandID = "catalog.controls.collections"
-	CommandPanelMenu       expletives.CommandID = "catalog.menus.panel"
-	CommandContextMenu     expletives.CommandID = "catalog.menus.context"
-	CommandDialogMessage   expletives.CommandID = "catalog.dialogs.message"
-	CommandDialogConfirm   expletives.CommandID = "catalog.dialogs.confirm"
-	CommandDialogInput     expletives.CommandID = "catalog.dialogs.input"
-	CommandDialogProgress  expletives.CommandID = "catalog.dialogs.progress"
-	CommandUnavailable     expletives.CommandID = "fixture.unavailable"
-	CommandAppQuit         expletives.CommandID = "app.quit"
-	CommandAppInterrupt    expletives.CommandID = "app.interrupt"
+	ScenarioID                                   = "toolkit.catalog"
+	CommandFixtureToggle    expletives.CommandID = "fixture.toggle"
+	CommandPanelRaise       expletives.CommandID = "layout.panel.raise"
+	CommandPanelLower       expletives.CommandID = "layout.panel.lower"
+	CommandLayerRaise       expletives.CommandID = "layout.layer.raise"
+	CommandLayerLower       expletives.CommandID = "layout.layer.lower"
+	CommandScenarioReset    expletives.CommandID = "scenario.reset"
+	CommandAutomationNotice expletives.CommandID = "fixture.automation_notice"
+	CommandViewHome         expletives.CommandID = "view.home"
+	CommandViewText         expletives.CommandID = "view.text"
+	CommandViewActions      expletives.CommandID = "view.actions"
+	CommandViewMenus        expletives.CommandID = "view.menus"
+	CommandViewAbout        expletives.CommandID = "view.about"
+	CommandViewPanelsCore   expletives.CommandID = "view.panels.core"
+	CommandViewPanelStyles  expletives.CommandID = "view.panels.styles"
+	CommandViewLayoutBox    expletives.CommandID = "view.layouts.box"
+	CommandViewLayoutGrid   expletives.CommandID = "view.layouts.grid"
+	CommandPanelScrollbars  expletives.CommandID = "catalog.panels.scrollbars"
+	CommandLayoutAbsolute   expletives.CommandID = "catalog.layouts.absolute"
+	CommandStatusBar        expletives.CommandID = "chrome.status.show"
+	CommandHeadersShow      expletives.CommandID = "chrome.headers.show"
+	CommandHeadersAdd       expletives.CommandID = "chrome.headers.add"
+	CommandHeadersRemoveTop expletives.CommandID = "chrome.headers.remove_highest"
+	CommandHeadersRemoveLow expletives.CommandID = "chrome.headers.remove_lowest"
+	CommandFooterGlobalShow expletives.CommandID = "chrome.footer.global.show"
+	CommandFooterScreenShow expletives.CommandID = "chrome.footer.screen.show"
+	CommandFooterFocusShow  expletives.CommandID = "chrome.footer.focus.show"
+	CommandSelection        expletives.CommandID = "catalog.controls.selection"
+	CommandSelectionChanged expletives.CommandID = "selection.changed"
+	CommandTextInput        expletives.CommandID = "catalog.controls.input"
+	CommandProgress         expletives.CommandID = "catalog.controls.progress"
+	CommandNavigation       expletives.CommandID = "catalog.controls.navigation"
+	CommandScrolling        expletives.CommandID = "catalog.controls.scrolling"
+	CommandCollections      expletives.CommandID = "catalog.controls.collections"
+	CommandPanelMenu        expletives.CommandID = "catalog.menus.panel"
+	CommandContextMenu      expletives.CommandID = "catalog.menus.context"
+	CommandDialogMessage    expletives.CommandID = "catalog.dialogs.message"
+	CommandDialogConfirm    expletives.CommandID = "catalog.dialogs.confirm"
+	CommandDialogInput      expletives.CommandID = "catalog.dialogs.input"
+	CommandDialogProgress   expletives.CommandID = "catalog.dialogs.progress"
+	CommandUnavailable      expletives.CommandID = "fixture.unavailable"
+	CommandAppQuit          expletives.CommandID = "app.quit"
+	CommandAppInterrupt     expletives.CommandID = "app.interrupt"
 )
 
 var catalogScreens = []struct {
@@ -59,9 +67,8 @@ var catalogScreens = []struct {
 	{CommandViewLayoutGrid, "Grid Layout"},
 	{CommandViewText, "Text / Display"},
 	{CommandViewActions, "Actions"},
+	{CommandSelection, "Selection"},
 	{CommandViewMenus, "Menu Bar"},
-	{CommandStatusBar, "Status Bar"},
-	{CommandHeadersFooters, "Headers / Footers"},
 	{CommandViewAbout, "About"},
 }
 
@@ -100,11 +107,6 @@ var (
 		ID:         "fixture.yellow",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0xE8, 0xC8, 0x20),
-	}
-	bannerStyle = expletives.Style{
-		ID:         "fixture.automation",
-		Foreground: expletives.RGB(0x00, 0x00, 0x00),
-		Background: expletives.RGB(0xFF, 0xD7, 0x00),
 	}
 	menuStyle = expletives.Style{
 		ID:         "menu_bar",
@@ -176,21 +178,62 @@ var (
 		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
 		Background: expletives.RGB(0x78, 0x00, 0x78),
 	}
+	selectionBaseStyle = expletives.Style{
+		ID:         "selection.base",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	selectionMnemonicStyle = expletives.Style{
+		ID:         "selection.mnemonic",
+		Foreground: expletives.RGB(0xFF, 0x55, 0x55),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	selectionFocusedStyle = expletives.Style{
+		ID:         "selection.focused",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0xAA, 0x00),
+	}
+	selectionFocusedMnemonicStyle = expletives.Style{
+		ID:         "selection.focused_mnemonic",
+		Foreground: expletives.RGB(0xAA, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0xAA, 0x00),
+	}
+	selectionDisabledStyle = expletives.Style{
+		ID:         "selection.disabled",
+		Foreground: expletives.RGB(0x80, 0x80, 0x80),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
 )
 
 // Scene owns the catalog controls and its small application controller state.
 type Scene struct {
 	App *expletives.App
 
-	mu             sync.Mutex
-	accent         *expletives.Panel
-	accentControls []expletives.Control
-	layer          *expletives.BoxLayout
-	status         *expletives.StatusBar
-	chromeBands    []expletives.Control
-	screens        map[expletives.CommandID]*expletives.Panel
-	activeScreen   expletives.CommandID
-	toggled        bool
+	mu                      sync.Mutex
+	accent                  *expletives.Panel
+	accentControls          []expletives.Control
+	layer                   *expletives.BoxLayout
+	status                  *expletives.StatusBar
+	headers                 []*expletives.Header
+	globalHotkeyFooter      *expletives.Footer
+	screenHotkeyFooter      *expletives.Footer
+	focusGuidanceFooter     *expletives.Footer
+	selectionCheckbox       *expletives.Checkbox
+	selectionThreeState     *expletives.Checkbox
+	selectionRadioGroup     *expletives.RadioGroup
+	selectionCycleField     *expletives.CycleField
+	selectionSelectField    *expletives.SelectField
+	screens                 map[expletives.CommandID]*expletives.Panel
+	activeScreen            expletives.CommandID
+	automationEnabled       bool
+	automationNoticeVisible bool
+	statusVisible           bool
+	headersVisible          bool
+	globalFooterVisible     bool
+	screenFooterVisible     bool
+	focusFooterVisible      bool
+	nextHeader              int
+	toggled                 bool
 }
 
 // New constructs the complete fixture through the public toolkit API.
@@ -217,7 +260,6 @@ func NewWithRootConstraints(
 		greenStyle,
 		magentaStyle,
 		yellowStyle,
-		bannerStyle,
 		menuStyle,
 		menuPopupStyle,
 		menuBorderStyle,
@@ -232,6 +274,35 @@ func NewWithRootConstraints(
 		statusDisabledStyle,
 		headerStyle,
 		footerStyle,
+		expletives.Style{
+			ID:         "checkbox",
+			Foreground: selectionBaseStyle.Foreground,
+			Background: selectionBaseStyle.Background,
+		},
+		expletives.Style{
+			ID:         "radio_group",
+			Foreground: selectionBaseStyle.Foreground,
+			Background: selectionBaseStyle.Background,
+		},
+		expletives.Style{
+			ID:         "radio_button",
+			Foreground: selectionBaseStyle.Foreground,
+			Background: selectionBaseStyle.Background,
+		},
+		expletives.Style{
+			ID:         "cycle_field",
+			Foreground: selectionBaseStyle.Foreground,
+			Background: selectionBaseStyle.Background,
+		},
+		expletives.Style{
+			ID:         "select_field",
+			Foreground: selectionBaseStyle.Foreground,
+			Background: selectionBaseStyle.Background,
+		},
+		selectionMnemonicStyle,
+		selectionFocusedStyle,
+		selectionFocusedMnemonicStyle,
+		selectionDisabledStyle,
 	)
 	if err != nil {
 		return nil, err
@@ -246,7 +317,8 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	for _, definition := range initialCommandDefinitions() {
+	automationEnabled := automationPath != ""
+	for _, definition := range initialCommandDefinitions(automationEnabled) {
 		if err := app.RegisterCommand(definition); err != nil {
 			return nil, err
 		}
@@ -294,7 +366,11 @@ func NewWithRootConstraints(
 				AutomationKey: "status.main",
 				Style:         statusStyle.ID,
 			},
-			Segments:      catalogStatusSegments(CommandViewHome),
+			Segments: catalogStatusSegments(
+				CommandViewHome,
+				automationEnabled,
+				automationEnabled,
+			),
 			ShortcutStyle: statusShortcutStyle.ID,
 			DisabledStyle: statusDisabledStyle.ID,
 		},
@@ -327,9 +403,8 @@ func NewWithRootConstraints(
 	primaryFooter, err := transaction.NewFooter(
 		app.Root(),
 		expletives.FooterOptions{PanelOptions: expletives.PanelOptions{
-			AutomationKey: "footer.primary",
+			AutomationKey: "footer.hotkeys.global",
 			Style:         footerStyle.ID,
-			Hidden:        true,
 		}},
 	)
 	if err != nil {
@@ -338,9 +413,18 @@ func NewWithRootConstraints(
 	recentFooter, err := transaction.NewFooter(
 		app.Root(),
 		expletives.FooterOptions{PanelOptions: expletives.PanelOptions{
-			AutomationKey: "footer.recent",
+			AutomationKey: "footer.hotkeys.screen",
 			Style:         redStyle.ID,
-			Hidden:        true,
+		}},
+	)
+	if err != nil {
+		return nil, err
+	}
+	focusFooter, err := transaction.NewFooter(
+		app.Root(),
+		expletives.FooterOptions{PanelOptions: expletives.PanelOptions{
+			AutomationKey: "footer.guidance.focus",
+			Style:         greenStyle.ID,
 		}},
 	)
 	if err != nil {
@@ -417,6 +501,17 @@ func NewWithRootConstraints(
 		Style:         canvasStyle.ID,
 		Hidden:        true,
 	})
+	if err != nil {
+		return nil, err
+	}
+	selectionScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.selection",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -572,27 +667,29 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	footerOldest, err := transaction.NewLabel(
+	globalHotkeys, err := transaction.NewHotkeyBar(
 		primaryFooter,
-		expletives.LabelOptions{
+		expletives.HotkeyBarOptions{
 			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "footer.oldest", Style: footerStyle.ID,
+				AutomationKey: "footer.hotkeys.global.items",
+				Style:         footerStyle.ID,
 			},
-			Text:                "Oldest Footer - nearest Status Bar",
-			HorizontalAlignment: expletives.TextAlignCenter,
+			Items: []expletives.HotkeyBarItem{
+				{Command: CommandAppQuit},
+				{Command: CommandAppInterrupt},
+			},
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	footerNewest, err := transaction.NewLabel(
-		recentFooter,
-		expletives.LabelOptions{
+	focusGuidance, err := transaction.NewFocusGuideBar(
+		focusFooter,
+		expletives.FocusGuideBarOptions{
 			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "footer.newest", Style: redStyle.ID,
+				AutomationKey: "footer.guidance.focus.text",
+				Style:         greenStyle.ID,
 			},
-			Text:                "Most recent Footer - highest",
-			HorizontalAlignment: expletives.TextAlignCenter,
 		},
 	)
 	if err != nil {
@@ -988,35 +1085,222 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
-	bannerTitle := "Automation off"
-	if automationPath != "" {
-		bannerTitle = "UNAUTH AUTOMATION ENABLED: " + automationPath
-	}
-	banner, err := transaction.NewFrame(outer, expletives.FrameOptions{
-		PanelOptions: expletives.PanelOptions{
-			AutomationKey: "automation.status",
-			MinimumSize:   expletives.Size{Width: 20, Height: 3},
-			Style:         bannerStyle.ID,
+	checkboxGroup, err := transaction.NewGroupBox(
+		selectionScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.checkboxes",
+				MinimumSize:   expletives.Size{Width: 20, Height: 8},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Checkboxes",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
 		},
-		Title:       bannerTitle,
-		BorderStyle: bannerStyle.ID,
-		BorderForm:  expletives.BorderShadeMedium,
-	})
+	)
 	if err != nil {
 		return nil, err
 	}
+	selectionCheckbox, err := transaction.NewCheckbox(
+		checkboxGroup,
+		expletives.CheckboxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.checkbox.two_state",
+			},
+			Label:         "Two state",
+			Mnemonic:      "c",
+			ChangeCommand: CommandSelectionChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := transaction.SetFocusGuidance(
+		selectionCheckbox,
+		expletives.FocusGuidance{
+			Mode: expletives.FocusGuidanceAppend,
+			Text: "Two-state Selection demonstration",
+		},
+	); err != nil {
+		return nil, err
+	}
+	selectionThreeState, err := transaction.NewCheckbox(
+		checkboxGroup,
+		expletives.CheckboxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.checkbox.three_state",
+			},
+			Label:         "Three state",
+			Mnemonic:      "s",
+			State:         expletives.CheckIndeterminate,
+			ThreeState:    true,
+			ChangeCommand: CommandSelectionChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionCheckboxDisabled, err := transaction.NewCheckbox(
+		checkboxGroup,
+		expletives.CheckboxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.checkbox.disabled",
+			},
+			Label:          "Disabled",
+			Disabled:       true,
+			DisabledReason: "Demonstration Checkbox is disabled",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	radioBox, err := transaction.NewGroupBox(
+		selectionScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.radios",
+				MinimumSize:   expletives.Size{Width: 20, Height: 8},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Radio Group",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionRadioGroup, err := transaction.NewRadioGroup(
+		radioBox,
+		expletives.RadioGroupOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.radio.group",
+				MinimumSize:   expletives.Size{Width: 16, Height: 5},
+			},
+			ChangeCommand: CommandSelectionChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionRadioOne, err := transaction.NewRadioButton(
+		selectionRadioGroup,
+		expletives.RadioButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.radio.one",
+			},
+			Value: "one", Label: "Option one", Mnemonic: "o", Selected: true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionRadioDisabled, err := transaction.NewRadioButton(
+		selectionRadioGroup,
+		expletives.RadioButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.radio.disabled",
+			},
+			Value: "disabled", Label: "Disabled option",
+			Disabled:       true,
+			DisabledReason: "Demonstration option is disabled",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionRadioTwo, err := transaction.NewRadioButton(
+		selectionRadioGroup,
+		expletives.RadioButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.radio.two",
+			},
+			Value: "two", Label: "Option two", Mnemonic: "w",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	choiceGroup, err := transaction.NewGroupBox(
+		selectionScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.choices",
+				MinimumSize:   expletives.Size{Width: 26, Height: 8},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Cycle / Select",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionCycleField, err := transaction.NewCycleField(
+		choiceGroup,
+		expletives.CycleFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.cycle.wrap",
+			},
+			Label: "Wrap", Mnemonic: "m",
+			Options: []expletives.SelectionOption{
+				{Value: "alpha", Label: "Alpha"},
+				{
+					Value: "disabled", Label: "Disabled",
+					Disabled:       true,
+					DisabledReason: "Demonstration option is disabled",
+				},
+				{Value: "charlie", Label: "Charlie"},
+			},
+			Value:         "alpha",
+			ChangeCommand: CommandSelectionChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionSelectField, err := transaction.NewSelectField(
+		choiceGroup,
+		expletives.SelectFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.select.clamp",
+			},
+			Label: "Clamp", Mnemonic: "l",
+			Options: []expletives.SelectionOption{
+				{Value: "low", Label: "Low"},
+				{Value: "high", Label: "High"},
+			},
+			Value: "low", Clamp: true,
+			ChangeCommand: CommandSelectionChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	selectionEmptyField, err := transaction.NewCycleField(
+		choiceGroup,
+		expletives.CycleFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.cycle.empty",
+			},
+			Label: "Empty", Options: []expletives.SelectionOption{},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	hotkeyBar, err := transaction.NewHotkeyBar(
-		banner,
+		recentFooter,
 		expletives.HotkeyBarOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "action.hotkeys",
-				Style:         bannerStyle.ID,
+				Style:         greenStyle.ID,
 			},
 			Items: []expletives.HotkeyBarItem{
 				{Command: CommandFixtureToggle},
 				{Command: CommandScenarioReset},
-				{Command: CommandAppQuit},
-				{Command: CommandAppInterrupt},
 			},
 		},
 	)
@@ -1049,19 +1333,11 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	for _, item := range []struct {
-		control expletives.Control
-		grow    int
-	}{
-		{content, 1},
-		{banner, 0},
-	} {
-		if err := outerLayout.AddPanel(
-			item.control,
-			expletives.LayoutItemOptions{Grow: item.grow},
-		); err != nil {
-			return nil, err
-		}
+	if err := outerLayout.AddPanel(
+		content,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
 	}
 	screenControls := []struct {
 		key     string
@@ -1074,6 +1350,7 @@ func NewWithRootConstraints(
 		{"layouts.grid", layoutGridScreen},
 		{"text", textScreen},
 		{"actions", actionsScreen},
+		{"selection", selectionScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
 		{"headers_footers", chromeScreen},
@@ -1193,14 +1470,14 @@ func NewWithRootConstraints(
 	primaryFooterLayout, err := expletives.NewBoxLayout(
 		expletives.Horizontal,
 		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.footer.primary",
+			AutomationKey: "layout.footer.hotkeys.global",
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
 	if err := primaryFooterLayout.AddPanel(
-		footerOldest,
+		globalHotkeys,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
@@ -1208,14 +1485,29 @@ func NewWithRootConstraints(
 	recentFooterLayout, err := expletives.NewBoxLayout(
 		expletives.Horizontal,
 		expletives.BoxLayoutOptions{
-			AutomationKey: "layout.footer.recent",
+			AutomationKey: "layout.footer.hotkeys.screen",
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
 	if err := recentFooterLayout.AddPanel(
-		footerNewest,
+		hotkeyBar,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	focusFooterLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.footer.guidance.focus",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := focusFooterLayout.AddPanel(
+		focusGuidance,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
@@ -1518,20 +1810,109 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
-	hotkeyLayout, err := expletives.NewBoxLayout(
-		expletives.Horizontal,
-		expletives.BoxLayoutOptions{AutomationKey: "layout.hotkeys"},
+	selectionGrid, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
+			AutomationKey: "layout.selection.grid",
+			Columns:       3,
+			HorizontalGap: 1,
+		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := hotkeyLayout.AddPanel(
-		hotkeyBar,
+	for _, group := range []expletives.Control{
+		checkboxGroup,
+		radioBox,
+		choiceGroup,
+	} {
+		if err := selectionGrid.AddPanel(
+			group,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	checkboxLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.selection.checkboxes",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, checkbox := range []expletives.Control{
+		selectionCheckbox,
+		selectionThreeState,
+		selectionCheckboxDisabled,
+	} {
+		if err := checkboxLayout.AddPanel(
+			checkbox,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	radioBoxLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.selection.radio.box",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := radioBoxLayout.AddPanel(
+		selectionRadioGroup,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
 	}
-
+	radioGroupLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.selection.radio.group",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, radio := range []expletives.Control{
+		selectionRadioOne,
+		selectionRadioDisabled,
+		selectionRadioTwo,
+	} {
+		if err := radioGroupLayout.AddPanel(
+			radio,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	choiceLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.selection.choices",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, field := range []expletives.Control{
+		selectionCycleField,
+		selectionSelectField,
+		selectionEmptyField,
+	} {
+		if err := choiceLayout.AddPanel(
+			field,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
 	if err := transaction.SetLayout(app.Root(), rootLayout); err != nil {
 		return nil, err
 	}
@@ -1609,6 +1990,36 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(
+		selectionScreen,
+		selectionGrid,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		checkboxGroup,
+		checkboxLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		radioBox,
+		radioBoxLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		selectionRadioGroup,
+		radioGroupLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		choiceGroup,
+		choiceLayout,
+	); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
 		return nil, err
 	}
@@ -1642,13 +2053,16 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(
+		focusFooter,
+		focusFooterLayout,
+	); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(aboutScreen, aboutLayout); err != nil {
 		return nil, err
 	}
 	if err := transaction.SetLayout(actionPanel, actionLayout); err != nil {
-		return nil, err
-	}
-	if err := transaction.SetLayout(banner, hotkeyLayout); err != nil {
 		return nil, err
 	}
 	if err := transaction.Commit(context.Background()); err != nil {
@@ -1656,14 +2070,27 @@ func NewWithRootConstraints(
 	}
 
 	scene := &Scene{
-		App:    app,
-		accent: accent,
-		layer:  backLayout,
-		status: statusBar,
-		chromeBands: []expletives.Control{
-			primaryHeader, secondaryHeader, primaryFooter, recentFooter,
-		},
-		activeScreen: CommandViewHome,
+		App:                     app,
+		accent:                  accent,
+		layer:                   backLayout,
+		status:                  statusBar,
+		headers:                 []*expletives.Header{primaryHeader, secondaryHeader},
+		globalHotkeyFooter:      primaryFooter,
+		screenHotkeyFooter:      recentFooter,
+		focusGuidanceFooter:     focusFooter,
+		selectionCheckbox:       selectionCheckbox,
+		selectionThreeState:     selectionThreeState,
+		selectionRadioGroup:     selectionRadioGroup,
+		selectionCycleField:     selectionCycleField,
+		selectionSelectField:    selectionSelectField,
+		activeScreen:            CommandViewHome,
+		automationEnabled:       automationEnabled,
+		automationNoticeVisible: automationEnabled,
+		statusVisible:           true,
+		globalFooterVisible:     true,
+		screenFooterVisible:     true,
+		focusFooterVisible:      true,
+		nextHeader:              1,
 		accentControls: []expletives.Control{
 			accent,
 			textAccent,
@@ -1679,9 +2106,8 @@ func NewWithRootConstraints(
 			CommandViewLayoutGrid:  layoutGridScreen,
 			CommandViewText:        textScreen,
 			CommandViewActions:     actionsScreen,
+			CommandSelection:       selectionScreen,
 			CommandViewMenus:       menusScreen,
-			CommandStatusBar:       statusScreen,
-			CommandHeadersFooters:  chromeScreen,
 			CommandViewAbout:       aboutScreen,
 		},
 	}
@@ -1726,9 +2152,12 @@ func NewWithRootConstraints(
 	return scene, nil
 }
 
-func initialCommandDefinitions() []expletives.CommandDefinition {
+func initialCommandDefinitions(
+	automationEnabled bool,
+) []expletives.CommandDefinition {
 	definitions := []expletives.CommandDefinition{
 		toggleDefinition(false),
+		automationNoticeDefinition(automationEnabled, automationEnabled),
 		{
 			ID: CommandScenarioReset, Label: "Reset",
 			Description: "Reset the active demonstration scenario",
@@ -1761,6 +2190,59 @@ func initialCommandDefinitions() []expletives.CommandDefinition {
 			Description: "Lower the red Layout layer below the green layer",
 			Enabled:     true, Automation: true,
 		},
+		chromeToggleDefinition(
+			CommandStatusBar,
+			"Status Bar",
+			"Show the application Status Bar",
+			true,
+		),
+		chromeToggleDefinition(
+			CommandHeadersShow,
+			"Show",
+			"Show all current application Headers",
+			false,
+		),
+		chromeMutationDefinition(
+			CommandHeadersAdd,
+			"Add",
+			"Add one application Header",
+			true,
+		),
+		chromeMutationDefinition(
+			CommandHeadersRemoveTop,
+			"Remove Highest",
+			"Remove the physically highest application Header",
+			true,
+		),
+		chromeMutationDefinition(
+			CommandHeadersRemoveLow,
+			"Remove Lowest",
+			"Remove the physically lowest application Header",
+			true,
+		),
+		chromeToggleDefinition(
+			CommandFooterGlobalShow,
+			"Global Hotkeys",
+			"Show the lowest global-hotkey Footer",
+			true,
+		),
+		chromeToggleDefinition(
+			CommandFooterScreenShow,
+			"Screen Hotkeys",
+			"Show the current-screen hotkey Footer",
+			true,
+		),
+		chromeToggleDefinition(
+			CommandFooterFocusShow,
+			"Focus Guidance",
+			"Show the focused-control guidance Footer",
+			true,
+		),
+		{
+			ID: CommandSelectionChanged, Label: "Selection Changed",
+			Description: "Report a user-originated Selection control change",
+			Enabled:     true, Automation: true,
+		},
 		unavailableCatalogDefinition(
 			CommandPanelScrollbars,
 			"Panel Scroll Bars",
@@ -1770,11 +2252,6 @@ func initialCommandDefinitions() []expletives.CommandDefinition {
 			CommandLayoutAbsolute,
 			"Absolute Positioning",
 			"future Layout",
-		),
-		unavailableCatalogDefinition(
-			CommandSelection,
-			"Selection",
-			"Selection",
 		),
 		unavailableCatalogDefinition(
 			CommandTextInput,
@@ -1873,6 +2350,51 @@ func toggleDefinition(checked bool) expletives.CommandDefinition {
 	}
 }
 
+func chromeToggleDefinition(
+	id expletives.CommandID,
+	label string,
+	description string,
+	checked bool,
+) expletives.CommandDefinition {
+	return expletives.CommandDefinition{
+		ID: id, Label: label, Description: description,
+		Enabled: true, Checked: checked, Automation: true,
+	}
+}
+
+func chromeMutationDefinition(
+	id expletives.CommandID,
+	label string,
+	description string,
+	enabled bool,
+) expletives.CommandDefinition {
+	definition := expletives.CommandDefinition{
+		ID: id, Label: label, Description: description,
+		Enabled: enabled, Automation: true,
+	}
+	if !enabled {
+		definition.DisabledReason = "No application chrome band is available"
+	}
+	return definition
+}
+
+func automationNoticeDefinition(
+	automationEnabled bool,
+	checked bool,
+) expletives.CommandDefinition {
+	definition := expletives.CommandDefinition{
+		ID: CommandAutomationNotice, Label: "Automation Notice",
+		Description: "Show the unauthenticated automation warning in the Status Bar",
+		Enabled:     automationEnabled,
+		Checked:     automationEnabled && checked,
+		Automation:  true,
+	}
+	if !automationEnabled {
+		definition.DisabledReason = "Automation endpoint is not enabled"
+	}
+	return definition
+}
+
 func screenDefinition(
 	id expletives.CommandID,
 	checked bool,
@@ -1896,16 +2418,21 @@ func catalogScreenLabel(id expletives.CommandID) string {
 
 func catalogStatusSegments(
 	screen expletives.CommandID,
+	automationEnabled bool,
+	automationNoticeVisible bool,
 ) []expletives.StatusSegment {
-	return []expletives.StatusSegment{
-		{
-			Key: "screen", Text: catalogScreenLabel(screen),
-			Priority: 100,
-		},
-		{Key: "quit", Command: CommandAppQuit, Priority: 90},
-		{Key: "toggle", Command: CommandFixtureToggle, Priority: 50},
-		{Key: "disabled", Command: CommandUnavailable, Priority: 0},
+	segments := make([]expletives.StatusSegment, 0, 2)
+	if automationEnabled && automationNoticeVisible {
+		segments = append(segments, expletives.StatusSegment{
+			Key:      "automation",
+			Text:     "UNAUTHENTICATED AUTOMATION ENABLED",
+			Priority: 200,
+		})
 	}
+	return append(segments, expletives.StatusSegment{
+		Key: "screen", Text: catalogScreenLabel(screen),
+		Priority: 100,
+	})
 }
 
 func catalogMenuItems() ([]expletives.MenuItem, error) {
@@ -1916,6 +2443,15 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 				Command: CommandViewHome, Mnemonic: "h",
 			},
 			{Key: "menu.file.separator", Kind: expletives.MenuItemSeparator},
+			{
+				Key:     "menu.file.automation_notice",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandAutomationNotice, Mnemonic: "a",
+			},
+			{
+				Key:  "menu.file.separator.quit",
+				Kind: expletives.MenuItemSeparator,
+			},
 			{
 				Key: "menu.file.quit", Kind: expletives.MenuItemCommand,
 				Command: CommandAppQuit, Mnemonic: "q",
@@ -2021,6 +2557,78 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 	if err != nil {
 		return nil, err
 	}
+	headers, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key:     "menu.sections.headers.show",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandHeadersShow, Mnemonic: "s",
+			},
+			{
+				Key:     "menu.sections.headers.add",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandHeadersAdd, Mnemonic: "a",
+			},
+			{
+				Key:     "menu.sections.headers.remove_highest",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandHeadersRemoveTop, Mnemonic: "h",
+			},
+			{
+				Key:     "menu.sections.headers.remove_lowest",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandHeadersRemoveLow, Mnemonic: "l",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	footers, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key:     "menu.sections.footers.global",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandFooterGlobalShow, Mnemonic: "g",
+			},
+			{
+				Key:     "menu.sections.footers.screen",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandFooterScreenShow, Mnemonic: "s",
+			},
+			{
+				Key:     "menu.sections.footers.focus",
+				Kind:    expletives.MenuItemCommand,
+				Command: CommandFooterFocusShow, Mnemonic: "f",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	sections, err := expletives.NewMenu(expletives.MenuOptions{
+		Items: []expletives.MenuItem{
+			{
+				Key: "menu.sections.status", Kind: expletives.MenuItemCommand,
+				Command: CommandStatusBar, Mnemonic: "s",
+			},
+			{
+				Key:  "menu.sections.separator.chrome",
+				Kind: expletives.MenuItemSeparator,
+			},
+			{
+				Key: "menu.sections.headers", Kind: expletives.MenuItemSubmenu,
+				Label: "Headers", Mnemonic: "h", Menu: headers,
+			},
+			{
+				Key: "menu.sections.footers", Kind: expletives.MenuItemSubmenu,
+				Label: "Footers", Mnemonic: "f", Menu: footers,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 	controls, err := expletives.NewMenu(expletives.MenuOptions{
 		Items: []expletives.MenuItem{
 			{
@@ -2030,18 +2638,6 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 			{
 				Key: "menu.controls.actions", Kind: expletives.MenuItemCommand,
 				Command: CommandViewActions, Mnemonic: "a",
-			},
-			{
-				Key:  "menu.controls.separator.chrome",
-				Kind: expletives.MenuItemSeparator,
-			},
-			{
-				Key: "menu.controls.status", Kind: expletives.MenuItemCommand,
-				Command: CommandStatusBar, Mnemonic: "s",
-			},
-			{
-				Key: "menu.controls.headers", Kind: expletives.MenuItemCommand,
-				Command: CommandHeadersFooters, Mnemonic: "h",
 			},
 			{
 				Key:  "menu.controls.separator.future",
@@ -2146,6 +2742,10 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 			Label: "Controls", Mnemonic: "c", Menu: controls,
 		},
 		{
+			Key: "menu.sections", Kind: expletives.MenuItemSubmenu,
+			Label: "Sections", Mnemonic: "s", Menu: sections,
+		},
+		{
 			Key: "menu.menus", Kind: expletives.MenuItemSubmenu,
 			Label: "Menus", Mnemonic: "m", Menu: menus,
 		},
@@ -2227,7 +2827,59 @@ func (s *Scene) handleCommand(
 			return expletives.OutcomeFailed, err
 		}
 		return expletives.OutcomeApplied, nil
+	case CommandAutomationNotice:
+		if !s.automationEnabled {
+			return expletives.OutcomeRejected, nil
+		}
+		s.automationNoticeVisible = !s.automationNoticeVisible
+		transaction := s.App.NewTransaction()
+		if err := transaction.SetStatusSegments(
+			s.status,
+			catalogStatusSegments(
+				s.activeScreen,
+				s.automationEnabled,
+				s.automationNoticeVisible,
+			),
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := s.App.ReplaceCommand(automationNoticeDefinition(
+			s.automationEnabled,
+			s.automationNoticeVisible,
+		)); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		return expletives.OutcomeApplied, nil
+	case CommandStatusBar:
+		s.statusVisible = !s.statusVisible
+		if err := s.status.SetVisible(s.statusVisible); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := s.App.ReplaceCommand(chromeToggleDefinition(
+			CommandStatusBar,
+			"Status Bar",
+			"Show the application Status Bar",
+			s.statusVisible,
+		)); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		return expletives.OutcomeApplied, nil
+	case CommandHeadersShow:
+		return s.toggleHeadersLocked()
+	case CommandFooterGlobalShow, CommandFooterScreenShow,
+		CommandFooterFocusShow:
+		return s.toggleFooterLocked(command.ID)
+	case CommandHeadersAdd:
+		return s.addHeaderLocked()
+	case CommandHeadersRemoveTop:
+		return s.removeHeaderLocked(true)
+	case CommandHeadersRemoveLow:
+		return s.removeHeaderLocked(false)
 	case CommandScenarioReset:
+		resetSequence := s.App.Snapshot().Sequence
 		changed := s.toggled
 		s.toggled = false
 		transaction := s.App.NewTransaction()
@@ -2239,9 +2891,40 @@ func (s *Scene) handleCommand(
 				return expletives.OutcomeFailed, err
 			}
 		}
+		if err := transaction.SetCheckState(
+			s.selectionCheckbox,
+			expletives.CheckUnchecked,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetCheckState(
+			s.selectionThreeState,
+			expletives.CheckIndeterminate,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetRadioValue(
+			s.selectionRadioGroup,
+			"one",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetChoiceValue(
+			s.selectionCycleField,
+			"alpha",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetChoiceValue(
+			s.selectionSelectField,
+			"low",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		changed = changed || s.App.Snapshot().Sequence != resetSequence
 		if err := s.App.ReplaceCommand(
 			toggleDefinition(false),
 		); err != nil {
@@ -2261,9 +2944,11 @@ func (s *Scene) handleCommand(
 		return expletives.OutcomeApplied, nil
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
-		CommandViewActions, CommandViewMenus, CommandStatusBar,
-		CommandHeadersFooters, CommandViewAbout:
+		CommandViewActions, CommandSelection, CommandViewMenus,
+		CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
+	case CommandSelectionChanged:
+		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
 			CommandViewPanelsCore,
@@ -2309,17 +2994,13 @@ func (s *Scene) switchScreenLocked(
 			return expletives.OutcomeFailed, err
 		}
 	}
-	for _, band := range s.chromeBands {
-		if err := transaction.SetVisible(
-			band,
-			target == CommandHeadersFooters,
-		); err != nil {
-			return expletives.OutcomeFailed, err
-		}
-	}
 	if err := transaction.SetStatusSegments(
 		s.status,
-		catalogStatusSegments(target),
+		catalogStatusSegments(
+			target,
+			s.automationEnabled,
+			s.automationNoticeVisible,
+		),
 	); err != nil {
 		return expletives.OutcomeFailed, err
 	}
@@ -2341,6 +3022,184 @@ func (s *Scene) switchScreenLocked(
 		}
 	}
 	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) toggleHeadersLocked() (expletives.Outcome, error) {
+	visible := !s.headersVisible
+	controls := make([]expletives.Control, len(s.headers))
+	for index, header := range s.headers {
+		controls[index] = header
+	}
+	transaction := s.App.NewTransaction()
+	for _, control := range controls {
+		if err := transaction.SetVisible(control, visible); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	s.headersVisible = visible
+	if err := s.App.ReplaceCommand(chromeToggleDefinition(
+		CommandHeadersShow,
+		"Show",
+		"Show all current application Headers",
+		visible,
+	)); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) toggleFooterLocked(
+	command expletives.CommandID,
+) (expletives.Outcome, error) {
+	var footer *expletives.Footer
+	var visible *bool
+	label, description := "", ""
+	switch command {
+	case CommandFooterGlobalShow:
+		footer = s.globalHotkeyFooter
+		visible = &s.globalFooterVisible
+		label = "Global Hotkeys"
+		description = "Show the lowest global-hotkey Footer"
+	case CommandFooterScreenShow:
+		footer = s.screenHotkeyFooter
+		visible = &s.screenFooterVisible
+		label = "Screen Hotkeys"
+		description = "Show the current-screen hotkey Footer"
+	case CommandFooterFocusShow:
+		footer = s.focusGuidanceFooter
+		visible = &s.focusFooterVisible
+		label = "Focus Guidance"
+		description = "Show the focused-control guidance Footer"
+	default:
+		return expletives.OutcomeRejected, nil
+	}
+	next := !*visible
+	if err := footer.SetVisible(next); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	*visible = next
+	if err := s.App.ReplaceCommand(chromeToggleDefinition(
+		command,
+		label,
+		description,
+		next,
+	)); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) addHeaderLocked() (expletives.Outcome, error) {
+	transaction := s.App.NewTransaction()
+	var band expletives.Container
+	var addedHeader *expletives.Header
+	var labelText string
+	index := s.nextHeader
+	s.nextHeader++
+	header, err := transaction.NewHeader(
+		s.App.Root(),
+		expletives.HeaderOptions{PanelOptions: expletives.PanelOptions{
+			AutomationKey: fmt.Sprintf("header.dynamic.%d", index),
+			Style:         headerStyle.ID,
+			Hidden:        !s.headersVisible,
+		}},
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	band = header
+	addedHeader = header
+	labelText = fmt.Sprintf("Added Header %d", index)
+	label, err := transaction.NewLabel(
+		band,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: band.AutomationKey() + ".label",
+				Style:         band.Style(),
+			},
+			Text:                labelText,
+			HorizontalAlignment: expletives.TextAlignCenter,
+		},
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	layout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout." + band.AutomationKey(),
+		},
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := layout.AddPanel(
+		label,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := transaction.SetLayout(band, layout); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	s.headers = append(s.headers, addedHeader)
+	if err := s.replaceHeaderRemoveDefinitionsLocked(true); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) removeHeaderLocked(
+	highest bool,
+) (expletives.Outcome, error) {
+	if len(s.headers) == 0 {
+		return expletives.OutcomeNoOp, nil
+	}
+	index := len(s.headers) - 1
+	if highest {
+		index = 0
+	}
+	control := s.headers[index]
+	if err := control.Destroy(); err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	s.headers = append(s.headers[:index], s.headers[index+1:]...)
+	if len(s.headers) == 0 {
+		if err := s.replaceHeaderRemoveDefinitionsLocked(false); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+	}
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) replaceHeaderRemoveDefinitionsLocked(
+	enabled bool,
+) error {
+	for _, definition := range []expletives.CommandDefinition{
+		chromeMutationDefinition(
+			CommandHeadersRemoveTop,
+			"Remove Highest",
+			"Remove the physically highest application Header",
+			enabled,
+		),
+		chromeMutationDefinition(
+			CommandHeadersRemoveLow,
+			"Remove Lowest",
+			"Remove the physically lowest application Header",
+			enabled,
+		),
+	} {
+		if err := s.App.ReplaceCommand(definition); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Scene) showAndMutateLocked(
@@ -2406,6 +3265,7 @@ func SelfCheck() error {
 		"screen.layouts.grid",
 		"screen.text",
 		"screen.actions",
+		"screen.selection",
 		"screen.menus",
 		"screen.status",
 		"screen.headers_footers",
@@ -2416,12 +3276,13 @@ func SelfCheck() error {
 		"chrome.overview",
 		"header.primary",
 		"header.secondary",
-		"footer.primary",
-		"footer.recent",
+		"footer.hotkeys.global",
+		"footer.hotkeys.screen",
+		"footer.guidance.focus",
 		"header.product",
 		"header.grid.left",
-		"footer.oldest",
-		"footer.newest",
+		"footer.hotkeys.global.items",
+		"footer.guidance.focus.text",
 		"help.about",
 		"panel.red",
 		"panel.accent",
@@ -2441,6 +3302,16 @@ func SelfCheck() error {
 		"display.static_text",
 		"action.toggle",
 		"action.hotkeys",
+		"selection.checkbox.two_state",
+		"selection.checkbox.three_state",
+		"selection.checkbox.disabled",
+		"selection.radio.group",
+		"selection.radio.one",
+		"selection.radio.disabled",
+		"selection.radio.two",
+		"selection.cycle.wrap",
+		"selection.select.clamp",
+		"selection.cycle.empty",
 		"layer.back",
 		"layer.front",
 	} {
@@ -2449,7 +3320,7 @@ func SelfCheck() error {
 		}
 	}
 	menu := controls["menu.main"].Details.MenuBar
-	if menu == nil || len(menu.Entries) != 47 ||
+	if menu == nil || len(menu.Entries) != 58 ||
 		len(menu.OpenPath) != 0 {
 		return errors.New("MenuBar typed evidence is incomplete")
 	}
@@ -2459,20 +3330,26 @@ func SelfCheck() error {
 		"menu.panels":   "n",
 		"menu.layouts":  "a",
 		"menu.controls": "c",
+		"menu.sections": "s",
 		"menu.menus":    "m",
 		"menu.dialogs":  "d",
 		"menu.help":     "p",
 	}
 	seenRootMnemonics := make(map[string]bool, len(expectedRootMnemonics))
 	catalogLabels := map[string]string{
-		"menu.file.home":     "Home",
-		"menu.panels.core":   "Core Panels",
-		"menu.panels.styles": "Visual Styles",
-		"menu.layouts.box":   "Box Layout",
-		"menu.layouts.grid":  "Grid Layout",
+		"menu.file.home":          "Home",
+		"menu.panels.core":        "Core Panels",
+		"menu.panels.styles":      "Visual Styles",
+		"menu.layouts.box":        "Box Layout",
+		"menu.layouts.grid":       "Grid Layout",
+		"menu.controls.selection": "Selection",
 	}
 	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
 	homeChecked := false
+	automationNoticeDisabled := false
+	statusChecked := false
+	headersShowChecked := true
+	footerToggleCount := 0
 	for _, entry := range menu.Entries {
 		if entry.Key == "menu.help" &&
 			entry.Placement == expletives.MenuBarPlacementEnd {
@@ -2495,6 +3372,21 @@ func SelfCheck() error {
 		if entry.Key == "menu.file.home" {
 			homeChecked = entry.Checked
 		}
+		if entry.Key == "menu.file.automation_notice" {
+			automationNoticeDisabled = !entry.Enabled && !entry.Checked
+		}
+		switch entry.Key {
+		case "menu.sections.status":
+			statusChecked = entry.Enabled && entry.Checked
+		case "menu.sections.headers.show":
+			headersShowChecked = entry.Checked
+		case "menu.sections.footers.global",
+			"menu.sections.footers.screen",
+			"menu.sections.footers.focus":
+			if entry.Checked {
+				footerToggleCount++
+			}
+		}
 	}
 	if !helpAtEnd {
 		return errors.New("Help menu is not in the end-aligned group")
@@ -2507,7 +3399,9 @@ func SelfCheck() error {
 			return fmt.Errorf("catalog root mnemonic %q is not collision-audited", key)
 		}
 	}
-	if len(seenCatalogLabels) != len(catalogLabels) || !homeChecked {
+	if len(seenCatalogLabels) != len(catalogLabels) || !homeChecked ||
+		!automationNoticeDisabled || !statusChecked ||
+		headersShowChecked || footerToggleCount != 3 {
 		return errors.New("catalog navigation labels are incomplete")
 	}
 	status := controls["status.main"]
@@ -2515,7 +3409,7 @@ func SelfCheck() error {
 		status.Bounds != (expletives.Rect{
 			Y: 19, Width: 64, Height: 1,
 		}) ||
-		len(status.Details.StatusBar.Segments) != 4 ||
+		len(status.Details.StatusBar.Segments) != 1 ||
 		status.Details.StatusBar.Segments[0].Label != "Home" {
 		return errors.New("StatusBar typed evidence is incomplete")
 	}
@@ -2532,6 +3426,7 @@ func SelfCheck() error {
 		controls["screen.layouts.grid"].Visible ||
 		controls["screen.text"].Visible ||
 		controls["screen.actions"].Visible ||
+		controls["screen.selection"].Visible ||
 		controls["screen.menus"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
@@ -2646,23 +3541,67 @@ func SelfCheck() error {
 		!controls["action.toggle"].Focused {
 		return errors.New("Actions screen did not become visible and focused")
 	}
-	if err := invoke("show-status", CommandStatusBar); err != nil {
+	if err := invoke("show-selection", CommandSelection); err != nil {
+		return err
+	}
+	if !controls["screen.selection"].Visible ||
+		!controls["selection.checkbox.two_state"].Focused ||
+		controls["selection.checkbox.two_state"].Details.Checkbox == nil ||
+		controls["selection.radio.group"].Details.RadioGroup == nil ||
+		controls["selection.cycle.wrap"].Details.ChoiceField == nil ||
+		controls["selection.select.clamp"].Kind !=
+			expletives.ControlSelectField {
+		return errors.New("Selection screen typed evidence is incomplete")
+	}
+	guide := controls["footer.guidance.focus.text"].Details.FocusGuideBar
+	if guide == nil ||
+		guide.Target != controls["selection.checkbox.two_state"].ID ||
+		guide.TargetKind != expletives.ControlCheckbox ||
+		guide.Customization != expletives.FocusGuidanceAppend {
+		return errors.New("focused-control guidance did not follow Selection focus")
+	}
+	selectionCompletion, dispatchErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"selection-space",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeySpace,
+		},
+	)
+	if dispatchErr != nil ||
+		selectionCompletion.Command != CommandSelectionChanged {
+		return fmt.Errorf(
+			"Selection raw Space dispatch = %+v, %v",
+			selectionCompletion,
+			dispatchErr,
+		)
+	}
+	snapshot = scene.App.Snapshot()
+	controls = indexControls(snapshot)
+	if controls["selection.checkbox.two_state"].Details.Checkbox.State !=
+		expletives.CheckChecked {
+		return errors.New("Selection raw Space did not check the Checkbox")
+	}
+	if err := invoke("hide-status", CommandStatusBar); err != nil {
 		return err
 	}
 	status = controls["status.main"]
-	if !controls["screen.status"].Visible ||
-		status.Details.StatusBar == nil ||
-		status.Details.StatusBar.Segments[0].Label != "Status Bar" {
-		return errors.New("Status Bar page did not update contextual evidence")
+	if status.Visible {
+		return errors.New("Status Bar toggle did not hide the live bottom row")
 	}
-	if err := invoke("show-chrome", CommandHeadersFooters); err != nil {
+	if err := invoke("restore-status", CommandStatusBar); err != nil {
+		return err
+	}
+	if err := invoke("show-headers", CommandHeadersShow); err != nil {
 		return err
 	}
 	for key, want := range map[string]expletives.Rect{
-		"header.primary":   {Y: 1, Width: 64, Height: 1},
-		"header.secondary": {Y: 2, Width: 64, Height: 1},
-		"footer.primary":   {Y: 18, Width: 64, Height: 1},
-		"footer.recent":    {Y: 17, Width: 64, Height: 1},
+		"header.primary":        {Y: 1, Width: 64, Height: 1},
+		"header.secondary":      {Y: 2, Width: 64, Height: 1},
+		"footer.hotkeys.global": {Y: 18, Width: 64, Height: 1},
+		"footer.hotkeys.screen": {Y: 17, Width: 64, Height: 1},
+		"footer.guidance.focus": {Y: 16, Width: 64, Height: 1},
 	} {
 		if controls[key].Bounds != want || !controls[key].Visible {
 			return fmt.Errorf(
@@ -2673,21 +3612,22 @@ func SelfCheck() error {
 			)
 		}
 	}
-	if !controls["screen.headers_footers"].Visible ||
-		controls["header.product"].AbsoluteBounds.Height != 1 ||
+	if controls["header.product"].AbsoluteBounds.Height != 1 ||
 		controls["header.grid.left"].AbsoluteBounds.Height != 1 ||
-		controls["footer.oldest"].AbsoluteBounds.Height != 1 {
-		return errors.New("Header/Footer page Layout evidence is incomplete")
+		controls["footer.hotkeys.global.items"].AbsoluteBounds.Height != 1 ||
+		controls["footer.guidance.focus.text"].AbsoluteBounds.Height != 1 {
+		return errors.New("Header/Footer toggle Layout evidence is incomplete")
 	}
 	if err := invoke("show-home", CommandViewHome); err != nil {
 		return err
 	}
 	if !controls["screen.home"].Visible ||
 		controls["screen.actions"].Visible ||
+		controls["screen.selection"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
-		controls["header.primary"].Visible ||
-		controls["footer.recent"].Visible {
+		!controls["header.primary"].Visible ||
+		!controls["footer.hotkeys.screen"].Visible {
 		return errors.New("File Home did not restore the empty catalog screen")
 	}
 	return nil

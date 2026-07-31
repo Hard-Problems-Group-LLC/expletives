@@ -30,8 +30,15 @@ var enabledCatalogMenuPaths = []enabledMenuPath{
 	{"menu.stack.layer.lower", []expletives.Key{"a", "s", "l"}, CommandLayerLower, expletives.OutcomeApplied, CommandViewLayoutBox, []string{"menu.layouts.stacking"}},
 	{"menu.controls.text", []expletives.Key{"c", "t"}, CommandViewText, expletives.OutcomeApplied, CommandViewText, nil},
 	{"menu.controls.actions", []expletives.Key{"c", "a"}, CommandViewActions, expletives.OutcomeApplied, CommandViewActions, nil},
-	{"menu.controls.status", []expletives.Key{"c", "s"}, CommandStatusBar, expletives.OutcomeApplied, CommandStatusBar, nil},
-	{"menu.controls.headers", []expletives.Key{"c", "h"}, CommandHeadersFooters, expletives.OutcomeApplied, CommandHeadersFooters, nil},
+	{"menu.controls.selection", []expletives.Key{"c", "e"}, CommandSelection, expletives.OutcomeApplied, CommandSelection, nil},
+	{"menu.sections.status", []expletives.Key{"s", "s"}, CommandStatusBar, expletives.OutcomeApplied, "", nil},
+	{"menu.sections.headers.show", []expletives.Key{"s", "h", "s"}, CommandHeadersShow, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
+	{"menu.sections.headers.add", []expletives.Key{"s", "h", "a"}, CommandHeadersAdd, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
+	{"menu.sections.headers.remove_highest", []expletives.Key{"s", "h", "h"}, CommandHeadersRemoveTop, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
+	{"menu.sections.headers.remove_lowest", []expletives.Key{"s", "h", "l"}, CommandHeadersRemoveLow, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
+	{"menu.sections.footers.global", []expletives.Key{"s", "f", "g"}, CommandFooterGlobalShow, expletives.OutcomeApplied, "", []string{"menu.sections.footers"}},
+	{"menu.sections.footers.screen", []expletives.Key{"s", "f", "s"}, CommandFooterScreenShow, expletives.OutcomeApplied, "", []string{"menu.sections.footers"}},
+	{"menu.sections.footers.focus", []expletives.Key{"s", "f", "f"}, CommandFooterFocusShow, expletives.OutcomeApplied, "", []string{"menu.sections.footers"}},
 	{"menu.menus.overview", []expletives.Key{"m", "o"}, CommandViewMenus, expletives.OutcomeApplied, CommandViewMenus, nil},
 	{"menu.help.about", []expletives.Key{"p", "a"}, CommandViewAbout, expletives.OutcomeApplied, CommandViewAbout, nil},
 }
@@ -43,14 +50,14 @@ type disabledMenuEntry struct {
 }
 
 var disabledCatalogMenuEntries = []disabledMenuEntry{
+	{"menu.file.automation_notice", "i", 1},
 	{"menu.panels.scrollbars", "n", 3},
 	{"menu.layouts.absolute", "a", 3},
-	{"menu.controls.selection", "c", 4},
-	{"menu.controls.input", "c", 5},
-	{"menu.controls.progress", "c", 6},
-	{"menu.controls.navigation", "c", 7},
-	{"menu.controls.scrolling", "c", 8},
-	{"menu.controls.collections", "c", 9},
+	{"menu.controls.input", "c", 3},
+	{"menu.controls.progress", "c", 4},
+	{"menu.controls.navigation", "c", 5},
+	{"menu.controls.scrolling", "c", 6},
+	{"menu.controls.collections", "c", 7},
 	{"menu.menus.panel", "m", 1},
 	{"menu.menus.context", "m", 2},
 	{"menu.dialogs.message", "d", 0},
@@ -169,8 +176,8 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 	details := catalogMenuDetails(t, scene.App.Snapshot())
-	if got := len(details.Entries); got != 47 {
-		t.Fatalf("menu entries = %d, want 47", got)
+	if got := len(details.Entries); got != 58 {
+		t.Fatalf("menu entries = %d, want 58", got)
 	}
 
 	coveredCommands := make(map[string]bool)
@@ -203,8 +210,8 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 			t.Errorf("entry %q has unknown kind %q", entry.Key, entry.Kind)
 		}
 	}
-	if len(coveredCommands) != 30 || len(separatorKeys) != 8 ||
-		len(submenuKeys) != 9 {
+	if len(coveredCommands) != 37 || len(separatorKeys) != 9 ||
+		len(submenuKeys) != 12 {
 		t.Fatalf(
 			"coverage commands=%d separators=%d submenus=%d",
 			len(coveredCommands),
@@ -218,10 +225,11 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		root expletives.Key
 		want []string
 	}{
-		{"file", "i", []string{"menu.file.home", "menu.file.quit"}},
+		{"file", "i", []string{"menu.file.home", "menu.file.automation_notice", "menu.file.quit"}},
 		{"panels", "n", []string{"menu.panels.core", "menu.panels.styles", "menu.panels.stacking", "menu.panels.scrollbars"}},
 		{"layouts", "a", []string{"menu.layouts.box", "menu.layouts.grid", "menu.layouts.stacking", "menu.layouts.absolute"}},
-		{"controls", "c", []string{"menu.controls.text", "menu.controls.actions", "menu.controls.status", "menu.controls.headers", "menu.controls.selection", "menu.controls.input", "menu.controls.progress", "menu.controls.navigation", "menu.controls.scrolling", "menu.controls.collections"}},
+		{"controls", "c", []string{"menu.controls.text", "menu.controls.actions", "menu.controls.selection", "menu.controls.input", "menu.controls.progress", "menu.controls.navigation", "menu.controls.scrolling", "menu.controls.collections"}},
+		{"sections", "s", []string{"menu.sections.status", "menu.sections.headers", "menu.sections.footers"}},
 		{"menus", "m", []string{"menu.menus.overview", "menu.menus.panel", "menu.menus.context"}},
 	}
 	for _, traversal := range traversals {
@@ -262,6 +270,302 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 				t.Fatalf("selectable traversal = %v, want %v", got, traversal.want)
 			}
 		})
+	}
+}
+
+func TestApplicationChromeMenuCommandsAreIndependentTogglesAndMutations(
+	t *testing.T,
+) {
+	scene, err := New(expletives.Size{Width: 80, Height: 24}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	invoke := func(id expletives.CommandID) expletives.Snapshot {
+		t.Helper()
+		completion, invokeErr := scene.App.InvokeCommand(
+			context.Background(),
+			"chrome-test",
+			"request-"+string(id),
+			id,
+			"",
+		)
+		if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied {
+			t.Fatalf("InvokeCommand(%q) = %+v, %v", id, completion, invokeErr)
+		}
+		return scene.App.Snapshot()
+	}
+	control := func(
+		snapshot expletives.Snapshot,
+		key string,
+	) expletives.ControlSnapshot {
+		t.Helper()
+		for _, current := range snapshot.Controls {
+			if current.Key == key {
+				return current
+			}
+		}
+		t.Fatalf("control %q is absent", key)
+		return expletives.ControlSnapshot{}
+	}
+	menuChecked := func(
+		snapshot expletives.Snapshot,
+		key string,
+	) bool {
+		t.Helper()
+		entry, ok := catalogMenuEntry(catalogMenuDetails(t, snapshot), key)
+		if !ok {
+			t.Fatalf("menu entry %q is absent", key)
+		}
+		return entry.Checked
+	}
+
+	initial := scene.App.Snapshot()
+	if !control(initial, "status.main").Visible ||
+		!menuChecked(initial, "menu.sections.status") ||
+		control(initial, "header.primary").Visible ||
+		!control(initial, "footer.hotkeys.global").Visible ||
+		!control(initial, "footer.hotkeys.screen").Visible ||
+		!control(initial, "footer.guidance.focus").Visible ||
+		menuChecked(initial, "menu.sections.headers.show") ||
+		!menuChecked(initial, "menu.sections.footers.global") ||
+		!menuChecked(initial, "menu.sections.footers.screen") ||
+		!menuChecked(initial, "menu.sections.footers.focus") {
+		t.Fatal("initial independent application-chrome state is invalid")
+	}
+	hiddenStatus := invoke(CommandStatusBar)
+	if control(hiddenStatus, "status.main").Visible ||
+		menuChecked(hiddenStatus, "menu.sections.status") {
+		t.Fatal("Status Bar toggle did not hide and uncheck")
+	}
+	shownStatus := invoke(CommandStatusBar)
+	if !control(shownStatus, "status.main").Visible ||
+		!menuChecked(shownStatus, "menu.sections.status") {
+		t.Fatal("Status Bar toggle did not restore and check")
+	}
+
+	shownHeaders := invoke(CommandHeadersShow)
+	if !control(shownHeaders, "header.primary").Visible ||
+		!menuChecked(shownHeaders, "menu.sections.headers.show") {
+		t.Fatal("Header Show toggle did not act independently")
+	}
+	addedHeader := invoke(CommandHeadersAdd)
+	if !control(addedHeader, "header.dynamic.1").Visible {
+		t.Fatal("Add did not create a visible Header under the checked policy")
+	}
+	invoke(CommandHeadersRemoveTop)
+	afterHeaderRemoval := scene.App.Snapshot()
+	if _, found := scene.App.ControlByAutomationKey("header.primary"); found {
+		t.Fatal("Remove Highest did not remove the physically highest Header")
+	}
+	if !control(afterHeaderRemoval, "header.secondary").Visible {
+		t.Fatal("Header removal damaged the remaining visible family")
+	}
+	for _, test := range []struct {
+		command expletives.CommandID
+		key     string
+		menu    string
+	}{
+		{CommandFooterGlobalShow, "footer.hotkeys.global", "menu.sections.footers.global"},
+		{CommandFooterScreenShow, "footer.hotkeys.screen", "menu.sections.footers.screen"},
+		{CommandFooterFocusShow, "footer.guidance.focus", "menu.sections.footers.focus"},
+	} {
+		snapshot := invoke(test.command)
+		if control(snapshot, test.key).Visible ||
+			menuChecked(snapshot, test.menu) {
+			t.Fatalf("%q Footer toggle did not hide and uncheck", test.key)
+		}
+	}
+}
+
+func TestSelectionCatalogRawKeyboardAndReset(t *testing.T) {
+	scene, err := New(expletives.Size{Width: 100, Height: 30}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	open, err := scene.App.InvokeCommand(
+		context.Background(),
+		"selection-audit",
+		"open-selection",
+		CommandSelection,
+		"",
+	)
+	if err != nil || open.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("open Selection = %+v, %v", open, err)
+	}
+	control := func(key string) expletives.ControlSnapshot {
+		t.Helper()
+		for _, current := range scene.App.Snapshot().Controls {
+			if current.Key == key {
+				return current
+			}
+		}
+		t.Fatalf("control %q is absent", key)
+		return expletives.ControlSnapshot{}
+	}
+	dispatch := func(request string, key expletives.Key) expletives.Completion {
+		t.Helper()
+		completion, dispatchErr := scene.App.DispatchKey(
+			context.Background(),
+			"selection-audit",
+			request,
+			expletives.KeyEvent{
+				Kind: expletives.KeyEventPress,
+				Key:  key,
+			},
+		)
+		if dispatchErr != nil {
+			t.Fatalf("DispatchKey(%s) error = %v", key, dispatchErr)
+		}
+		return completion
+	}
+	if !control("selection.checkbox.two_state").Focused {
+		t.Fatal("Selection screen did not focus its first eligible control")
+	}
+	if completion := dispatch("check", expletives.KeySpace); completion.Command != CommandSelectionChanged ||
+		control(
+			"selection.checkbox.two_state",
+		).Details.Checkbox.State != expletives.CheckChecked {
+		t.Fatalf("Checkbox Space completion = %+v", completion)
+	}
+	dispatch("down-three-state", expletives.KeyDown)
+	dispatch("cycle-three-state", expletives.KeySpace)
+	if got := control(
+		"selection.checkbox.three_state",
+	).Details.Checkbox.State; got != expletives.CheckUnchecked {
+		t.Fatalf("three-state Checkbox after Space = %q", got)
+	}
+	dispatch("tab-radio", expletives.KeyTab)
+	if !control("selection.radio.one").Focused {
+		t.Fatal("Tab did not treat RadioGroup as one selected-option stop")
+	}
+	dispatch("radio-next", expletives.KeyDown)
+	if group := control(
+		"selection.radio.group",
+	).Details.RadioGroup; group.Value != "one" ||
+		!control("selection.radio.two").Focused {
+		t.Fatalf(
+			"RadioGroup Down value = %q, option-two focus=%t",
+			group.Value,
+			control("selection.radio.two").Focused,
+		)
+	}
+	dispatch("radio-select", expletives.KeyEnter)
+	if group := control(
+		"selection.radio.group",
+	).Details.RadioGroup; group.Value != "two" {
+		t.Fatalf("RadioGroup Enter value = %q", group.Value)
+	}
+	dispatch("tab-cycle", expletives.KeyTab)
+	dispatch("cycle-next", expletives.KeyRightBracket)
+	if field := control(
+		"selection.cycle.wrap",
+	).Details.ChoiceField; field.Value != "charlie" {
+		t.Fatalf("CycleField Right value = %q", field.Value)
+	}
+	dispatch("down-select", expletives.KeyDown)
+	dispatch("select-next", expletives.KeyRightBracket)
+	if field := control(
+		"selection.select.clamp",
+	).Details.ChoiceField; field.Value != "high" {
+		t.Fatalf("SelectField End value = %q", field.Value)
+	}
+
+	reset, err := scene.App.InvokeCommand(
+		context.Background(),
+		"selection-audit",
+		"reset-selection",
+		CommandScenarioReset,
+		"",
+	)
+	if err != nil || reset.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("Selection reset = %+v, %v", reset, err)
+	}
+	if control(
+		"selection.checkbox.two_state",
+	).Details.Checkbox.State != expletives.CheckUnchecked ||
+		control(
+			"selection.checkbox.three_state",
+		).Details.Checkbox.State != expletives.CheckIndeterminate ||
+		control("selection.radio.group").Details.RadioGroup.Value != "one" ||
+		control("selection.cycle.wrap").Details.ChoiceField.Value != "alpha" ||
+		control("selection.select.clamp").Details.ChoiceField.Value != "low" {
+		t.Fatal("Scenario Reset did not restore Selection initial values")
+	}
+}
+
+func TestAutomationNoticeDefaultsToStatusBarAndMenuToggles(t *testing.T) {
+	scene, err := New(
+		expletives.Size{Width: 100, Height: 30},
+		"/tmp/expletives-test.sock",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNotice := func(wantVisible bool, wantChecked bool) {
+		t.Helper()
+		snapshot := scene.App.Snapshot()
+		var noticeVisible bool
+		var hotkeysParent expletives.ControlID
+		var screenFooterID expletives.ControlID
+		for _, control := range snapshot.Controls {
+			switch control.Key {
+			case "automation.status":
+				t.Fatal("dedicated automation status panel still exists")
+			case "footer.hotkeys.screen":
+				screenFooterID = control.ID
+			case "action.hotkeys":
+				hotkeysParent = control.Parent
+			case "status.main":
+				if control.Details.StatusBar == nil {
+					t.Fatal("status.main has no StatusBar details")
+				}
+				for _, segment := range control.Details.StatusBar.Segments {
+					if segment.Key == "automation" {
+						noticeVisible =
+							segment.Label == "UNAUTHENTICATED AUTOMATION ENABLED"
+					}
+				}
+			}
+		}
+		if noticeVisible != wantVisible {
+			t.Fatalf(
+				"automation notice visible = %t, want %t",
+				noticeVisible,
+				wantVisible,
+			)
+		}
+		if screenFooterID == "" || hotkeysParent != screenFooterID {
+			t.Fatalf(
+				"HotkeyBar parent = %q, screen Footer = %q",
+				hotkeysParent,
+				screenFooterID,
+			)
+		}
+		entry, ok := catalogMenuEntry(
+			catalogMenuDetails(t, snapshot),
+			"menu.file.automation_notice",
+		)
+		if !ok || !entry.Enabled || entry.Checked != wantChecked {
+			t.Fatalf("automation notice Menu entry = %+v", entry)
+		}
+	}
+
+	assertNotice(true, true)
+	request := 0
+	for _, wantVisible := range []bool{false, true} {
+		openCatalogMenu(t, scene, "i", &request)
+		completion := dispatchCatalogKey(
+			t,
+			scene,
+			expletives.KeyEventPress,
+			"a",
+			&request,
+		)
+		if completion.Command != CommandAutomationNotice ||
+			completion.Outcome != expletives.OutcomeApplied {
+			t.Fatalf("automation notice toggle completion = %+v", completion)
+		}
+		assertNotice(wantVisible, wantVisible)
 	}
 }
 

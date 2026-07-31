@@ -1,6 +1,6 @@
 # `expletives-test` Interactive and Automation Requirements
 
-Status: Directed, implemented through Menus
+Status: Directed, implemented through Selection
 Authority: Direct operator requests on 2026-07-24
 Related decisions: `EXPL-DEC-001` through `EXPL-DEC-007` in
 [`project-management/decision-log.md`](../../project-management/decision-log.md)
@@ -68,8 +68,12 @@ The absence of attached automation must be testable.
 
 Running `expletives-test --automation <socket-path>` explicitly enables a
 local drive-and-observe control plane for that process. The application must
-use the supplied Unix-socket path and make the active mode and endpoint
-location visible to the operator.
+use the supplied Unix-socket path. Standard error must make the active mode,
+endpoint location, and security consequence visible to the operator. The
+default-visible Status Bar notice must read exactly `UNAUTHENTICATED
+AUTOMATION ENABLED`; File/Automation Notice may hide and restore that visual
+notice without disabling the endpoint. It must not occupy a dedicated Panel
+or other ordinary content space.
 
 For the initial implementation, `--automation <socket-path>` is the opt-in
 trust boundary. Application-level peer authentication and capability
@@ -137,9 +141,8 @@ public UI element. Each catalog entry needs a stable scenario ID, a concise
 purpose, deterministic reset behavior, and the important applicable states.
 The implemented `toolkit.catalog` scene has one persistent MenuBar and exactly
 one visible purpose-specific Home, Core Panels, Visual Styles, Box Layout,
-Grid Layout, Text/Display, Actions, Menus, Status Bar, Headers / Footers, or
-About screen.
-Screen selection uses normal `view.*` commands reached through menu input or
+Grid Layout, Text/Display, Actions, Selection, Menus, or About screen.
+Screen selection uses registered commands reached through menu input or
 automation; it has no private test-only navigation path. Each enabled catalog
 label has its own screen and stable command identity. Disabled `catalog.*`
 commands retain future pages in their intended namespaces and expose an
@@ -196,51 +199,79 @@ two child BoxLayouts. Their stable automation keys are `display.label`,
 `display.static_text`, `display.separator`, and `display.rule`.
 
 The Actions screen embeds default/focused, ordinary, disabled-with-reason,
-and cancel Buttons in `action.panel`, plus a live HotkeyBar in the automation
-status Frame. Their stable keys are `action.toggle`, `action.reset`,
-`action.disabled`, `action.quit`, and `action.hotkeys`. Raw Alt-G, Tab plus
-Enter/Space, the existing Ctrl-R binding, and direct command invocation all
-enter the shared command router. The Toggle command's checked presentation
-state changes with the same controller transition observed in the accent
-Panel.
+and cancel Buttons in `action.panel`, plus a live HotkeyBar in
+`action.preview`. Their stable keys are `action.toggle`, `action.reset`,
+`action.disabled`, `action.quit`, and `action.hotkeys`. Raw Alt-G, grouped
+Tab or spatial arrows plus Enter/Space, the existing Ctrl-R binding, and
+direct command invocation all enter the shared command router. The Toggle
+command's checked presentation state changes with the same controller
+transition observed in the accent Panel.
+
+The Selection screen embeds two-state, three-state, and disabled Checkboxes;
+one exclusive RadioGroup with enabled and disabled RadioButtons; a wrapping
+CycleField; a clamped SelectField; and an empty CycleField. Stable keys use
+the `selection.*` namespace. Direct parent Containers are focus groups:
+Tab/Shift-Tab cross the Checkbox, Radio, and Cycle/Select groups; arrows move
+focus within a group or make only an unambiguous spatial crossing. Radio
+arrows do not select; Space or Enter does. `[` and `]` change
+CycleField/SelectField values while arrows remain focus navigation. Exact
+mnemonics, public `Activate` methods, and attached raw key lifecycle events
+expose the same typed values and optional `selection.changed` command
+callback.
+Scenario Reset restores the initial selection values without emitting user
+change callbacks.
 
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static
-context plus shared Quit, Toggle, and disabled-command hints. Controls/Status
-Bar opens `screen.status`, whose `status.overview` text explains the live
-surface. Resizing exposes deterministic segment priority and clipping;
+context and no shortcut inventory. Sections/Status Bar is an independent
+checked visibility toggle; it does not select a catalog screen. Resizing
+exposes deterministic segment priority and clipping;
 snapshots retain typed records for both rendered and omitted segments.
+Attached automation prepends the still-higher-priority
+`UNAUTHENTICATED AUTOMATION ENABLED` segment by default. The checked
+File/Automation Notice command hides and restores only this notice and is
+disabled when no automation endpoint is active.
 
-Controls/Headers / Footers opens `screen.headers_footers`. Two Header rows
-demonstrate a horizontal BoxLayout and a one-row GridLayout below the Main
-Menu. Two Footer rows demonstrate construction order above the StatusBar,
-with the newer Footer highest. The four bands are otherwise hidden with empty
-Bounds, so every other catalog screen regains those rows without a stale
-Layout-overflow warning.
+The top-level `&Sections` menu owns the Status Bar toggle and distinct Headers
+and Footers submenus over live application chrome. Headers contains a checked
+Show toggle, Add, Remove
+Highest, and Remove Lowest; Add follows the current visibility policy and
+removal uses physical row order. Footers instead contains independent checked
+visibility toggles for three fixed semantic roles. From physically lowest to
+highest those roles are global application hotkeys, current-screen hotkeys,
+and focused-control hotkeys/advisories. The focused-control layer starts with
+generic control-type guidance and allows application append or per-instance
+override. Hidden bands have empty Bounds and do not produce stale
+Layout-overflow warnings.
 
 The persistent root-owned `menu.main` MenuBar occupies physical row 0 from
 the first through last terminal column, independently of root centering or
 maximum constraints. It reserves that row from the catalog Layout and exposes
-start-aligned File, Panels, Layouts, Controls, Menus, and Dialogs roots plus
-an end-aligned Help root.
+start-aligned File, Panels, Layouts, Controls, Sections, Menus, and Dialogs
+roots plus an end-aligned Help root.
 
-- File contains Home, a separator, and Quit.
+- File contains Home, the checked Automation Notice command between
+  separators, and Quit. Automation Notice is disabled and unchecked when no
+  endpoint is active.
 - Panels links Core Panels and Visual Styles, contains Panel Raise/Lower in a
   nested Stacking menu, and reserves Panel scroll-bar coverage.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
-- Controls links current Text/Display, Actions, Status Bar, and
-  Headers/Footer pages, then uses separators to group disabled phase-owned
-  Selection, Input, Progress, Navigation, Scrolling/Content, and Collection
-  pages.
+- Controls links current Text/Display, Actions, and Selection pages, then uses
+  a separator to group disabled phase-owned Input, Progress, Navigation,
+  Scrolling/Content, and Collection pages.
+- Sections owns the independent Status Bar toggle, the Headers lifecycle
+  submenu, and the semantic Footer-role visibility submenu.
 - Menus links the Menu overview and reserves Panel-owned and context-menu
   demonstrations.
 - Dialogs reserves Message, Confirm, Input, and Progress dialog tests.
 - Help contains an enabled About page and is right-justified as the end group.
 
-The collision-audited direct root chords are Alt-I for File, Alt-N for
-Panels, Alt-A for Layouts, Alt-C for Controls, Alt-M for Menus, Alt-D for
-Dialogs, and Alt-P for Help. F9, Ctrl-Space, arrows, Home/End, Enter, sibling
+The direct root chords are Alt-I for File, Alt-N for Panels, Alt-A for
+Layouts, Alt-C for Controls, Alt-S for Sections, Alt-M for Menus, Alt-D for
+Dialogs, and Alt-P for Help. Alt-S is an explicit operator-selected exception
+to the host-terminal advisory; F9 and Ctrl-Space provide routes when a host
+intercepts it. F9, Ctrl-Space, arrows, Home/End, Enter, sibling
 mnemonics, and Escape all use the ordinary raw logical key path. F9 and
 Ctrl-Space first activate the root-label row; Down or Enter opens its popup.
 Menus use the Turbo Vision black/light-gray, red-mnemonic, and

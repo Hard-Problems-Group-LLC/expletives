@@ -213,7 +213,7 @@ The wire format is UTF-8 JSON Lines. Every record includes:
 ```
 
 Version 1 permits one connected controller and one sequential request in
-flight. It fixes a 64 KiB request-line limit, a 36 MiB response-line limit,
+flight. It fixes a 64 KiB request-line limit, a 40 MiB response-line limit,
 4,194,304 aggregate frame cells, 16,384 compact frame runs, 4,096 controls and
 aggregate child references, 1,024 Layouts, 4,096 aggregate Layout items,
 eight held keys per source, and three retained results under a 128 MiB
@@ -242,7 +242,7 @@ Version 1 operations are:
 - `shutdown`, which uses the normal `app.quit` policy and publishes a final
   snapshot.
 
-The initial stable key set covers ASCII letters/digits, modifiers, common
+The stable key set covers ASCII letters/digits, `[`/`]`, modifiers, common
 navigation/editing keys, and F1 through F12. `KeyPress` is one-shot. Held state
 belongs to one connection and is cleared on disconnect. The fixture binds
 Control-down, `r`-press, Control-up to `fixture.toggle`.

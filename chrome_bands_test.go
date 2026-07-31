@@ -140,6 +140,88 @@ func TestHeaderFooterCombinedOrderingLifecycleAndPainting(t *testing.T) {
 	_ = headerTwo
 }
 
+func TestApplicationClientAreaSectionBoundaries(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 20, Height: 10})
+	menu := newTestMenuBar(t, app)
+	status, err := NewStatusBar(app.Root(), StatusBarOptions{
+		PanelOptions: PanelOptions{AutomationKey: "status.client-area"},
+	})
+	if err != nil {
+		t.Fatalf("NewStatusBar() error = %v", err)
+	}
+	header, err := NewHeader(app.Root(), HeaderOptions{
+		PanelOptions: PanelOptions{AutomationKey: "header.client-area"},
+	})
+	if err != nil {
+		t.Fatalf("NewHeader() error = %v", err)
+	}
+	footer, err := NewFooter(app.Root(), FooterOptions{
+		PanelOptions: PanelOptions{AutomationKey: "footer.client-area"},
+	})
+	if err != nil {
+		t.Fatalf("NewFooter() error = %v", err)
+	}
+
+	setVisible := func(
+		menuVisible, headerVisible, footerVisible, statusVisible bool,
+	) {
+		t.Helper()
+		if err := menu.SetVisible(menuVisible); err != nil {
+			t.Fatalf("MenuBar.SetVisible(%t) error = %v", menuVisible, err)
+		}
+		if err := header.SetVisible(headerVisible); err != nil {
+			t.Fatalf("Header.SetVisible(%t) error = %v", headerVisible, err)
+		}
+		if err := footer.SetVisible(footerVisible); err != nil {
+			t.Fatalf("Footer.SetVisible(%t) error = %v", footerVisible, err)
+		}
+		if err := status.SetVisible(statusVisible); err != nil {
+			t.Fatalf("StatusBar.SetVisible(%t) error = %v", statusVisible, err)
+		}
+	}
+	clientArea := func() Rect {
+		t.Helper()
+		app.mu.RLock()
+		defer app.mu.RUnlock()
+		return app.applicationContentRectLocked()
+	}
+	tests := []struct {
+		name                         string
+		menu, header, footer, status bool
+		want                         Rect
+	}{
+		{"all sections", true, true, true, true,
+			Rect{Y: 2, Width: 20, Height: 6}},
+		{"menu and status", true, false, false, true,
+			Rect{Y: 1, Width: 20, Height: 8}},
+		{"header and footer", false, true, true, false,
+			Rect{Y: 1, Width: 20, Height: 8}},
+		{"header and status", false, true, false, true,
+			Rect{Y: 1, Width: 20, Height: 8}},
+		{"menu and footer", true, false, true, false,
+			Rect{Y: 1, Width: 20, Height: 8}},
+		{"no upper sections", false, false, true, true,
+			Rect{Width: 20, Height: 8}},
+		{"no lower sections", true, true, false, false,
+			Rect{Y: 2, Width: 20, Height: 8}},
+		{"no sections", false, false, false, false,
+			Rect{Width: 20, Height: 10}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			setVisible(test.menu, test.header, test.footer, test.status)
+			if got := clientArea(); got != test.want {
+				t.Fatalf(
+					"Application Client Area = %+v, want %+v",
+					got,
+					test.want,
+				)
+			}
+		})
+	}
+}
+
 func TestHeaderFooterTinySurfaceAllocation(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 4, Height: 6})

@@ -288,6 +288,12 @@ Required controls:
 - `Button`; and
 - `HotkeyBar`.
 
+The chrome sequence additionally uses `FocusGuideBar`, a non-focusable
+presentation leaf backed by the Actions focus model. It renders generic
+focused-control keyboard guidance and application append/override text in the
+highest semantic Footer. Its exact contract is
+[`focus-guide-bar-api-v0.md`](focus-guide-bar-api-v0.md).
+
 This phase establishes stable command IDs, activation, enabled/disabled
 state, structured hotkey data, focus, and command parity across human input
 and automation. The implemented exact contract is
@@ -315,9 +321,10 @@ The implemented exact contract is
 [`menus-api-v0.md`](menus-api-v0.md). The public-API catalog now uses its
 persistent MenuBar to show exactly one current catalog screen while retaining
 all controls as observable stable nodes. File, Panels, Layouts, Controls,
-Menus, and Dialogs organize the growing test surface; right-justified Help
-contains About. Entries that depend on later phases remain disabled, named
-placeholders until that owning phase implements their pages.
+Sections, Menus, and Dialogs organize the growing test surface;
+right-justified Help contains About. Sections owns the live Status Bar toggle
+and Header/Footer submenus. Entries that depend on later phases remain
+disabled, named placeholders until that owning phase implements their pages.
 
 ### 8. Status Bar
 
@@ -360,6 +367,12 @@ Required controls:
 
 Supporting item/selection models should be introduced deliberately and reused
 by later collection controls.
+
+The implemented exact model, keyboard, focus, mutation, notification,
+rendering, and typed automation contract is
+[`selection-api-v0.md`](selection-api-v0.md). `expletives-test` exposes all
+five public control names on the enabled Controls/Selection page, including
+two/three-state, disabled, exclusive, empty, wrapping, and clamped states.
 
 ### 11. Text And Numeric Input
 

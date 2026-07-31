@@ -391,7 +391,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 11. Selection
 
-- Status: `planned`
+- Status: `complete`
 - Goal: deliver `Checkbox`, `RadioButton`, `RadioGroup`, `CycleField`, and
   `SelectField`.
 - Dependencies: Phase 7 command/focus behavior and approved stable option and
@@ -406,6 +406,8 @@ ordered backlog and the active-task record; it does not replace either.
   callbacks, and resize.
 - Acceptance gate: human input, raw automation key lifecycle events, and
   direct semantic commands preserve the same observable selection contract.
+- Completion evidence:
+  [`EXPL-TASK-026`](completed-tasks.md).
 
 ### 12. Text/Numeric Input
 

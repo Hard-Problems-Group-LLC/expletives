@@ -77,6 +77,7 @@ The implemented exported limits are:
 | `MaxCellBytes` | 64 | Maximum UTF-8 bytes in one retained canonical cell |
 | `MaxDisplayTextBytes` | 256 | Maximum retained UTF-8 bytes for one display-control text |
 | `MaxDisplayTextCells` | 256 | Maximum canonical cells, including line separators, for one display-control text |
+| `MaxFocusGuidanceApplicationBytes` | 128 | Maximum application append/override guidance bytes |
 | `MaxHotkeyBarItems` | 64 | Maximum entries in one HotkeyBar |
 | `MaxActionItems` | 4,096 | Maximum aggregate HotkeyBar entries in one App |
 | `MaxMenuDepth` | 8 | Maximum immutable popup Menu tree depth |
@@ -351,12 +352,15 @@ The first command-backed controls are:
 ```go
 func NewButton(Container, ButtonOptions) (*Button, error)
 func NewHotkeyBar(Container, HotkeyBarOptions) (*HotkeyBar, error)
+func NewFocusGuideBar(Container, FocusGuideBarOptions) (*FocusGuideBar, error)
 func (b *Button) Focus() error
 func (b *Button) Activate(
     context.Context, source, requestID string,
 ) (Completion, error)
 func (b *HotkeyBar) Items() []HotkeyBarItem
 func (a *App) Focused() Control
+func (a *App) SetFocusGuidance(Control, FocusGuidance) error
+func (a *App) ClearFocusGuidance(Control) error
 ```
 
 Both controls are non-container leaves. Button is focusable and references one
@@ -366,17 +370,26 @@ roles, and an optional ASCII mnemonic activates through the ordinary router.
 HotkeyBar copies an ordered unique command inventory and projects the current
 first App binding for each entry; it does not retain a second binding table.
 
-Tab and Shift-Tab traverse eligible Buttons. Plain Enter/Space activates the
-focused Button, Enter falls back to the applicable default Button, and Escape
-uses the applicable cancel Button. Raw Enter/Space down-up pairs publish and
-clear source-local pressed capture; input reset and disconnect clear capture
-without activation. An exact Alt mnemonic is resolved before a global Alt
-binding. `ControlSnapshot.Focused`, `ActionDetails`, and `HotkeyBarDetails`
-make the complete state atomically inspectable.
+Each direct parent Container defines a focus group. Tab and Shift-Tab cross
+groups; arrows move spatially between controls within a group and cross to a
+different group only for an unambiguous directional target. Plain
+Enter/Space activates the focused Button, Enter falls back to the applicable
+default Button, and Escape uses the applicable cancel Button. Raw Enter/Space
+down-up pairs publish and clear source-local pressed capture; input reset and
+disconnect clear capture without activation. An exact Alt mnemonic is
+resolved before a global Alt binding. `ControlSnapshot.Focused`,
+`ActionDetails`, and `HotkeyBarDetails` make the complete state atomically
+inspectable.
 
 The complete construction, validation, rendering, focus, routing, snapshot,
 automation, and resource-bound contract is in
 [`actions-api-v0.md`](actions-api-v0.md).
+
+`FocusGuideBar` is the non-focusable presentation companion to this focus
+model. It resolves generic keyboard guidance from current focus during render,
+then optionally appends or overrides bounded application guidance registered
+on that control. See
+[`focus-guide-bar-api-v0.md`](focus-guide-bar-api-v0.md).
 
 ## Menus
 
@@ -466,6 +479,32 @@ The exact public, ordering, tiny-surface, Layout, rendering, snapshot, and
 automation contract is
 [`headers-footers-api-v0.md`](headers-footers-api-v0.md).
 
+## Selection Controls
+
+```go
+func NewCheckbox(Container, CheckboxOptions) (*Checkbox, error)
+func NewRadioGroup(Container, RadioGroupOptions) (*RadioGroup, error)
+func NewRadioButton(*RadioGroup, RadioButtonOptions) (*RadioButton, error)
+func NewCycleField(Container, CycleFieldOptions) (*CycleField, error)
+func NewSelectField(Container, SelectFieldOptions) (*SelectField, error)
+```
+
+Checkbox has typed two-state/three-state values. RadioGroup owns exactly one
+stable child value unless its policy or lack of enabled children permits an
+empty value. CycleField and SelectField copy bounded stable option records;
+the latter is a distinct control kind and naming variant, not a popup.
+
+Radio arrows and Home/End move focus without changing selection; Space or
+Enter selects the focused RadioButton. CycleField/SelectField use `[` for the
+previous enabled value and `]` for the next; arrows remain focus navigation.
+
+User changes use serialized raw input and optionally invoke a registered
+ChangeCommand outside toolkit locks after publishing the new typed value.
+Programmatic setters and Transaction mutations do not emit that user
+notification. Snapshot and automation details are exact typed members, not
+unrestricted maps. The complete contract is
+[`selection-api-v0.md`](selection-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -480,9 +519,15 @@ func (t *Transaction) NewSeparator(Container, SeparatorOptions) (*Separator, err
 func (t *Transaction) NewRule(Container, RuleOptions) (*Rule, error)
 func (t *Transaction) NewButton(Container, ButtonOptions) (*Button, error)
 func (t *Transaction) NewHotkeyBar(Container, HotkeyBarOptions) (*HotkeyBar, error)
+func (t *Transaction) NewFocusGuideBar(Container, FocusGuideBarOptions) (*FocusGuideBar, error)
 func (t *Transaction) NewMenuBar(Container, MenuBarOptions) (*MenuBar, error)
 func (t *Transaction) NewStatusBar(Container, StatusBarOptions) (*StatusBar, error)
 func (t *Transaction) NewHeader(Container, HeaderOptions) (*Header, error)
+func (t *Transaction) NewCheckbox(Container, CheckboxOptions) (*Checkbox, error)
+func (t *Transaction) NewRadioGroup(Container, RadioGroupOptions) (*RadioGroup, error)
+func (t *Transaction) NewRadioButton(*RadioGroup, RadioButtonOptions) (*RadioButton, error)
+func (t *Transaction) NewCycleField(Container, CycleFieldOptions) (*CycleField, error)
+func (t *Transaction) NewSelectField(Container, SelectFieldOptions) (*SelectField, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -493,6 +538,7 @@ func (t *Transaction) SetVisible(Control, bool) error
 func (t *Transaction) SetText(Control, string) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
+func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
 func (t *Transaction) Destroy(Control) error
 func (t *Transaction) SetTheme(Theme) error
 func (t *Transaction) Commit(context.Context) error
@@ -529,9 +575,16 @@ single-operation Transactions.
 
 ## Geometry, Painting, And Intended Cells
 
-Control bounds are parent-client-relative logical rectangles. A plain Panel's
+Control bounds are parent-client-relative logical rectangles. The
+**Application Client Area** is the complete physical-width rectangle between
+visible Main Menu/Headers and visible Footers/Status Bar. The constrained root
+content rectangle is its intersection with the root constraints.
+
+A **Panel Client Area** is the Panel's bounds after subtracting its border and
+any visible horizontal or vertical scrollbars. A plain, unscrolled Panel's
 client rectangle is its full bounds. A decorated Frame or GroupBox has a
-one-cell client inset; `BorderNone` has none. A decorated Layout likewise
+one-cell client inset; `BorderNone` has none. Scrollbar deductions become
+operative with the public scrollbar phase. A decorated Layout likewise
 reserves one cell on every edge before its own Insets and item arrangement.
 Logical geometry is retained outside ancestor or surface bounds.
 
@@ -577,8 +630,8 @@ arrangement and current stack indices. A `ControlSnapshot` contains semantic
 `StyleID` and its Theme-resolved `ResolvedStyle`; border detail does the same.
 The typed details union contains `TextDetails` for Label/StaticText and
 `DividerDetails` for Separator/Rule, `ActionDetails` for Button, and
-`HotkeyBarDetails` for HotkeyBar, flat `MenuBarDetails` for MenuBar, and
-`StatusBarDetails` for StatusBar.
+`HotkeyBarDetails` for HotkeyBar, `FocusGuideBarDetails` for FocusGuideBar,
+flat `MenuBarDetails` for MenuBar, and `StatusBarDetails` for StatusBar.
 These expose canonical bounded text,
 alignment, wrap, Label target/mnemonic, divider orientation/form, generic
 focus, command presentation state, pressed/default/cancel roles, and
@@ -619,9 +672,10 @@ source. A one-shot press does not allocate held-source state, and releasing
 the last key reclaims that source. Capacity rejection is an explicit
 correlated completion. Only held modifiers participate in chord matching.
 
-The supported keys are lowercase ASCII letters, digits, Control/Alt/Shift/Meta,
-Space, Enter, Escape, Tab, Backspace, navigation/editing keys, and F1 through
-F12. Terminal escape bytes are not valid logical keys.
+The supported keys are lowercase ASCII letters, digits, `[` and `]`,
+Control/Alt/Shift/Meta, Space, Enter, Escape, Tab, Backspace,
+navigation/editing keys, and F1 through F12. Terminal escape bytes are not
+valid logical keys.
 
 `BindChord`, `ReplaceChord`, and `UnbindChord` manage structured bindings.
 Chord modifier order is insignificant; modifiers must be unique, and the

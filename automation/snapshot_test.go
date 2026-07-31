@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	expletives "github.com/Hard-Problems-Group-LLC/expletives"
@@ -257,6 +258,195 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	}
 	if !bytes.Equal(clonedJSON, projectedJSON) {
 		t.Fatal("cloned snapshot aliases projected snapshot storage")
+	}
+}
+
+func TestSelectionSnapshotProjectionValidationAndDeepCopy(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size:     expletives.Size{Width: 40, Height: 8},
+		Scenario: "selection.projection",
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	if err := app.RegisterCommand(expletives.CommandDefinition{
+		ID: "selection.changed", Label: "Changed", Enabled: true,
+		Automation: true,
+	}); err != nil {
+		t.Fatalf("RegisterCommand() error = %v", err)
+	}
+	if _, err := expletives.NewCheckbox(
+		app.Root(),
+		expletives.CheckboxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.checkbox",
+				Bounds: expletives.Rect{
+					Width: 16, Height: 1,
+				},
+			},
+			Label: "Check", State: expletives.CheckIndeterminate,
+			ThreeState: true, ChangeCommand: "selection.changed",
+		},
+	); err != nil {
+		t.Fatalf("NewCheckbox() error = %v", err)
+	}
+	group, err := expletives.NewRadioGroup(
+		app.Root(),
+		expletives.RadioGroupOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.group",
+				Bounds: expletives.Rect{
+					Y: 1, Width: 16, Height: 2,
+				},
+			},
+			ChangeCommand: "selection.changed",
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewRadioGroup() error = %v", err)
+	}
+	if _, err := expletives.NewRadioButton(
+		group,
+		expletives.RadioButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.radio",
+				Bounds: expletives.Rect{
+					Width: 12, Height: 1,
+				},
+			},
+			Value: "one", Label: "One", Selected: true,
+		},
+	); err != nil {
+		t.Fatalf("NewRadioButton() error = %v", err)
+	}
+	if _, err := expletives.NewCycleField(
+		app.Root(),
+		expletives.CycleFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "selection.choice",
+				Bounds: expletives.Rect{
+					Y: 3, Width: 24, Height: 1,
+				},
+			},
+			Label: "Choice", Value: "a",
+			Options: []expletives.SelectionOption{
+				{Value: "a", Label: "Alpha"},
+				{Value: "b", Label: "Beta"},
+			},
+			ChangeCommand: "selection.changed",
+		},
+	); err != nil {
+		t.Fatalf("NewCycleField() error = %v", err)
+	}
+
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot(selection) error = %v", err)
+	}
+	byKey := func(key string) *ControlSnapshot {
+		t.Helper()
+		for index := range projected.Controls {
+			if projected.Controls[index].Key == key {
+				return &projected.Controls[index]
+			}
+		}
+		t.Fatalf("projected snapshot has no control %q", key)
+		return nil
+	}
+	if details := byKey("selection.checkbox").Details.Checkbox; details == nil ||
+		details.State != "indeterminate" || !details.ThreeState {
+		t.Fatalf("projected CheckboxDetails = %#v", details)
+	}
+	if details := byKey("selection.group").Details.RadioGroup; details == nil ||
+		details.Value != "one" || len(details.Options) != 1 ||
+		!details.Options[0].Selected {
+		t.Fatalf("projected RadioGroupDetails = %#v", details)
+	}
+	if details := byKey("selection.choice").Details.ChoiceField; details == nil ||
+		details.SelectedIndex != 0 || len(details.Options) != 2 {
+		t.Fatalf("projected ChoiceFieldDetails = %#v", details)
+	}
+
+	cloned := cloneSnapshot(projected)
+	byKey("selection.group").Details.RadioGroup.Options[0].Label = "Changed"
+	byKey("selection.choice").Details.ChoiceField.Options[0].Label = "Changed"
+	var clonedGroup, clonedChoice *ControlSnapshot
+	for index := range cloned.Controls {
+		switch cloned.Controls[index].Key {
+		case "selection.group":
+			clonedGroup = &cloned.Controls[index]
+		case "selection.choice":
+			clonedChoice = &cloned.Controls[index]
+		}
+	}
+	if clonedGroup.Details.RadioGroup.Options[0].Label != "One" ||
+		clonedChoice.Details.ChoiceField.Options[0].Label != "Alpha" {
+		t.Fatal("cloned selection options alias projected snapshot storage")
+	}
+}
+
+func TestSnapshotProjectsFocusGuideBarDetails(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 80, Height: 3},
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	if err := app.RegisterCommand(expletives.CommandDefinition{
+		ID: "action.run", Label: "Run", Enabled: true, Automation: true,
+	}); err != nil {
+		t.Fatalf("RegisterCommand() error = %v", err)
+	}
+	button, err := expletives.NewButton(
+		app.Root(),
+		expletives.ButtonOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "button.run",
+			},
+			Command: "action.run",
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewButton() error = %v", err)
+	}
+	if _, err := expletives.NewFocusGuideBar(
+		app.Root(),
+		expletives.FocusGuideBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "guide",
+				Bounds: expletives.Rect{
+					Y: 2, Width: 80, Height: 1,
+				},
+			},
+		},
+	); err != nil {
+		t.Fatalf("NewFocusGuideBar() error = %v", err)
+	}
+	if err := app.SetFocusGuidance(button, expletives.FocusGuidance{
+		Text: "Application addition",
+	}); err != nil {
+		t.Fatalf("SetFocusGuidance() error = %v", err)
+	}
+
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var guide *FocusGuideBarDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "guide" {
+			guide = projected.Controls[index].Details.FocusGuideBar
+			break
+		}
+	}
+	if guide == nil ||
+		guide.Target != ControlID(button.ID()) ||
+		guide.TargetKind != "button" ||
+		guide.Customization != "append" ||
+		!strings.Contains(guide.Text, "Application addition") {
+		t.Fatalf("projected FocusGuideBarDetails = %#v", guide)
 	}
 }
 

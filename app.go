@@ -435,6 +435,23 @@ func (a *App) paintControlLocked(
 		}
 		details.StatusBar = &statusBar
 	}
+	switch behavior := state.behavior.(type) {
+	case checkboxBehavior:
+		checkbox := a.checkboxDetailsLocked(behavior)
+		details.Checkbox = &checkbox
+	case radioGroupBehavior:
+		group := a.radioGroupDetailsLocked(state, behavior)
+		details.RadioGroup = &group
+	case radioButtonBehavior:
+		button := a.radioButtonDetailsLocked(state, behavior)
+		details.RadioButton = &button
+	case choiceFieldBehavior:
+		field := a.choiceFieldDetailsLocked(behavior)
+		details.ChoiceField = &field
+	case focusGuideBarBehavior:
+		guide := a.focusGuideBarDetailsLocked()
+		details.FocusGuideBar = &guide
+	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,
 		Key:            state.automationKey,

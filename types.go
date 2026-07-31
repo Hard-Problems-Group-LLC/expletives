@@ -50,10 +50,20 @@ const (
 	// MaxDisplayTextCells bounds canonical cells, including line separators,
 	// in one Text/Display control.
 	MaxDisplayTextCells = 256
+	// MaxFocusGuidanceApplicationBytes bounds one application's focused-control
+	// guidance addition or override. The resolved generic-plus-application
+	// guidance remains subject to MaxDisplayTextBytes and MaxDisplayTextCells.
+	MaxFocusGuidanceApplicationBytes = 128
 	// MaxHotkeyBarItems bounds one HotkeyBar's copied ordered inventory.
 	MaxHotkeyBarItems = 64
 	// MaxStatusBarSegments bounds one StatusBar's copied ordered inventory.
 	MaxStatusBarSegments = 64
+	// MaxSelectionOptions bounds one copied CycleField or SelectField option
+	// inventory.
+	MaxSelectionOptions = 256
+	// MaxSelectionItems bounds aggregate RadioButton and copied fixed-option
+	// records across one App and its automation evidence.
+	MaxSelectionItems = 1024
 	// MaxActionItems bounds aggregate HotkeyBar items and StatusBar segments
 	// across one App.
 	MaxActionItems = MaxControls
@@ -254,6 +264,8 @@ const (
 	ControlButton ControlKind = "button"
 	// ControlHotkeyBar identifies a non-focusable command-shortcut summary.
 	ControlHotkeyBar ControlKind = "hotkey_bar"
+	// ControlFocusGuideBar identifies dynamic focused-control guidance.
+	ControlFocusGuideBar ControlKind = "focus_guide_bar"
 	// ControlMenuBar identifies the persistent popup-menu session owner.
 	ControlMenuBar ControlKind = "menu_bar"
 	// ControlStatusBar identifies the persistent bottom-row status surface.
@@ -262,6 +274,16 @@ const (
 	ControlHeader ControlKind = "header"
 	// ControlFooter identifies one ordered bottom-edge one-row container.
 	ControlFooter ControlKind = "footer"
+	// ControlCheckbox identifies one two-state or three-state selector.
+	ControlCheckbox ControlKind = "checkbox"
+	// ControlRadioGroup identifies one exclusive-selection container.
+	ControlRadioGroup ControlKind = "radio_group"
+	// ControlRadioButton identifies one option owned by a RadioGroup.
+	ControlRadioButton ControlKind = "radio_button"
+	// ControlCycleField identifies one fixed-option cycling field.
+	ControlCycleField ControlKind = "cycle_field"
+	// ControlSelectField is the SelectField naming variant of CycleField.
+	ControlSelectField ControlKind = "select_field"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -524,6 +546,16 @@ type ControlDetails struct {
 	MenuBar *MenuBarDetails `json:"menu_bar,omitempty"`
 	// StatusBar is present for StatusBar.
 	StatusBar *StatusBarDetails `json:"status_bar,omitempty"`
+	// Checkbox is present for Checkbox.
+	Checkbox *CheckboxDetails `json:"checkbox,omitempty"`
+	// RadioButton is present for RadioButton.
+	RadioButton *RadioButtonDetails `json:"radio_button,omitempty"`
+	// RadioGroup is present for RadioGroup.
+	RadioGroup *RadioGroupDetails `json:"radio_group,omitempty"`
+	// ChoiceField is present for CycleField and SelectField.
+	ChoiceField *ChoiceFieldDetails `json:"choice_field,omitempty"`
+	// FocusGuideBar is present for FocusGuideBar.
+	FocusGuideBar *FocusGuideBarDetails `json:"focus_guide_bar,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -637,6 +669,81 @@ type StatusSegmentDetails struct {
 // StatusBarDetails describes one bounded ordered bottom-row status inventory.
 type StatusBarDetails struct {
 	Segments []StatusSegmentDetails `json:"segments"`
+}
+
+// CheckboxDetails describes one current Checkbox value and policy.
+type CheckboxDetails struct {
+	Label          string     `json:"label"`
+	State          CheckState `json:"state"`
+	ThreeState     bool       `json:"three_state"`
+	Enabled        bool       `json:"enabled"`
+	DisabledReason string     `json:"disabled_reason,omitempty"`
+	Mnemonic       Key        `json:"mnemonic,omitempty"`
+	ChangeCommand  CommandID  `json:"change_command,omitempty"`
+}
+
+// RadioButtonDetails describes one option owned by a RadioGroup.
+type RadioButtonDetails struct {
+	Value          string `json:"value"`
+	Label          string `json:"label"`
+	Selected       bool   `json:"selected"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Mnemonic       Key    `json:"mnemonic,omitempty"`
+}
+
+// RadioOptionDetails is one direct RadioButton summary in group order.
+type RadioOptionDetails struct {
+	Control        ControlID `json:"control"`
+	Value          string    `json:"value"`
+	Label          string    `json:"label"`
+	Selected       bool      `json:"selected"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+}
+
+// RadioGroupDetails describes one exclusive selection and its direct options.
+type RadioGroupDetails struct {
+	Value          string               `json:"value,omitempty"`
+	AllowEmpty     bool                 `json:"allow_empty"`
+	Enabled        bool                 `json:"enabled"`
+	DisabledReason string               `json:"disabled_reason,omitempty"`
+	ChangeCommand  CommandID            `json:"change_command,omitempty"`
+	Options        []RadioOptionDetails `json:"options"`
+}
+
+// SelectionOptionDetails is one copied fixed choice.
+type SelectionOptionDetails struct {
+	Value          string `json:"value"`
+	Label          string `json:"label"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Selected       bool   `json:"selected"`
+}
+
+// ChoiceFieldDetails describes one CycleField or SelectField value.
+type ChoiceFieldDetails struct {
+	Label          string                   `json:"label"`
+	Value          string                   `json:"value,omitempty"`
+	SelectedIndex  int                      `json:"selected_index"`
+	Clamp          bool                     `json:"clamp"`
+	Enabled        bool                     `json:"enabled"`
+	DisabledReason string                   `json:"disabled_reason,omitempty"`
+	Mnemonic       Key                      `json:"mnemonic,omitempty"`
+	ChangeCommand  CommandID                `json:"change_command,omitempty"`
+	Options        []SelectionOptionDetails `json:"options"`
+}
+
+// FocusGuideBarDetails describes the guidance resolved for current focus.
+type FocusGuideBarDetails struct {
+	// Target and TargetKind identify the focused control, when any.
+	Target     ControlID   `json:"target,omitempty"`
+	TargetKind ControlKind `json:"target_kind,omitempty"`
+	// Text is the exact canonical one-row guidance currently rendered.
+	Text string `json:"text"`
+	// Customization reports append or override when application guidance is
+	// registered for Target.
+	Customization FocusGuidanceMode `json:"customization,omitempty"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -815,6 +922,34 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				}
 			}
 			cloned.Controls[index].Details.StatusBar = &statusBar
+		}
+		if snapshot.Controls[index].Details.Checkbox != nil {
+			checkbox := *snapshot.Controls[index].Details.Checkbox
+			cloned.Controls[index].Details.Checkbox = &checkbox
+		}
+		if snapshot.Controls[index].Details.RadioButton != nil {
+			button := *snapshot.Controls[index].Details.RadioButton
+			cloned.Controls[index].Details.RadioButton = &button
+		}
+		if snapshot.Controls[index].Details.RadioGroup != nil {
+			group := *snapshot.Controls[index].Details.RadioGroup
+			group.Options = append(
+				[]RadioOptionDetails(nil),
+				snapshot.Controls[index].Details.RadioGroup.Options...,
+			)
+			cloned.Controls[index].Details.RadioGroup = &group
+		}
+		if snapshot.Controls[index].Details.ChoiceField != nil {
+			field := *snapshot.Controls[index].Details.ChoiceField
+			field.Options = append(
+				[]SelectionOptionDetails(nil),
+				snapshot.Controls[index].Details.ChoiceField.Options...,
+			)
+			cloned.Controls[index].Details.ChoiceField = &field
+		}
+		if snapshot.Controls[index].Details.FocusGuideBar != nil {
+			guide := *snapshot.Controls[index].Details.FocusGuideBar
+			cloned.Controls[index].Details.FocusGuideBar = &guide
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

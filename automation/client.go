@@ -730,6 +730,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	menuItemCount := 0
 	menuBarCount := 0
 	statusBarCount := 0
+	selectionItemCount := 0
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
 			(control.Key != "" && !validIdentifier(control.Key, limits.IdentifierBytes)) ||
@@ -808,6 +809,17 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 			menuItemCount += len(control.Details.MenuBar.Entries)
+		}
+		if control.Details.RadioGroup != nil {
+			selectionItemCount += len(control.Details.RadioGroup.Options)
+		}
+		if control.Details.ChoiceField != nil {
+			selectionItemCount += len(control.Details.ChoiceField.Options)
+		}
+		if selectionItemCount > expletives.MaxSelectionItems {
+			return errors.New(
+				"snapshot Selection item count exceeds advertised bound",
+			)
 		}
 		if control.Details.StatusBar != nil {
 			statusBarCount++
@@ -949,9 +961,26 @@ func validControlDetails(
 	if details.Version != 1 {
 		return false
 	}
+	specialMembers := 0
+	if details.Checkbox != nil {
+		specialMembers++
+	}
+	if details.RadioButton != nil {
+		specialMembers++
+	}
+	if details.RadioGroup != nil {
+		specialMembers++
+	}
+	if details.ChoiceField != nil {
+		specialMembers++
+	}
+	if details.FocusGuideBar != nil {
+		specialMembers++
+	}
 	switch kind {
 	case "root", "panel", "header", "footer":
-		return details.Container != nil &&
+		return specialMembers == 0 &&
+			details.Container != nil &&
 			details.Container.ClientInset == 0 &&
 			details.Border == nil &&
 			details.Text == nil &&
@@ -961,7 +990,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "frame", "group_box":
-		return details.Container != nil &&
+		return specialMembers == 0 &&
+			details.Container != nil &&
 			validBorderDetails(details.Border, limits) &&
 			((details.Border.Form == "none" &&
 				details.Container.ClientInset == 0) ||
@@ -974,7 +1004,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "label":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			validTextDetails(details.Text, limits, false) &&
 			details.Text.Wrap == "none" &&
@@ -984,7 +1015,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "static_text":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			validTextDetails(details.Text, limits, true) &&
 			details.Text.Target == "" &&
@@ -995,7 +1027,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "separator":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			validDividerDetails(details.Divider) &&
@@ -1005,7 +1038,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "rule":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			validDividerDetails(details.Divider) &&
@@ -1014,7 +1048,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "button":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			details.Divider == nil &&
@@ -1023,7 +1058,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "hotkey_bar":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			details.Divider == nil &&
@@ -1032,7 +1068,8 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil
 	case "menu_bar":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			details.Divider == nil &&
@@ -1041,7 +1078,8 @@ func validControlDetails(
 			validMenuBarDetails(details.MenuBar, limits) &&
 			details.StatusBar == nil
 	case "status_bar":
-		return details.Container == nil &&
+		return specialMembers == 0 &&
+			details.Container == nil &&
 			details.Border == nil &&
 			details.Text == nil &&
 			details.Divider == nil &&
@@ -1049,9 +1087,226 @@ func validControlDetails(
 			details.HotkeyBar == nil &&
 			details.MenuBar == nil &&
 			validStatusBarDetails(details.StatusBar, controlWidth, limits)
+	case "checkbox":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validCheckboxDetails(details.Checkbox, limits)
+	case "radio_button":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validRadioButtonDetails(details.RadioButton, limits)
+	case "radio_group":
+		return specialMembers == 1 &&
+			details.Container != nil &&
+			details.Container.ClientInset == 0 &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validRadioGroupDetails(details.RadioGroup, limits)
+	case "cycle_field", "select_field":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validChoiceFieldDetails(details.ChoiceField, limits)
+	case "focus_guide_bar":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validFocusGuideBarDetails(details.FocusGuideBar, limits)
 	default:
 		return false
 	}
+}
+
+func validFocusGuideBarDetails(
+	details *FocusGuideBarDetails,
+	limits Limits,
+) bool {
+	if details == nil ||
+		!canonicalDisplayText(details.Text, false) ||
+		len(details.Text) > maxDisplayTextBytes {
+		return false
+	}
+	switch details.Customization {
+	case "", "append", "override":
+	default:
+		return false
+	}
+	if details.Target == "" {
+		return details.TargetKind == "" && details.Customization == ""
+	}
+	return validIdentifier(string(details.Target), limits.IdentifierBytes) &&
+		validFocusTargetKind(details.TargetKind)
+}
+
+func validFocusTargetKind(kind ControlKind) bool {
+	switch kind {
+	case "button", "checkbox", "radio_button", "cycle_field",
+		"select_field", "menu_bar":
+		return true
+	default:
+		return false
+	}
+}
+
+func validSelectionReason(enabled bool, reason string) bool {
+	return len(reason) <= maxDisplayTextBytes &&
+		utf8.ValidString(reason) &&
+		!strings.ContainsRune(reason, 0) &&
+		((enabled && reason == "") || (!enabled && reason != ""))
+}
+
+func validOptionalMnemonic(mnemonic Key) bool {
+	return mnemonic == "" ||
+		(len(mnemonic) == 1 && validLogicalKey(string(mnemonic)))
+}
+
+func validOptionalCommand(command string, limits Limits) bool {
+	return command == "" ||
+		validIdentifier(command, limits.IdentifierBytes)
+}
+
+func validCheckboxDetails(
+	details *CheckboxDetails,
+	limits Limits,
+) bool {
+	if details == nil ||
+		!canonicalDisplayText(details.Label, false) ||
+		!validSelectionReason(details.Enabled, details.DisabledReason) ||
+		!validOptionalMnemonic(details.Mnemonic) ||
+		!validOptionalCommand(details.ChangeCommand, limits) {
+		return false
+	}
+	switch details.State {
+	case "unchecked", "checked":
+		return true
+	case "indeterminate":
+		return details.ThreeState
+	default:
+		return false
+	}
+}
+
+func validRadioButtonDetails(
+	details *RadioButtonDetails,
+	limits Limits,
+) bool {
+	return details != nil &&
+		validIdentifier(details.Value, limits.IdentifierBytes) &&
+		canonicalDisplayText(details.Label, false) &&
+		validSelectionReason(details.Enabled, details.DisabledReason) &&
+		validOptionalMnemonic(details.Mnemonic)
+}
+
+func validRadioGroupDetails(
+	details *RadioGroupDetails,
+	limits Limits,
+) bool {
+	if details == nil ||
+		len(details.Options) > expletives.MaxSelectionOptions ||
+		!validSelectionReason(details.Enabled, details.DisabledReason) ||
+		!validOptionalCommand(details.ChangeCommand, limits) {
+		return false
+	}
+	values := make(map[string]bool, len(details.Options))
+	controls := make(map[ControlID]bool, len(details.Options))
+	selected := ""
+	enabledCount := 0
+	for _, option := range details.Options {
+		if !validIdentifier(string(option.Control), limits.IdentifierBytes) ||
+			controls[option.Control] ||
+			!validIdentifier(option.Value, limits.IdentifierBytes) ||
+			values[option.Value] ||
+			!canonicalDisplayText(option.Label, false) ||
+			!validSelectionReason(option.Enabled, option.DisabledReason) {
+			return false
+		}
+		if option.Enabled {
+			enabledCount++
+		}
+		controls[option.Control] = true
+		values[option.Value] = true
+		if option.Selected {
+			if selected != "" {
+				return false
+			}
+			selected = option.Value
+		}
+	}
+	if details.Value == "" {
+		return selected == "" && (details.AllowEmpty || enabledCount == 0)
+	}
+	return validIdentifier(details.Value, limits.IdentifierBytes) &&
+		selected == details.Value
+}
+
+func validChoiceFieldDetails(
+	details *ChoiceFieldDetails,
+	limits Limits,
+) bool {
+	if details == nil ||
+		!canonicalDisplayText(details.Label, false) ||
+		len(details.Options) > expletives.MaxSelectionOptions ||
+		!validSelectionReason(details.Enabled, details.DisabledReason) ||
+		!validOptionalMnemonic(details.Mnemonic) ||
+		!validOptionalCommand(details.ChangeCommand, limits) {
+		return false
+	}
+	values := make(map[string]bool, len(details.Options))
+	selectedIndex := -1
+	for index, option := range details.Options {
+		if !validIdentifier(option.Value, limits.IdentifierBytes) ||
+			values[option.Value] ||
+			!canonicalDisplayText(option.Label, false) ||
+			!validSelectionReason(option.Enabled, option.DisabledReason) ||
+			(option.Selected && !option.Enabled) {
+			return false
+		}
+		values[option.Value] = true
+		if option.Selected {
+			if selectedIndex >= 0 {
+				return false
+			}
+			selectedIndex = index
+		}
+	}
+	if details.Value == "" {
+		return details.SelectedIndex == -1 && selectedIndex == -1
+	}
+	return validIdentifier(details.Value, limits.IdentifierBytes) &&
+		details.SelectedIndex == selectedIndex &&
+		selectedIndex >= 0 &&
+		details.Options[selectedIndex].Value == details.Value
 }
 
 func validActionDetails(action *ActionDetails, limits Limits) bool {

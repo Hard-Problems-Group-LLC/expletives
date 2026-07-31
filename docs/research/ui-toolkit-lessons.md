@@ -215,6 +215,40 @@ signals, scheduler events, and fixtures. A correctness-first full-render
 reference path remains valuable even if normal presentation uses damage
 diffing.
 
+### Selection Controls
+
+Win32, wxWidgets, Motif, and Turbo Vision agree on several durable selection
+boundaries even though their public APIs differ.
+
+- A checkbox owns its own state. Ordinary two-state activation toggles between
+  unchecked and checked; an explicitly enabled third state adds
+  indeterminate without changing the control's identity.
+- A radio group, rather than each radio button independently, owns
+  exclusivity. Individual options still retain stable identities, labels,
+  enabled state, mnemonics, focus, and selection evidence.
+- Focus/current option and selected value are separate concepts. Turbo
+  Vision's `TCluster` keeps a current item independently from its selected
+  value and uses arrows to move among enabled options; a single-select radio
+  group may deliberately make selection follow that movement.
+- Disabled options are retained as observable choices but cannot be selected
+  by user activation. Navigation skips them so an all-disabled group does not
+  trap focus.
+- Tab traverses major controls. Arrow keys operate inside a radio group or
+  fixed-option cycling field, while Space performs the local selection
+  operation. Mnemonics use the same raw logical key path as Buttons and
+  Menus.
+- Selection change notification is downstream application behavior, not a
+  second mutable event loop. `expletives` should mutate its bounded model on
+  the serialized UI path, invoke an optional semantic command outside toolkit
+  locks, and let MVC/MVVM consumers inspect typed control state by stable
+  target identity.
+
+The existing project hierarchy names `CycleField (SelectField)` as one
+fixed-option `previous/current/next` cycling control. Phase 11 should
+therefore expose both construction names over the same interaction and option
+model. A popup `DropDown`/`ComboBox` remains a later Collections concern and
+must not be smuggled into this phase.
+
 ## Lessons Not To Copy Blindly
 
 - deep control hierarchies with obscure override chaining;
@@ -263,6 +297,8 @@ These questions are tracked in
 - [Menus and access keys](https://learn.microsoft.com/en-us/windows/win32/menurc/about-menus)
 - [`SendMessage` threading behavior](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendmessage)
 - [Console control handlers](https://learn.microsoft.com/en-us/windows/console/setconsolectrlhandler)
+- [Button styles, including checkboxes and radio buttons](https://learn.microsoft.com/en-us/windows/win32/controls/button-styles)
+- [Button states](https://learn.microsoft.com/en-us/windows/win32/controls/buttons)
 
 ### wxWidgets
 
@@ -272,6 +308,8 @@ These questions are tracked in
 - [`wxAcceleratorTable`](https://docs.wxwidgets.org/3.2/classwx_accelerator_table.html)
 - [Mnemonic tutorial](https://wxwidgets.org/docs/tutorials/using-mnemonics/)
 - [`wxComboBox`](https://docs.wxwidgets.org/3.2/classwx_combo_box.html)
+- [`wxCheckBox`](https://docs.wxwidgets.org/3.2/classwx_check_box.html)
+- [`wxRadioBox`](https://docs.wxwidgets.org/3.2/classwx_radio_box.html)
 
 ### Xt, Motif, And LessTif
 
@@ -286,6 +324,7 @@ These questions are tracked in
 ### Terminal Toolkits And Protocol Context
 
 - [Modern Turbo Vision](https://github.com/magiblot/tvision)
+- [Turbo Vision `TCluster` selection behavior](https://github.com/magiblot/tvision/blob/master/source/tvision/tcluster.cpp)
 - [tcell](https://github.com/gdamore/tcell)
 - [tview](https://github.com/rivo/tview)
 - [Bubble Tea](https://github.com/charmbracelet/bubbletea)

@@ -81,7 +81,26 @@ func DefaultTheme() Theme {
 		"rule":             resolved,
 		"button":           resolved,
 		"hotkey_bar":       resolved,
-		"status_bar":       menuNormal,
+		"focus_guide_bar":  menuNormal,
+		"checkbox":         resolved,
+		"radio_group":      resolved,
+		"radio_button":     resolved,
+		"cycle_field":      resolved,
+		"select_field":     resolved,
+		"selection.mnemonic": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: resolved.Background,
+		},
+		"selection.focused": menuSelected,
+		"selection.focused_mnemonic": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: menuSelected.Background,
+		},
+		"selection.disabled": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: resolved.Background,
+		},
+		"status_bar": menuNormal,
 		"status.shortcut": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
 			Background: menuNormal.Background,

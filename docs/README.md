@@ -33,6 +33,11 @@ Keep durable project documentation here.
 - [Headers and Footers API v0](specifications/headers-footers-api-v0.md)
   defines ordered root-owned one-row chrome containers and their compatible
   Layout boundary.
+- [FocusGuideBar API v0](specifications/focus-guide-bar-api-v0.md) defines
+  dynamic focused-control guidance and application append/override behavior.
+- [Selection API v0](specifications/selection-api-v0.md) defines Checkbox,
+  RadioButton/RadioGroup, and fixed-option CycleField/SelectField behavior,
+  mutation, focus, notification, and typed automation evidence.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

@@ -95,6 +95,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	chromeEvidence := make(map[string]bool)
 	menuEvidence := false
 	statusEvidence := false
+	automationPanel := false
 	var statusID automation.ControlID
 	helpEnd := false
 	expectedRootMnemonics := map[string]automation.Key{
@@ -102,6 +103,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		"menu.panels":   "n",
 		"menu.layouts":  "a",
 		"menu.controls": "c",
+		"menu.sections": "s",
 		"menu.menus":    "m",
 		"menu.dialogs":  "d",
 		"menu.help":     "p",
@@ -126,7 +128,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.ResolvedStyle.Background == "#003878"
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
-			"screen.text", "screen.actions", "screen.menus",
+			"screen.text", "screen.actions", "screen.selection", "screen.menus",
 			"screen.status", "screen.headers_footers", "screen.about":
 			screenEvidence[control.Key] = !control.Visible
 		case "header.primary", "header.secondary":
@@ -135,17 +137,18 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.Container != nil &&
 					!control.Visible &&
 					control.Bounds == (automation.Rect{})
-		case "footer.primary", "footer.recent":
+		case "footer.hotkeys.global", "footer.hotkeys.screen",
+			"footer.guidance.focus":
 			chromeEvidence[control.Key] =
 				control.Kind == "footer" &&
 					control.Details.Container != nil &&
-					!control.Visible &&
-					control.Bounds == (automation.Rect{})
+					control.Visible &&
+					control.Bounds.Height == 1
 		case "menu.main":
 			menuEvidence =
 				control.Kind == "menu_bar" &&
 					control.Details.MenuBar != nil &&
-					len(control.Details.MenuBar.Entries) == 47 &&
+					len(control.Details.MenuBar.Entries) == 58 &&
 					len(control.Details.MenuBar.OpenPath) == 0 &&
 					control.Bounds == (automation.Rect{
 						Width:  observe.Snapshot.Frame.Size.Width,
@@ -171,13 +174,17 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			statusEvidence =
 				control.Kind == "status_bar" &&
 					control.Details.StatusBar != nil &&
-					len(control.Details.StatusBar.Segments) == 4 &&
-					control.Details.StatusBar.Segments[0].Label == "Home" &&
+					len(control.Details.StatusBar.Segments) == 2 &&
+					control.Details.StatusBar.Segments[0].Label ==
+						"UNAUTHENTICATED AUTOMATION ENABLED" &&
+					control.Details.StatusBar.Segments[1].Label == "Home" &&
 					control.Bounds == (automation.Rect{
 						Y:      observe.Snapshot.Frame.Size.Height - 1,
 						Width:  observe.Snapshot.Frame.Size.Width,
 						Height: 1,
 					})
+		case "automation.status":
+			automationPanel = true
 		case "display.label":
 			displayEvidence[control.Key] =
 				control.Kind == "label" &&
@@ -229,7 +236,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			actionEvidence[control.Key] =
 				control.Kind == "hotkey_bar" &&
 					control.Details.HotkeyBar != nil &&
-					len(control.Details.HotkeyBar.Items) == 4
+					len(control.Details.HotkeyBar.Items) == 2
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -245,12 +252,12 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			observe.Snapshot.Frame.Cells[lastRow].Owner == statusID &&
 			observe.Snapshot.Frame.Cells[lastRow+observe.Snapshot.Frame.Size.Width-1].Owner == statusID
 	}
-	if !menuEvidence || !statusEvidence || !helpEnd ||
+	if !menuEvidence || !statusEvidence || automationPanel || !helpEnd ||
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(screenEvidence) != 11 ||
-		len(chromeEvidence) != 4 {
+		len(screenEvidence) != 12 ||
+		len(chromeEvidence) != 5 {
 		t.Fatalf(
 			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v",
 			menuEvidence,
@@ -293,6 +300,91 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if len(observe.Snapshot.Frame.Runs) == 0 {
 		t.Fatal("client observation omitted compact frame runs")
 	}
+	toggleAutomationNotice := func(
+		requestPrefix string,
+		wantVisible bool,
+	) {
+		t.Helper()
+		if _, err := client.InjectInput(
+			ctx,
+			requestPrefix+"-alt-down",
+			automation.KeyEvent{Kind: automation.KeyDown, Key: "alt"},
+		); err != nil {
+			t.Fatalf("InjectInput(Alt down) error = %v", err)
+		}
+		if _, err := client.InjectInput(
+			ctx,
+			requestPrefix+"-file",
+			automation.KeyEvent{Kind: automation.KeyPress, Key: "i"},
+		); err != nil {
+			t.Fatalf("InjectInput(Alt-I) error = %v", err)
+		}
+		if _, err := client.InjectInput(
+			ctx,
+			requestPrefix+"-alt-up",
+			automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
+		); err != nil {
+			t.Fatalf("InjectInput(Alt up) error = %v", err)
+		}
+		completion, err := client.InjectInput(
+			ctx,
+			requestPrefix+"-toggle",
+			automation.KeyEvent{Kind: automation.KeyPress, Key: "a"},
+		)
+		if err != nil {
+			t.Fatalf("InjectInput(File/Automation Notice) error = %v", err)
+		}
+		if completion.Outcome != automation.OutcomeApplied ||
+			completion.Snapshot == nil ||
+			completion.Snapshot.Completion == nil ||
+			completion.Snapshot.Completion.Command !=
+				string(demo.CommandAutomationNotice) {
+			t.Fatalf("Automation Notice completion = %+v", completion)
+		}
+		noticeVisible := false
+		menuChecked := false
+		menuFound := false
+		for _, control := range completion.Snapshot.Controls {
+			switch control.Key {
+			case "status.main":
+				if control.Details.StatusBar == nil {
+					t.Fatal("status.main has no StatusBar details")
+				}
+				for _, segment := range control.Details.StatusBar.Segments {
+					if segment.Key == "automation" {
+						noticeVisible =
+							segment.Label ==
+								"UNAUTHENTICATED AUTOMATION ENABLED"
+					}
+				}
+			case "menu.main":
+				if control.Details.MenuBar == nil {
+					t.Fatal("menu.main has no MenuBar details")
+				}
+				for _, entry := range control.Details.MenuBar.Entries {
+					if entry.Key == "menu.file.automation_notice" {
+						menuFound = true
+						menuChecked = entry.Checked
+					}
+				}
+			case "automation.status":
+				t.Fatal("dedicated automation status panel reappeared")
+			}
+		}
+		if noticeVisible != wantVisible || !menuFound ||
+			menuChecked != wantVisible {
+			t.Fatalf(
+				"Automation Notice visible=%t checked=%t found=%t, want=%t",
+				noticeVisible,
+				menuChecked,
+				menuFound,
+				wantVisible,
+			)
+		}
+	}
+	toggleAutomationNotice("automation-notice-hide", false)
+	toggleAutomationNotice("automation-notice-show", true)
+
 	shownBox, err := client.InvokeCommand(
 		ctx,
 		"show-box-layout",

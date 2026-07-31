@@ -130,6 +130,7 @@ type controlState struct {
 	provisional   bool
 	aborted       bool
 	behavior      controlBehavior
+	focusGuidance focusGuidanceConfig
 }
 
 type controlBehavior interface {

@@ -655,7 +655,7 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 			leftValue.alignment == rightValue.alignment &&
 			leftValue.mutable == rightValue.mutable
 	default:
-		return false
+		return selectionBehaviorEqual(left, right)
 	}
 }
 

@@ -25,9 +25,12 @@ separate arrangement and stacking tree:
   owning Panel.
 
 `SetLayout`, `AddLayout`, and nested `AddLayout` do not reparent Controls.
-Top-level Layouts each receive the owning Panel's complete client rectangle.
-This permits independent overlay contexts while ordinary applications use one
-top-level Box or Grid.
+Top-level Layouts each receive the owning Panel's complete **Panel Client
+Area**: its bounds less its border and any visible horizontal or vertical
+scrollbars. A top-level root Layout instead receives the constrained root
+content rectangle, which is the intersection of root constraints and the
+physical-width Application Client Area. This permits independent overlay
+contexts while ordinary applications use one top-level Box or Grid.
 
 Frame/GroupBox borders and Layout borders are independent. In particular, an
 enclosing Layout may own one outline while adjacent Frames select

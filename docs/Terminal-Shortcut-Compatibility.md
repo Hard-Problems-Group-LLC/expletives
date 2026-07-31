@@ -93,9 +93,15 @@ The MenuBar activation defaults are:
 | Panels | `Pa&nels` | `Alt-N` |
 | Layouts | `L&ayouts` | `Alt-A` |
 | Controls | `&Controls` | `Alt-C` |
+| Sections | `&Sections` | `Alt-S` |
 | Menus | `&Menus` | `Alt-M` |
 | Dialogs | `&Dialogs` | `Alt-D` |
 | Help | `Hel&p` | `Alt-P` |
+
+`Alt-S` for the operator-directed `&Sections` label is an intentional
+exception: a visible GNOME Terminal menubar can intercept it. Sections
+therefore remains fully reachable through F9 or Ctrl-Space followed by MenuBar
+navigation; `Alt-S` is not its only route.
 
 Its essential non-menu routes remain redundant:
 

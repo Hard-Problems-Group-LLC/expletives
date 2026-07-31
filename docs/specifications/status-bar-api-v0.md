@@ -189,6 +189,7 @@ transaction without changing the App.
 - Priority, clipping, empty, tiny, resize, and full-width fill behavior are
   deterministic and reflected exactly by typed snapshots and automation.
 - `expletives-test` provides `status.context`, `status.narrow-priority`, and
-  `status.chrome-geometry` scenarios and a Controls/Status Bar catalog page.
+  `status.chrome-geometry` scenarios and a Sections/Status Bar visibility
+  toggle.
 - Normal Go, socket automation, PTY integration, race, debug, release, and
   profiling verification pass.

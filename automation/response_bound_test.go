@@ -428,6 +428,136 @@ func TestSnapshotRejectsInvalidActionControlDetails(t *testing.T) {
 	})
 }
 
+func TestSnapshotRejectsInvalidSelectionControlDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	validateRejected := func(
+		t *testing.T,
+		kind ControlKind,
+		details ControlDetails,
+	) {
+		t.Helper()
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = kind
+		control.Details = details
+		if err := validateCompletion(completion, limits); err == nil {
+			t.Fatalf("validateCompletion() accepted invalid %s details", kind)
+		}
+	}
+
+	t.Run("checkbox indeterminate without policy", func(t *testing.T) {
+		validateRejected(t, "checkbox", ControlDetails{
+			Version: 1,
+			Checkbox: &CheckboxDetails{
+				Label: "Check", State: "indeterminate", Enabled: true,
+			},
+		})
+	})
+	t.Run("radio group duplicate selection", func(t *testing.T) {
+		validateRejected(t, "radio_group", ControlDetails{
+			Version:   1,
+			Container: &ContainerDetails{},
+			RadioGroup: &RadioGroupDetails{
+				Value: "one", Enabled: true,
+				Options: []RadioOptionDetails{
+					{
+						Control: "radio.one", Value: "one", Label: "One",
+						Selected: true, Enabled: true,
+					},
+					{
+						Control: "radio.two", Value: "two", Label: "Two",
+						Selected: true, Enabled: true,
+					},
+				},
+			},
+		})
+	})
+	t.Run("choice selected index mismatch", func(t *testing.T) {
+		validateRejected(t, "cycle_field", ControlDetails{
+			Version: 1,
+			ChoiceField: &ChoiceFieldDetails{
+				Label: "Choice", Value: "one", SelectedIndex: 1,
+				Enabled: true,
+				Options: []SelectionOptionDetails{{
+					Value: "one", Label: "One", Enabled: true,
+					Selected: true,
+				}},
+			},
+		})
+	})
+	t.Run("choice duplicate value", func(t *testing.T) {
+		validateRejected(t, "select_field", ControlDetails{
+			Version: 1,
+			ChoiceField: &ChoiceFieldDetails{
+				Label: "Choice", Value: "one", SelectedIndex: 0,
+				Enabled: true,
+				Options: []SelectionOptionDetails{
+					{
+						Value: "one", Label: "One", Enabled: true,
+						Selected: true,
+					},
+					{Value: "one", Label: "Again", Enabled: true},
+				},
+			},
+		})
+	})
+	t.Run("kind union mismatch", func(t *testing.T) {
+		validateRejected(t, "checkbox", ControlDetails{
+			Version: 1,
+			RadioButton: &RadioButtonDetails{
+				Value: "one", Label: "One", Enabled: true,
+			},
+		})
+	})
+}
+
+func TestSnapshotRejectsInvalidFocusGuideBarDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "focus_guide_bar"
+		control.Details = ControlDetails{
+			Version: 1,
+			FocusGuideBar: &FocusGuideBarDetails{
+				Target:        "button.run",
+				TargetKind:    "button",
+				Text:          "Button guidance",
+				Customization: "append",
+			},
+		}
+		return completion
+	}
+	if err := validateCompletion(valid(), limits); err != nil {
+		t.Fatalf("valid FocusGuideBar fixture rejected: %v", err)
+	}
+	tests := map[string]func(*FocusGuideBarDetails){
+		"target kind": func(details *FocusGuideBarDetails) {
+			details.TargetKind = "panel"
+		},
+		"customization": func(details *FocusGuideBarDetails) {
+			details.Customization = "replace-ish"
+		},
+		"orphan kind": func(details *FocusGuideBarDetails) {
+			details.Target = ""
+		},
+		"multiline": func(details *FocusGuideBarDetails) {
+			details.Text = "first\nsecond"
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			completion := valid()
+			mutate(completion.Snapshot.Controls[0].Details.FocusGuideBar)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid focus guidance")
+			}
+		})
+	}
+}
+
 func TestSnapshotRejectsInvalidMenuBarDetails(t *testing.T) {
 	t.Parallel()
 
@@ -910,11 +1040,65 @@ func maximumCompletionJSONBytes(
 			},
 		},
 	}
+	selectionOption := SelectionOptionDetails{
+		Value:          string(controlValue.ID),
+		Label:          strings.Repeat("\x00", maxDisplayTextBytes),
+		Enabled:        false,
+		DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+		Selected:       true,
+	}
+	choiceControl := controlValue
+	choiceControl.Details = ControlDetails{
+		Version: 1,
+		ChoiceField: &ChoiceFieldDetails{
+			Label:          strings.Repeat("\x00", maxDisplayTextBytes),
+			Value:          string(controlValue.ID),
+			SelectedIndex:  math.MaxInt,
+			Clamp:          true,
+			Enabled:        false,
+			DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+			Mnemonic:       Key(controlValue.ID),
+			ChangeCommand:  string(controlValue.ID),
+			Options:        []SelectionOptionDetails{},
+		},
+	}
+	radioOption := RadioOptionDetails{
+		Control:        controlValue.ID,
+		Value:          string(controlValue.ID),
+		Label:          strings.Repeat("\x00", maxDisplayTextBytes),
+		Selected:       true,
+		Enabled:        false,
+		DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+	}
+	radioControl := controlValue
+	radioControl.Details = ControlDetails{
+		Version:   1,
+		Container: &ContainerDetails{},
+		RadioGroup: &RadioGroupDetails{
+			Value:          string(controlValue.ID),
+			AllowEmpty:     true,
+			Enabled:        false,
+			DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+			ChangeCommand:  string(controlValue.ID),
+			Options:        []RadioOptionDetails{},
+		},
+	}
+	focusGuideControl := controlValue
+	focusGuideControl.Details = ControlDetails{
+		Version: 1,
+		FocusGuideBar: &FocusGuideBarDetails{
+			Target:        controlValue.ID,
+			TargetKind:    ControlKind(controlValue.ID),
+			Text:          strings.Repeat("\x00", maxDisplayTextBytes),
+			Customization: string(controlValue.ID),
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
 		mustMarshal(t, actionControl),
 		mustMarshal(t, hotkeyControl),
+		mustMarshal(t, focusGuideControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate
@@ -930,9 +1114,20 @@ func maximumCompletionJSONBytes(
 	menuControlOverhead := max(0, len(menuControlBytes)-len(control))
 	statusControlBytes := mustMarshal(t, statusControl)
 	statusControlOverhead := max(0, len(statusControlBytes)-len(control))
+	choiceItem := mustMarshal(t, selectionOption)
+	radioItem := mustMarshal(t, radioOption)
+	selectionItemBytes := max(len(choiceItem), len(radioItem))
+	selectionControlBytes := max(
+		len(mustMarshal(t, choiceControl)),
+		len(mustMarshal(t, radioControl)),
+	)
+	selectionControlOverhead := max(
+		0,
+		selectionControlBytes-len(control),
+	)
 	t.Logf(
-		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d status_item=%d status_control_overhead=%d",
-		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem), len(menuItem), menuControlOverhead, len(statusItem), statusControlOverhead,
+		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d status_item=%d status_control_overhead=%d selection_item=%d selection_control_overhead=%d",
+		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem), len(menuItem), menuControlOverhead, len(statusItem), statusControlOverhead, selectionItemBytes, selectionControlOverhead,
 	)
 
 	return len(base) +
@@ -945,7 +1140,9 @@ func maximumCompletionJSONBytes(
 		menuControlOverhead +
 		(expletives.MaxMenuItems-1)*(len(menuItem)+1) +
 		statusControlOverhead +
-		(expletives.MaxStatusBarSegments-1)*(len(statusItem)+1)
+		(expletives.MaxStatusBarSegments-1)*(len(statusItem)+1) +
+		expletives.MaxSelectionItems*(selectionItemBytes+1) +
+		expletives.MaxSelectionItems*selectionControlOverhead
 }
 
 func maximumElementCompletion(limits Limits) Completion {

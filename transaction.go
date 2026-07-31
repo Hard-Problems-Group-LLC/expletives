@@ -50,6 +50,11 @@ const (
 	mutationVisible
 	mutationText
 	mutationStatusSegments
+	mutationCheckState
+	mutationRadioValue
+	mutationChoiceValue
+	mutationChoiceOptions
+	mutationFocusGuidance
 )
 
 type transactionMutation struct {
@@ -61,6 +66,10 @@ type transactionMutation struct {
 	visible  bool
 	text     string
 	behavior controlBehavior
+
+	selectionValue   string
+	selectionOptions []SelectionOption
+	focusGuidance    focusGuidanceConfig
 }
 
 // NewTransaction creates an empty App-scoped transaction builder. Building it
@@ -335,14 +344,17 @@ func (t *Transaction) SetVisible(control Control, visible bool) error {
 	return nil
 }
 
-// SetFocus records keyboard focus for one Button. Eligibility is revalidated
-// atomically at Commit.
+// SetFocus records keyboard focus for one focusable control. Eligibility is
+// revalidated atomically at Commit.
 func (t *Transaction) SetFocus(control Control) error {
 	state, err := t.control(control)
 	if err != nil {
 		return err
 	}
-	if state.kind != ControlButton {
+	switch state.kind {
+	case ControlButton, ControlCheckbox, ControlRadioButton,
+		ControlCycleField, ControlSelectField:
+	default:
 		return ErrNotFocusable
 	}
 	if !t.focusSet {
@@ -352,6 +364,32 @@ func (t *Transaction) SetFocus(control Control) error {
 	}
 	t.focus = state
 	t.focusSet = true
+	return nil
+}
+
+// SetFocusGuidance records application-specific guidance for a control.
+// Append retains the toolkit's generic control guidance; Override replaces it.
+// An empty Text clears a prior customization.
+func (t *Transaction) SetFocusGuidance(
+	control Control,
+	guidance FocusGuidance,
+) error {
+	state, err := t.control(control)
+	if err != nil {
+		return err
+	}
+	config, err := normalizeFocusGuidance(state.kind, guidance)
+	if err != nil {
+		return err
+	}
+	if err := t.reserveOperation(); err != nil {
+		return err
+	}
+	t.mutations = append(t.mutations, transactionMutation{
+		kind:          mutationFocusGuidance,
+		state:         state,
+		focusGuidance: config,
+	})
 	return nil
 }
 
@@ -575,12 +613,10 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if destroyed[t.focus] {
 			return ErrDestroyed
 		}
-		behavior, ok := t.focus.behavior.(buttonBehavior)
-		if !ok {
-			return ErrNotFocusable
-		}
-		definition, exists := t.app.commands[behavior.command]
-		if !exists || !definition.Enabled {
+		if !t.app.focusBehaviorEligibleLocked(
+			t.focus,
+			t.focus.behavior,
+		) {
 			return ErrNotFocusable
 		}
 		plannedVisibility := make(map[*controlState]bool)
@@ -609,20 +645,41 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			return fmt.Errorf("%w: transaction mutates a destroyed control", ErrDestroyed)
 		}
 	}
+	stagedMutationBehaviors := make(map[*controlState]controlBehavior)
 	for index := range t.mutations {
 		mutation := &t.mutations[index]
-		if mutation.kind != mutationText {
-			continue
+		base := mutation.state.behavior
+		if staged, found := stagedMutationBehaviors[mutation.state]; found {
+			base = staged
 		}
-		mutable, ok := mutation.state.behavior.(mutableTextBehavior)
-		if !ok {
-			return fmt.Errorf("%w: control has no mutable text", ErrInvalidControl)
+		switch mutation.kind {
+		case mutationText:
+			mutable, ok := base.(mutableTextBehavior)
+			if !ok {
+				return fmt.Errorf(
+					"%w: control has no mutable text",
+					ErrInvalidControl,
+				)
+			}
+			behavior, err := mutable.withText(mutation.text)
+			if err != nil {
+				return err
+			}
+			mutation.behavior = behavior
+			stagedMutationBehaviors[mutation.state] = behavior
+		case mutationCheckState, mutationRadioValue,
+			mutationChoiceValue, mutationChoiceOptions:
+			behavior, err := t.selectionMutationBehaviorLocked(
+				mutation,
+				base,
+				destroyed,
+			)
+			if err != nil {
+				return err
+			}
+			mutation.behavior = behavior
+			stagedMutationBehaviors[mutation.state] = behavior
 		}
-		behavior, err := mutable.withText(mutation.text)
-		if err != nil {
-			return err
-		}
-		mutation.behavior = behavior
 	}
 	for _, state := range t.creates {
 		target := controlBehaviorTarget(state.behavior)
@@ -761,7 +818,9 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	}
 	selectedBehaviors := make(map[*controlState]controlBehavior)
 	for _, mutation := range t.mutations {
-		if mutation.kind == mutationStatusSegments {
+		switch mutation.kind {
+		case mutationStatusSegments, mutationCheckState, mutationRadioValue,
+			mutationChoiceValue, mutationChoiceOptions:
 			selectedBehaviors[mutation.state] = mutation.behavior
 		}
 	}
@@ -836,11 +895,46 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 
 	activeCount := 0
 	actionItems := 0
+	selectionItems := 0
 	menuBars := 0
 	statusBars := 0
 	mnemonics := make(map[Key]*controlState)
 	defaults := make(map[*controlState]*controlState)
 	cancels := make(map[*controlState]*controlState)
+	radioValues := make(map[*controlState]map[string]*controlState)
+	radioSelections := make(map[*controlState]*controlState)
+	validateChangeCommand := func(
+		command CommandID,
+		requireCommand bool,
+		controlName string,
+	) error {
+		if command == "" || !requireCommand {
+			return nil
+		}
+		if _, exists := t.app.commands[command]; !exists {
+			return fmt.Errorf(
+				"%w: %s change command %q is not registered",
+				ErrInvalidControl,
+				controlName,
+				command,
+			)
+		}
+		return nil
+	}
+	validateMnemonic := func(state *controlState, mnemonic Key) error {
+		if mnemonic == "" {
+			return nil
+		}
+		if existing := mnemonics[mnemonic]; existing != nil {
+			return fmt.Errorf(
+				"%w: duplicate Action mnemonic %q",
+				ErrInvalidControl,
+				mnemonic,
+			)
+		}
+		mnemonics[mnemonic] = state
+		return nil
+	}
 	validateAction := func(
 		state *controlState,
 		behavior controlBehavior,
@@ -857,15 +951,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					)
 				}
 			}
-			if behavior.mnemonic != "" {
-				if existing := mnemonics[behavior.mnemonic]; existing != nil {
-					return fmt.Errorf(
-						"%w: duplicate Action mnemonic %q",
-						ErrInvalidControl,
-						behavior.mnemonic,
-					)
-				}
-				mnemonics[behavior.mnemonic] = state
+			if err := validateMnemonic(state, behavior.mnemonic); err != nil {
+				return err
 			}
 			if behavior.default_ {
 				if defaults[state.parent] != nil {
@@ -929,14 +1016,74 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 		case textBehavior:
 			if behavior.mnemonic != "" && !destroyed[behavior.target] {
-				if existing := mnemonics[behavior.mnemonic]; existing != nil {
+				if err := validateMnemonic(state, behavior.mnemonic); err != nil {
+					return err
+				}
+			}
+		case checkboxBehavior:
+			if err := validateMnemonic(state, behavior.mnemonic); err != nil {
+				return err
+			}
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"Checkbox",
+			); err != nil {
+				return err
+			}
+		case radioGroupBehavior:
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"RadioGroup",
+			); err != nil {
+				return err
+			}
+		case radioButtonBehavior:
+			selectionItems++
+			if state.parent == nil ||
+				state.parent.kind != ControlRadioGroup {
+				return fmt.Errorf(
+					"%w: RadioButton requires a RadioGroup parent",
+					ErrInvalidParent,
+				)
+			}
+			values := radioValues[state.parent]
+			if values == nil {
+				values = make(map[string]*controlState)
+				radioValues[state.parent] = values
+			}
+			if values[behavior.value] != nil {
+				return fmt.Errorf(
+					"%w: duplicate RadioButton value %q",
+					ErrInvalidControl,
+					behavior.value,
+				)
+			}
+			values[behavior.value] = state
+			if behavior.initialSelected {
+				if radioSelections[state.parent] != nil {
 					return fmt.Errorf(
-						"%w: duplicate Action mnemonic %q",
+						"%w: multiple initially selected RadioButtons",
 						ErrInvalidControl,
-						behavior.mnemonic,
 					)
 				}
-				mnemonics[behavior.mnemonic] = state
+				radioSelections[state.parent] = state
+			}
+			if err := validateMnemonic(state, behavior.mnemonic); err != nil {
+				return err
+			}
+		case choiceFieldBehavior:
+			selectionItems += len(behavior.options)
+			if err := validateMnemonic(state, behavior.mnemonic); err != nil {
+				return err
+			}
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"choice field",
+			); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -974,6 +1121,9 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		return ErrControlCapacity
 	}
 	if actionItems > MaxActionItems {
+		return ErrControlCapacity
+	}
+	if selectionItems > MaxSelectionItems {
 		return ErrControlCapacity
 	}
 	if err := ctx.Err(); err != nil {
@@ -1114,7 +1264,32 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				mutation.state.behavior = next
 				changed = true
 			}
+		case mutationCheckState, mutationRadioValue,
+			mutationChoiceValue, mutationChoiceOptions:
+			if !selectionBehaviorEqual(
+				mutation.state.behavior,
+				mutation.behavior,
+			) {
+				mutation.state.behavior = mutation.behavior
+				if mutation.state.autoMinimum {
+					mutation.state.minimumSize =
+						mutation.behavior.(intrinsicMinimumBehavior).
+							intrinsicMinimum()
+				}
+				changed = true
+			}
+		case mutationFocusGuidance:
+			if !focusGuidanceConfigEqual(
+				mutation.state.focusGuidance,
+				mutation.focusGuidance,
+			) {
+				mutation.state.focusGuidance = mutation.focusGuidance
+				changed = true
+			}
 		}
+	}
+	if t.app.repairRadioGroupsLocked() {
+		changed = true
 	}
 	if t.app.updateApplicationChromeBoundsLocked(targetSize) {
 		changed = true

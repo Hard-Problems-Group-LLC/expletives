@@ -52,7 +52,14 @@ The root first takes the complete surface, then applies each positive maximum,
 then selects the largest cell rectangle satisfying the aspect ratio within
 that result. Fractional aspect results round to the nearest cell. The
 resulting root is centered; any cells outside it retain the root semantic
-style and are not part of the root's client area.
+style and are not part of the constrained root content rectangle.
+
+The physical-width **Application Client Area** is independently established
+by visible Main Menu/Header and Footer/Status Bar sections as specified by
+[`application-chrome-v0.md`](application-chrome-v0.md). Root constraints
+intersect that Application Client Area; they never redefine it. A
+**Panel Client Area** is local to one Panel and subtracts that Panel's border
+and any visible horizontal or vertical scrollbars before arranging children.
 
 A minimum describes required content geometry but cannot enlarge a physical
 container. When the offered surface is smaller, the root uses the available
@@ -88,6 +95,13 @@ Borders are independently available on:
 
 - `Frame` and `GroupBox` controls; and
 - `BoxLayout` and `GridLayout` arrangement objects.
+
+A visible Panel border is outside the Panel Client Area and currently removes
+one cell from each edge. A future visible vertical scrollbar removes its
+column, and a future visible horizontal scrollbar removes its row, after
+border deduction. If both are visible, each is deducted exactly once and
+their intersection belongs to scrollbar decoration rather than child
+content.
 
 This is deliberate. An enclosing Layout may own the visible border while
 adjacent child Frames select `BorderNone`, avoiding doubled seams. A bordered

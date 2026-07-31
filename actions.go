@@ -476,19 +476,119 @@ func (a *App) buttonEligibleLocked(state *controlState) bool {
 	return exists && definition.Enabled
 }
 
-func (a *App) focusableButtonsLocked() []*controlState {
-	buttons := make([]*controlState, 0)
+func (a *App) focusEligibleLocked(state *controlState) bool {
+	if state == nil || !a.effectivelyVisibleLocked(state) {
+		return false
+	}
+	switch behavior := state.behavior.(type) {
+	case buttonBehavior:
+		definition, exists := a.commands[behavior.command]
+		return exists && definition.Enabled
+	case checkboxBehavior:
+		return !behavior.disabled
+	case radioButtonBehavior:
+		return a.radioButtonEnabledLocked(state)
+	case choiceFieldBehavior:
+		return a.choiceFieldEnabledLocked(state)
+	default:
+		return false
+	}
+}
+
+func (a *App) focusBehaviorEligibleLocked(
+	state *controlState,
+	behavior controlBehavior,
+) bool {
+	switch behavior := behavior.(type) {
+	case buttonBehavior:
+		definition, exists := a.commands[behavior.command]
+		return exists && definition.Enabled
+	case checkboxBehavior:
+		return !behavior.disabled
+	case radioButtonBehavior:
+		if behavior.disabled || state == nil || state.parent == nil {
+			return false
+		}
+		group, ok := state.parent.behavior.(radioGroupBehavior)
+		return ok && !group.disabled
+	case choiceFieldBehavior:
+		if behavior.disabled {
+			return false
+		}
+		for _, option := range behavior.options {
+			if !option.option.Disabled {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *App) focusableControlsLocked() []*controlState {
+	groups := a.focusGroupsLocked()
+	controls := make([]*controlState, 0, len(groups))
+	for _, group := range groups {
+		if target := a.tabEntryForFocusGroupLocked(group, false); target != nil {
+			controls = append(controls, target)
+		}
+	}
+	return controls
+}
+
+func (a *App) allFocusableControlsLocked() []*controlState {
+	controls := make([]*controlState, 0)
 	var visit func(*controlState)
 	visit = func(state *controlState) {
-		if a.buttonEligibleLocked(state) {
-			buttons = append(buttons, state)
+		if a.focusEligibleLocked(state) {
+			controls = append(controls, state)
 		}
 		for _, child := range state.children {
 			visit(child)
 		}
 	}
 	visit(a.root.state)
-	return buttons
+	return controls
+}
+
+type focusGroup struct {
+	owner    *controlState
+	controls []*controlState
+}
+
+func (a *App) focusGroupsLocked() []focusGroup {
+	groups := make([]focusGroup, 0)
+	indexes := make(map[*controlState]int)
+	for _, control := range a.allFocusableControlsLocked() {
+		owner := control.parent
+		index, found := indexes[owner]
+		if !found {
+			index = len(groups)
+			indexes[owner] = index
+			groups = append(groups, focusGroup{owner: owner})
+		}
+		groups[index].controls = append(groups[index].controls, control)
+	}
+	return groups
+}
+
+func (a *App) tabEntryForFocusGroupLocked(
+	group focusGroup,
+	reverse bool,
+) *controlState {
+	if len(group.controls) == 0 {
+		return nil
+	}
+	if group.owner != nil && group.owner.kind == ControlRadioGroup {
+		for _, control := range group.controls {
+			if a.radioSelectedLocked(control) {
+				return control
+			}
+		}
+	}
+	if reverse {
+		return group.controls[len(group.controls)-1]
+	}
+	return group.controls[0]
 }
 
 func (a *App) ensureFocusLocked() bool {
@@ -501,14 +601,14 @@ func (a *App) ensureFocusLocked() bool {
 		}
 		a.closeMenuLocked()
 	}
-	if a.buttonEligibleLocked(a.focus) {
+	if a.focusEligibleLocked(a.focus) {
 		return false
 	}
 	previous := a.focus
 	a.focus = nil
-	buttons := a.focusableButtonsLocked()
-	if len(buttons) != 0 {
-		a.focus = buttons[0]
+	controls := a.focusableControlsLocked()
+	if len(controls) != 0 {
+		a.focus = controls[0]
 	}
 	if previous != a.focus {
 		a.clearInvalidPressesLocked()
@@ -518,8 +618,8 @@ func (a *App) ensureFocusLocked() bool {
 }
 
 func (a *App) moveFocusLocked(reverse bool) bool {
-	buttons := a.focusableButtonsLocked()
-	if len(buttons) == 0 {
+	groups := a.focusGroupsLocked()
+	if len(groups) == 0 {
 		if a.focus == nil {
 			return false
 		}
@@ -528,32 +628,163 @@ func (a *App) moveFocusLocked(reverse bool) bool {
 		return true
 	}
 	index := -1
-	for current, button := range buttons {
-		if button == a.focus {
+	currentOwner := (*controlState)(nil)
+	if a.focus != nil {
+		currentOwner = a.focus.parent
+	}
+	if len(groups) == 1 && groups[0].owner == currentOwner {
+		return false
+	}
+	for current, group := range groups {
+		if group.owner == currentOwner {
 			index = current
 			break
 		}
 	}
 	if reverse {
 		if index <= 0 {
-			index = len(buttons) - 1
+			index = len(groups) - 1
 		} else {
 			index--
 		}
 	} else {
-		index = (index + 1) % len(buttons)
+		index = (index + 1) % len(groups)
 	}
-	if a.focus == buttons[index] {
+	target := a.tabEntryForFocusGroupLocked(groups[index], reverse)
+	if target == nil || a.focus == target {
 		return false
 	}
-	a.focus = buttons[index]
+	a.focus = target
 	a.clearInvalidPressesLocked()
 	return true
 }
 
+func isDirectionalFocusKey(key Key) bool {
+	switch key {
+	case KeyLeft, KeyRight, KeyUp, KeyDown:
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *App) moveDirectionalFocusLocked(key Key) bool {
+	if !isDirectionalFocusKey(key) || !a.focusEligibleLocked(a.focus) {
+		return false
+	}
+	controls := a.allFocusableControlsLocked()
+	sameGroup := make([]*controlState, 0)
+	otherGroups := make([]*controlState, 0)
+	for _, control := range controls {
+		if control == a.focus {
+			continue
+		}
+		if control.parent == a.focus.parent {
+			sameGroup = append(sameGroup, control)
+		} else {
+			otherGroups = append(otherGroups, control)
+		}
+	}
+	target, _ := a.directionalFocusTargetLocked(
+		a.focus,
+		sameGroup,
+		key,
+		false,
+	)
+	if target == nil {
+		target, _ = a.directionalFocusTargetLocked(
+			a.focus,
+			otherGroups,
+			key,
+			true,
+		)
+	}
+	if target == nil {
+		return false
+	}
+	a.focus = target
+	a.clearInvalidPressesLocked()
+	return true
+}
+
+func (a *App) directionalFocusTargetLocked(
+	current *controlState,
+	candidates []*controlState,
+	key Key,
+	requireUnique bool,
+) (*controlState, bool) {
+	currentBounds, found := a.snapshotControlBoundsLocked(current)
+	if !found {
+		return nil, false
+	}
+	currentX := 2*currentBounds.X + currentBounds.Width
+	currentY := 2*currentBounds.Y + currentBounds.Height
+	var best *controlState
+	bestPrimary, bestCross := 0, 0
+	tied := false
+	for _, candidate := range candidates {
+		bounds, exists := a.snapshotControlBoundsLocked(candidate)
+		if !exists {
+			continue
+		}
+		x := 2*bounds.X + bounds.Width
+		y := 2*bounds.Y + bounds.Height
+		primary, cross := 0, 0
+		switch key {
+		case KeyLeft:
+			primary, cross = currentX-x, abs(currentY-y)
+		case KeyRight:
+			primary, cross = x-currentX, abs(currentY-y)
+		case KeyUp:
+			primary, cross = currentY-y, abs(currentX-x)
+		case KeyDown:
+			primary, cross = y-currentY, abs(currentX-x)
+		}
+		if primary <= 0 {
+			continue
+		}
+		if best == nil || primary < bestPrimary ||
+			(primary == bestPrimary && cross < bestCross) {
+			best = candidate
+			bestPrimary, bestCross = primary, cross
+			tied = false
+		} else if primary == bestPrimary && cross == bestCross {
+			tied = true
+		}
+	}
+	if requireUnique && tied {
+		return nil, false
+	}
+	return best, best != nil
+}
+
+func (a *App) snapshotControlBoundsLocked(
+	state *controlState,
+) (Rect, bool) {
+	if state == nil {
+		return Rect{}, false
+	}
+	for _, control := range a.snapshot.Controls {
+		if control.ID == state.id {
+			return control.AbsoluteBounds, true
+		}
+	}
+	return Rect{}, false
+}
+
+func abs(value int) int {
+	if value < 0 {
+		return -value
+	}
+	return value
+}
+
 func (a *App) roleButtonLocked(cancel bool) *controlState {
-	for _, state := range a.focusableButtonsLocked() {
-		behavior := state.behavior.(buttonBehavior)
+	for _, state := range a.allFocusableControlsLocked() {
+		behavior, ok := state.behavior.(buttonBehavior)
+		if !ok {
+			continue
+		}
 		if (!cancel && behavior.default_) || (cancel && behavior.cancel) {
 			return state
 		}
@@ -576,9 +807,26 @@ func (a *App) mnemonicControlLocked(key Key) (*controlState, bool) {
 				activate = true
 				return
 			}
+		case checkboxBehavior:
+			if behavior.mnemonic == key && a.focusEligibleLocked(state) {
+				found = state
+				activate = true
+				return
+			}
+		case radioButtonBehavior:
+			if behavior.mnemonic == key && a.focusEligibleLocked(state) {
+				found = state
+				activate = true
+				return
+			}
+		case choiceFieldBehavior:
+			if behavior.mnemonic == key && a.focusEligibleLocked(state) {
+				found = state
+				return
+			}
 		case textBehavior:
 			if behavior.mnemonic == key &&
-				a.buttonEligibleLocked(behavior.target) {
+				a.focusEligibleLocked(behavior.target) {
 				found = behavior.target
 				return
 			}

@@ -150,13 +150,13 @@ func TestActionActivationTraversalPressAndReset(t *testing.T) {
 		t.Fatalf("SetCommandRouter() error = %v", err)
 	}
 	if _, err := app.DispatchKey(
-		context.Background(), "keyboard", "tab",
-		KeyEvent{Kind: KeyEventPress, Key: KeyTab},
+		context.Background(), "keyboard", "right",
+		KeyEvent{Kind: KeyEventPress, Key: KeyRight},
 	); err != nil {
-		t.Fatalf("DispatchKey(Tab) error = %v", err)
+		t.Fatalf("DispatchKey(Right) error = %v", err)
 	}
 	if app.Focused() != second {
-		t.Fatalf("focus after Tab = %#v, want second", app.Focused())
+		t.Fatalf("focus after Right = %#v, want second", app.Focused())
 	}
 	down, err := app.DispatchKey(
 		context.Background(), "keyboard", "enter-down",
@@ -289,13 +289,13 @@ func TestActionMnemonicsRolesAndInvalidation(t *testing.T) {
 		t.Fatalf("Alt-A command = %q", got.Command)
 	}
 	key("alt-up", KeyEvent{Kind: KeyEventUp, Key: KeyAlt})
-	key("tab", KeyEvent{Kind: KeyEventPress, Key: KeyTab})
+	key("right", KeyEvent{Kind: KeyEventPress, Key: KeyRight})
 	if app.Focused() != cancel {
 		t.Fatalf("focus before Label mnemonic = %#v", app.Focused())
 	}
-	key("tab-wrap", KeyEvent{Kind: KeyEventPress, Key: KeyTab})
+	key("left", KeyEvent{Kind: KeyEventPress, Key: KeyLeft})
 	if app.Focused() != accept {
-		t.Fatalf("focus after wrap = %#v", app.Focused())
+		t.Fatalf("focus after Left = %#v", app.Focused())
 	}
 	key("alt-down-2", KeyEvent{Kind: KeyEventDown, Key: KeyAlt})
 	focusCompletion := key("cancel-focus", KeyEvent{

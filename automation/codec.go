@@ -354,7 +354,10 @@ func validateKeyEvent(event KeyEvent, limits Limits) error {
 
 func validLogicalKey(key string) bool {
 	if len(key) == 1 {
-		return (key[0] >= 'a' && key[0] <= 'z') || (key[0] >= '0' && key[0] <= '9')
+		return (key[0] >= 'a' && key[0] <= 'z') ||
+			(key[0] >= '0' && key[0] <= '9') ||
+			key == "[" ||
+			key == "]"
 	}
 	switch key {
 	case "control", "alt", "shift", "meta",

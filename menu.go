@@ -639,7 +639,7 @@ func (a *App) closeMenuLocked() bool {
 	prior := a.menu.priorFocus
 	a.menu = nil
 	a.focus = nil
-	if a.buttonEligibleLocked(prior) {
+	if a.focusEligibleLocked(prior) {
 		a.focus = prior
 	} else {
 		a.ensureFocusLocked()

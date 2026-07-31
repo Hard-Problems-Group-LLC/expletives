@@ -49,6 +49,19 @@ func TestInputDecoderHandlesCoalescedInput(t *testing.T) {
 	}
 }
 
+func TestInputDecoderRecognizesCycleBrackets(t *testing.T) {
+	t.Parallel()
+	decoder := mustInputDecoder(t, InputDecoderOptions{})
+	got := decoder.Feed(time.Unix(1, 0), []byte("[]"))
+	want := []expletives.KeyEvent{
+		keyPress(expletives.KeyLeftBracket),
+		keyPress(expletives.KeyRightBracket),
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("events = %#v, want %#v", got, want)
+	}
+}
+
 func TestInputDecoderRecognizesNavigationSequences(t *testing.T) {
 	t.Parallel()
 

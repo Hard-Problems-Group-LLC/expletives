@@ -9,6 +9,22 @@
 
 ## Observed Opportunities
 
+### 31. Keep Dashboard IDs Out Of Dashboard Titles
+
+Ubersight already renders each phase/slice ID. Repeating `Phase 11` or `11.3`
+inside the title doubled visible numbering and spent scarce horizontal space.
+
+Improvement applied:
+
+- keep durable phase/slice numbers in the row ID only;
+- use short plain-language row titles;
+- publish through `ubersight --write-status` on meaningful transitions; and
+- derive dashboard state from tracked roadmap/task records.
+
+The Selection correction also implemented grouped navigation once in the
+shared Actions focus seam. Later controls inherit Tab-group and spatial-arrow
+behavior without page-specific key handlers.
+
 ### 30. Resolve Hidden-View Overflow At The Shared Lifecycle Seam
 
 The first Header/Footer catalog integration attached complete Layouts to

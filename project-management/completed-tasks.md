@@ -4,6 +4,50 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-31 — `EXPL-TASK-026` — Deliver Phase 11 Selection controls.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-31T00:13:13-07:00
+  - Completed: 2026-07-31T01:37:02-07:00
+  - Outcome:
+    - added bounded typed Checkbox, RadioGroup/RadioButton, CycleField, and
+      SelectField controls with stable values, disabled/empty cases, atomic
+      mutations, outside-lock user-change commands, and exact local and
+      automation evidence;
+    - defined direct-parent focus groups: Tab/Shift-Tab cross groups, arrows
+      move focus spatially without changing values, Radio Space/Enter selects,
+      and Cycle/Select `[`/`]` changes values;
+    - added dynamic `FocusGuideBar` guidance with per-control application
+      append/override text;
+    - enabled the Selection catalog page, moved application chrome controls
+      into the top-level Sections menu, and formalized Application versus
+      Panel Client Area; and
+    - removed duplicated phase/slice numbers from Ubersight titles so the
+      dashboard renders each project ID once.
+  - Verification:
+    - ordinary and Unix-socket Go tests, the full race suite, response-bound
+      proof, `make all`, and `make smoke` pass;
+    - all debug, release, and profiling binaries exist in their required
+      mode-specific paths; and
+    - a live 100x24 debug automation run proved focus-only Radio arrows,
+      Radio Enter selection, grouped Tab/Shift-Tab, `]` Cycle/Select changes,
+      typed focus guidance, complete rendering, final shutdown, and socket
+      cleanup.
+  - Contracts:
+    - [`Selection API v0`](../docs/specifications/selection-api-v0.md)
+    - [`FocusGuideBar API v0`](../docs/specifications/focus-guide-bar-api-v0.md)
+    - [`Application Chrome v0`](../docs/specifications/application-chrome-v0.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Process:
+    - completed without convening the Panel; and
+    - recorded the Ubersight numbering and shared focus-navigation efficiency
+      improvements in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 12 Text/Numeric Input is next; Structured Input remains deferred
+      only where the control catalog explicitly says so.
+
 - 2026-07-31 — `EXPL-TASK-025` — Deliver Phase 10 Headers and Footers.
   - Requestor: project operator
   - Owner: Codex

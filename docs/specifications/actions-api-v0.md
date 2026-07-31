@@ -110,10 +110,21 @@ thread-safe mutations. Focus requires a live, effectively visible, enabled,
 focusable control. Creating the first eligible Button or invalidating the
 current focus selects the first eligible Button in stable control-tree order.
 
-Plain Tab and Shift-Tab traverse eligible controls cyclically in stable
-control-tree order. A plain Enter or Space activates the focused Button. If
-no focused Button handles Enter, the applicable visible default Button is
-activated. Plain Escape activates the applicable visible cancel Button.
+The direct parent Container of a focusable control defines its focus group.
+Plain Tab and Shift-Tab traverse eligible groups cyclically in stable
+control-tree order rather than visiting every control. Entering a group
+chooses its first eligible control when moving forward and its last eligible
+control when moving backward; a RadioGroup instead enters through its
+selected enabled option when possible.
+
+Plain arrows move focus spatially among eligible controls in the same group.
+When no same-group control exists in that direction, focus may enter another
+group only when the nearest primary/cross-axis target is unambiguous. Arrow
+movement does not imply activation or selection.
+
+A plain Enter or Space activates the focused Button. If no focused Button
+handles Enter, the applicable visible default Button is activated. Plain
+Escape activates the applicable visible cancel Button.
 
 KeyDown on Enter or Space visually presses the focused Button for that input
 source. Matching KeyUp clears the press and activates the captured Button if
@@ -157,15 +168,17 @@ atomically. No callback runs during focus traversal, layout, or painting.
 
 ## Verification
 
-Normal Go tests cover construction, copy safety, leaf capabilities, focus
-traversal and invalidation, same-parent role uniqueness, every visual state,
+Normal Go tests cover construction, copy safety, leaf capabilities, grouped
+Tab/Shift-Tab traversal, spatial arrow traversal and invalidation,
+same-parent role uniqueness, every visual state,
 label/mnemonic normalization, KeyPress and KeyDown/KeyUp activation,
 source-local reset, disabled/unknown rejection, target identity, command
 replacement, HotkeyBar binding reflection, clipping, transactions, snapshots,
 concurrency, and capacity.
 
 `expletives-test` adds normal/focused/default/cancel/disabled Buttons and a
-HotkeyBar. Attached automation activates through Tab/Enter, Alt mnemonic, a
+HotkeyBar. Attached automation activates through grouped navigation and
+Enter, Alt mnemonic, a
 raw modifier chord, and a direct command, then compares command, target,
 outcome, sequence, semantic details, and visible cells. The phase closes only
 after ordinary, PTY, race, fuzz, all-mode build, smoke, and live debug

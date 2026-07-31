@@ -547,6 +547,10 @@ func appendASCII(
 		return appendControl(events, expletives.KeySpace)
 	case ' ':
 		return append(events, keyPress(expletives.KeySpace))
+	case '[':
+		return append(events, keyPress(expletives.KeyLeftBracket))
+	case ']':
+		return append(events, keyPress(expletives.KeyRightBracket))
 	case '\r', '\n':
 		return append(events, keyPress(expletives.KeyEnter))
 	case '\t':

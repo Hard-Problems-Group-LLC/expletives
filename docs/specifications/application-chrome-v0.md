@@ -7,7 +7,7 @@
 
 ## Purpose
 
-Application chrome is anchored to the physical terminal client area, not to a
+Application chrome is anchored to the physical terminal surface, not to a
 centered, maximum-sized, aspect-constrained, or otherwise inset application
 root rectangle. It establishes a predictable edge frame around the ordinary
 root content and prevents catalog controls from treating global chrome as
@@ -30,6 +30,36 @@ When present, chrome consumes physical rows in this order:
    stack; and
 5. the Status Bar occupies the last physical row, from column 0 through the
    last column.
+
+## Application Client Area
+
+The **Application Client Area** is the complete physical-width rectangle left
+between the visible upper and lower application-section stacks:
+
+- its first row is immediately below the lowest visible Header;
+- when there is no visible Header, its first row is immediately below the
+  visible Main Menu;
+- when neither is visible, it begins at physical row 0;
+- its last row is immediately above the highest visible Footer;
+- when there is no visible Footer, its last row is immediately above the
+  visible Status Bar; and
+- when neither is visible, it includes the physical bottom row.
+
+Its width is always the physical surface width. If the two stacks consume or
+cross all available rows, the Application Client Area is empty. Showing,
+hiding, adding, removing, or destroying a section and resizing the surface
+publish the new Application Client Area atomically.
+
+The Application Client Area is not the same as constrained root content.
+Maximum size, aspect ratio, and centering constraints intersect the root with
+the Application Client Area; they do not narrow, move, or redefine the
+Application Client Area itself.
+
+A **Panel Client Area** is a separate, local concept: it is that Panel's
+rectangle after subtracting its border and every visible horizontal or
+vertical scrollbar. Layouts and unmanaged children use this resulting local
+rectangle. Border subtraction is part of the current contract; scrollbar
+subtraction becomes operative with the scrollbar phase.
 
 If the surface is too short for every requested row, chrome retains stable
 semantic identity. At height one with both a Main Menu and Status Bar visible,
@@ -64,11 +94,11 @@ an ordinary child of the root content rectangle:
 - its snapshot Bounds and AbsoluteBounds use App-surface coordinates.
 
 The root content rectangle is the intersection of the constrained root
-rectangle and the physical surface remaining after visible chrome rows are
-reserved. A centered root that does not overlap an edge row loses no
-additional space. A root that reaches an occupied edge begins or ends beside
-that chrome. Hiding or destroying chrome returns its row to ordinary content
-in the same atomic layout publication.
+rectangle and the Application Client Area. A centered root that does not
+overlap an edge row loses no additional space. A root that reaches an
+occupied edge begins or ends beside that chrome. Hiding or destroying chrome
+returns its row to the Application Client Area in the same atomic layout
+publication.
 
 ## One-Row Header And Footer Layouts
 
@@ -106,6 +136,10 @@ introducing a second coordinate model.
 - A constrained root never moves or narrows the Main Menu or Status Bar.
 - Root Layouts begin below visible top chrome and end above visible bottom
   chrome.
+- Every visible/absent combination of Main Menu, Headers, Footers, and Status
+  Bar yields the exact Application Client Area defined above.
+- Root constraints intersect the Application Client Area without redefining
+  its physical-width geometry.
 - Resize, hide, show, and destroy publish chrome and root-content geometry
   atomically.
 - Header/Footer Layout validation rejects incompatible trees without partial

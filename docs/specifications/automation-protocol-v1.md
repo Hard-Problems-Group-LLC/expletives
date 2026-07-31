@@ -58,8 +58,18 @@ standard error:
 WARNING: unauthenticated automation is active at PATH; any connector can observe and drive this process.
 ```
 
-The fixture also identifies the active unauthenticated mode and endpoint in
-its intended frame. The server's `hello` record sets
+The fixture also identifies the active mode in its intended frame with a
+default-visible StatusBar segment whose exact text is:
+
+```text
+UNAUTHENTICATED AUTOMATION ENABLED
+```
+
+The checked File/Automation Notice menu command may hide or restore this
+visual segment without changing the endpoint's running state. The warning
+must not consume ordinary content space or appear in a dedicated content
+Panel. Standard error and the server's `hello` record remain authoritative
+for the exact endpoint path; the `hello` record sets
 `"unauthenticated": true`.
 
 Version 1 performs no peer authentication, peer-credential check, capability
@@ -305,7 +315,7 @@ The server writes exactly one `hello` before reading requests:
   ],
   "limits": {
     "request_line_bytes": 65536,
-    "response_line_bytes": 37748736,
+    "response_line_bytes": 41943040,
     "json_depth": 16,
     "request_id_bytes": 64,
     "identifier_bytes": 64,
@@ -573,6 +583,7 @@ The complete version 1 key set is:
 ```text
 a through z
 0 through 9
+[ ]
 control alt shift meta
 space enter escape tab backspace
 up down left right
@@ -796,7 +807,7 @@ or present in the protocol retained-results ledger receives:
 The server retains the three most recently completed protocol results in FIFO
 completion order. One retained entry contains bounded terminal metadata and
 its exact immutable `automation.SnapshotV1`; both are inserted and evicted
-together. The three fixed slots and the 36 MiB per-response bound remain below
+together. The three fixed slots and the 40 MiB per-response bound remain below
 the version 1 128 MiB aggregate encoded-evidence budget. Active entries are
 not evicted. Once an entry expires,
 `query_result` returns `unknown_or_expired`, duplicate detection no longer
@@ -891,6 +902,8 @@ the root package's local snapshot. The client checks:
 - generic focus plus Button label, command, enabled/disabled reason, checked,
   mnemonic, pressed/default/cancel state, and HotkeyBar ordered command state
   with canonical structured bindings;
+- kind-consistent FocusGuideBar target kind, exact bounded resolved text, and
+  empty/append/override customization state;
 - at most 64 entries in one HotkeyBar and at most 4,096 aggregate HotkeyBar
   entries across one snapshot;
 - at most one MenuBar, 512 aggregate flat Menu entries, 64 direct siblings,
@@ -902,6 +915,11 @@ the root package's local snapshot. The client checks:
   keys, canonical effective labels, kind-consistent static or command state,
   structured chords, deterministic contiguous rendered Bounds, and explicit
   omission/clipping state;
+- kind-consistent Checkbox, RadioButton/RadioGroup, and
+  CycleField/SelectField detail members with canonical stable values,
+  enabled/disabled reasons, exclusive radio selection, selected-index
+  consistency, copied option state, at most 256 fixed options per field, and
+  at most 1,024 aggregate RadioButton/fixed-option records;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -923,9 +941,9 @@ text to 256 UTF-8 bytes, 256 normalized cells, and 64 bytes per canonical
 cell. Control-detail union members must match the control kind. A nested public
 snapshot-completion message is at most 1,024 UTF-8 bytes without NUL. A
 top-level protocol `error.message` is trimmed to at most 256 valid UTF-8
-bytes. Every encoded response must also fit the 36 MiB response-line limit.
-The conservative legal-maximum completion proof is 37,496,731 JSON bytes;
-three such records total 112,490,193 bytes and remain below the 128 MiB
+bytes. Every encoded response must also fit the 40 MiB response-line limit.
+The conservative legal-maximum completion proof is 40,865,691 JSON bytes;
+three such records total 122,597,073 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
 
 ## Public Go Client Contract
@@ -1094,12 +1112,12 @@ revalidated on 2026-07-30 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 
-That command passed. The current maximum fixture encoded to 37,496,731 bytes;
-three retained maximum records total 112,490,193 bytes.
+That command passed. The current maximum fixture encoded to 40,865,691 bytes;
+three retained maximum records total 122,597,073 bytes.
 
 The relevant integration assertions are:
 

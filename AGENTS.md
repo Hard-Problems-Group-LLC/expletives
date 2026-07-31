@@ -152,6 +152,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   replacement, Turbo Vision palette roles, and typed rendered/omitted/clipped
   evidence as defined in
   [`docs/specifications/status-bar-api-v0.md`](docs/specifications/status-bar-api-v0.md).
+  In `expletives-test`, Sections/Status Bar is an independent checked
+  visibility toggle, not a catalog-screen selector.
 - `Header` and `Footer` are root-owned one-row Containers with derived,
   full-physical-width geometry outside root constraints. Headers retain
   construction order below the Main Menu; Footers retain construction order
@@ -161,6 +163,18 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   Layout-overflow episode. Preserve their exact ownership, ordering, geometry,
   validation, rendering, snapshot, and automation contract from
   [`docs/specifications/headers-footers-api-v0.md`](docs/specifications/headers-footers-api-v0.md).
+  The test catalog exposes a top-level `&Sections` menu with Status Bar plus
+  separate Sections/Headers and Sections/Footers
+  submenus. Headers owns a checked Show toggle plus Add, Remove Highest, and
+  Remove Lowest. Footers owns independent checked visibility toggles for the
+  fixed Global Hotkeys, Screen Hotkeys, and Focus Guidance roles.
+- Do not put hotkey inventory in the StatusBar. Footer guidance is ordered
+  physically from lowest to highest as global application hotkeys,
+  current-screen hotkeys, then focused-control-type hotkeys/advisories. Allow
+  applications to append to or override the generic focused-control guidance
+  for one instance. Preserve the dynamic `FocusGuideBar` and typed evidence
+  contract in
+  [`docs/specifications/focus-guide-bar-api-v0.md`](docs/specifications/focus-guide-bar-api-v0.md).
 - Follow
   [`docs/Terminal-Shortcut-Compatibility.md`](docs/Terminal-Shortcut-Compatibility.md)
   for toolkit, demo, example, and acceptance-test defaults. Host terminal
@@ -173,6 +187,12 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   accepts only a Layout tree compatible with that height. The complete
   initial chrome sequence is delivered; follow
   [`docs/specifications/application-chrome-v0.md`](docs/specifications/application-chrome-v0.md).
+- Use “Application Client Area” for the complete physical-width rectangle
+  below the lowest visible Header (or Main Menu, or row 0) and above the
+  highest visible Footer (or Status Bar, or the physical bottom edge). Use
+  “Panel Client Area” for a Panel's rectangle less its border and any visible
+  horizontal or vertical scrollbars. Root size constraints may intersect the
+  Application Client Area for root content, but do not redefine it.
 - Follow
   [`docs/specifications/layouts-and-overflow.md`](docs/specifications/layouts-and-overflow.md)
   for logical versus clipped geometry, attachment, overflow episodes,
@@ -228,17 +248,29 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   The initial `--automation <socket-path>` mode may be unauthenticated because
   the operator is choosing a trusted, non-risky context. Do not claim it is
   safe for hostile, multi-user, or elevated use. Authentication and
-  capability authorization require a later approved proposal.
+  capability authorization require a later approved proposal. When attached
+  automation is active, show `UNAUTHENTICATED AUTOMATION ENABLED` as a
+  default-visible StatusBar segment, never as a dedicated content Panel.
+  Provide a checked File-menu command that hides and restores that segment
+  without disabling the endpoint, and test both transitions.
 - Keep automation queues and protocol inputs bounded, define fairness with
   human input, and clean up only endpoint resources owned by the current
   process.
 - Keep focus, selection, activation, back, cancel, interrupt, and quit
   distinct. Ctrl-C handling must be robust, complete, configurable, and
   tested across views, editors, modals, long-running work, and automation.
+- Preserve the implemented bounded Selection contract in
+  [`docs/specifications/selection-api-v0.md`](docs/specifications/selection-api-v0.md):
+  group-owned radio exclusivity, stable values, disabled-option skipping,
+  wrap/clamp policies, direct-parent focus groups, Tab/Shift-Tab group
+  traversal, focus-only spatial arrows, Radio Space/Enter selection,
+  Cycle/Select `[`/`]` changes, serialized user changes, programmatic-setter
+  silence, outside-lock ChangeCommand routing, and exact typed
+  snapshot/automation evidence.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
-- Preserve the completed Actions, Menus, Status Bar, and Headers/Footers
-  sequence; Selection controls are next. Use the persistent
+- Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and
+  Selection sequence. Use the persistent
   `expletives-test` MenuBar to navigate purpose-specific catalog screens as
   the public control set grows, rather than crowding every demonstration onto
   one surface.
@@ -300,6 +332,9 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   `FieldManual/knacks/software-engineering/development-observability/ubersight.knack.md`.
 - Publish Ubersight when a phase, blocker, or verification state materially
   changes. Do not treat it as a per-command activity feed.
+- Prefix Ubersight phase IDs/titles with their roadmap phase number and
+  current-phase slice IDs/titles with both phase and slice numbers so an
+  operator can correlate numeric references at a glance.
 - Use an explicit collision-resistant project context; `expletives-main` is
   the context for this checkout unless local policy specifies another.
 - Ubersight is a projection, not durable history. Do not publish sensitive

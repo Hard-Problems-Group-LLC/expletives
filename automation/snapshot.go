@@ -169,6 +169,16 @@ type ControlDetails struct {
 	MenuBar *MenuBarDetails `json:"menu_bar,omitempty"`
 	// StatusBar is present for StatusBar.
 	StatusBar *StatusBarDetails `json:"status_bar,omitempty"`
+	// Checkbox is present for Checkbox.
+	Checkbox *CheckboxDetails `json:"checkbox,omitempty"`
+	// RadioButton is present for RadioButton.
+	RadioButton *RadioButtonDetails `json:"radio_button,omitempty"`
+	// RadioGroup is present for RadioGroup.
+	RadioGroup *RadioGroupDetails `json:"radio_group,omitempty"`
+	// ChoiceField is present for CycleField and SelectField.
+	ChoiceField *ChoiceFieldDetails `json:"choice_field,omitempty"`
+	// FocusGuideBar is present for FocusGuideBar.
+	FocusGuideBar *FocusGuideBarDetails `json:"focus_guide_bar,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -286,6 +296,77 @@ type StatusSegmentDetails struct {
 // StatusBarDetails describes one bounded ordered bottom-row inventory.
 type StatusBarDetails struct {
 	Segments []StatusSegmentDetails `json:"segments"`
+}
+
+// CheckboxDetails describes one current Checkbox value and policy.
+type CheckboxDetails struct {
+	Label          string `json:"label"`
+	State          string `json:"state"`
+	ThreeState     bool   `json:"three_state"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Mnemonic       Key    `json:"mnemonic,omitempty"`
+	ChangeCommand  string `json:"change_command,omitempty"`
+}
+
+// RadioButtonDetails describes one option owned by a RadioGroup.
+type RadioButtonDetails struct {
+	Value          string `json:"value"`
+	Label          string `json:"label"`
+	Selected       bool   `json:"selected"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Mnemonic       Key    `json:"mnemonic,omitempty"`
+}
+
+// RadioOptionDetails is one direct RadioButton summary in group order.
+type RadioOptionDetails struct {
+	Control        ControlID `json:"control"`
+	Value          string    `json:"value"`
+	Label          string    `json:"label"`
+	Selected       bool      `json:"selected"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+}
+
+// RadioGroupDetails describes one exclusive selection.
+type RadioGroupDetails struct {
+	Value          string               `json:"value,omitempty"`
+	AllowEmpty     bool                 `json:"allow_empty"`
+	Enabled        bool                 `json:"enabled"`
+	DisabledReason string               `json:"disabled_reason,omitempty"`
+	ChangeCommand  string               `json:"change_command,omitempty"`
+	Options        []RadioOptionDetails `json:"options"`
+}
+
+// SelectionOptionDetails is one copied fixed choice.
+type SelectionOptionDetails struct {
+	Value          string `json:"value"`
+	Label          string `json:"label"`
+	Enabled        bool   `json:"enabled"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Selected       bool   `json:"selected"`
+}
+
+// ChoiceFieldDetails describes one CycleField or SelectField.
+type ChoiceFieldDetails struct {
+	Label          string                   `json:"label"`
+	Value          string                   `json:"value,omitempty"`
+	SelectedIndex  int                      `json:"selected_index"`
+	Clamp          bool                     `json:"clamp"`
+	Enabled        bool                     `json:"enabled"`
+	DisabledReason string                   `json:"disabled_reason,omitempty"`
+	Mnemonic       Key                      `json:"mnemonic,omitempty"`
+	ChangeCommand  string                   `json:"change_command,omitempty"`
+	Options        []SelectionOptionDetails `json:"options"`
+}
+
+// FocusGuideBarDetails describes guidance resolved for current focus.
+type FocusGuideBarDetails struct {
+	Target        ControlID   `json:"target,omitempty"`
+	TargetKind    ControlKind `json:"target_kind,omitempty"`
+	Text          string      `json:"text"`
+	Customization string      `json:"customization,omitempty"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -617,6 +698,75 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					projectedSegment
 			}
 		}
+		if details := control.Details.Checkbox; details != nil {
+			projectedControl.Details.Checkbox = &CheckboxDetails{
+				Label: details.Label, State: string(details.State),
+				ThreeState: details.ThreeState, Enabled: details.Enabled,
+				DisabledReason: details.DisabledReason,
+				Mnemonic:       Key(details.Mnemonic),
+				ChangeCommand:  string(details.ChangeCommand),
+			}
+		}
+		if details := control.Details.RadioButton; details != nil {
+			projectedControl.Details.RadioButton = &RadioButtonDetails{
+				Value: details.Value, Label: details.Label,
+				Selected: details.Selected, Enabled: details.Enabled,
+				DisabledReason: details.DisabledReason,
+				Mnemonic:       Key(details.Mnemonic),
+			}
+		}
+		if details := control.Details.RadioGroup; details != nil {
+			group := &RadioGroupDetails{
+				Value: details.Value, AllowEmpty: details.AllowEmpty,
+				Enabled:        details.Enabled,
+				DisabledReason: details.DisabledReason,
+				ChangeCommand:  string(details.ChangeCommand),
+				Options: make(
+					[]RadioOptionDetails,
+					len(details.Options),
+				),
+			}
+			for optionIndex, option := range details.Options {
+				group.Options[optionIndex] = RadioOptionDetails{
+					Control: ControlID(option.Control), Value: option.Value,
+					Label: option.Label, Selected: option.Selected,
+					Enabled:        option.Enabled,
+					DisabledReason: option.DisabledReason,
+				}
+			}
+			projectedControl.Details.RadioGroup = group
+		}
+		if details := control.Details.ChoiceField; details != nil {
+			field := &ChoiceFieldDetails{
+				Label: details.Label, Value: details.Value,
+				SelectedIndex: details.SelectedIndex, Clamp: details.Clamp,
+				Enabled:        details.Enabled,
+				DisabledReason: details.DisabledReason,
+				Mnemonic:       Key(details.Mnemonic),
+				ChangeCommand:  string(details.ChangeCommand),
+				Options: make(
+					[]SelectionOptionDetails,
+					len(details.Options),
+				),
+			}
+			for optionIndex, option := range details.Options {
+				field.Options[optionIndex] = SelectionOptionDetails{
+					Value: option.Value, Label: option.Label,
+					Enabled:        option.Enabled,
+					DisabledReason: option.DisabledReason,
+					Selected:       option.Selected,
+				}
+			}
+			projectedControl.Details.ChoiceField = field
+		}
+		if details := control.Details.FocusGuideBar; details != nil {
+			projectedControl.Details.FocusGuideBar = &FocusGuideBarDetails{
+				Target:        ControlID(details.Target),
+				TargetKind:    ControlKind(details.TargetKind),
+				Text:          details.Text,
+				Customization: string(details.Customization),
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -782,6 +932,34 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 				}
 			}
 			cloned.Controls[index].Details.StatusBar = &statusBar
+		}
+		if snapshot.Controls[index].Details.Checkbox != nil {
+			checkbox := *snapshot.Controls[index].Details.Checkbox
+			cloned.Controls[index].Details.Checkbox = &checkbox
+		}
+		if snapshot.Controls[index].Details.RadioButton != nil {
+			button := *snapshot.Controls[index].Details.RadioButton
+			cloned.Controls[index].Details.RadioButton = &button
+		}
+		if snapshot.Controls[index].Details.RadioGroup != nil {
+			group := *snapshot.Controls[index].Details.RadioGroup
+			group.Options = append(
+				[]RadioOptionDetails{},
+				snapshot.Controls[index].Details.RadioGroup.Options...,
+			)
+			cloned.Controls[index].Details.RadioGroup = &group
+		}
+		if snapshot.Controls[index].Details.ChoiceField != nil {
+			field := *snapshot.Controls[index].Details.ChoiceField
+			field.Options = append(
+				[]SelectionOptionDetails{},
+				snapshot.Controls[index].Details.ChoiceField.Options...,
+			)
+			cloned.Controls[index].Details.ChoiceField = &field
+		}
+		if snapshot.Controls[index].Details.FocusGuideBar != nil {
+			guide := *snapshot.Controls[index].Details.FocusGuideBar
+			cloned.Controls[index].Details.FocusGuideBar = &guide
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

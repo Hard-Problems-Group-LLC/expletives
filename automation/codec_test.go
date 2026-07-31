@@ -37,6 +37,18 @@ func TestDecodeRequest(t *testing.T) {
 			requestID: "key-1",
 		},
 		{
+			name:      "left bracket key press",
+			record:    `{"protocol":"expletives.automation","version":1,"type":"inject_input","request_id":"key-left","event":{"kind":"key_press","key":"["}}`,
+			operation: TypeInjectInput,
+			requestID: "key-left",
+		},
+		{
+			name:      "right bracket key press",
+			record:    `{"protocol":"expletives.automation","version":1,"type":"inject_input","request_id":"key-right","event":{"kind":"key_press","key":"]"}}`,
+			operation: TypeInjectInput,
+			requestID: "key-right",
+		},
+		{
 			name:      "command",
 			record:    `{"protocol":"expletives.automation","version":1,"type":"invoke_command","request_id":"command-1","command":"scenario.reset","target_key":"root"}`,
 			operation: TypeInvokeCommand,

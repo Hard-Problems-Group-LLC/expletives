@@ -20,8 +20,8 @@ const (
 )
 
 // Key is a stable logical key identity independent of terminal key codes.
-// Dispatch accepts lowercase ASCII letters, digits, the named keys below, and
-// function-key IDs "f1" through "f12".
+// Dispatch accepts lowercase ASCII letters, digits, [, ], the named keys
+// below, and function-key IDs "f1" through "f12".
 type Key string
 
 const (
@@ -63,6 +63,10 @@ const (
 	KeyInsert Key = "insert"
 	// KeyDelete is the Delete key.
 	KeyDelete Key = "delete"
+	// KeyLeftBracket is the unmodified [ key.
+	KeyLeftBracket Key = "["
+	// KeyRightBracket is the unmodified ] key.
+	KeyRightBracket Key = "]"
 )
 
 // KeyEventKind identifies one raw logical key lifecycle transition.
@@ -575,10 +579,25 @@ func (a *App) DispatchKey(
 		} else if mnemonicKeyEvent(event.Key, held) {
 			control, activate := a.mnemonicControlLocked(event.Key)
 			if control != nil && activate {
-				behavior := control.behavior.(buttonBehavior)
-				command = behavior.command
-				target = control.id
-				router, result, execute = a.resolveCommandLocked(command)
+				if behavior, ok := control.behavior.(buttonBehavior); ok {
+					command = behavior.command
+					target = control.id
+					router, result, execute =
+						a.resolveCommandLocked(command)
+				} else {
+					var changed bool
+					command, target, changed = a.applySelectionLocked(
+						control,
+						selectionActivate,
+					)
+					if changed {
+						result.Outcome = OutcomeApplied
+					}
+					if command != "" {
+						router, result, execute =
+							a.resolveCommandLocked(command)
+					}
+				}
 			} else if control != nil {
 				if a.focus != control {
 					a.focus = control
@@ -596,25 +615,57 @@ func (a *App) DispatchKey(
 			if a.moveFocusLocked(held[KeyShift]) {
 				result.Outcome = OutcomeApplied
 			}
-		} else if noHeldModifiers(held) &&
-			(event.Key == KeyEnter || event.Key == KeySpace) {
-			control := a.focus
-			if !a.buttonEligibleLocked(control) && event.Key == KeyEnter {
-				control = a.roleButtonLocked(false)
-			}
-			if a.buttonEligibleLocked(control) {
-				behavior := control.behavior.(buttonBehavior)
-				command = behavior.command
-				target = control.id
-				router, result, execute = a.resolveCommandLocked(command)
-			}
-		} else if noHeldModifiers(held) && event.Key == KeyEscape {
-			control := a.roleButtonLocked(true)
-			if control != nil {
-				behavior := control.behavior.(buttonBehavior)
-				command = behavior.command
-				target = control.id
-				router, result, execute = a.resolveCommandLocked(command)
+		} else if noHeldModifiers(held) {
+			if isDirectionalFocusKey(event.Key) {
+				result.Outcome = OutcomeNoOp
+				if a.moveDirectionalFocusLocked(event.Key) {
+					result.Outcome = OutcomeApplied
+				}
+			} else if (event.Key == KeyHome || event.Key == KeyEnd) &&
+				a.moveRadioBoundaryFocusLocked(event.Key) {
+				result.Outcome = OutcomeApplied
+			} else if action, handled :=
+				a.selectionKeyActionLocked(a.focus, event.Key); handled {
+				var changed bool
+				command, target, changed = a.applySelectionLocked(
+					a.focus,
+					action,
+				)
+				if changed {
+					result.Outcome = OutcomeApplied
+				}
+				if command != "" {
+					router, result, execute =
+						a.resolveCommandLocked(command)
+				}
+			} else if event.Key == KeyEnter || event.Key == KeySpace {
+				control := a.focus
+				if !a.buttonEligibleLocked(control) &&
+					event.Key == KeyEnter {
+					control = a.roleButtonLocked(false)
+				}
+				if a.buttonEligibleLocked(control) {
+					behavior := control.behavior.(buttonBehavior)
+					command = behavior.command
+					target = control.id
+					router, result, execute =
+						a.resolveCommandLocked(command)
+				}
+			} else if event.Key == KeyEscape {
+				control := a.roleButtonLocked(true)
+				if control != nil {
+					behavior := control.behavior.(buttonBehavior)
+					command = behavior.command
+					target = control.id
+					router, result, execute =
+						a.resolveCommandLocked(command)
+				}
+			} else {
+				command = a.bindings[chordKey(event.Key, held)]
+				if command != "" {
+					router, result, execute =
+						a.resolveCommandLocked(command)
+				}
 			}
 		} else {
 			command = a.bindings[chordKey(event.Key, held)]
@@ -1006,7 +1057,9 @@ func validKey(key Key) bool {
 	if len(key) == 1 {
 		value := key[0]
 		return (value >= 'a' && value <= 'z') ||
-			(value >= '0' && value <= '9')
+			(value >= '0' && value <= '9') ||
+			key == KeyLeftBracket ||
+			key == KeyRightBracket
 	}
 	switch key {
 	case KeyControl, KeyAlt, KeyShift, KeyMeta,

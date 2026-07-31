@@ -71,6 +71,13 @@ overflow retains the ordinary structured Layout overflow behavior.
 Multiple compatible top-level Layouts use the existing common-mode stacking
 contract. Header/Footer do not introduce another arrangement model.
 
+The standard semantic Footer stack is, from lowest to highest, global
+application hotkeys, current-screen hotkeys, and focused-control guidance.
+The last row uses `FocusGuideBar`, which follows current focus automatically
+and permits per-control application append/override text under
+[`focus-guide-bar-api-v0.md`](focus-guide-bar-api-v0.md). These are Footer
+roles, not StatusBar hotkey content.
+
 An attached Layout whose band is hidden retains deterministic arrangement
 state but has no actionable overflow episode. Showing the band recalculates
 its width against the restored row and starts a new episode if it remains
@@ -98,7 +105,7 @@ automation projection. No unrestricted detail bag is added.
   publication.
 - Tiny surfaces allocate deterministically with nonnegative in-surface
   Bounds.
-- `expletives-test` provides a Controls/Headers / Footers page and live
-  horizontal Box/Grid content.
+- `expletives-test` provides Sections/Headers and Sections/Footers live
+  controls and horizontal Box/Grid content.
 - Normal Go, socket automation, PTY integration, race, debug, release, and
   profiling verification pass.
