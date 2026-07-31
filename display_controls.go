@@ -681,6 +681,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case logViewBehavior:
 		rightValue, ok := right.(logViewBehavior)
 		return ok && logViewBehaviorEqual(leftValue, rightValue)
+	case listBoxBehavior:
+		rightValue, ok := right.(listBoxBehavior)
+		return ok && listBoxBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

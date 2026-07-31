@@ -119,6 +119,7 @@ func DefaultTheme() Theme {
 		"markdown_view":           resolved,
 		"log_view":                resolved,
 		"stream_view":             resolved,
+		"list_box":                menuNormal,
 		"tabbed_panel.border":     resolved,
 		"notebook.border":         resolved,
 		"viewport.border":         resolved,
@@ -126,6 +127,30 @@ func DefaultTheme() Theme {
 		"markdown_view.border":    resolved,
 		"log_view.border":         resolved,
 		"stream_view.border":      resolved,
+		"list_box.border":         menuNormal,
+		"collection.current":      menuSelected,
+		"collection.selected": {
+			Foreground: white,
+			Background: RGB(0x00, 0x00, 0xAA),
+		},
+		"collection.current_selected": {
+			Foreground: white,
+			Background: RGB(0x00, 0xAA, 0x00),
+			Attributes: StyleBold,
+		},
+		"collection.disabled": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: menuNormal.Background,
+		},
+		"collection.empty": menuNormal,
+		"collection.loading": {
+			Foreground: RGB(0xFF, 0xFF, 0x00),
+			Background: menuNormal.Background,
+		},
+		"collection.error": {
+			Foreground: white,
+			Background: RGB(0xAA, 0x00, 0x00),
+		},
 		"markdown.heading": {
 			Foreground: white,
 			Background: resolved.Background,

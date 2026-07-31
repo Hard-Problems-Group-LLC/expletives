@@ -101,6 +101,11 @@ The implemented exported limits are:
 | `MaxConcurrentCommandHandlers` | 4 | Maximum live router callbacks per App |
 | `MaxCommandDescriptionBytes` | 256 | Maximum command-description bytes |
 | `MaxPublicMessageBytes` | 1,024 | Maximum structured command-result message bytes |
+| `MaxCollectionItems` | 4,096 | Maximum rows or nodes in one collection model |
+| `MaxCollectionColumns` | 256 | Maximum columns in one table/grid schema |
+| `MaxCollectionCells` | 16,384 | Maximum copied table/grid cells across one App |
+| `MaxCollectionDepth` | 64 | Maximum copied TreeView hierarchy depth |
+| `MaxCollectionAggregateBytes` | 1,048,576 | Maximum copied collection data across one App |
 
 `Rect.Empty`, `Rect.Intersect`, and `IntendedFrame.Cell` operate on these
 checked values. `ControlID`, `ControlKind`, `StyleID`, `Key`, `KeyEventKind`,
@@ -693,6 +698,16 @@ func (s *StreamView) State() LogViewState
 func (s *StreamView) SetFollow(bool) error
 func (s *StreamView) SetOffset(Point) error
 func (s *StreamView) Focus() error
+func NewListBox(Container, ListBoxOptions) (*ListBox, error)
+func (l *ListBox) Items() []ListItem
+func (l *ListBox) State() ListBoxState
+func (l *ListBox) SetItems([]ListItem) error
+func (l *ListBox) Replace([]ListItem, string, []string) error
+func (l *ListBox) SetCurrent(string) error
+func (l *ListBox) SetSelection([]string) error
+func (l *ListBox) SetStatus(CollectionStatus, string) error
+func (l *ListBox) Focus() error
+func (l *ListBox) Activate(context.Context, string, string) (Completion, error)
 ```
 
 Both controls atomically create one toolkit-managed direct Content Panel.
@@ -729,6 +744,17 @@ lines, and never executes terminal semantics or owns a reader. Their explicit
 pauses and End resumes. Both expose compact typed retention, loss, follow,
 and viewport evidence without copying complete off-screen content. Their
 complete surface is defined by the same Phase 15 contract.
+
+`ListBox` is the first Phase 16 collection leaf. It copies a bounded ordered
+`[]ListItem`, identifies current and selected rows by stable keys, keeps
+keyboard current distinct from selection, skips disabled rows, and repairs
+surviving state deterministically after model replacement. It supports
+single or multiple selection, required selection, explicit ready/loading/error
+state, integrated scrolling, silent programmatic mutation, and separate
+user-change and activation commands. Its public getters return complete
+copies; snapshots expose compact counts, identities, digests, and viewport
+geometry without duplicating the retained item model. See
+[`collections-api-v0.md`](collections-api-v0.md).
 
 ## Atomic Transactions
 
@@ -769,6 +795,7 @@ func (t *Transaction) NewScrollablePanel(Container, ScrollablePanelOptions) (*Sc
 func (t *Transaction) NewMarkdownView(Container, MarkdownViewOptions) (*MarkdownView, error)
 func (t *Transaction) NewLogView(Container, LogViewOptions) (*LogView, error)
 func (t *Transaction) NewStreamView(Container, StreamViewOptions) (*StreamView, error)
+func (t *Transaction) NewListBox(Container, ListBoxOptions) (*ListBox, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -801,6 +828,11 @@ func (t *Transaction) SetLogOffset(Control, Point) error
 func (t *Transaction) AppendStream(*StreamView, []byte) (StreamAppendResult, error)
 func (t *Transaction) FlushStream(*StreamView) error
 func (t *Transaction) ClearStream(*StreamView) error
+func (t *Transaction) SetListItems(*ListBox, []ListItem) error
+func (t *Transaction) ReplaceList(*ListBox, []ListItem, string, []string) error
+func (t *Transaction) SetListCurrent(*ListBox, string) error
+func (t *Transaction) SetListSelection(*ListBox, []string) error
+func (t *Transaction) SetListStatus(*ListBox, CollectionStatus, string) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error

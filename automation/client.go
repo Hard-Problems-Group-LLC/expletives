@@ -735,6 +735,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	selectionItemCount := 0
 	textInputBytes := 0
 	contentBytes := 0
+	collectionBytes := 0
 	controlsByID := make(map[ControlID]*ControlSnapshot, len(snapshot.Controls))
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
@@ -897,6 +898,15 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 					"snapshot StreamView data exceeds advertised aggregate bound",
 				)
 			}
+		}
+		if control.Details.ListBox != nil {
+			retained := control.Details.ListBox.RetainedBytes
+			if retained > expletives.MaxCollectionAggregateBytes-collectionBytes {
+				return errors.New(
+					"snapshot collection data exceeds advertised aggregate bound",
+				)
+			}
+			collectionBytes += retained
 		}
 		if control.Details.StatusBar != nil {
 			statusBarCount++
@@ -1128,6 +1138,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.StreamView != nil {
+		specialMembers++
+	}
+	if details.ListBox != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1448,9 +1461,135 @@ func validControlDetails(
 				controlWidth,
 				controlHeight,
 			)
+	case "list_box":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validListBoxDetails(
+				details.ListBox,
+				details.Border,
+				controlWidth,
+				controlHeight,
+				limits,
+			)
 	default:
 		return false
 	}
+}
+
+func validListBoxDetails(
+	details *ListBoxDetails,
+	border *BorderDetails,
+	controlWidth int,
+	controlHeight int,
+	limits Limits,
+) bool {
+	if details == nil || border == nil || border.Title != "" ||
+		details.ItemCount < 0 ||
+		details.ItemCount > expletives.MaxCollectionItems ||
+		details.EnabledCount < 0 ||
+		details.EnabledCount > details.ItemCount ||
+		details.RetainedBytes < 0 ||
+		details.RetainedBytes > expletives.MaxCollectionAggregateBytes ||
+		((details.ItemCount > 0 || details.StatusMessageBytes > 0) &&
+			details.RetainedBytes == 0) ||
+		details.SelectedCount < 0 ||
+		details.SelectedCount > details.EnabledCount ||
+		details.DisabledReasonBytes < 0 ||
+		details.DisabledReasonBytes > expletives.MaxCommandDescriptionBytes ||
+		(details.Enabled && details.DisabledReasonBytes != 0) ||
+		(!details.Enabled && details.DisabledReasonBytes == 0) ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) ||
+		(details.ActivateCommand != "" &&
+			!validIdentifier(details.ActivateCommand, limits.IdentifierBytes)) ||
+		!validContentViewportDetails(
+			&details.Viewport,
+			border,
+			controlWidth,
+			controlHeight,
+		) {
+		return false
+	}
+	switch details.Status {
+	case "ready":
+		if details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
+			details.Viewport.State.ContentSize.Height != max(1, details.ItemCount) {
+			return false
+		}
+	case "loading", "error":
+		if details.StatusMessageBytes < 1 ||
+			details.StatusMessageBytes > expletives.MaxDisplayTextBytes ||
+			!validLowerSHA256(details.StatusMessageDigest) ||
+			details.Viewport.State.ContentSize.Height != 1 {
+			return false
+		}
+	default:
+		return false
+	}
+	if details.SelectionMode != "single" &&
+		details.SelectionMode != "multiple" {
+		return false
+	}
+	if details.SelectionMode == "single" && details.SelectedCount > 1 {
+		return false
+	}
+	if details.RequireSelection && details.EnabledCount > 0 &&
+		details.SelectedCount == 0 {
+		return false
+	}
+	if details.EnabledCount == 0 {
+		if details.Current != "" || details.CurrentIndex != -1 {
+			return false
+		}
+	} else if !validIdentifier(details.Current, limits.IdentifierBytes) ||
+		details.CurrentIndex < 0 || details.CurrentIndex >= details.ItemCount {
+		return false
+	}
+	if details.SelectedCount == 0 {
+		if details.FirstSelected != "" || details.LastSelected != "" {
+			return false
+		}
+	} else if !validIdentifier(details.FirstSelected, limits.IdentifierBytes) ||
+		!validIdentifier(details.LastSelected, limits.IdentifierBytes) ||
+		(details.SelectedCount == 1 &&
+			details.FirstSelected != details.LastSelected) ||
+		(details.SelectedCount > 1 &&
+			details.FirstSelected == details.LastSelected) {
+		return false
+	}
+	if !validLowerSHA256(details.SelectionDigest) {
+		return false
+	}
+	if details.SelectedCount == 0 && details.SelectionDigest !=
+		"e3b0c44298fc1c149afbf4c8996fb924"+
+			"27ae41e4649b934ca495991b7852b855" {
+		return false
+	}
+	if details.Status == "ready" && details.CurrentIndex >= 0 &&
+		details.Viewport.ViewportBounds.Height > 0 &&
+		(details.CurrentIndex < details.Viewport.State.Offset.Y ||
+			details.CurrentIndex >= details.Viewport.State.Offset.Y+
+				details.Viewport.ViewportBounds.Height) {
+		return false
+	}
+	return details.Viewport.State.ContentSize.Width >= 1 &&
+		details.Viewport.State.ContentSize.Width <=
+			2*expletives.MaxDisplayTextCells+8
+}
+
+func validLowerSHA256(value string) bool {
+	if len(value) != sha256HexBytes || value != strings.ToLower(value) {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func validMarkdownDetails(
@@ -1745,7 +1884,7 @@ func validScrollableDetails(
 		if border.Form != "none" {
 			wantInset = 1
 		}
-		if container.ClientInset != wantInset {
+		if container == nil || container.ClientInset != wantInset {
 			return false
 		}
 	}
@@ -2504,7 +2643,7 @@ func validFocusTargetKind(kind ControlKind) bool {
 		"select_field", "text_field", "number_field", "spin_box",
 		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook",
 		"viewport", "scrollable_panel", "markdown_view", "log_view",
-		"stream_view":
+		"stream_view", "list_box":
 		return true
 	default:
 		return false

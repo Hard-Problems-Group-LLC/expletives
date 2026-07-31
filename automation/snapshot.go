@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	expletives "github.com/Hard-Problems-Group-LLC/expletives"
@@ -199,6 +200,8 @@ type ControlDetails struct {
 	LogView *LogViewDetails `json:"log_view,omitempty"`
 	// StreamView is present for StreamView.
 	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
+	// ListBox is present for ListBox.
+	ListBox *ListBoxDetails `json:"list_box,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -590,6 +593,30 @@ type StreamViewDetails struct {
 	DroppedLines        uint64                 `json:"dropped_lines"`
 	DroppedBytes        uint64                 `json:"dropped_bytes"`
 	Follow              bool                   `json:"follow"`
+	Viewport            ContentViewportDetails `json:"viewport"`
+}
+
+// ListBoxDetails is a compact stable-identity list observation that omits
+// the retained item model.
+type ListBoxDetails struct {
+	Status              string                 `json:"status"`
+	StatusMessageBytes  int                    `json:"status_message_bytes"`
+	StatusMessageDigest string                 `json:"status_message_digest,omitempty"`
+	ItemCount           int                    `json:"item_count"`
+	EnabledCount        int                    `json:"enabled_count"`
+	RetainedBytes       int                    `json:"retained_bytes"`
+	Current             string                 `json:"current,omitempty"`
+	CurrentIndex        int                    `json:"current_index"`
+	SelectionMode       string                 `json:"selection_mode"`
+	RequireSelection    bool                   `json:"require_selection"`
+	SelectedCount       int                    `json:"selected_count"`
+	FirstSelected       string                 `json:"first_selected,omitempty"`
+	LastSelected        string                 `json:"last_selected,omitempty"`
+	SelectionDigest     string                 `json:"selection_digest"`
+	Enabled             bool                   `json:"enabled"`
+	DisabledReasonBytes int                    `json:"disabled_reason_bytes"`
+	ChangeCommand       string                 `json:"change_command,omitempty"`
+	ActivateCommand     string                 `json:"activate_command,omitempty"`
 	Viewport            ContentViewportDetails `json:"viewport"`
 }
 
@@ -1208,6 +1235,36 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				),
 			}
 		}
+		if details := control.Details.ListBox; details != nil {
+			statusDigest := ""
+			if details.StatusMessage != "" {
+				hash := sha256.Sum256([]byte(details.StatusMessage))
+				statusDigest = fmt.Sprintf("%x", hash)
+			}
+			projectedControl.Details.ListBox = &ListBoxDetails{
+				Status:              string(details.Status),
+				StatusMessageBytes:  len(details.StatusMessage),
+				StatusMessageDigest: statusDigest,
+				ItemCount:           details.ItemCount,
+				EnabledCount:        details.EnabledCount,
+				RetainedBytes:       details.RetainedBytes,
+				Current:             details.Current,
+				CurrentIndex:        details.CurrentIndex,
+				SelectionMode:       string(details.SelectionMode),
+				RequireSelection:    details.RequireSelection,
+				SelectedCount:       details.SelectedCount,
+				FirstSelected:       details.FirstSelected,
+				LastSelected:        details.LastSelected,
+				SelectionDigest:     details.SelectionDigest,
+				Enabled:             details.Enabled,
+				DisabledReasonBytes: len(details.DisabledReason),
+				ChangeCommand:       string(details.ChangeCommand),
+				ActivateCommand:     string(details.ActivateCommand),
+				Viewport: contentViewportDetailsFromCore(
+					&details.Viewport,
+				),
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -1523,6 +1580,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.StreamView != nil {
 			streamView := *snapshot.Controls[index].Details.StreamView
 			cloned.Controls[index].Details.StreamView = &streamView
+		}
+		if snapshot.Controls[index].Details.ListBox != nil {
+			listBox := *snapshot.Controls[index].Details.ListBox
+			cloned.Controls[index].Details.ListBox = &listBox
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

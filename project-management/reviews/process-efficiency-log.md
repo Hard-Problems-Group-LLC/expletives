@@ -934,6 +934,25 @@ Improvement candidate after the Phase 15 checkpoint:
 - keep this as a bounded test-maintenance improvement, not a generator or
   runtime reflection framework.
 
+### 30. Budget Semantic Evidence Separately From Retained Model Payloads
+
+The first ListBox automation projection included exact status and disabled
+reason strings. The response proof correctly showed that multiplying those
+fields by every legal control could consume the remaining 40 MiB wire budget,
+even though the full item model was already omitted and App-owned collection
+storage had a separate one-megabyte cap.
+
+Improvement applied:
+
+- keep exact bounded status text and disabled reason in the in-process API;
+- project byte counts plus a SHA-256 status digest over automation, while the
+  intended frame remains exact evidence for the visible text;
+- reuse the compact content-viewport shape instead of repeating generic
+  managed-content and integrated-scrollbar records; and
+- make the maximum-response test distinguish per-control metadata from model
+  payload that is not present on the wire, rather than raising the protocol
+  limit to accommodate an unnecessarily verbose DTO.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

@@ -64,6 +64,7 @@ const (
 	mutationScrollView
 	mutationMarkdownView
 	mutationLogView
+	mutationListBox
 )
 
 type transactionMutation struct {
@@ -425,7 +426,7 @@ func (t *Transaction) SetFocus(control Control) error {
 		ControlNumberField, ControlSpinBox, ControlTextArea,
 		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
 		ControlViewport, ControlScrollablePanel, ControlMarkdownView,
-		ControlLogView, ControlStreamView:
+		ControlLogView, ControlStreamView, ControlListBox:
 	default:
 		return ErrNotFocusable
 	}
@@ -753,7 +754,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			stagedMutationBehaviors[mutation.state] = behavior
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView, mutationMarkdownView, mutationLogView:
+			mutationScrollView, mutationMarkdownView, mutationLogView,
+			mutationListBox:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -910,6 +912,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
+			mutationListBox,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -991,6 +994,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	selectionItems := 0
 	textInputBytes := 0
 	contentBytes := 0
+	collectionBytes := 0
 	menuBars := 0
 	statusBars := 0
 	mnemonics := make(map[Key]*controlState)
@@ -1331,6 +1335,24 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+		case listBoxBehavior:
+			collectionBytes += listBoxStorageBytes(behavior)
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"ListBox",
+			); err != nil {
+				return err
+			}
+			if behavior.activateCommand != "" && requireCommand {
+				if _, exists := t.app.commands[behavior.activateCommand]; !exists {
+					return fmt.Errorf(
+						"%w: ListBox activation command %q is not registered",
+						ErrInvalidControl,
+						behavior.activateCommand,
+					)
+				}
+			}
 		}
 		return nil
 	}
@@ -1388,6 +1410,13 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			"%w: aggregate content exceeds %d bytes",
 			ErrControlCapacity,
 			MaxContentAggregateBytes,
+		)
+	}
+	if collectionBytes > MaxCollectionAggregateBytes {
+		return fmt.Errorf(
+			"%w: aggregate collection data exceeds %d bytes",
+			ErrControlCapacity,
+			MaxCollectionAggregateBytes,
 		)
 	}
 	if err := ctx.Err(); err != nil {
@@ -1552,7 +1581,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView, mutationMarkdownView, mutationLogView:
+			mutationScrollView, mutationMarkdownView, mutationLogView,
+			mutationListBox:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

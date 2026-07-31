@@ -497,6 +497,9 @@ func (a *App) paintControlLocked(
 			log := logDetails(bounds, behavior)
 			details.LogView = &log
 		}
+	case listBoxBehavior:
+		listBox := listBoxDetails(bounds, behavior)
+		details.ListBox = &listBox
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

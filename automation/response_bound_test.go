@@ -1450,6 +1450,134 @@ func TestSnapshotRejectsInvalidLogAndStreamDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidListBoxDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 24, Height: 8},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewListBox(app.Root(), expletives.ListBoxOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "list",
+						Bounds:        expletives.Rect{Width: 15, Height: 4},
+					},
+				},
+				BorderForm:  expletives.BorderSingle,
+				VerticalBar: expletives.ScrollBarVisibilityAuto,
+			},
+			Items: []expletives.ListItem{
+				{Key: "one", Label: "One"},
+				{Key: "two", Label: "Two"},
+				{Key: "three", Label: "Three"},
+			},
+			SelectionMode:    expletives.CollectionSelectionMultiple,
+			RequireSelection: true,
+			Selected:         []string{"one", "three"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(snapshot *SnapshotV1) *ControlSnapshot {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "list" {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatal("fixture has no ListBox details")
+		return nil
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid ListBox fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ControlSnapshot)
+	}{
+		{"status", func(control *ControlSnapshot) {
+			control.Details.ListBox.Status = "unknown"
+		}},
+		{"ready message", func(control *ControlSnapshot) {
+			control.Details.ListBox.StatusMessageBytes = 1
+		}},
+		{"item count", func(control *ControlSnapshot) {
+			control.Details.ListBox.ItemCount = expletives.MaxCollectionItems + 1
+		}},
+		{"enabled count", func(control *ControlSnapshot) {
+			control.Details.ListBox.EnabledCount = 4
+		}},
+		{"retained bytes", func(control *ControlSnapshot) {
+			control.Details.ListBox.RetainedBytes = -1
+		}},
+		{"current index", func(control *ControlSnapshot) {
+			control.Details.ListBox.CurrentIndex = 3
+		}},
+		{"selection mode", func(control *ControlSnapshot) {
+			control.Details.ListBox.SelectionMode = "range"
+		}},
+		{"required selection", func(control *ControlSnapshot) {
+			control.Details.ListBox.SelectedCount = 0
+			control.Details.ListBox.FirstSelected = ""
+			control.Details.ListBox.LastSelected = ""
+			control.Details.ListBox.SelectionDigest =
+				"e3b0c44298fc1c149afbf4c8996fb924" +
+					"27ae41e4649b934ca495991b7852b855"
+		}},
+		{"selection endpoints", func(control *ControlSnapshot) {
+			control.Details.ListBox.LastSelected = "one"
+		}},
+		{"selection digest", func(control *ControlSnapshot) {
+			control.Details.ListBox.SelectionDigest = strings.Repeat("G", 64)
+		}},
+		{"viewport state", func(control *ControlSnapshot) {
+			control.Details.ListBox.Viewport.State.ContentSize.Height++
+		}},
+		{"viewport policy", func(control *ControlSnapshot) {
+			control.Details.ListBox.Viewport.HorizontalPolicy = "sometimes"
+		}},
+		{"disabled reason", func(control *ControlSnapshot) {
+			control.Details.ListBox.Enabled = false
+		}},
+		{"detail union", func(control *ControlSnapshot) {
+			control.Details.StreamView = &StreamViewDetails{}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			test.mutate(find(&snapshot))
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid ListBox details")
+			}
+		})
+	}
+
+	aggregate := valid()
+	first := find(&aggregate)
+	copyControl := *first
+	copyControl.ID = "list-copy-id"
+	copyControl.Key = "list-copy"
+	copyControl.AbsoluteBounds.X = 16
+	copyControl.Details.ListBox.RetainedBytes =
+		expletives.MaxCollectionAggregateBytes/2 + 1
+	first.Details.ListBox.RetainedBytes =
+		expletives.MaxCollectionAggregateBytes/2 + 1
+	aggregate.Controls = append(aggregate.Controls, copyControl)
+	root := &aggregate.Controls[0]
+	root.Children = append(root.Children, copyControl.ID)
+	if err := validateSnapshot(&aggregate, limits); err == nil {
+		t.Fatal("validateSnapshot() accepted excessive aggregate collection bytes")
+	}
+}
+
 func TestSnapshotRejectsInvalidTabbedPanelDetails(t *testing.T) {
 	t.Parallel()
 	limits := DefaultLimits()
@@ -2428,6 +2556,35 @@ func maximumCompletionJSONBytes(
 			Viewport:            markdownViewport,
 		},
 	}
+	listBoxControl := controlValue
+	listBoxControl.Details = ControlDetails{
+		Version: 1,
+		Border: &BorderDetails{
+			Form:          "single",
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		ListBox: &ListBoxDetails{
+			Status:              "error",
+			StatusMessageBytes:  math.MaxInt,
+			StatusMessageDigest: strings.Repeat("f", sha256HexBytes),
+			ItemCount:           math.MaxInt,
+			EnabledCount:        math.MaxInt,
+			RetainedBytes:       math.MaxInt,
+			Current:             string(controlValue.ID),
+			CurrentIndex:        math.MaxInt,
+			SelectionMode:       "multiple",
+			RequireSelection:    true,
+			SelectedCount:       math.MaxInt,
+			FirstSelected:       string(controlValue.ID),
+			LastSelected:        string(controlValue.ID),
+			SelectionDigest:     strings.Repeat("f", sha256HexBytes),
+			DisabledReasonBytes: math.MaxInt,
+			ChangeCommand:       string(controlValue.ID),
+			ActivateCommand:     string(controlValue.ID),
+			Viewport:            markdownViewport,
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -2441,6 +2598,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, markdownControl),
 		mustMarshal(t, logControl),
 		mustMarshal(t, streamControl),
+		mustMarshal(t, listBoxControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

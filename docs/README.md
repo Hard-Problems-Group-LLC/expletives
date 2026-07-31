@@ -57,6 +57,11 @@ Keep durable project documentation here.
   applications how to construct, update, scroll, theme, and inspect the
   implemented Viewport, ScrollablePanel, MarkdownView, LogView, and StreamView
   controls.
+- [Collections API v0](specifications/collections-api-v0.md) defines the
+  stable-identity, selection, viewport, popup, tree, table, grid, MVC, and
+  automation contracts for Phase 16.
+- [Collections](Collections.md) shows how consuming applications construct,
+  replace, drive, theme, and inspect the implemented ListBox.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

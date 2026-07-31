@@ -99,6 +99,7 @@ const (
 	maxDisplayTextCells     = expletives.MaxDisplayTextCells
 	maxErrorMessageBytes    = 256
 	maxSnapshotMessageBytes = 1024
+	sha256HexBytes          = 64
 	lineReaderBufferBytes   = 64 << 10
 	// maxRetainedResponseBytes is the aggregate JSON evidence budget for
 	// retained v1 completions. Three maximum legal records fit below 128 MiB;

@@ -711,6 +711,10 @@ func (a *App) DispatchKey(
 			scrollChanged := false
 			if noHeldModifiers(held) {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.listBoxKeyLocked(a.focus, event.Key)
+			}
+			if noHeldModifiers(held) && !scrollHandled {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.logViewKeyLocked(a.focus, event.Key)
 			}
 			if noHeldModifiers(held) && !scrollHandled {

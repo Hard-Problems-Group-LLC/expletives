@@ -172,6 +172,8 @@ func genericFocusGuidance(kind ControlKind) string {
 		return "Markdown: arrows scroll; Page Up or Page Down pages; Home or End jumps"
 	case ControlLogView, ControlStreamView:
 		return "Content: arrows scroll; End resumes follow; Home or Page Up pauses"
+	case ControlListBox:
+		return "List: arrows move current; Space selects; Enter activates; Tab leaves"
 	default:
 		return "No focused control"
 	}

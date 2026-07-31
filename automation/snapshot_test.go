@@ -902,6 +902,74 @@ func TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsListBoxDetailsAndCopiesViewport(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = expletives.NewListBox(app.Root(), expletives.ListBoxOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "list",
+					Bounds:        expletives.Rect{Width: 15, Height: 4},
+				},
+			},
+			BorderForm:  expletives.BorderSingle,
+			VerticalBar: expletives.ScrollBarVisibilityAuto,
+		},
+		Items: []expletives.ListItem{
+			{Key: "one", Label: "One"},
+			{Key: "two", Label: "Two"},
+			{Key: "three", Label: "Three"},
+		},
+		SelectionMode: expletives.CollectionSelectionMultiple,
+		Selected:      []string{"one", "three"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *ListBoxDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "list" {
+			details = projected.Controls[index].Details.ListBox
+			break
+		}
+	}
+	if details == nil || details.Status != "ready" ||
+		details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
+		details.ItemCount != 3 || details.EnabledCount != 3 ||
+		details.RetainedBytes <= 0 || details.Current != "one" ||
+		details.CurrentIndex != 0 || details.SelectionMode != "multiple" ||
+		details.SelectedCount != 2 || details.FirstSelected != "one" ||
+		details.LastSelected != "three" || len(details.SelectionDigest) != 64 ||
+		!details.Viewport.VerticalVisible {
+		t.Fatalf("projected ListBox details = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	var clonedDetails *ListBoxDetails
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "list" {
+			clonedDetails = cloned.Controls[index].Details.ListBox
+			break
+		}
+	}
+	if clonedDetails == nil {
+		t.Fatal("clone has no ListBox viewport details")
+	}
+	clonedDetails.Status = "mutated"
+	if details.Status == "mutated" {
+		t.Fatal("cloneSnapshot exposed ListBoxDetails storage")
+	}
+}
+
 func TestSnapshotProjectsLogAndStreamDetailsAndCopiesState(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

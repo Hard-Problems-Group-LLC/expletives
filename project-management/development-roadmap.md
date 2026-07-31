@@ -515,7 +515,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 16. Collections
 
-- Status: `planned`
+- Status: `active`
 - Goal: deliver `ListBox`, `ComboBox`, `DropDown`, `TreeView`, `Table`,
   `DataGrid`, `ListItem`, `TreeNode`, and `Column`.
 - Dependencies: Phase 15 viewport, scrolling, selection, popup, and editing
@@ -531,6 +531,8 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: each collection preserves focus and selection by stable
   identity, remains keyboard complete, and has deterministic normal, empty,
   large, disabled, and resized evidence.
+- Contract:
+  [`collections-api-v0.md`](../docs/specifications/collections-api-v0.md).
 
 ### 17. Modals
 

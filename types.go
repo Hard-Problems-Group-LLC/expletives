@@ -113,6 +113,16 @@ const (
 	// necessary so evidence remains useful without inflating worst-case wire
 	// responses.
 	MaxMarkdownSummaries = 4
+	// MaxCollectionItems bounds one copied list, tree, or table row model.
+	MaxCollectionItems = 4096
+	// MaxCollectionColumns bounds one copied table or data-grid schema.
+	MaxCollectionColumns = 256
+	// MaxCollectionCells bounds copied table and data-grid cells across an App.
+	MaxCollectionCells = 16384
+	// MaxCollectionDepth bounds one copied TreeView hierarchy.
+	MaxCollectionDepth = 64
+	// MaxCollectionAggregateBytes bounds copied collection data across an App.
+	MaxCollectionAggregateBytes = 1 << 20
 )
 
 // Coordinates and Layout arithmetic share the frame allocation scale. This
@@ -345,6 +355,8 @@ const (
 	ControlLogView ControlKind = "log_view"
 	// ControlStreamView identifies one bounded line-oriented stream leaf.
 	ControlStreamView ControlKind = "stream_view"
+	// ControlListBox identifies one bounded stable-identity item list.
+	ControlListBox ControlKind = "list_box"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -637,6 +649,8 @@ type ControlDetails struct {
 	LogView *LogViewDetails `json:"log_view,omitempty"`
 	// StreamView is present for StreamView.
 	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
+	// ListBox is present for ListBox.
+	ListBox *ListBoxDetails `json:"list_box,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -1007,6 +1021,29 @@ type StreamViewDetails struct {
 	Viewport            ScrollableDetails `json:"viewport"`
 }
 
+// ListBoxDetails describes compact stable-identity list state without
+// duplicating the retained item model.
+type ListBoxDetails struct {
+	Status           CollectionStatus        `json:"status"`
+	StatusMessage    string                  `json:"status_message,omitempty"`
+	ItemCount        int                     `json:"item_count"`
+	EnabledCount     int                     `json:"enabled_count"`
+	RetainedBytes    int                     `json:"retained_bytes"`
+	Current          string                  `json:"current,omitempty"`
+	CurrentIndex     int                     `json:"current_index"`
+	SelectionMode    CollectionSelectionMode `json:"selection_mode"`
+	RequireSelection bool                    `json:"require_selection"`
+	SelectedCount    int                     `json:"selected_count"`
+	FirstSelected    string                  `json:"first_selected,omitempty"`
+	LastSelected     string                  `json:"last_selected,omitempty"`
+	SelectionDigest  string                  `json:"selection_digest"`
+	Enabled          bool                    `json:"enabled"`
+	DisabledReason   string                  `json:"disabled_reason,omitempty"`
+	ChangeCommand    CommandID               `json:"change_command,omitempty"`
+	ActivateCommand  CommandID               `json:"activate_command,omitempty"`
+	Viewport         ScrollableDetails       `json:"viewport"`
+}
+
 // TabDetails describes one copied page descriptor and its rendered strip
 // state. Bounds is relative to the owning tab container.
 type TabDetails struct {
@@ -1329,6 +1366,18 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				streamView.Viewport.VerticalBar = &bar
 			}
 			cloned.Controls[index].Details.StreamView = &streamView
+		}
+		if snapshot.Controls[index].Details.ListBox != nil {
+			listBox := *snapshot.Controls[index].Details.ListBox
+			if listBox.Viewport.HorizontalBar != nil {
+				bar := *listBox.Viewport.HorizontalBar
+				listBox.Viewport.HorizontalBar = &bar
+			}
+			if listBox.Viewport.VerticalBar != nil {
+				bar := *listBox.Viewport.VerticalBar
+				listBox.Viewport.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.ListBox = &listBox
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)
