@@ -141,6 +141,8 @@ func TestNavigationFocusGuidanceIsSpecific(t *testing.T) {
 		ControlViewport:        "Page Up or Page Down",
 		ControlScrollablePanel: "Page Up or Page Down",
 		ControlMarkdownView:    "Page Up or Page Down",
+		ControlLogView:         "End resumes follow",
+		ControlStreamView:      "End resumes follow",
 	} {
 		if guidance := genericFocusGuidance(kind); !strings.Contains(
 			guidance,

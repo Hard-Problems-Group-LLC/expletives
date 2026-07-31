@@ -593,6 +593,14 @@ func (a *App) DispatchKey(
 				command = menuCommand
 				router, result, execute = a.resolveCommandLocked(command)
 			}
+		} else if mnemonicKeyEvent(event.Key, held) &&
+			a.bindings[chordKey(event.Key, held)] != "" {
+			// A displayed application accelerator is global. MenuBar
+			// mnemonics retain first refusal above, but a local control or
+			// tab mnemonic must not shadow a registered Alt chord such as
+			// the conventional Alt-X Quit binding.
+			command = a.bindings[chordKey(event.Key, held)]
+			router, result, execute = a.resolveCommandLocked(command)
 		} else if mnemonicKeyEvent(event.Key, held) {
 			tabCommand, tabTarget, tabHandled, tabChanged :=
 				a.tabMnemonicLocked(event.Key)
@@ -702,6 +710,10 @@ func (a *App) DispatchKey(
 			scrollHandled := false
 			scrollChanged := false
 			if noHeldModifiers(held) {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.logViewKeyLocked(a.focus, event.Key)
+			}
+			if noHeldModifiers(held) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.markdownKeyLocked(a.focus, event.Key)
 			}

@@ -63,6 +63,7 @@ const (
 	mutationTabbedPanel
 	mutationScrollView
 	mutationMarkdownView
+	mutationLogView
 )
 
 type transactionMutation struct {
@@ -423,7 +424,8 @@ func (t *Transaction) SetFocus(control Control) error {
 		ControlCycleField, ControlSelectField, ControlTextField,
 		ControlNumberField, ControlSpinBox, ControlTextArea,
 		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
-		ControlViewport, ControlScrollablePanel, ControlMarkdownView:
+		ControlViewport, ControlScrollablePanel, ControlMarkdownView,
+		ControlLogView, ControlStreamView:
 	default:
 		return ErrNotFocusable
 	}
@@ -751,7 +753,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			stagedMutationBehaviors[mutation.state] = behavior
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView, mutationMarkdownView:
+			mutationScrollView, mutationMarkdownView, mutationLogView:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -907,7 +909,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		switch mutation.kind {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView, mutationMarkdownView,
+			mutationScrollView, mutationMarkdownView, mutationLogView,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -1319,6 +1321,16 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+		case logViewBehavior:
+			contentBytes += logRetainedStorage(behavior.records) +
+				markdownCellsBytes(behavior.pendingCells)
+			if err := validateChangeCommand(
+				behavior.scroll.changeCommand,
+				requireCommand,
+				string(state.kind),
+			); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -1540,7 +1552,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView, mutationMarkdownView:
+			mutationScrollView, mutationMarkdownView, mutationLogView:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

@@ -489,6 +489,14 @@ func (a *App) paintControlLocked(
 	case markdownBehavior:
 		markdown := markdownDetails(bounds, behavior)
 		details.Markdown = &markdown
+	case logViewBehavior:
+		if behavior.stream {
+			stream := streamDetails(bounds, behavior)
+			details.StreamView = &stream
+		} else {
+			log := logDetails(bounds, behavior)
+			details.LogView = &log
+		}
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

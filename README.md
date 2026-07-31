@@ -13,6 +13,8 @@ to that explicitly enabled endpoint.
 Core/Containers, Basic Presentation, Basic Automation, Basic Layouts,
 Text/Display, Actions, Menus, Status Bar, Headers/Footers, Selection,
 Text and Numeric Input, Progress, and Navigation/Chrome are implemented.
+Scrolling and Content is implemented through Viewport, ScrollablePanel,
+MarkdownView, LogView, and StreamView.
 The public Go package includes non-container `Label`, `StaticText`,
 `Separator`, `Rule`, `Button`, `HotkeyBar`, `MenuBar`, and `StatusBar`
 controls; `Checkbox`, `RadioButton`/`RadioGroup`, `CycleField`, `SelectField`,
@@ -20,6 +22,9 @@ validated/password-safe `TextField`, ranged `NumberField`, and clamped
 `SpinBox`, plus wrapped multiline `TextArea`; deterministic `ProgressBar`,
 horizontal/vertical `Meter`, `Spinner`, and `ActivityDots`; focusable
 horizontal/vertical `ScrollBar`; page-owning `TabbedPanel` and `Notebook`;
+generic `Viewport` and framed `ScrollablePanel` containers; read-only
+`MarkdownView`; structured bounded `LogView`; inert byte-oriented
+`StreamView`;
 root-owned
 one-row `Header` and `Footer` containers; immutable
 `Menu` models; Box/Grid and nested Layouts;
@@ -70,6 +75,11 @@ separate tab focus from page selection, and derive visibility for exactly the
 selected caller-visible page. The Controls/Navigation catalog screen exercises
 both families with raw keys and typed attached-automation evidence. See
 [`navigation-chrome-api-v0.md`](docs/specifications/navigation-chrome-api-v0.md).
+
+The Controls/Scrolling / Content screen exercises bounded Markdown parsing,
+structured log follow/scrollback, stream truncation and drop accounting,
+grouped keyboard focus, and compact typed automation evidence. See
+[`scrolling-content-api-v0.md`](docs/specifications/scrolling-content-api-v0.md).
 
 The attached commands `layout.panel.raise`, `layout.panel.lower`,
 `layout.layer.raise`, and `layout.layer.lower` exercise the new stack paths.

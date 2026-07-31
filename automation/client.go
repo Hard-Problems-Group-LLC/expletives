@@ -881,6 +881,23 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 		}
+		if control.Details.LogView != nil {
+			contentBytes += control.Details.LogView.RetainedBytes
+			if contentBytes > expletives.MaxContentAggregateBytes {
+				return errors.New(
+					"snapshot LogView data exceeds advertised aggregate bound",
+				)
+			}
+		}
+		if control.Details.StreamView != nil {
+			contentBytes += control.Details.StreamView.RetainedBytes +
+				control.Details.StreamView.PendingStorageBytes
+			if contentBytes > expletives.MaxContentAggregateBytes {
+				return errors.New(
+					"snapshot StreamView data exceeds advertised aggregate bound",
+				)
+			}
+		}
 		if control.Details.StatusBar != nil {
 			statusBarCount++
 			if statusBarCount > 1 ||
@@ -1105,6 +1122,12 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.Markdown != nil {
+		specialMembers++
+	}
+	if details.LogView != nil {
+		specialMembers++
+	}
+	if details.StreamView != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1392,6 +1415,39 @@ func validControlDetails(
 				controlWidth,
 				controlHeight,
 			)
+	case "log_view":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validLogViewDetails(
+				details.LogView,
+				details.Border,
+				controlWidth,
+				controlHeight,
+				limits,
+			)
+	case "stream_view":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validStreamViewDetails(
+				details.StreamView,
+				details.Border,
+				controlWidth,
+				controlHeight,
+			)
 	default:
 		return false
 	}
@@ -1450,33 +1506,148 @@ func validMarkdownDetails(
 		previousSourceLine = block.SourceLine
 		previousRenderedStart = block.RenderedStart
 	}
+	return validContentViewportDetails(
+		&details.Viewport,
+		border,
+		controlWidth,
+		controlHeight,
+	)
+}
+
+func validLogViewDetails(
+	details *LogViewDetails,
+	border *BorderDetails,
+	controlWidth int,
+	controlHeight int,
+	limits Limits,
+) bool {
+	if details == nil || border == nil || border.Title != "" ||
+		!validContentCapacity(details.Capacity) ||
+		details.RetainedRecords < 0 ||
+		details.RetainedRecords > details.Capacity.Records ||
+		details.RetainedBytes < 0 ||
+		details.RetainedBytes > details.Capacity.Bytes ||
+		(details.RetainedRecords == 0 &&
+			(details.RetainedBytes != 0 || details.FirstKey != "" ||
+				details.LastKey != "")) ||
+		(details.RetainedRecords > 0 &&
+			(!validIdentifier(details.FirstKey, limits.IdentifierBytes) ||
+				!validIdentifier(details.LastKey, limits.IdentifierBytes))) ||
+		(details.RetainedRecords > 1 && details.FirstKey == details.LastKey) ||
+		(details.DroppedBytes > 0 && details.DroppedRecords == 0) ||
+		details.Viewport.State.ContentSize.Width < 0 ||
+		details.Viewport.State.ContentSize.Width >
+			expletives.MaxContentBytes+2*expletives.MaxDisplayTextBytes ||
+		details.Viewport.State.ContentSize.Height < details.RetainedRecords ||
+		details.Viewport.State.ContentSize.Height >
+			expletives.MaxContentBytes+expletives.MaxContentRecords+1 ||
+		(details.RetainedRecords == 0 && details.DroppedRecords == 0 &&
+			details.Viewport.State.ContentSize.Height != 0) {
+		return false
+	}
+	if details.DroppedRecords > 0 &&
+		details.Viewport.State.ContentSize.Height < details.RetainedRecords+1 {
+		return false
+	}
+	return validContentViewportDetails(
+		&details.Viewport,
+		border,
+		controlWidth,
+		controlHeight,
+	)
+}
+
+func validStreamViewDetails(
+	details *StreamViewDetails,
+	border *BorderDetails,
+	controlWidth int,
+	controlHeight int,
+) bool {
+	if details == nil || border == nil || border.Title != "" ||
+		!validContentCapacity(details.Capacity) ||
+		details.RetainedLines < 0 ||
+		details.RetainedLines > details.Capacity.Records ||
+		details.RetainedBytes < 0 ||
+		details.PendingBytes < 0 ||
+		details.PendingCells < 0 ||
+		details.PendingStorageBytes < 0 ||
+		details.PendingCells > details.PendingStorageBytes ||
+		details.RetainedBytes+details.PendingStorageBytes >
+			details.Capacity.Bytes ||
+		details.PendingBytes > details.Capacity.Bytes ||
+		(details.PendingTruncated && details.DroppedLines == 0) ||
+		(details.DroppedBytes > 0 && details.DroppedLines == 0) {
+		return false
+	}
+	pendingVisible := details.PendingBytes > 0 || details.PendingTruncated
+	dropVisible := details.DroppedLines > 0 || details.DroppedBytes > 0
+	if pendingVisible !=
+		(details.PendingCells > 0 && details.PendingStorageBytes > 0) {
+		return false
+	}
+	expectedRows := details.RetainedLines + boolInt(pendingVisible) +
+		boolInt(dropVisible)
+	if details.Viewport.State.ContentSize.Height != expectedRows ||
+		details.Viewport.State.ContentSize.Width < 0 ||
+		details.Viewport.State.ContentSize.Width >
+			max(expletives.MaxContentBytes, expletives.MaxDisplayTextBytes) {
+		return false
+	}
+	return validContentViewportDetails(
+		&details.Viewport,
+		border,
+		controlWidth,
+		controlHeight,
+	)
+}
+
+func validContentCapacity(capacity ContentCapacity) bool {
+	return capacity.Records >= 1 &&
+		capacity.Records <= expletives.MaxContentRecords &&
+		capacity.Bytes >= 1 && capacity.Bytes <= expletives.MaxContentBytes
+}
+
+func validContentViewportDetails(
+	details *ContentViewportDetails,
+	border *BorderDetails,
+	controlWidth int,
+	controlHeight int,
+) bool {
+	if details == nil || border == nil ||
+		details.State.ContentSize.Width < 0 ||
+		details.State.ContentSize.Height < 0 ||
+		details.State.Offset.X < 0 || details.State.Offset.Y < 0 ||
+		!validScrollVisibility(details.HorizontalPolicy) ||
+		!validScrollVisibility(details.VerticalPolicy) {
+		return false
+	}
 	inset := 0
 	if border.Form != "none" {
 		inset = 1
 	}
 	baseWidth := max(0, controlWidth-2*inset)
 	baseHeight := max(0, controlHeight-2*inset)
-	horizontal := details.Viewport.HorizontalPolicy == "always" &&
+	horizontal := details.HorizontalPolicy == "always" &&
 		baseWidth > 0 && baseHeight > 0
-	vertical := details.Viewport.VerticalPolicy == "always" &&
+	vertical := details.VerticalPolicy == "always" &&
 		baseWidth > 0 && baseHeight > 0
 	for range 3 {
 		viewportWidth := max(0, baseWidth-boolInt(vertical))
 		viewportHeight := max(0, baseHeight-boolInt(horizontal))
 		nextHorizontal := horizontal
 		nextVertical := vertical
-		if details.Viewport.HorizontalPolicy == "auto" {
+		if details.HorizontalPolicy == "auto" {
 			nextHorizontal = baseWidth > 0 && baseHeight > 0 &&
-				details.MaximumLineWidth > viewportWidth
+				details.State.ContentSize.Width > viewportWidth
 		}
-		if details.Viewport.HorizontalPolicy == "never" {
+		if details.HorizontalPolicy == "never" {
 			nextHorizontal = false
 		}
-		if details.Viewport.VerticalPolicy == "auto" {
+		if details.VerticalPolicy == "auto" {
 			nextVertical = baseWidth > 0 && baseHeight > 0 &&
-				details.RenderedRows > viewportHeight
+				details.State.ContentSize.Height > viewportHeight
 		}
-		if details.Viewport.VerticalPolicy == "never" {
+		if details.VerticalPolicy == "never" {
 			nextVertical = false
 		}
 		if nextHorizontal == horizontal && nextVertical == vertical {
@@ -1497,15 +1668,15 @@ func validMarkdownDetails(
 		),
 	}
 	maximum := Point{
-		X: max(0, details.MaximumLineWidth-expectedBounds.Width),
-		Y: max(0, details.RenderedRows-expectedBounds.Height),
+		X: max(0, details.State.ContentSize.Width-expectedBounds.Width),
+		Y: max(0, details.State.ContentSize.Height-expectedBounds.Height),
 	}
-	return details.Viewport.ViewportBounds == expectedBounds &&
-		details.Viewport.MaximumOffset == maximum &&
-		details.Viewport.State.Offset.X <= maximum.X &&
-		details.Viewport.State.Offset.Y <= maximum.Y &&
-		details.Viewport.HorizontalVisible == horizontal &&
-		details.Viewport.VerticalVisible == vertical
+	return details.ViewportBounds == expectedBounds &&
+		details.MaximumOffset == maximum &&
+		details.State.Offset.X <= maximum.X &&
+		details.State.Offset.Y <= maximum.Y &&
+		details.HorizontalVisible == horizontal &&
+		details.VerticalVisible == vertical
 }
 
 func boolInt(value bool) int {
@@ -2332,7 +2503,8 @@ func validFocusTargetKind(kind ControlKind) bool {
 	case "button", "checkbox", "radio_button", "cycle_field",
 		"select_field", "text_field", "number_field", "spin_box",
 		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook",
-		"viewport", "scrollable_panel", "markdown_view":
+		"viewport", "scrollable_panel", "markdown_view", "log_view",
+		"stream_view":
 		return true
 	default:
 		return false

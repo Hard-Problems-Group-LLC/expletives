@@ -541,6 +541,8 @@ func TestSnapshotRejectsInvalidFocusGuideBarDetails(t *testing.T) {
 		"viewport",
 		"scrollable_panel",
 		"markdown_view",
+		"log_view",
+		"stream_view",
 	} {
 		completion := valid()
 		completion.Snapshot.Controls[0].Details.FocusGuideBar.TargetKind = kind
@@ -1254,6 +1256,197 @@ func TestSnapshotRejectsInvalidMarkdownDetails(t *testing.T) {
 	}
 	if err := validateSnapshot(&aggregate, limits); err == nil {
 		t.Fatal("validateSnapshot() accepted aggregate Markdown overflow")
+	}
+}
+
+func TestSnapshotRejectsInvalidLogAndStreamDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 40, Height: 12},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewLogView(app.Root(), expletives.LogViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "log",
+						Bounds:        expletives.Rect{Width: 18, Height: 6},
+					},
+				},
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Capacity: expletives.ContentCapacity{Records: 2, Bytes: 64},
+			Records: []expletives.LogRecord{
+				{Key: "a", Level: expletives.LogInfo, Text: "alpha"},
+				{Key: "b", Level: expletives.LogInfo, Text: "beta"},
+				{Key: "c", Level: expletives.LogInfo, Text: "gamma"},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		stream, err := expletives.NewStreamView(
+			app.Root(),
+			expletives.StreamViewOptions{
+				ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+					ScrollViewOptions: expletives.ScrollViewOptions{
+						PanelOptions: expletives.PanelOptions{
+							AutomationKey: "stream",
+							Bounds: expletives.Rect{
+								X: 20, Width: 18, Height: 6,
+							},
+						},
+					},
+					BorderForm:    expletives.BorderSingle,
+					HorizontalBar: expletives.ScrollBarVisibilityAuto,
+					VerticalBar:   expletives.ScrollBarVisibilityAuto,
+				},
+				Capacity: expletives.ContentCapacity{Records: 2, Bytes: 12},
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := stream.Append(
+			context.Background(),
+			[]byte("abcdefghijklmnopqrst"),
+		); err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(snapshot *SnapshotV1) (*ControlSnapshot, *ControlSnapshot) {
+		var logControl *ControlSnapshot
+		var streamControl *ControlSnapshot
+		for index := range snapshot.Controls {
+			switch snapshot.Controls[index].Key {
+			case "log":
+				logControl = &snapshot.Controls[index]
+			case "stream":
+				streamControl = &snapshot.Controls[index]
+			}
+		}
+		if logControl == nil || streamControl == nil {
+			t.Fatal("fixture has no LogView or StreamView details")
+		}
+		return logControl, streamControl
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid content fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ControlSnapshot, *ControlSnapshot)
+	}{
+		{
+			name: "log capacity",
+			mutate: func(logControl, _ *ControlSnapshot) {
+				logControl.Details.LogView.Capacity.Records = 0
+			},
+		},
+		{
+			name: "log retained bytes",
+			mutate: func(logControl, _ *ControlSnapshot) {
+				logControl.Details.LogView.RetainedBytes = 65
+			},
+		},
+		{
+			name: "log retained key",
+			mutate: func(logControl, _ *ControlSnapshot) {
+				logControl.Details.LogView.FirstKey = ""
+			},
+		},
+		{
+			name: "log viewport rows",
+			mutate: func(logControl, _ *ControlSnapshot) {
+				logControl.Details.LogView.Viewport.State.ContentSize.Height = 1
+			},
+		},
+		{
+			name: "stream pending storage",
+			mutate: func(_, streamControl *ControlSnapshot) {
+				streamControl.Details.StreamView.PendingStorageBytes = 13
+			},
+		},
+		{
+			name: "stream pending cells",
+			mutate: func(_, streamControl *ControlSnapshot) {
+				streamControl.Details.StreamView.PendingCells = 0
+			},
+		},
+		{
+			name: "stream drop consistency",
+			mutate: func(_, streamControl *ControlSnapshot) {
+				streamControl.Details.StreamView.DroppedLines = 0
+			},
+		},
+		{
+			name: "stream viewport rows",
+			mutate: func(_, streamControl *ControlSnapshot) {
+				streamControl.Details.StreamView.Viewport.State.ContentSize.Height++
+			},
+		},
+		{
+			name: "detail union",
+			mutate: func(logControl, streamControl *ControlSnapshot) {
+				logControl.Details.StreamView = streamControl.Details.StreamView
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			logControl, streamControl := find(&snapshot)
+			test.mutate(logControl, streamControl)
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid content details")
+			}
+		})
+	}
+
+	aggregateApp, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 20, Height: 5},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index <
+		expletives.MaxContentAggregateBytes/expletives.MaxContentBytes+1; index++ {
+		if _, err := expletives.NewLogView(
+			aggregateApp.Root(),
+			expletives.LogViewOptions{
+				ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+					ScrollViewOptions: expletives.ScrollViewOptions{
+						PanelOptions: expletives.PanelOptions{
+							AutomationKey: "log.aggregate." +
+								string(rune('a'+index)),
+							Bounds: expletives.Rect{Width: 10, Height: 4},
+						},
+					},
+				},
+				Records: []expletives.LogRecord{{
+					Key: "record", Level: expletives.LogInfo, Text: "x",
+				}},
+			},
+		); err != nil {
+			t.Fatalf("aggregate fixture control %d: %v", index, err)
+		}
+	}
+	aggregate := snapshotFromCore(aggregateApp.Snapshot())
+	for index := range aggregate.Controls {
+		if details := aggregate.Controls[index].Details.LogView; details != nil {
+			details.RetainedBytes = expletives.MaxContentBytes
+		}
+	}
+	if err := validateSnapshot(&aggregate, limits); err == nil {
+		t.Fatal("validateSnapshot() accepted aggregate LogView overflow")
 	}
 }
 
@@ -2191,6 +2384,50 @@ func maximumCompletionJSONBytes(
 			SummariesTruncated: true,
 		},
 	}
+	logControl := controlValue
+	logControl.Details = ControlDetails{
+		Version: 1,
+		Border: &BorderDetails{
+			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
+			Form:          string(controlValue.ID),
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		LogView: &LogViewDetails{
+			Capacity:        ContentCapacity{Records: math.MaxInt, Bytes: math.MaxInt},
+			RetainedRecords: math.MaxInt,
+			RetainedBytes:   math.MaxInt,
+			DroppedRecords:  math.MaxUint64,
+			DroppedBytes:    math.MaxUint64,
+			FirstKey:        string(controlValue.ID),
+			LastKey:         string(controlValue.ID),
+			Follow:          true,
+			Viewport:        markdownViewport,
+		},
+	}
+	streamControl := controlValue
+	streamControl.Details = ControlDetails{
+		Version: 1,
+		Border: &BorderDetails{
+			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
+			Form:          string(controlValue.ID),
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		StreamView: &StreamViewDetails{
+			Capacity:            ContentCapacity{Records: math.MaxInt, Bytes: math.MaxInt},
+			RetainedLines:       math.MaxInt,
+			RetainedBytes:       math.MaxInt,
+			PendingBytes:        math.MaxInt,
+			PendingCells:        math.MaxInt,
+			PendingStorageBytes: math.MaxInt,
+			PendingTruncated:    true,
+			DroppedLines:        math.MaxUint64,
+			DroppedBytes:        math.MaxUint64,
+			Follow:              true,
+			Viewport:            markdownViewport,
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -2202,6 +2439,8 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, textAreaControl),
 		mustMarshal(t, progressControl),
 		mustMarshal(t, markdownControl),
+		mustMarshal(t, logControl),
+		mustMarshal(t, streamControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

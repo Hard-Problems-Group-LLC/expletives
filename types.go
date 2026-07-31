@@ -100,6 +100,12 @@ const (
 	MaxContentBytes = 64 << 10
 	// MaxContentAggregateBytes bounds retained content source across one App.
 	MaxContentAggregateBytes = 1 << 20
+	// MaxContentRecords bounds retained or submitted log and stream records.
+	MaxContentRecords = 4096
+	// DefaultContentRecordCapacity is the zero-value record budget.
+	DefaultContentRecordCapacity = 1024
+	// DefaultContentByteCapacity is the zero-value canonical byte budget.
+	DefaultContentByteCapacity = MaxContentBytes
 	// MaxMarkdownBlocks bounds parsed blocks in one MarkdownView.
 	MaxMarkdownBlocks = 4096
 	// MaxMarkdownSummaries bounds structural block records in one control
@@ -335,6 +341,10 @@ const (
 	ControlScrollablePanel ControlKind = "scrollable_panel"
 	// ControlMarkdownView identifies one read-only rendered Markdown leaf.
 	ControlMarkdownView ControlKind = "markdown_view"
+	// ControlLogView identifies one bounded structured-log leaf.
+	ControlLogView ControlKind = "log_view"
+	// ControlStreamView identifies one bounded line-oriented stream leaf.
+	ControlStreamView ControlKind = "stream_view"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -623,6 +633,10 @@ type ControlDetails struct {
 	Scrollable *ScrollableDetails `json:"scrollable,omitempty"`
 	// Markdown is present for MarkdownView.
 	Markdown *MarkdownDetails `json:"markdown,omitempty"`
+	// LogView is present for LogView.
+	LogView *LogViewDetails `json:"log_view,omitempty"`
+	// StreamView is present for StreamView.
+	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -963,6 +977,36 @@ type MarkdownDetails struct {
 	SummariesTruncated bool                   `json:"summaries_truncated"`
 }
 
+// LogViewDetails describes bounded structured-log retention and viewport
+// state without duplicating retained record text.
+type LogViewDetails struct {
+	Capacity        ContentCapacity   `json:"capacity"`
+	RetainedRecords int               `json:"retained_records"`
+	RetainedBytes   int               `json:"retained_bytes"`
+	DroppedRecords  uint64            `json:"dropped_records"`
+	DroppedBytes    uint64            `json:"dropped_bytes"`
+	FirstKey        string            `json:"first_key,omitempty"`
+	LastKey         string            `json:"last_key,omitempty"`
+	Follow          bool              `json:"follow"`
+	Viewport        ScrollableDetails `json:"viewport"`
+}
+
+// StreamViewDetails describes bounded line and partial-stream retention
+// without duplicating complete off-screen stream content.
+type StreamViewDetails struct {
+	Capacity            ContentCapacity   `json:"capacity"`
+	RetainedLines       int               `json:"retained_lines"`
+	RetainedBytes       int               `json:"retained_bytes"`
+	PendingBytes        int               `json:"pending_bytes"`
+	PendingCells        int               `json:"pending_cells"`
+	PendingStorageBytes int               `json:"pending_storage_bytes"`
+	PendingTruncated    bool              `json:"pending_truncated"`
+	DroppedLines        uint64            `json:"dropped_lines"`
+	DroppedBytes        uint64            `json:"dropped_bytes"`
+	Follow              bool              `json:"follow"`
+	Viewport            ScrollableDetails `json:"viewport"`
+}
+
 // TabDetails describes one copied page descriptor and its rendered strip
 // state. Bounds is relative to the owning tab container.
 type TabDetails struct {
@@ -1261,6 +1305,30 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				markdown.Viewport.VerticalBar = &bar
 			}
 			cloned.Controls[index].Details.Markdown = &markdown
+		}
+		if snapshot.Controls[index].Details.LogView != nil {
+			logView := *snapshot.Controls[index].Details.LogView
+			if logView.Viewport.HorizontalBar != nil {
+				bar := *logView.Viewport.HorizontalBar
+				logView.Viewport.HorizontalBar = &bar
+			}
+			if logView.Viewport.VerticalBar != nil {
+				bar := *logView.Viewport.VerticalBar
+				logView.Viewport.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.LogView = &logView
+		}
+		if snapshot.Controls[index].Details.StreamView != nil {
+			streamView := *snapshot.Controls[index].Details.StreamView
+			if streamView.Viewport.HorizontalBar != nil {
+				bar := *streamView.Viewport.HorizontalBar
+				streamView.Viewport.HorizontalBar = &bar
+			}
+			if streamView.Viewport.VerticalBar != nil {
+				bar := *streamView.Viewport.VerticalBar
+				streamView.Viewport.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.StreamView = &streamView
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

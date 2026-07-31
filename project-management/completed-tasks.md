@@ -4,6 +4,58 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-31 — `EXPL-TASK-030` — Deliver Phase 15 Scrolling and Content.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-31T04:35:20-07:00
+  - Completed: 2026-07-31T09:34:16-07:00
+  - Outcome:
+    - added public `Viewport` and `ScrollablePanel` ownership, clipping,
+      bounded offset, integrated-scrollbar, focus, Layout-hint, direct
+      mutation, and atomic Transaction APIs;
+    - added bounded deterministic `MarkdownView`, structured `LogView`, and
+      raw-chunk `StreamView` controls with exact retained/pending/drop state,
+      follow versus scrollback, stable record keys, semantic styles, and no
+      control-owned I/O or goroutines;
+    - made accumulative content mutation context-aware and safe for concurrent
+      producers while allocating its serialization gate only on LogView and
+      StreamView controls;
+    - neutralized invalid UTF-8, control/escape traffic, and unsupported-width
+      stream input; retained accurate source-byte loss counts and visible
+      truncation/drop warnings within one shared bounded content budget;
+    - extended core and automation snapshots with compact kind-specific typed
+      evidence, deep copies, fail-closed client validation, aggregate content
+      accounting, and a conservative maximum-response proof; and
+    - enabled the Scrolling / Content catalog with four focus groups,
+      deterministic append/follow/reset commands, raw scroll keys, semantic
+      frame evidence, and human-readable follow/scrollback fixtures.
+  - Verification:
+    - `make verify` passed formatting, vet, all unit and Unix-socket tests,
+      the controlling-PTY lifecycle, the complete race suite, debug/release/
+      profiling builds, and every build mode's smoke/self-check;
+    - live attached automation at 80x24 verified four typed content controls,
+      visible Markdown/log/stream semantic styling, replacement and
+      truncation cells, Page Up leaving follow mode, End resuming it,
+      deterministic append/follow behavior, exact reset, and clean shutdown;
+    - the conservative maximum completion is 41,391,622 bytes, with three
+      retained maxima totaling 124,174,866 bytes below the 128 MiB aggregate
+      evidence budget; and
+    - the real PTY test sent Alt-X, observed `app.quit`, and confirmed exact
+      terminal restoration; a focused regression also proves that the global
+      binding cannot be shadowed by a local control mnemonic.
+  - Contracts:
+    - [`Scrolling and Content API v0`](../docs/specifications/scrolling-content-api-v0.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+  - Process:
+    - completed without convening the Panel; and
+    - recorded bounded-content synchronization and typed-detail maintenance
+      opportunities in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 16 Collections is next.
+
 - 2026-07-31 — `EXPL-TASK-029` — Deliver Phase 14 Navigation and Chrome.
   - Requestor: project operator
   - Owner: Codex

@@ -4,7 +4,7 @@
 - Protocol name: `expletives.automation`
 - Protocol version: `1`
 - Snapshot version: `1`
-- Last implementation audit: 2026-07-30
+- Last implementation audit: 2026-07-31
 
 Related specifications:
 
@@ -958,6 +958,17 @@ the root package's local snapshot. The client checks:
   summaries, truncation state, exact derived viewport geometry and bar
   visibility, and no retained source, managed-content identity, or repeated
   integrated-bar records;
+- kind-consistent LogView details with valid bounded record/byte capacity,
+  retained counts within that capacity, canonical retained byte accounting,
+  cumulative drop counters, valid optional first/last retained keys, explicit
+  follow state, and exact compact content-viewport geometry without retained
+  record text;
+- kind-consistent StreamView details with valid bounded line/byte capacity,
+  retained and partial raw/canonical counts, pending truncation state,
+  cumulative line/byte drops, explicit follow state, and exact compact
+  content-viewport geometry without complete off-screen stream content;
+- aggregate retained Markdown, LogView, and StreamView content, including
+  StreamView partial-line storage, within `MaxContentAggregateBytes`;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -980,8 +991,8 @@ cell. Control-detail union members must match the control kind. A nested public
 snapshot-completion message is at most 1,024 UTF-8 bytes without NUL. A
 top-level protocol `error.message` is trimmed to at most 256 valid UTF-8
 bytes. Every encoded response must also fit the 40 MiB response-line limit.
-The conservative legal-maximum completion proof is 41,389,979 JSON bytes;
-three such records total 124,169,937 bytes and remain below the 128 MiB
+The conservative legal-maximum completion proof is 41,391,622 JSON bytes;
+three such records total 124,174,866 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
 
 ## Public Go Client Contract
@@ -1150,7 +1161,7 @@ separately revalidated on 2026-07-31 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks|TestSnapshotRejectsInvalidMarkdownDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks|TestSnapshotRejectsInvalidMarkdownDetails|TestSnapshotProjectsLogAndStreamDetailsAndCopiesState|TestSnapshotRejectsInvalidLogAndStreamDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 

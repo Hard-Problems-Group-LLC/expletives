@@ -902,6 +902,107 @@ func TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsLogAndStreamDetailsAndCopiesState(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 40, Height: 12},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logView, err := expletives.NewLogView(app.Root(), expletives.LogViewOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "log",
+					Bounds:        expletives.Rect{Width: 18, Height: 6},
+				},
+			},
+			BorderForm:    expletives.BorderSingle,
+			HorizontalBar: expletives.ScrollBarVisibilityAuto,
+			VerticalBar:   expletives.ScrollBarVisibilityAuto,
+		},
+		Capacity: expletives.ContentCapacity{Records: 2, Bytes: 64},
+		Records: []expletives.LogRecord{
+			{Key: "a", Level: expletives.LogInfo, Text: "alpha"},
+			{Key: "b", Level: expletives.LogWarning, Text: "beta"},
+			{Key: "c", Level: expletives.LogError, Text: "gamma"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := expletives.NewStreamView(
+		app.Root(),
+		expletives.StreamViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "stream",
+						Bounds: expletives.Rect{
+							X: 20, Width: 18, Height: 6,
+						},
+					},
+				},
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Capacity: expletives.ContentCapacity{Records: 2, Bytes: 12},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stream.Append(
+		context.Background(),
+		[]byte("abcdefghijklmnopqrst"),
+	); err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var logDetails *LogViewDetails
+	var streamDetails *StreamViewDetails
+	for index := range projected.Controls {
+		switch projected.Controls[index].Key {
+		case "log":
+			logDetails = projected.Controls[index].Details.LogView
+		case "stream":
+			streamDetails = projected.Controls[index].Details.StreamView
+		}
+	}
+	if logDetails == nil || logDetails.RetainedRecords != 2 ||
+		logDetails.DroppedRecords != 1 || logDetails.FirstKey != "b" ||
+		logDetails.LastKey != "c" || logDetails.RetainedBytes !=
+		logView.State().RetainedBytes || logDetails.Viewport.State.Offset !=
+		(pointFromCore(logView.State().Offset)) {
+		t.Fatalf("projected LogView details = %#v", logDetails)
+	}
+	if streamDetails == nil || streamDetails.PendingBytes != 1 ||
+		!streamDetails.PendingTruncated || streamDetails.DroppedLines != 1 ||
+		streamDetails.DroppedBytes != 19 ||
+		streamDetails.PendingStorageBytes != 12 ||
+		streamDetails.RetainedLines != 0 ||
+		streamDetails.PendingBytes != stream.State().PendingBytes {
+		t.Fatalf("projected StreamView details = %#v", streamDetails)
+	}
+	cloned := cloneSnapshot(projected)
+	for index := range cloned.Controls {
+		switch cloned.Controls[index].Key {
+		case "log":
+			cloned.Controls[index].Details.LogView.Capacity.Records = 99
+		case "stream":
+			cloned.Controls[index].Details.StreamView.Follow = true
+		}
+	}
+	if logDetails.Capacity.Records == 99 || streamDetails.Follow {
+		t.Fatal("cloneSnapshot exposed LogView or StreamView detail storage")
+	}
+}
+
 func TestSnapshotProjectsTabbedPanelDetailsAndCopiesTabs(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

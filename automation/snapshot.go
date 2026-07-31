@@ -195,6 +195,10 @@ type ControlDetails struct {
 	Scrollable *ScrollableDetails `json:"scrollable,omitempty"`
 	// Markdown is present for MarkdownView.
 	Markdown *MarkdownDetails `json:"markdown,omitempty"`
+	// LogView is present for LogView.
+	LogView *LogViewDetails `json:"log_view,omitempty"`
+	// StreamView is present for StreamView.
+	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -526,20 +530,20 @@ type MarkdownBlockDetails struct {
 // MarkdownDetails describes bounded structure and derived viewport geometry
 // without duplicating the retained Markdown source.
 type MarkdownDetails struct {
-	SourceBytes        int                     `json:"source_bytes"`
-	SourceCells        int                     `json:"source_cells"`
-	BlockCount         int                     `json:"block_count"`
-	RenderedRows       int                     `json:"rendered_rows"`
-	MaximumLineWidth   int                     `json:"maximum_line_width"`
-	Viewport           MarkdownViewportDetails `json:"viewport"`
-	Blocks             []MarkdownBlockDetails  `json:"blocks"`
-	SummariesTruncated bool                    `json:"summaries_truncated"`
+	SourceBytes        int                    `json:"source_bytes"`
+	SourceCells        int                    `json:"source_cells"`
+	BlockCount         int                    `json:"block_count"`
+	RenderedRows       int                    `json:"rendered_rows"`
+	MaximumLineWidth   int                    `json:"maximum_line_width"`
+	Viewport           ContentViewportDetails `json:"viewport"`
+	Blocks             []MarkdownBlockDetails `json:"blocks"`
+	SummariesTruncated bool                   `json:"summaries_truncated"`
 }
 
-// MarkdownViewportDetails is the bounded scroll geometry needed to inspect a
-// MarkdownView without repeating generic managed-content or complete bar
-// records that do not exist as independently addressable controls.
-type MarkdownViewportDetails struct {
+// ContentViewportDetails is bounded scroll geometry for a content leaf. It
+// omits generic managed-content and complete integrated-bar records that do
+// not exist as independently addressable controls.
+type ContentViewportDetails struct {
 	State             ViewportState `json:"state"`
 	MaximumOffset     Point         `json:"maximum_offset"`
 	ViewportBounds    Rect          `json:"viewport_bounds"`
@@ -547,6 +551,46 @@ type MarkdownViewportDetails struct {
 	VerticalPolicy    string        `json:"vertical_policy"`
 	HorizontalVisible bool          `json:"horizontal_visible"`
 	VerticalVisible   bool          `json:"vertical_visible"`
+}
+
+// ContentCapacity is the copied record and canonical-byte retention budget.
+type ContentCapacity struct {
+	Records int `json:"records"`
+	Bytes   int `json:"bytes"`
+}
+
+// MarkdownViewportDetails is the compatibility name for the shared bounded
+// content-leaf viewport projection.
+type MarkdownViewportDetails = ContentViewportDetails
+
+// LogViewDetails describes bounded structured-log retention and viewport
+// state without duplicating retained record text.
+type LogViewDetails struct {
+	Capacity        ContentCapacity        `json:"capacity"`
+	RetainedRecords int                    `json:"retained_records"`
+	RetainedBytes   int                    `json:"retained_bytes"`
+	DroppedRecords  uint64                 `json:"dropped_records"`
+	DroppedBytes    uint64                 `json:"dropped_bytes"`
+	FirstKey        string                 `json:"first_key,omitempty"`
+	LastKey         string                 `json:"last_key,omitempty"`
+	Follow          bool                   `json:"follow"`
+	Viewport        ContentViewportDetails `json:"viewport"`
+}
+
+// StreamViewDetails describes bounded complete and partial stream retention
+// without duplicating off-screen stream content.
+type StreamViewDetails struct {
+	Capacity            ContentCapacity        `json:"capacity"`
+	RetainedLines       int                    `json:"retained_lines"`
+	RetainedBytes       int                    `json:"retained_bytes"`
+	PendingBytes        int                    `json:"pending_bytes"`
+	PendingCells        int                    `json:"pending_cells"`
+	PendingStorageBytes int                    `json:"pending_storage_bytes"`
+	PendingTruncated    bool                   `json:"pending_truncated"`
+	DroppedLines        uint64                 `json:"dropped_lines"`
+	DroppedBytes        uint64                 `json:"dropped_bytes"`
+	Follow              bool                   `json:"follow"`
+	Viewport            ContentViewportDetails `json:"viewport"`
 }
 
 // TabDetails describes one copied page descriptor and rendered strip state.
@@ -1118,35 +1162,50 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				}
 			}
 			projectedControl.Details.Markdown = &MarkdownDetails{
-				SourceBytes:      details.SourceBytes,
-				SourceCells:      details.SourceCells,
-				BlockCount:       details.BlockCount,
-				RenderedRows:     details.RenderedRows,
-				MaximumLineWidth: details.MaximumLineWidth,
-				Viewport: MarkdownViewportDetails{
-					State: ViewportState{
-						ContentSize: sizeFromCore(
-							details.Viewport.State.ContentSize,
-						),
-						Offset: pointFromCore(details.Viewport.State.Offset),
-					},
-					MaximumOffset: pointFromCore(
-						details.Viewport.MaximumOffset,
-					),
-					ViewportBounds: rectFromCore(
-						details.Viewport.ViewportBounds,
-					),
-					HorizontalPolicy: string(
-						details.Viewport.HorizontalPolicy,
-					),
-					VerticalPolicy: string(
-						details.Viewport.VerticalPolicy,
-					),
-					HorizontalVisible: details.Viewport.HorizontalVisible,
-					VerticalVisible:   details.Viewport.VerticalVisible,
-				},
+				SourceBytes:        details.SourceBytes,
+				SourceCells:        details.SourceCells,
+				BlockCount:         details.BlockCount,
+				RenderedRows:       details.RenderedRows,
+				MaximumLineWidth:   details.MaximumLineWidth,
+				Viewport:           contentViewportDetailsFromCore(&details.Viewport),
 				Blocks:             blocks,
 				SummariesTruncated: details.SummariesTruncated,
+			}
+		}
+		if details := control.Details.LogView; details != nil {
+			projectedControl.Details.LogView = &LogViewDetails{
+				Capacity: ContentCapacity{
+					Records: details.Capacity.Records,
+					Bytes:   details.Capacity.Bytes,
+				},
+				RetainedRecords: details.RetainedRecords,
+				RetainedBytes:   details.RetainedBytes,
+				DroppedRecords:  details.DroppedRecords,
+				DroppedBytes:    details.DroppedBytes,
+				FirstKey:        details.FirstKey,
+				LastKey:         details.LastKey,
+				Follow:          details.Follow,
+				Viewport:        contentViewportDetailsFromCore(&details.Viewport),
+			}
+		}
+		if details := control.Details.StreamView; details != nil {
+			projectedControl.Details.StreamView = &StreamViewDetails{
+				Capacity: ContentCapacity{
+					Records: details.Capacity.Records,
+					Bytes:   details.Capacity.Bytes,
+				},
+				RetainedLines:       details.RetainedLines,
+				RetainedBytes:       details.RetainedBytes,
+				PendingBytes:        details.PendingBytes,
+				PendingCells:        details.PendingCells,
+				PendingStorageBytes: details.PendingStorageBytes,
+				PendingTruncated:    details.PendingTruncated,
+				DroppedLines:        details.DroppedLines,
+				DroppedBytes:        details.DroppedBytes,
+				Follow:              details.Follow,
+				Viewport: contentViewportDetailsFromCore(
+					&details.Viewport,
+				),
 			}
 		}
 		projected.Controls[index] = projectedControl
@@ -1249,6 +1308,26 @@ func scrollableDetailsFromCore(
 			scrollBarDetailsFromCore(details.VerticalBar)
 	}
 	return scrollable
+}
+
+func contentViewportDetailsFromCore(
+	details *expletives.ScrollableDetails,
+) ContentViewportDetails {
+	if details == nil {
+		return ContentViewportDetails{}
+	}
+	return ContentViewportDetails{
+		State: ViewportState{
+			ContentSize: sizeFromCore(details.State.ContentSize),
+			Offset:      pointFromCore(details.State.Offset),
+		},
+		MaximumOffset:     pointFromCore(details.MaximumOffset),
+		ViewportBounds:    rectFromCore(details.ViewportBounds),
+		HorizontalPolicy:  string(details.HorizontalPolicy),
+		VerticalPolicy:    string(details.VerticalPolicy),
+		HorizontalVisible: details.HorizontalVisible,
+		VerticalVisible:   details.VerticalVisible,
+	}
 }
 
 func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
@@ -1436,6 +1515,14 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 				markdown.Blocks...,
 			)
 			cloned.Controls[index].Details.Markdown = &markdown
+		}
+		if snapshot.Controls[index].Details.LogView != nil {
+			logView := *snapshot.Controls[index].Details.LogView
+			cloned.Controls[index].Details.LogView = &logView
+		}
+		if snapshot.Controls[index].Details.StreamView != nil {
+			streamView := *snapshot.Controls[index].Details.StreamView
+			cloned.Controls[index].Details.StreamView = &streamView
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

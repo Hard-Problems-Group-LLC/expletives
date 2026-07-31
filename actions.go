@@ -507,6 +507,8 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return scrollViewCanMove(state, behavior)
 	case markdownBehavior:
 		return markdownCanMove(state, behavior)
+	case logViewBehavior:
+		return logCanMove(state, behavior)
 	default:
 		return false
 	}
@@ -551,6 +553,8 @@ func (a *App) focusBehaviorEligibleLocked(
 		return scrollViewCanMove(state, behavior)
 	case markdownBehavior:
 		return markdownCanMove(state, behavior)
+	case logViewBehavior:
+		return logCanMove(state, behavior)
 	}
 	return false
 }

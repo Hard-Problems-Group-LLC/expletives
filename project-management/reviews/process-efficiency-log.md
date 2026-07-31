@@ -9,6 +9,24 @@
 
 ## Observed Opportunities
 
+### 40. Assert Visual Semantics At A Deliberate Geometry
+
+The first attached StreamView frame assertion expected the truncation marker
+to be visible, but its fixture placed that marker exactly beyond the compact
+viewport used after application chrome was enabled. Typed truncation state was
+correct; the frame did not exercise the promised visible warning.
+
+Improvement applied:
+
+- choose the catalog's tiny byte budget together with its compact viewport so
+  retained content, replacement cells, and the truncation marker are all
+  simultaneously visible;
+- assert durable retained/drop/truncation state separately from the visible
+  semantic styles;
+- retain both 64x20 self-check and 68x22 attached-automation geometries so
+  chrome and root constraints cannot accidentally hide the evidence; and
+- run the focused socket test before repeating the full race/build matrix.
+
 ### 39. Normalize Shared Integrated-Control State Once
 
 The first ScrollablePanel response-bound proof modeled the maximum legal
@@ -879,6 +897,42 @@ Improvement applied:
 - preserve exact fixed-point validation rather than weakening the client; and
 - apply this purpose-specific projection rule only to unique controls whose
   omitted generic records cannot be independently addressed.
+
+### 28. Pay Synchronization Overhead Only For Accumulative Controls
+
+Concurrent LogView and StreamView appends must serialize per control so two
+producers cannot build from the same retained ring and lose one append. The
+first implementation placed a channel on every control state, even though
+replacement-only controls do not need that extra allocation.
+
+Improvement applied:
+
+- retain the small context-aware gate in the common private state shape, but
+  allocate it only for LogView and StreamView;
+- use the existing App transaction owner for unrelated controls and for the
+  final atomic publication;
+- keep Transaction builders explicitly single-caller instead of adding locks
+  around a provisional object; and
+- count canonical pending StreamView storage in the aggregate budget, so the
+  optimization cannot understate replacement-cell memory.
+
+### 29. Turn Repeated Typed-Detail Registration Into A Phase-End Helper
+
+LogView and StreamView repeated the multi-file kind-registration work noted
+in item 24. The shared `ContentViewportDetails` projection removed substantial
+wire duplication, but explicit clone and contextual-kind registration still
+required a manual audit; the missing core snapshot clone was found during
+that audit rather than by compilation.
+
+Improvement candidate after the Phase 15 checkpoint:
+
+- add one private exhaustive test table that maps every `ControlKind` to its
+  expected detail member, focus eligibility, focus-guidance eligibility, and
+  clone/projection fixture;
+- preserve explicit per-kind validators and public typed structs;
+- make the helper fail closed when a new kind is added; and
+- keep this as a bounded test-maintenance improvement, not a generator or
+  runtime reflection framework.
 
 ## Adopted Going-Forward Policy
 

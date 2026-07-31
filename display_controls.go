@@ -678,6 +678,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case markdownBehavior:
 		rightValue, ok := right.(markdownBehavior)
 		return ok && markdownBehaviorEqual(leftValue, rightValue)
+	case logViewBehavior:
+		rightValue, ok := right.(logViewBehavior)
+		return ok && logViewBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

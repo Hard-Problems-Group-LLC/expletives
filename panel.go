@@ -137,6 +137,7 @@ type controlState struct {
 	aborted       bool
 	behavior      controlBehavior
 	focusGuidance focusGuidanceConfig
+	contentGate   chan struct{}
 }
 
 type controlBehavior interface {

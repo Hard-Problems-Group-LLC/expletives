@@ -670,6 +670,29 @@ func (v *Viewport) EnsureVisible(Rect) error
 func (s *ScrollablePanel) EnsureVisible(Rect) error
 func (v *Viewport) Focus() error
 func (s *ScrollablePanel) Focus() error
+func NewMarkdownView(Container, MarkdownViewOptions) (*MarkdownView, error)
+func (m *MarkdownView) Markdown() string
+func (m *MarkdownView) SetMarkdown(string) error
+func (m *MarkdownView) Update(context.Context, string) error
+func (m *MarkdownView) Offset() Point
+func (m *MarkdownView) SetOffset(Point) error
+func (m *MarkdownView) Focus() error
+func NewLogView(Container, LogViewOptions) (*LogView, error)
+func (l *LogView) Append(context.Context, []LogRecord) error
+func (l *LogView) Replace(context.Context, []LogRecord) error
+func (l *LogView) Clear(context.Context) error
+func (l *LogView) State() LogViewState
+func (l *LogView) SetFollow(bool) error
+func (l *LogView) SetOffset(Point) error
+func (l *LogView) Focus() error
+func NewStreamView(Container, StreamViewOptions) (*StreamView, error)
+func (s *StreamView) Append(context.Context, []byte) (StreamAppendResult, error)
+func (s *StreamView) Flush(context.Context) error
+func (s *StreamView) Clear(context.Context) error
+func (s *StreamView) State() LogViewState
+func (s *StreamView) SetFollow(bool) error
+func (s *StreamView) SetOffset(Point) error
+func (s *StreamView) Focus() error
 ```
 
 Both controls atomically create one toolkit-managed direct Content Panel.
@@ -692,8 +715,20 @@ and integrated bar subrecords. The exact contract is
 scroll model. It supports the contract's bounded Markdown subset, visible
 link destinations, deterministic prose reflow, non-wrapping fenced code,
 thread-safe source replacement, and typed structural evidence without I/O or
-link activation. Its complete surface is defined by the same Phase 15
-contract.
+link activation.
+
+`LogView` is the bounded structured-record leaf. It copies unique retained
+keys, optional timestamps, recognized levels, and normalized multiline text;
+evicts complete oldest records against explicit record and canonical-byte
+budgets; styles severity semantically; and keeps exact cumulative loss
+counters. `StreamView` is the bounded inert byte-stream leaf. It recognizes
+CRLF, CR, and LF boundaries across chunks, retains one partial line, replaces
+invalid/control/unsupported display elements, visibly truncates overlong
+lines, and never executes terminal semantics or owns a reader. Their explicit
+`Follow` bool starts false at the Go zero value; movement away from the tail
+pauses and End resumes. Both expose compact typed retention, loss, follow,
+and viewport evidence without copying complete off-screen content. Their
+complete surface is defined by the same Phase 15 contract.
 
 ## Atomic Transactions
 
@@ -732,6 +767,8 @@ func (t *Transaction) NewNotebook(Container, TabbedPanelOptions) (*Notebook, err
 func (t *Transaction) NewViewport(Container, ScrollViewOptions) (*Viewport, error)
 func (t *Transaction) NewScrollablePanel(Container, ScrollablePanelOptions) (*ScrollablePanel, error)
 func (t *Transaction) NewMarkdownView(Container, MarkdownViewOptions) (*MarkdownView, error)
+func (t *Transaction) NewLogView(Container, LogViewOptions) (*LogView, error)
+func (t *Transaction) NewStreamView(Container, StreamViewOptions) (*StreamView, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -756,6 +793,14 @@ func (t *Transaction) SetViewportState(Control, ViewportState) error
 func (t *Transaction) EnsureViewportVisible(Control, Rect) error
 func (t *Transaction) SetMarkdown(*MarkdownView, string) error
 func (t *Transaction) SetMarkdownOffset(*MarkdownView, Point) error
+func (t *Transaction) AppendLog(*LogView, []LogRecord) error
+func (t *Transaction) ReplaceLog(*LogView, []LogRecord) error
+func (t *Transaction) ClearLog(*LogView) error
+func (t *Transaction) SetLogFollow(Control, bool) error
+func (t *Transaction) SetLogOffset(Control, Point) error
+func (t *Transaction) AppendStream(*StreamView, []byte) (StreamAppendResult, error)
+func (t *Transaction) FlushStream(*StreamView) error
+func (t *Transaction) ClearStream(*StreamView) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error

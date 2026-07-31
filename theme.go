@@ -117,11 +117,15 @@ func DefaultTheme() Theme {
 		"viewport":                resolved,
 		"scrollable_panel":        resolved,
 		"markdown_view":           resolved,
+		"log_view":                resolved,
+		"stream_view":             resolved,
 		"tabbed_panel.border":     resolved,
 		"notebook.border":         resolved,
 		"viewport.border":         resolved,
 		"scrollable_panel.border": resolved,
 		"markdown_view.border":    resolved,
+		"log_view.border":         resolved,
+		"stream_view.border":      resolved,
 		"markdown.heading": {
 			Foreground: white,
 			Background: resolved.Background,
@@ -158,6 +162,35 @@ func DefaultTheme() Theme {
 		"markdown.rule": {
 			Foreground: RGB(0xC0, 0xC0, 0xC0),
 			Background: resolved.Background,
+		},
+		"log.timestamp": {
+			Foreground: RGB(0xC0, 0xC0, 0xC0),
+			Background: resolved.Background,
+		},
+		"log.debug": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: resolved.Background,
+		},
+		"log.info": resolved,
+		"log.warning": {
+			Foreground: RGB(0xFF, 0xFF, 0x00),
+			Background: resolved.Background,
+			Attributes: StyleBold,
+		},
+		"log.error": {
+			Foreground: RGB(0xFF, 0x55, 0x55),
+			Background: resolved.Background,
+			Attributes: StyleBold,
+		},
+		"stream.truncated": {
+			Foreground: RGB(0x00, 0x00, 0x00),
+			Background: RGB(0xFF, 0xFF, 0x00),
+			Attributes: StyleBold,
+		},
+		"content.dropped": {
+			Foreground: RGB(0x00, 0x00, 0x00),
+			Background: RGB(0xFF, 0xFF, 0x00),
+			Attributes: StyleBold,
 		},
 		"progress.fill": {
 			Foreground: black,

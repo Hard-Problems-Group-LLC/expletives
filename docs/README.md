@@ -55,7 +55,8 @@ Keep durable project documentation here.
   MarkdownView, LogView, and StreamView contracts.
 - [Scrolling and Content](Scrolling-and-Content.md) shows consuming
   applications how to construct, update, scroll, theme, and inspect the
-  implemented Viewport, ScrollablePanel, and MarkdownView controls.
+  implemented Viewport, ScrollablePanel, MarkdownView, LogView, and StreamView
+  controls.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

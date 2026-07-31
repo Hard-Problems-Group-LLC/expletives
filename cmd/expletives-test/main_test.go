@@ -429,6 +429,29 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.Markdown != nil &&
 					control.Details.Markdown.SourceBytes > 0 &&
 					control.Details.Markdown.BlockCount >= 8
+		case "content.log-follow":
+			contentEvidence[control.Key] =
+				control.Kind == "log_view" &&
+					control.Details.LogView != nil &&
+					control.Details.LogView.RetainedRecords == 5 &&
+					control.Details.LogView.FirstKey == "startup" &&
+					control.Details.LogView.LastKey == "ready" &&
+					control.Details.LogView.Follow
+		case "content.log-scrollback":
+			contentEvidence[control.Key] =
+				control.Kind == "log_view" &&
+					control.Details.LogView != nil &&
+					control.Details.LogView.RetainedRecords == 5 &&
+					!control.Details.LogView.Follow
+		case "content.stream-drops":
+			contentEvidence[control.Key] =
+				control.Kind == "stream_view" &&
+					control.Details.StreamView != nil &&
+					control.Details.StreamView.RetainedLines == 1 &&
+					control.Details.StreamView.PendingBytes > 0 &&
+					control.Details.StreamView.DroppedLines > 0 &&
+					control.Details.StreamView.DroppedBytes > 0 &&
+					control.Details.StreamView.Follow
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -451,7 +474,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(inputEvidence) != 9 ||
 		len(progressEvidence) != 11 ||
 		len(navigationEvidence) != 4 ||
-		len(contentEvidence) != 1 ||
+		len(contentEvidence) != 4 ||
 		len(screenEvidence) != 16 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
@@ -1509,6 +1532,18 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	}
 	markdown := progressControl(markdownScreen.Snapshot, "content.markdown")
 	markdownDetails := markdown.Details.Markdown
+	logFollow := progressControl(
+		markdownScreen.Snapshot,
+		"content.log-follow",
+	).Details.LogView
+	logScrollback := progressControl(
+		markdownScreen.Snapshot,
+		"content.log-scrollback",
+	).Details.LogView
+	stream := progressControl(
+		markdownScreen.Snapshot,
+		"content.stream-drops",
+	).Details.StreamView
 	if !progressControl(markdownScreen.Snapshot, "screen.scrolling").Visible ||
 		!markdown.Focused || markdownDetails == nil ||
 		markdownDetails.SourceBytes == 0 || markdownDetails.BlockCount < 8 ||
@@ -1516,8 +1551,24 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		!markdownDetails.Viewport.HorizontalVisible ||
 		!markdownDetails.Viewport.VerticalVisible ||
 		len(markdownDetails.Blocks) != expletives.MaxMarkdownSummaries ||
-		!markdownDetails.SummariesTruncated {
-		t.Fatalf("attached Markdown evidence = %+v", markdown)
+		!markdownDetails.SummariesTruncated ||
+		logFollow == nil || logFollow.RetainedRecords != 5 ||
+		logFollow.LastKey != "ready" || !logFollow.Follow ||
+		logFollow.Viewport.ViewportBounds.Height < 1 ||
+		logScrollback == nil || logScrollback.Follow ||
+		logScrollback.Viewport.State.Offset.Y != 1 ||
+		logScrollback.Viewport.ViewportBounds.Height < 1 ||
+		stream == nil || stream.RetainedLines != 1 ||
+		stream.PendingBytes == 0 || stream.DroppedLines == 0 ||
+		stream.DroppedBytes == 0 || !stream.Follow ||
+		stream.Viewport.ViewportBounds.Height < 1 {
+		t.Fatalf(
+			"attached content evidence: markdown=%+v log-follow=%+v log-scrollback=%+v stream=%+v",
+			markdown,
+			logFollow,
+			logScrollback,
+			stream,
+		)
 	}
 	markdownStyles := map[automation.StyleID]bool{}
 	for _, cell := range markdownScreen.Snapshot.Frame.Cells {
@@ -1532,6 +1583,31 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		if !markdownStyles[style] {
 			t.Fatalf("attached Markdown frame omitted style %q: %v", style, markdownStyles)
 		}
+	}
+	streamStyles := map[automation.StyleID]bool{}
+	streamReplacements := 0
+	streamControl := progressControl(
+		markdownScreen.Snapshot,
+		"content.stream-drops",
+	)
+	for _, cell := range markdownScreen.Snapshot.Frame.Cells {
+		if cell.Owner != streamControl.ID {
+			continue
+		}
+		streamStyles[cell.Style] = true
+		if cell.Grapheme == "\uFFFD" {
+			streamReplacements++
+		}
+	}
+	for _, style := range []automation.StyleID{
+		"stream_view", "stream.truncated", "content.dropped",
+	} {
+		if !streamStyles[style] {
+			t.Fatalf("attached StreamView frame omitted style %q: %v", style, streamStyles)
+		}
+	}
+	if streamReplacements == 0 {
+		t.Fatal("attached StreamView frame omitted inert replacement cells")
 	}
 	markdownEnd, err := client.InjectInput(
 		ctx,
@@ -1553,6 +1629,110 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		markdownDetails.Viewport.State.Offset !=
 			markdownDetails.Viewport.MaximumOffset {
 		t.Fatalf("attached Markdown End offset = %+v", markdownDetails)
+	}
+	tabLog, err := client.InjectInput(
+		ctx,
+		"content-tab-log",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "tab"},
+	)
+	if err != nil || tabLog.Outcome != automation.OutcomeApplied ||
+		tabLog.Snapshot == nil ||
+		!progressControl(tabLog.Snapshot, "content.log-follow").Focused {
+		t.Fatalf("attached content Tab completion = %+v, %v", tabLog, err)
+	}
+	logPageUp, err := client.InjectInput(
+		ctx,
+		"content-log-page-up",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "page_up"},
+	)
+	if err != nil || logPageUp.Outcome != automation.OutcomeApplied ||
+		logPageUp.Snapshot == nil || logPageUp.Snapshot.Completion == nil ||
+		logPageUp.Snapshot.Completion.Command !=
+			string(demo.CommandContentChanged) ||
+		progressControl(
+			logPageUp.Snapshot,
+			"content.log-follow",
+		).Details.LogView.Follow {
+		t.Fatalf("attached LogView PageUp completion = %+v, %v", logPageUp, err)
+	}
+	logEnd, err := client.InjectInput(
+		ctx,
+		"content-log-end",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "end"},
+	)
+	if err != nil || logEnd.Outcome != automation.OutcomeApplied ||
+		logEnd.Snapshot == nil ||
+		!progressControl(
+			logEnd.Snapshot,
+			"content.log-follow",
+		).Details.LogView.Follow {
+		t.Fatalf("attached LogView End completion = %+v, %v", logEnd, err)
+	}
+	contentAppend, err := client.InvokeCommand(
+		ctx,
+		"content-append",
+		string(demo.CommandContentAppend),
+		"",
+	)
+	if err != nil || contentAppend.Outcome != automation.OutcomeApplied ||
+		contentAppend.Snapshot == nil {
+		t.Fatalf("InvokeCommand(Content Append) = %+v, %v", contentAppend, err)
+	}
+	logFollow = progressControl(
+		contentAppend.Snapshot,
+		"content.log-follow",
+	).Details.LogView
+	logScrollback = progressControl(
+		contentAppend.Snapshot,
+		"content.log-scrollback",
+	).Details.LogView
+	stream = progressControl(
+		contentAppend.Snapshot,
+		"content.stream-drops",
+	).Details.StreamView
+	if logFollow.LastKey != "live.0001" ||
+		logFollow.Viewport.State.Offset != logFollow.Viewport.MaximumOffset ||
+		logScrollback.LastKey != "live.0001" || logScrollback.Follow ||
+		logScrollback.Viewport.State.Offset.Y != 1 ||
+		stream.RetainedLines != 2 {
+		t.Fatalf(
+			"attached content append: log-follow=%+v log-scrollback=%+v stream=%+v",
+			logFollow,
+			logScrollback,
+			stream,
+		)
+	}
+	contentFollow, err := client.InvokeCommand(
+		ctx,
+		"content-follow",
+		string(demo.CommandContentFollow),
+		"",
+	)
+	if err != nil || contentFollow.Outcome != automation.OutcomeApplied ||
+		contentFollow.Snapshot == nil ||
+		!progressControl(
+			contentFollow.Snapshot,
+			"content.log-scrollback",
+		).Details.LogView.Follow {
+		t.Fatalf("InvokeCommand(Content Follow) = %+v, %v", contentFollow, err)
+	}
+	contentReset, err := client.InvokeCommand(
+		ctx,
+		"content-reset",
+		string(demo.CommandScenarioReset),
+		"",
+	)
+	if err != nil || contentReset.Outcome != automation.OutcomeApplied ||
+		contentReset.Snapshot == nil ||
+		progressControl(
+			contentReset.Snapshot,
+			"content.log-follow",
+		).Details.LogView.LastKey != "ready" ||
+		progressControl(
+			contentReset.Snapshot,
+			"content.log-scrollback",
+		).Details.LogView.Follow {
+		t.Fatalf("InvokeCommand(Content Reset) = %+v, %v", contentReset, err)
 	}
 	if _, err := client.InjectInput(
 		ctx,

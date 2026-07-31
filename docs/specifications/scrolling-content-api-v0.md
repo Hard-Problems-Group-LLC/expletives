@@ -284,6 +284,7 @@ type LogViewState struct {
     Offset          Point
     RetainedRecords int
     RetainedBytes   int
+    PendingBytes    int
     DroppedRecords  uint64
     DroppedBytes    uint64
 }
@@ -300,6 +301,11 @@ func (l *LogView) State() LogViewState
 func (l *LogView) SetFollow(bool) error
 func (l *LogView) SetOffset(Point) error
 func (l *LogView) Focus() error
+func (t *Transaction) AppendLog(*LogView, []LogRecord) error
+func (t *Transaction) ReplaceLog(*LogView, []LogRecord) error
+func (t *Transaction) ClearLog(*LogView) error
+func (t *Transaction) SetLogFollow(Control, bool) error
+func (t *Transaction) SetLogOffset(Control, Point) error
 ```
 
 Records are copied and validated before one serialized publication. Keys are
@@ -308,16 +314,25 @@ optional canonical one-row display text. Level is recognized. Text is
 canonical bounded multiline content; raw terminal control traffic is never
 interpreted.
 
-Capacity defaults to a named bounded record/byte budget and may be reduced by
-the caller. Appending evicts complete oldest records until both budgets hold.
+Each zero Capacity component independently selects
+`DefaultContentRecordCapacity` or `DefaultContentByteCapacity`; explicit
+values may reduce either budget but cannot exceed `MaxContentRecords` or
+`MaxContentBytes`. Retained bytes are the canonical UTF-8 bytes of key, level,
+normalized timestamp, and normalized text. Rendering punctuation is not
+charged. Appending evicts complete oldest records until both budgets hold.
 DroppedRecords and DroppedBytes are monotonic until Clear or Replace and count
-every eviction or input record that cannot be retained. No loss is silent.
+every eviction or input record that cannot be retained. Duplicate keys are
+rejected when they would coexist in the final retained ring. No loss is
+silent.
 
-Follow defaults true. While following, append and resize retain the tail.
-User movement away from the tail disables Follow; End restores it. While
-paused, append preserves the visible logical records as far as retained
-capacity permits. Programmatic append/replace/clear/follow changes are silent;
-user navigation may route ChangeCommand.
+`Follow` is explicit: the Go zero value starts paused, and callers that want
+tail-following set it true. While following, append and resize retain the
+tail. User movement away from the tail disables Follow; End restores it.
+While paused, append anchors the visible logical record as far as retained
+capacity permits. Records retain logical newlines but do not wrap; long rows
+use horizontal clipping and scrolling. Programmatic
+append/replace/clear/follow changes are silent; user navigation may route
+ChangeCommand.
 
 `ControlDetails.LogView` exposes capacity, retained and dropped counts, first
 and last retained keys, follow state, and scroll geometry. It does not expose
@@ -359,6 +374,12 @@ func (s *StreamView) State() LogViewState
 func (s *StreamView) SetFollow(bool) error
 func (s *StreamView) SetOffset(Point) error
 func (s *StreamView) Focus() error
+func (t *Transaction) AppendStream(
+    *StreamView,
+    []byte,
+) (StreamAppendResult, error)
+func (t *Transaction) FlushStream(*StreamView) error
+func (t *Transaction) ClearStream(*StreamView) error
 ```
 
 Append copies input before returning and processes it synchronously under the
@@ -371,8 +392,14 @@ are never executed or emulated.
 One bounded partial line is retained across chunks. Flush commits it as a
 line. Lines beyond the configured per-line or ring capacity are truncated or
 evicted with exact DroppedLines/DroppedBytes accounting and an explicit
-visible truncation marker. AppendResult reports the effect of that call;
-typed state reports cumulative loss.
+visible `[truncated]` marker, or `!` when only one marker cell fits. Dropped
+bytes count source content bytes, not CR/LF delimiters or rendering markers.
+A truncated logical line increments the dropped-line count once even if its
+retained prefix is later evicted. Complete retained lines and the partial
+line share the byte capacity, so pending data may evict the oldest complete
+line. AppendResult reports the effect of that call; typed state reports
+cumulative loss. `LogViewState.PendingBytes` reports the raw partial-line
+bytes for StreamView and is zero for LogView.
 
 StreamView uses the LogView follow/scrollback keyboard contract and
 non-wrapping horizontal clipping. It owns no reader, file descriptor,
@@ -380,9 +407,11 @@ subprocess, goroutine, channel, or retry loop. A producer that needs an
 asynchronous pipe reader owns that worker and calls Append with its own
 cancellation and backpressure policy.
 
-`ControlDetails.StreamView` exposes retained/pending byte and line counts,
-cumulative drops, follow state, and scroll geometry, without duplicating the
-complete off-screen stream.
+`ControlDetails.StreamView` exposes retained line/storage bytes, raw pending
+bytes, pending cell/storage bytes, partial truncation state, cumulative drops,
+follow state, and scroll geometry, without duplicating the complete off-screen
+stream. Attached automation projects MarkdownView, LogView, and StreamView
+through the same compact `ContentViewportDetails` shape.
 
 ## Concurrency, Privacy, And Mutation
 

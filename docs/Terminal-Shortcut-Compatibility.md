@@ -112,8 +112,10 @@ Its essential non-menu routes remain redundant:
 | Interrupt | `Ctrl-C` | configured signal/input policy |
 
 `Alt-X` is the conventional Turbo Vision exit hint and is not claimed by the
-audited terminal defaults. No essential operation depends on it being
-forwarded.
+audited terminal defaults. When it is forwarded, its registered global
+binding takes precedence over a screen-local control or tab mnemonic; only a
+displayed top-level MenuBar mnemonic has earlier Alt-key handling. No
+essential operation depends on it being forwarded.
 
 The red Turbo Vision-style mnemonic rendering follows the marked character.
 Popup-item mnemonics remain unmodified keys while their popup owns menu

@@ -110,6 +110,66 @@ func TestActionConstructionFocusAndRendering(t *testing.T) {
 	}
 }
 
+func TestGlobalAltBindingPrecedesLocalControlMnemonic(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 24, Height: 3})
+	registerActionCommand(t, app, "action.local", "Local", true)
+	registerActionCommand(t, app, "app.quit", "Quit", true)
+	if _, err := NewButton(app.Root(), ButtonOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "button.local",
+			Bounds:        Rect{X: 1, Y: 1, Width: 12, Height: 1},
+		},
+		Command:  "action.local",
+		Mnemonic: "x",
+	}); err != nil {
+		t.Fatalf("NewButton(local mnemonic) error = %v", err)
+	}
+	if err := app.BindChord(
+		Chord{Key: "x", Modifiers: []Key{KeyAlt}},
+		CommandBinding{Command: "app.quit"},
+	); err != nil {
+		t.Fatalf("BindChord(Alt-X) error = %v", err)
+	}
+	var routed []CommandID
+	if err := app.SetCommandRouter(func(
+		_ context.Context,
+		command Command,
+	) CommandResult {
+		routed = append(routed, command.ID)
+		outcome := OutcomeApplied
+		if command.ID == "app.quit" {
+			outcome = OutcomeExited
+		}
+		return CommandResult{Outcome: outcome}
+	}); err != nil {
+		t.Fatalf("SetCommandRouter() error = %v", err)
+	}
+
+	if _, err := app.DispatchKey(
+		context.Background(),
+		"keyboard",
+		"global-quit-down",
+		KeyEvent{Kind: KeyEventDown, Key: KeyAlt},
+	); err != nil {
+		t.Fatalf("DispatchKey(Alt down) error = %v", err)
+	}
+	completion, err := app.DispatchKey(
+		context.Background(),
+		"keyboard",
+		"global-quit",
+		KeyEvent{Kind: KeyEventPress, Key: "x"},
+	)
+	if err != nil {
+		t.Fatalf("DispatchKey(Alt-X) error = %v", err)
+	}
+	if completion.Command != "app.quit" ||
+		completion.Outcome != OutcomeExited ||
+		len(routed) != 1 || routed[0] != "app.quit" {
+		t.Fatalf("Alt-X completion=%+v routed=%v", completion, routed)
+	}
+}
+
 func TestActionActivationTraversalPressAndReset(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 40, Height: 4})

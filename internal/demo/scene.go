@@ -55,6 +55,8 @@ const (
 	CommandNavigationChanged    expletives.CommandID = "navigation.changed"
 	CommandScrolling            expletives.CommandID = "catalog.controls.scrolling"
 	CommandContentChanged       expletives.CommandID = "content.changed"
+	CommandContentAppend        expletives.CommandID = "content.append"
+	CommandContentFollow        expletives.CommandID = "content.follow"
 	CommandCollections          expletives.CommandID = "catalog.controls.collections"
 	CommandPanelMenu            expletives.CommandID = "catalog.menus.panel"
 	CommandContextMenu          expletives.CommandID = "catalog.menus.context"
@@ -91,6 +93,18 @@ const (
 		"A multi-cell glyph is safely normalized to the replacement cell: 界\n\n" +
 		"Resize the terminal to observe deterministic prose reflow and clamped offsets."
 )
+
+var streamCatalogSource = "STREAM escape=\x1b is inert\r\n" +
+	strings.Repeat("😀", 24) + "\n" +
+	"tail"
+
+var logCatalogRecords = []expletives.LogRecord{
+	{Key: "startup", Timestamp: "12:00:00", Level: expletives.LogInfo, Text: "catalog initialized"},
+	{Key: "cache", Timestamp: "12:00:01", Level: expletives.LogDebug, Text: "SCROLLBACK LogView: bounded fixtures loaded"},
+	{Key: "warning", Timestamp: "12:00:02", Level: expletives.LogWarning, Text: "scrollback preserves this logical record"},
+	{Key: "failure", Timestamp: "12:00:03", Level: expletives.LogError, Text: "example failure; no terminal control is executed"},
+	{Key: "ready", Timestamp: "12:00:04", Level: expletives.LogInfo, Text: "FOLLOW LogView: press G to append records"},
+}
 
 var catalogScreens = []struct {
 	id    expletives.CommandID
@@ -339,6 +353,9 @@ type Scene struct {
 	navigationTabs          *expletives.TabbedPanel
 	navigationNotebook      *expletives.Notebook
 	markdownView            *expletives.MarkdownView
+	logFollow               *expletives.LogView
+	logScrollback           *expletives.LogView
+	streamView              *expletives.StreamView
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -352,6 +369,7 @@ type Scene struct {
 	toggled                 bool
 	progressTick            uint64
 	progressReduced         bool
+	contentTick             uint64
 }
 
 // New constructs the complete fixture through the public toolkit API.
@@ -577,6 +595,65 @@ func NewWithRootConstraints(
 			ID:         "markdown.rule",
 			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
 			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "log_view",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "stream_view",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "log_view.border",
+			Foreground: borderStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "stream_view.border",
+			Foreground: borderStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "log.timestamp",
+			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "log.debug",
+			Foreground: expletives.RGB(0x80, 0x80, 0x80),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "log.info",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "log.warning",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0x55),
+			Background: canvasStyle.Background,
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "log.error",
+			Foreground: expletives.RGB(0xFF, 0x55, 0x55),
+			Background: canvasStyle.Background,
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "stream.truncated",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0xFF, 0xFF, 0x00),
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "content.dropped",
+			Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0xFF, 0xFF, 0x00),
+			Attributes: expletives.StyleBold,
 		},
 		expletives.Style{
 			ID:         "scrollbar.page",
@@ -2593,8 +2670,33 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	newContentGroup := func(key string) (*expletives.Panel, error) {
+		return transaction.NewPanel(
+			scrollingScreen,
+			expletives.PanelOptions{
+				AutomationKey: "content.group." + key,
+				Style:         canvasStyle.ID,
+			},
+		)
+	}
+	markdownGroup, err := newContentGroup("markdown")
+	if err != nil {
+		return nil, err
+	}
+	logFollowGroup, err := newContentGroup("log-follow")
+	if err != nil {
+		return nil, err
+	}
+	logScrollbackGroup, err := newContentGroup("log-scrollback")
+	if err != nil {
+		return nil, err
+	}
+	streamGroup, err := newContentGroup("stream-drops")
+	if err != nil {
+		return nil, err
+	}
 	markdownView, err := transaction.NewMarkdownView(
-		scrollingScreen,
+		markdownGroup,
 		expletives.MarkdownViewOptions{
 			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
 				ScrollViewOptions: expletives.ScrollViewOptions{
@@ -2614,6 +2716,99 @@ func NewWithRootConstraints(
 	)
 	if err != nil {
 		return nil, err
+	}
+	logFollow, err := transaction.NewLogView(
+		logFollowGroup,
+		expletives.LogViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "content.log-follow",
+						Style:         "log_view",
+					},
+					ChangeCommand: CommandContentChanged,
+				},
+				BorderStyle:   "log_view.border",
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityNever,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Capacity: expletives.ContentCapacity{Records: 8, Bytes: 512},
+			Records:  append([]expletives.LogRecord(nil), logCatalogRecords...),
+			Follow:   true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	logScrollback, err := transaction.NewLogView(
+		logScrollbackGroup,
+		expletives.LogViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "content.log-scrollback",
+						Style:         "log_view",
+					},
+					State:         expletives.ViewportState{Offset: expletives.Point{Y: 1}},
+					ChangeCommand: CommandContentChanged,
+				},
+				BorderStyle:   "log_view.border",
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityNever,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Capacity: expletives.ContentCapacity{Records: 8, Bytes: 512},
+			Records:  append([]expletives.LogRecord(nil), logCatalogRecords...),
+			Follow:   false,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	streamView, err := transaction.NewStreamView(
+		streamGroup,
+		expletives.StreamViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "content.stream-drops",
+						Style:         "stream_view",
+					},
+					ChangeCommand: CommandContentChanged,
+				},
+				BorderStyle:   "stream_view.border",
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Capacity: expletives.ContentCapacity{Records: 3, Bytes: 60},
+			Follow:   true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := transaction.AppendStream(
+		streamView,
+		[]byte(streamCatalogSource),
+	); err != nil {
+		return nil, err
+	}
+	for _, control := range []expletives.Control{
+		logFollow,
+		logScrollback,
+		streamView,
+	} {
+		if err := transaction.SetFocusGuidance(
+			control,
+			expletives.FocusGuidance{
+				Mode: expletives.FocusGuidanceAppend,
+				Text: "G appends a fixture; F toggles scrollback follow",
+			},
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	hotkeyBar, err := transaction.NewHotkeyBar(
@@ -2705,11 +2900,11 @@ func NewWithRootConstraints(
 		screenLayouts = append(screenLayouts, layout)
 	}
 	scrollingLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
+		expletives.Horizontal,
 		expletives.BoxLayoutOptions{
 			AutomationKey: "layout.scrolling",
 			Insets: expletives.Insets{
-				Top: 1, Right: 2, Bottom: 1, Left: 2,
+				Right: 2, Left: 2,
 			},
 		},
 	)
@@ -2717,10 +2912,69 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	if err := scrollingLayout.AddPanel(
-		markdownView,
+		markdownGroup,
+		expletives.LayoutItemOptions{Grow: 2},
+	); err != nil {
+		return nil, err
+	}
+	scrollingContentLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.scrolling.content",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range []struct {
+		group expletives.Control
+		grow  int
+	}{
+		{logFollowGroup, 1},
+		{logScrollbackGroup, 1},
+		{streamGroup, 2},
+	} {
+		if err := scrollingContentLayout.AddPanel(
+			entry.group,
+			expletives.LayoutItemOptions{Grow: entry.grow},
+		); err != nil {
+			return nil, err
+		}
+	}
+	if err := scrollingLayout.AddLayout(
+		scrollingContentLayout,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
+	}
+	for _, entry := range []struct {
+		key     string
+		group   expletives.Container
+		control expletives.Control
+	}{
+		{"markdown", markdownGroup, markdownView},
+		{"log-follow", logFollowGroup, logFollow},
+		{"log-scrollback", logScrollbackGroup, logScrollback},
+		{"stream-drops", streamGroup, streamView},
+	} {
+		groupLayout, layoutErr := expletives.NewBoxLayout(
+			expletives.Vertical,
+			expletives.BoxLayoutOptions{
+				AutomationKey: "layout.content.group." + entry.key,
+			},
+		)
+		if layoutErr != nil {
+			return nil, layoutErr
+		}
+		if err := groupLayout.AddPanel(
+			entry.control,
+			expletives.LayoutItemOptions{Grow: 1},
+		); err != nil {
+			return nil, err
+		}
+		if err := transaction.SetLayout(entry.group, groupLayout); err != nil {
+			return nil, err
+		}
 	}
 	menusLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
@@ -3788,6 +4042,9 @@ func NewWithRootConstraints(
 		navigationTabs:          navigationTabs,
 		navigationNotebook:      navigationNotebook,
 		markdownView:            markdownView,
+		logFollow:               logFollow,
+		logScrollback:           logScrollback,
+		streamView:              streamView,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -3850,6 +4107,8 @@ func NewWithRootConstraints(
 			},
 			command: CommandAppInterrupt,
 		},
+		{chord: expletives.Chord{Key: "g"}, command: CommandContentAppend},
+		{chord: expletives.Chord{Key: "f"}, command: CommandContentFollow},
 	} {
 		if err := app.BindChord(
 			binding.chord,
@@ -4006,6 +4265,17 @@ func initialCommandDefinitions(
 			Description: "Report a user-originated content viewport movement",
 			Enabled:     true, Automation: true,
 		},
+		{
+			ID: CommandContentAppend, Label: "Append Content",
+			Description: "Append deterministic records and stream bytes",
+			Enabled:     true, Automation: true,
+		},
+		chromeToggleDefinition(
+			CommandContentFollow,
+			"Follow Scrollback",
+			"Follow new records in the scrollback LogView",
+			false,
+		),
 		unavailableCatalogDefinition(
 			CommandPanelScrollbars,
 			"Panel Scroll Bars",
@@ -4695,6 +4965,7 @@ func (s *Scene) handleCommand(
 	case CommandScenarioReset:
 		resetSequence := s.App.Snapshot().Sequence
 		changed := s.toggled || s.progressTick != 0 || s.progressReduced ||
+			s.contentTick != 0 ||
 			s.navigationHorizontal.State() != (expletives.ScrollBarState{
 				ContentSize: 100, ViewportSize: 20, Offset: 40,
 			}) ||
@@ -4856,9 +5127,45 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		for _, logView := range []*expletives.LogView{
+			s.logFollow,
+			s.logScrollback,
+		} {
+			if err := transaction.ReplaceLog(
+				logView,
+				append([]expletives.LogRecord(nil), logCatalogRecords...),
+			); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+		}
+		if err := transaction.SetLogFollow(s.logFollow, true); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetLogFollow(s.logScrollback, false); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetLogOffset(
+			s.logScrollback,
+			expletives.Point{Y: 1},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.ClearStream(s.streamView); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetLogFollow(s.streamView, true); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if _, err := transaction.AppendStream(
+			s.streamView,
+			[]byte(streamCatalogSource),
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		s.contentTick = 0
 		changed = changed || s.App.Snapshot().Sequence != resetSequence
 		if err := s.App.ReplaceCommand(
 			toggleDefinition(false),
@@ -4869,6 +5176,14 @@ func (s *Scene) handleCommand(
 			CommandProgressMotion,
 			"Motion",
 			"Use reduced-motion presentation for live Progress examples",
+			false,
+		)); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := s.App.ReplaceCommand(chromeToggleDefinition(
+			CommandContentFollow,
+			"Follow Scrollback",
+			"Follow new records in the scrollback LogView",
 			false,
 		)); err != nil {
 			return expletives.OutcomeFailed, err
@@ -4902,6 +5217,10 @@ func (s *Scene) handleCommand(
 		return s.setProgressStatusLocked(expletives.ProgressCancelled)
 	case CommandProgressMotion:
 		return s.toggleProgressMotionLocked()
+	case CommandContentAppend:
+		return s.appendContentLocked()
+	case CommandContentFollow:
+		return s.toggleContentFollowLocked()
 	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged,
 		CommandNavigationChanged, CommandContentChanged:
 		return expletives.OutcomeApplied, nil
@@ -4932,6 +5251,70 @@ func (s *Scene) handleCommand(
 	default:
 		return expletives.OutcomeRejected, nil
 	}
+}
+
+func (s *Scene) appendContentLocked() (expletives.Outcome, error) {
+	next := s.contentTick + 1
+	return s.showAndMutateLocked(CommandScrolling, func() error {
+		level := expletives.LogInfo
+		switch next % 4 {
+		case 0:
+			level = expletives.LogError
+		case 2:
+			level = expletives.LogWarning
+		case 3:
+			level = expletives.LogDebug
+		}
+		record := expletives.LogRecord{
+			Key:       fmt.Sprintf("live.%04d", next),
+			Timestamp: fmt.Sprintf("12:%02d:%02d", (next/60)%60, next%60),
+			Level:     level,
+			Text:      fmt.Sprintf("deterministic catalog record %d", next),
+		}
+		transaction := s.App.NewTransaction()
+		if err := transaction.AppendLog(
+			s.logFollow,
+			[]expletives.LogRecord{record},
+		); err != nil {
+			return err
+		}
+		if err := transaction.AppendLog(
+			s.logScrollback,
+			[]expletives.LogRecord{record},
+		); err != nil {
+			return err
+		}
+		if _, err := transaction.AppendStream(
+			s.streamView,
+			[]byte(fmt.Sprintf("\nstream fixture %04d\r\n", next)),
+		); err != nil {
+			return err
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
+			return err
+		}
+		s.contentTick = next
+		return nil
+	})
+}
+
+func (s *Scene) toggleContentFollowLocked() (expletives.Outcome, error) {
+	next := !s.logScrollback.State().Follow
+	return s.showAndMutateLocked(CommandScrolling, func() error {
+		transaction := s.App.NewTransaction()
+		if err := transaction.SetLogFollow(s.logScrollback, next); err != nil {
+			return err
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
+			return err
+		}
+		return s.App.ReplaceCommand(chromeToggleDefinition(
+			CommandContentFollow,
+			"Follow Scrollback",
+			"Follow new records in the scrollback LogView",
+			next,
+		))
+	})
 }
 
 func (s *Scene) progressTickLocked() (expletives.Outcome, error) {
@@ -5577,7 +5960,14 @@ func SelfCheck() error {
 		"navigation.notebook",
 		"navigation.notebook.page.one",
 		"navigation.notebook.page.two",
+		"content.group.markdown",
 		"content.markdown",
+		"content.group.log-follow",
+		"content.log-follow",
+		"content.group.log-scrollback",
+		"content.log-scrollback",
+		"content.group.stream-drops",
+		"content.stream-drops",
 		"layer.back",
 		"layer.front",
 	} {
@@ -6235,17 +6625,82 @@ func SelfCheck() error {
 	}
 	markdown := controls["content.markdown"]
 	markdownDetails := markdown.Details.Markdown
+	logFollowDetails := controls["content.log-follow"].Details.LogView
+	logScrollbackDetails := controls["content.log-scrollback"].Details.LogView
+	streamDetails := controls["content.stream-drops"].Details.StreamView
 	if !controls["screen.scrolling"].Visible || !markdown.Focused ||
 		markdownDetails == nil || markdownDetails.SourceBytes == 0 ||
 		markdownDetails.BlockCount < 8 || markdownDetails.RenderedRows < 8 ||
 		!markdownDetails.Viewport.HorizontalVisible ||
 		!markdownDetails.Viewport.VerticalVisible ||
+		logFollowDetails == nil || logFollowDetails.RetainedRecords != 5 ||
+		logFollowDetails.FirstKey != "startup" ||
+		logFollowDetails.LastKey != "ready" || !logFollowDetails.Follow ||
+		logFollowDetails.Viewport.ViewportBounds.Height < 1 ||
+		logScrollbackDetails == nil || logScrollbackDetails.Follow ||
+		logScrollbackDetails.Viewport.State.Offset.Y != 1 ||
+		logScrollbackDetails.Viewport.ViewportBounds.Height < 1 ||
+		streamDetails == nil || streamDetails.RetainedLines != 1 ||
+		streamDetails.PendingBytes == 0 || streamDetails.DroppedLines == 0 ||
+		streamDetails.DroppedBytes == 0 || !streamDetails.Follow ||
+		streamDetails.Viewport.ViewportBounds.Height < 1 ||
 		!strings.Contains(scene.markdownView.Markdown(), "\uFFFD") {
 		return fmt.Errorf(
-			"Markdown catalog typed evidence is incomplete: control=%+v details=%+v",
+			"content catalog typed evidence is incomplete: control=%+v markdown=%+v log-follow=%+v log-scrollback=%+v stream=%+v",
 			markdown,
 			markdownDetails,
+			logFollowDetails,
+			logScrollbackDetails,
+			streamDetails,
 		)
+	}
+	streamStyles := map[expletives.StyleID]bool{}
+	streamReplacements := 0
+	for _, cell := range snapshot.Frame.Cells {
+		if cell.Owner != controls["content.stream-drops"].ID {
+			continue
+		}
+		streamStyles[cell.Style] = true
+		if cell.Grapheme == "\uFFFD" {
+			streamReplacements++
+		}
+	}
+	for _, style := range []expletives.StyleID{
+		"stream_view",
+		"stream.truncated",
+		"content.dropped",
+	} {
+		if !streamStyles[style] {
+			return fmt.Errorf(
+				"StreamView frame omitted semantic style %q: %v",
+				style,
+				streamStyles,
+			)
+		}
+	}
+	if streamReplacements == 0 {
+		return errors.New("StreamView frame omitted inert replacement cells")
+	}
+	tabToLog, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"content-tab-log",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyTab,
+		},
+	)
+	if inputErr != nil || tabToLog.Outcome != expletives.OutcomeApplied ||
+		scene.App.Focused() != scene.logFollow {
+		return fmt.Errorf(
+			"content Tab focus dispatch = %+v, %v focus=%#v",
+			tabToLog,
+			inputErr,
+			scene.App.Focused(),
+		)
+	}
+	if err := scene.markdownView.Focus(); err != nil {
+		return fmt.Errorf("restore Markdown focus: %w", err)
 	}
 	markdownEnd, inputErr := scene.App.DispatchKey(
 		context.Background(),
@@ -6268,6 +6723,37 @@ func SelfCheck() error {
 	}
 	if err := scene.markdownView.SetOffset(expletives.Point{}); err != nil {
 		return fmt.Errorf("reset Markdown offset: %w", err)
+	}
+	if err := invoke("content-append", CommandContentAppend); err != nil {
+		return err
+	}
+	logFollowDetails = controls["content.log-follow"].Details.LogView
+	logScrollbackDetails = controls["content.log-scrollback"].Details.LogView
+	streamDetails = controls["content.stream-drops"].Details.StreamView
+	if logFollowDetails.LastKey != "live.0001" ||
+		logFollowDetails.RetainedRecords != 6 ||
+		logFollowDetails.Viewport.State.Offset.Y !=
+			logFollowDetails.Viewport.MaximumOffset.Y ||
+		logScrollbackDetails.LastKey != "live.0001" ||
+		logScrollbackDetails.Follow ||
+		logScrollbackDetails.Viewport.State.Offset.Y != 1 ||
+		streamDetails.RetainedLines != 2 {
+		return errors.New("content append did not preserve follow and scrollback state")
+	}
+	if err := invoke("content-follow", CommandContentFollow); err != nil {
+		return err
+	}
+	if !controls["content.log-scrollback"].Details.LogView.Follow {
+		return errors.New("content Follow toggle did not resume tail following")
+	}
+	if err := invoke("content-reset", CommandScenarioReset); err != nil {
+		return err
+	}
+	if scene.contentTick != 0 ||
+		controls["content.log-follow"].Details.LogView.LastKey != "ready" ||
+		controls["content.log-scrollback"].Details.LogView.Follow ||
+		controls["content.stream-drops"].Details.StreamView.RetainedLines != 1 {
+		return errors.New("content Reset did not restore the bounded fixtures")
 	}
 	if err := invoke("hide-status", CommandStatusBar); err != nil {
 		return err

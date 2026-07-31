@@ -1,6 +1,6 @@
 # `expletives-test` Interactive and Automation Requirements
 
-Status: Directed, implemented through MarkdownView
+Status: Directed, implemented through LogView and StreamView
 Authority: Direct operator requests on 2026-07-24
 Related decisions: `EXPL-DEC-001` through `EXPL-DEC-007` in
 [`project-management/decision-log.md`](../../project-management/decision-log.md)
@@ -281,17 +281,37 @@ viewport offsets and both selected pages. Attached automation must drive these
 behaviors through raw key lifecycle events and inspect the same typed
 `details.scroll_bar` and `details.tabbed_panel` records used by headless tests.
 
-The Scrolling / Content screen contains the stable `content.markdown`
-MarkdownView in `screen.scrolling`. Its deterministic fixture demonstrates
-every supported block and inline form, literal HTML, visible link
-destinations, a horizontally overflowing fenced-code row, and one unsupported
-width-two character normalized to `U+FFFD`. Controls/Scrolling / Content and
-the direct `catalog.controls.scrolling` command reach the same screen. Raw
-arrow, page, Home, and End keys move the view through the ordinary input path;
-an actual offset change routes `content.changed`. Scenario Reset restores the
-origin silently. Attached automation verifies the semantic styles, bounded
-first-two/last-two block summaries, fixed-point scrollbar geometry, focus,
-and movement without receiving the retained Markdown source.
+The Scrolling / Content screen contains four stable, separately parented focus
+groups in `screen.scrolling`:
+
+- `content.markdown` demonstrates every supported Markdown block and inline
+  form, literal HTML, visible link destinations, a horizontally overflowing
+  fenced-code row, and one unsupported width-two character normalized to
+  `U+FFFD`;
+- `content.log-follow` demonstrates a structured LogView following its tail;
+- `content.log-scrollback` demonstrates the same ordered records with a
+  preserved paused logical-record anchor; and
+- `content.stream-drops` demonstrates CRLF, inert control and escape bytes,
+  replacement of unsupported width, line truncation, ring loss, one retained
+  complete line, and one partial line.
+
+Controls/Scrolling / Content and the direct
+`catalog.controls.scrolling` command reach the same screen. Tab and Shift-Tab
+move among its four groups. Raw arrow, page, Home, and End keys move the
+focused content leaf through the ordinary input path; an actual offset or
+follow change routes `content.changed`. The human-operable `g` binding and
+automation command `content.append` append one deterministic record to both
+logs and one complete stream line. The `f` binding and `content.follow`
+command toggle the scrollback LogView's follow state. Scenario Reset restores
+the original Markdown offset, both log rings and follow modes, stream fixture,
+drop counters, partial line, and deterministic append sequence.
+
+Attached automation verifies Markdown semantic styles and bounded block
+summaries; exact LogView capacity, retained/drop counts, first/last keys,
+follow state, and viewport; StreamView retained/pending/truncation/drop/follow
+state; grouped focus; raw Page Up/End behavior; deterministic append/follow;
+and reset. No detail record receives complete retained off-screen source,
+log, or stream text.
 
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static
