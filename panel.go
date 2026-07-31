@@ -145,6 +145,13 @@ type controlBehavior interface {
 }
 
 func isApplicationChrome(kind ControlKind) bool {
+	return kind == ControlMenuBar ||
+		kind == ControlStatusBar ||
+		kind == ControlHeader ||
+		kind == ControlFooter
+}
+
+func isPostPaintApplicationChrome(kind ControlKind) bool {
 	return kind == ControlMenuBar || kind == ControlStatusBar
 }
 

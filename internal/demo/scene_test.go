@@ -31,6 +31,7 @@ var enabledCatalogMenuPaths = []enabledMenuPath{
 	{"menu.controls.text", []expletives.Key{"c", "t"}, CommandViewText, expletives.OutcomeApplied, CommandViewText, nil},
 	{"menu.controls.actions", []expletives.Key{"c", "a"}, CommandViewActions, expletives.OutcomeApplied, CommandViewActions, nil},
 	{"menu.controls.status", []expletives.Key{"c", "s"}, CommandStatusBar, expletives.OutcomeApplied, CommandStatusBar, nil},
+	{"menu.controls.headers", []expletives.Key{"c", "h"}, CommandHeadersFooters, expletives.OutcomeApplied, CommandHeadersFooters, nil},
 	{"menu.menus.overview", []expletives.Key{"m", "o"}, CommandViewMenus, expletives.OutcomeApplied, CommandViewMenus, nil},
 	{"menu.help.about", []expletives.Key{"p", "a"}, CommandViewAbout, expletives.OutcomeApplied, CommandViewAbout, nil},
 }
@@ -44,7 +45,6 @@ type disabledMenuEntry struct {
 var disabledCatalogMenuEntries = []disabledMenuEntry{
 	{"menu.panels.scrollbars", "n", 3},
 	{"menu.layouts.absolute", "a", 3},
-	{"menu.controls.headers", "c", 3},
 	{"menu.controls.selection", "c", 4},
 	{"menu.controls.input", "c", 5},
 	{"menu.controls.progress", "c", 6},

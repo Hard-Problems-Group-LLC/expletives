@@ -90,6 +90,8 @@ func DefaultTheme() Theme {
 			Foreground: RGB(0x80, 0x80, 0x80),
 			Background: menuNormal.Background,
 		},
+		"header":      menuNormal,
+		"footer":      menuNormal,
 		"menu_bar":    menuNormal,
 		"menu.popup":  menuNormal,
 		"menu.border": menuNormal,

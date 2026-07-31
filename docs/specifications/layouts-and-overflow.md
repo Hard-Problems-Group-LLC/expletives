@@ -77,6 +77,15 @@ parent tree, or create negative geometry.
 Overflow state is recalculated on every relevant Layout pass. Recovery clears
 the active state when the required minimum again fits.
 
+An attached Layout whose owning control is not effectively visible retains
+deterministic arranged geometry for inspection but does not have an actionable
+overflow episode. Hiding the owner or any ancestor ends its current episode;
+showing that chain again recalculates overflow and starts a new episode if the
+minimum still does not fit. Likewise, a one-row application-chrome band that
+receives no physical row under the deterministic tiny-surface priority policy
+does not report its retained Layout minimum as an overflow. The application's
+separate minimum-usable-geometry policy owns that whole-surface condition.
+
 ## Structured Overflow State
 
 The bounded typed semantic view must identify, at minimum:

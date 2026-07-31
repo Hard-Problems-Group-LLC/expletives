@@ -374,12 +374,15 @@ func (a *App) paintControlLocked(
 	bounds := state.bounds
 	absolute := bounds
 	chrome := isApplicationChrome(state.kind)
+	postPaintChrome := isPostPaintApplicationChrome(state.kind)
 	if chrome {
 		switch state.kind {
 		case ControlMenuBar:
 			bounds = menuBarSurfaceRect(a.size)
 		case ControlStatusBar:
 			bounds = statusBarSurfaceRect(a.size)
+		case ControlHeader, ControlFooter:
+			bounds = state.bounds
 		}
 		absolute = bounds
 		ancestorClip = Rect{Width: a.size.Width, Height: a.size.Height}
@@ -452,7 +455,7 @@ func (a *App) paintControlLocked(
 		Details:        details,
 	})
 
-	if visible && !clip.Empty() && !chrome {
+	if visible && !clip.Empty() && !postPaintChrome {
 		a.fillLocked(frame, clip, state.style, state.id)
 		state.behavior.paintDecoration(a, frame, state, absolute, clip)
 	}
@@ -509,19 +512,7 @@ func (a *App) paintControlLocked(
 }
 
 func (a *App) applicationContentRectLocked() Rect {
-	top := 0
-	bottom := a.size.Height
-	if bar := a.firstMenuBarLocked(); bar != nil && bottom > 0 {
-		top = 1
-	}
-	if bar := a.firstStatusBarLocked(); bar != nil && bottom > top {
-		bottom--
-	}
-	return Rect{
-		Y:      top,
-		Width:  a.size.Width,
-		Height: max(0, bottom-top),
-	}
+	return a.applicationChromeContentRectLocked()
 }
 
 func (a *App) rootContentRectLocked() Rect {

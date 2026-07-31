@@ -345,7 +345,8 @@ Each instance is exactly one physical row and a root-parented one-row
 container. Headers stack directly below the Main Menu. Footers stack directly
 above the Status Bar, with the most recently added Footer highest. Their
 Layout attachment accepts only trees whose complete measured and decorated
-minimum height fits one row, as defined by the application-chrome contract.
+minimum height fits one row, as defined by the
+[`headers-footers-api-v0.md`](headers-footers-api-v0.md) contract.
 
 ### 10. Selection
 

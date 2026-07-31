@@ -137,7 +137,8 @@ public UI element. Each catalog entry needs a stable scenario ID, a concise
 purpose, deterministic reset behavior, and the important applicable states.
 The implemented `toolkit.catalog` scene has one persistent MenuBar and exactly
 one visible purpose-specific Home, Core Panels, Visual Styles, Box Layout,
-Grid Layout, Text/Display, Actions, Menus, or About screen.
+Grid Layout, Text/Display, Actions, Menus, Status Bar, Headers / Footers, or
+About screen.
 Screen selection uses normal `view.*` commands reached through menu input or
 automation; it has no private test-only navigation path. Each enabled catalog
 label has its own screen and stable command identity. Disabled `catalog.*`
@@ -210,6 +211,13 @@ Bar opens `screen.status`, whose `status.overview` text explains the live
 surface. Resizing exposes deterministic segment priority and clipping;
 snapshots retain typed records for both rendered and omitted segments.
 
+Controls/Headers / Footers opens `screen.headers_footers`. Two Header rows
+demonstrate a horizontal BoxLayout and a one-row GridLayout below the Main
+Menu. Two Footer rows demonstrate construction order above the StatusBar,
+with the newer Footer highest. The four bands are otherwise hidden with empty
+Bounds, so every other catalog screen regains those rows without a stale
+Layout-overflow warning.
+
 The persistent root-owned `menu.main` MenuBar occupies physical row 0 from
 the first through last terminal column, independently of root centering or
 maximum constraints. It reserves that row from the catalog Layout and exposes
@@ -221,9 +229,10 @@ an end-aligned Help root.
   nested Stacking menu, and reserves Panel scroll-bar coverage.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
-- Controls links current Text/Display, Actions, and Status Bar pages, then
-  uses separators to group disabled phase-owned Header/Footer, Selection,
-  Input, Progress, Navigation, Scrolling/Content, and Collection pages.
+- Controls links current Text/Display, Actions, Status Bar, and
+  Headers/Footer pages, then uses separators to group disabled phase-owned
+  Selection, Input, Progress, Navigation, Scrolling/Content, and Collection
+  pages.
 - Menus links the Menu overview and reserves Panel-owned and context-menu
   demonstrations.
 - Dialogs reserves Message, Confirm, Input, and Progress dialog tests.

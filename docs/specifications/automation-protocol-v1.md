@@ -884,9 +884,10 @@ the root package's local snapshot. The client checks:
 - at most 4,096 controls and at most 4,096 aggregate child references;
 - at most 1,024 Layouts and 4,096 aggregate Layout item references, with
   bounded identities, geometry, arrangement indices, and stack indices;
-- kind-consistent typed control details, including canonical bounded border
-  titles, Label/StaticText values, target/mnemonic associations, and
-  Separator/Rule orientation, form, title, alignment, and wrapping state;
+- kind-consistent typed control details, including the generic zero-inset
+  Container detail for root, Panel, Header, and Footer; canonical bounded
+  border titles; Label/StaticText values and target/mnemonic associations;
+  and Separator/Rule orientation, form, title, alignment, and wrapping state;
 - generic focus plus Button label, command, enabled/disabled reason, checked,
   mnemonic, pressed/default/cancel state, and HotkeyBar ordered command state
   with canonical structured bindings;

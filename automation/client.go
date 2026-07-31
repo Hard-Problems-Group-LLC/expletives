@@ -950,7 +950,7 @@ func validControlDetails(
 		return false
 	}
 	switch kind {
-	case "root", "panel":
+	case "root", "panel", "header", "footer":
 		return details.Container != nil &&
 			details.Container.ClientInset == 0 &&
 			details.Border == nil &&

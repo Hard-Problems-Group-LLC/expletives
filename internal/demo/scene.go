@@ -61,6 +61,7 @@ var catalogScreens = []struct {
 	{CommandViewActions, "Actions"},
 	{CommandViewMenus, "Menu Bar"},
 	{CommandStatusBar, "Status Bar"},
+	{CommandHeadersFooters, "Headers / Footers"},
 	{CommandViewAbout, "About"},
 }
 
@@ -165,6 +166,16 @@ var (
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
 		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
 	}
+	headerStyle = expletives.Style{
+		ID:         "header",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x00, 0x78, 0x78),
+	}
+	footerStyle = expletives.Style{
+		ID:         "footer",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x78, 0x00, 0x78),
+	}
 )
 
 // Scene owns the catalog controls and its small application controller state.
@@ -176,6 +187,7 @@ type Scene struct {
 	accentControls []expletives.Control
 	layer          *expletives.BoxLayout
 	status         *expletives.StatusBar
+	chromeBands    []expletives.Control
 	screens        map[expletives.CommandID]*expletives.Panel
 	activeScreen   expletives.CommandID
 	toggled        bool
@@ -218,6 +230,8 @@ func NewWithRootConstraints(
 		statusStyle,
 		statusShortcutStyle,
 		statusDisabledStyle,
+		headerStyle,
+		footerStyle,
 	)
 	if err != nil {
 		return nil, err
@@ -284,6 +298,50 @@ func NewWithRootConstraints(
 			ShortcutStyle: statusShortcutStyle.ID,
 			DisabledStyle: statusDisabledStyle.ID,
 		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	primaryHeader, err := transaction.NewHeader(
+		app.Root(),
+		expletives.HeaderOptions{PanelOptions: expletives.PanelOptions{
+			AutomationKey: "header.primary",
+			Style:         headerStyle.ID,
+			Hidden:        true,
+		}},
+	)
+	if err != nil {
+		return nil, err
+	}
+	secondaryHeader, err := transaction.NewHeader(
+		app.Root(),
+		expletives.HeaderOptions{PanelOptions: expletives.PanelOptions{
+			AutomationKey: "header.secondary",
+			Style:         greenStyle.ID,
+			Hidden:        true,
+		}},
+	)
+	if err != nil {
+		return nil, err
+	}
+	primaryFooter, err := transaction.NewFooter(
+		app.Root(),
+		expletives.FooterOptions{PanelOptions: expletives.PanelOptions{
+			AutomationKey: "footer.primary",
+			Style:         footerStyle.ID,
+			Hidden:        true,
+		}},
+	)
+	if err != nil {
+		return nil, err
+	}
+	recentFooter, err := transaction.NewFooter(
+		app.Root(),
+		expletives.FooterOptions{PanelOptions: expletives.PanelOptions{
+			AutomationKey: "footer.recent",
+			Style:         redStyle.ID,
+			Hidden:        true,
+		}},
 	)
 	if err != nil {
 		return nil, err
@@ -378,6 +436,14 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	chromeScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
+		AutomationKey: "screen.headers_footers",
+		Style:         canvasStyle.ID,
+		Hidden:        true,
+	})
+	if err != nil {
+		return nil, err
+	}
 	aboutScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
 		AutomationKey: "screen.about",
 		Style:         canvasStyle.ID,
@@ -419,6 +485,114 @@ func NewWithRootConstraints(
 			HorizontalAlignment: expletives.TextAlignCenter,
 			VerticalAlignment:   expletives.TextAlignCenter,
 			Wrap:                expletives.TextWrapWords,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	chromeText, err := transaction.NewStaticText(
+		chromeScreen,
+		expletives.StaticTextOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "chrome.overview",
+				Style:         canvasStyle.ID,
+			},
+			Text: "Headers and Footers\n\n" +
+				"Two one-row Headers are below the Main Menu. Two Footers are " +
+				"above the Status Bar, with the most recent highest. Their " +
+				"children use compatible horizontal Box and one-row Grid layouts.",
+			HorizontalAlignment: expletives.TextAlignCenter,
+			VerticalAlignment:   expletives.TextAlignCenter,
+			Wrap:                expletives.TextWrapWords,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	headerProduct, err := transaction.NewLabel(
+		primaryHeader,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "header.product", Style: headerStyle.ID,
+			},
+			Text: "expletives",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	headerSection, err := transaction.NewLabel(
+		primaryHeader,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "header.section", Style: headerStyle.ID,
+			},
+			Text:                "Application Chrome",
+			HorizontalAlignment: expletives.TextAlignCenter,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	headerMode, err := transaction.NewLabel(
+		primaryHeader,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "header.mode", Style: headerStyle.ID,
+			},
+			Text:                "BoxLayout",
+			HorizontalAlignment: expletives.TextAlignEnd,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	headerGridLeft, err := transaction.NewLabel(
+		secondaryHeader,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "header.grid.left", Style: greenStyle.ID,
+			},
+			Text: "Grid column 1",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	headerGridRight, err := transaction.NewLabel(
+		secondaryHeader,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "header.grid.right", Style: greenStyle.ID,
+			},
+			Text:                "Grid column 2",
+			HorizontalAlignment: expletives.TextAlignEnd,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	footerOldest, err := transaction.NewLabel(
+		primaryFooter,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "footer.oldest", Style: footerStyle.ID,
+			},
+			Text:                "Oldest Footer - nearest Status Bar",
+			HorizontalAlignment: expletives.TextAlignCenter,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	footerNewest, err := transaction.NewLabel(
+		recentFooter,
+		expletives.LabelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "footer.newest", Style: redStyle.ID,
+			},
+			Text:                "Most recent Footer - highest",
+			HorizontalAlignment: expletives.TextAlignCenter,
 		},
 	)
 	if err != nil {
@@ -902,6 +1076,7 @@ func NewWithRootConstraints(
 		{"actions", actionsScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
+		{"headers_footers", chromeScreen},
 		{"about", aboutScreen},
 	}
 	screenLayouts := make([]*expletives.BoxLayout, 0, len(screenControls))
@@ -955,6 +1130,92 @@ func NewWithRootConstraints(
 	}
 	if err := statusLayout.AddPanel(
 		statusText,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	chromeLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.chrome.overview",
+			Insets: expletives.Insets{
+				Top: 1, Right: 2, Bottom: 1, Left: 2,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := chromeLayout.AddPanel(
+		chromeText,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	primaryHeaderLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.header.primary",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, label := range []expletives.Control{
+		headerProduct, headerSection, headerMode,
+	} {
+		if err := primaryHeaderLayout.AddPanel(
+			label,
+			expletives.LayoutItemOptions{Grow: 1},
+		); err != nil {
+			return nil, err
+		}
+	}
+	secondaryHeaderLayout, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
+			AutomationKey: "layout.header.secondary",
+			Columns:       2,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, label := range []expletives.Control{
+		headerGridLeft, headerGridRight,
+	} {
+		if err := secondaryHeaderLayout.AddPanel(
+			label,
+			expletives.LayoutItemOptions{Grow: 1},
+		); err != nil {
+			return nil, err
+		}
+	}
+	primaryFooterLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.footer.primary",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := primaryFooterLayout.AddPanel(
+		footerOldest,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	recentFooterLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.footer.recent",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := recentFooterLayout.AddPanel(
+		footerNewest,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
@@ -1354,6 +1615,33 @@ func NewWithRootConstraints(
 	if err := transaction.SetLayout(statusScreen, statusLayout); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(chromeScreen, chromeLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		primaryHeader,
+		primaryHeaderLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		secondaryHeader,
+		secondaryHeaderLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		primaryFooter,
+		primaryFooterLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		recentFooter,
+		recentFooterLayout,
+	); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(aboutScreen, aboutLayout); err != nil {
 		return nil, err
 	}
@@ -1368,10 +1656,13 @@ func NewWithRootConstraints(
 	}
 
 	scene := &Scene{
-		App:          app,
-		accent:       accent,
-		layer:        backLayout,
-		status:       statusBar,
+		App:    app,
+		accent: accent,
+		layer:  backLayout,
+		status: statusBar,
+		chromeBands: []expletives.Control{
+			primaryHeader, secondaryHeader, primaryFooter, recentFooter,
+		},
 		activeScreen: CommandViewHome,
 		accentControls: []expletives.Control{
 			accent,
@@ -1390,6 +1681,7 @@ func NewWithRootConstraints(
 			CommandViewActions:     actionsScreen,
 			CommandViewMenus:       menusScreen,
 			CommandStatusBar:       statusScreen,
+			CommandHeadersFooters:  chromeScreen,
 			CommandViewAbout:       aboutScreen,
 		},
 	}
@@ -1478,11 +1770,6 @@ func initialCommandDefinitions() []expletives.CommandDefinition {
 			CommandLayoutAbsolute,
 			"Absolute Positioning",
 			"future Layout",
-		),
-		unavailableCatalogDefinition(
-			CommandHeadersFooters,
-			"Headers / Footers",
-			"Headers and Footers",
 		),
 		unavailableCatalogDefinition(
 			CommandSelection,
@@ -1975,7 +2262,7 @@ func (s *Scene) handleCommand(
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
 		CommandViewActions, CommandViewMenus, CommandStatusBar,
-		CommandViewAbout:
+		CommandHeadersFooters, CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -2018,6 +2305,14 @@ func (s *Scene) switchScreenLocked(
 		if err := transaction.SetVisible(
 			screen,
 			command == target,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+	}
+	for _, band := range s.chromeBands {
+		if err := transaction.SetVisible(
+			band,
+			target == CommandHeadersFooters,
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -2113,10 +2408,20 @@ func SelfCheck() error {
 		"screen.actions",
 		"screen.menus",
 		"screen.status",
+		"screen.headers_footers",
 		"screen.about",
 		"menus.overview",
 		"status.main",
 		"status.overview",
+		"chrome.overview",
+		"header.primary",
+		"header.secondary",
+		"footer.primary",
+		"footer.recent",
+		"header.product",
+		"header.grid.left",
+		"footer.oldest",
+		"footer.newest",
 		"help.about",
 		"panel.red",
 		"panel.accent",
@@ -2229,6 +2534,7 @@ func SelfCheck() error {
 		controls["screen.actions"].Visible ||
 		controls["screen.menus"].Visible ||
 		controls["screen.status"].Visible ||
+		controls["screen.headers_footers"].Visible ||
 		controls["screen.about"].Visible {
 		return errors.New("initial catalog screen visibility is invalid")
 	}
@@ -2349,12 +2655,39 @@ func SelfCheck() error {
 		status.Details.StatusBar.Segments[0].Label != "Status Bar" {
 		return errors.New("Status Bar page did not update contextual evidence")
 	}
+	if err := invoke("show-chrome", CommandHeadersFooters); err != nil {
+		return err
+	}
+	for key, want := range map[string]expletives.Rect{
+		"header.primary":   {Y: 1, Width: 64, Height: 1},
+		"header.secondary": {Y: 2, Width: 64, Height: 1},
+		"footer.primary":   {Y: 18, Width: 64, Height: 1},
+		"footer.recent":    {Y: 17, Width: 64, Height: 1},
+	} {
+		if controls[key].Bounds != want || !controls[key].Visible {
+			return fmt.Errorf(
+				"%s chrome bounds = %+v visible=%t",
+				key,
+				controls[key].Bounds,
+				controls[key].Visible,
+			)
+		}
+	}
+	if !controls["screen.headers_footers"].Visible ||
+		controls["header.product"].AbsoluteBounds.Height != 1 ||
+		controls["header.grid.left"].AbsoluteBounds.Height != 1 ||
+		controls["footer.oldest"].AbsoluteBounds.Height != 1 {
+		return errors.New("Header/Footer page Layout evidence is incomplete")
+	}
 	if err := invoke("show-home", CommandViewHome); err != nil {
 		return err
 	}
 	if !controls["screen.home"].Visible ||
 		controls["screen.actions"].Visible ||
-		controls["screen.status"].Visible {
+		controls["screen.status"].Visible ||
+		controls["screen.headers_footers"].Visible ||
+		controls["header.primary"].Visible ||
+		controls["footer.recent"].Visible {
 		return errors.New("File Home did not restore the empty catalog screen")
 	}
 	return nil

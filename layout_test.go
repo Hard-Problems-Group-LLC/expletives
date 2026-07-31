@@ -555,6 +555,66 @@ func TestOverflowFallbackDismissRecoveryAndHandler(t *testing.T) {
 	}
 }
 
+func TestOverflowEpisodeFollowsEffectiveOwnerVisibility(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 2, Height: 1})
+	ancestor := mustPanel(t, app.Root(), PanelOptions{
+		AutomationKey: "visibility.ancestor",
+		Bounds:        Rect{Width: 2, Height: 1},
+	})
+	owner := mustPanel(t, ancestor, PanelOptions{
+		AutomationKey: "visibility.owner",
+		Bounds:        Rect{Width: 2, Height: 1},
+	})
+	child := mustPanel(t, owner, PanelOptions{
+		AutomationKey: "visibility.child",
+		MinimumSize:   Size{Width: 4, Height: 1},
+	})
+	layout, err := NewBoxLayout(Horizontal, BoxLayoutOptions{
+		AutomationKey: "visibility.layout",
+	})
+	if err != nil {
+		t.Fatalf("NewBoxLayout() error = %v", err)
+	}
+	if err := layout.AddPanel(child, LayoutItemOptions{}); err != nil {
+		t.Fatalf("AddPanel() error = %v", err)
+	}
+	if err := owner.SetLayout(layout); err != nil {
+		t.Fatalf("SetLayout() error = %v", err)
+	}
+	if got := len(app.Snapshot().Overflows); got != 1 {
+		t.Fatalf("visible owner overflows = %d, want 1", got)
+	}
+	firstEpisode := app.Snapshot().Overflows[0].EpisodeID
+
+	if err := owner.SetVisible(false); err != nil {
+		t.Fatalf("SetVisible(false) error = %v", err)
+	}
+	if got := len(app.Snapshot().Overflows); got != 0 {
+		t.Fatalf("hidden owner overflows = %d, want 0", got)
+	}
+	if err := owner.SetVisible(true); err != nil {
+		t.Fatalf("SetVisible(true) error = %v", err)
+	}
+	snapshot := app.Snapshot()
+	if got := len(snapshot.Overflows); got != 1 {
+		t.Fatalf("reshown owner overflows = %d, want 1", got)
+	}
+	if snapshot.Overflows[0].EpisodeID == firstEpisode {
+		t.Fatalf(
+			"reshown overflow retained episode %q, want a new episode",
+			firstEpisode,
+		)
+	}
+
+	if err := ancestor.SetVisible(false); err != nil {
+		t.Fatalf("ancestor SetVisible(false) error = %v", err)
+	}
+	if got := len(app.Snapshot().Overflows); got != 0 {
+		t.Fatalf("hidden ancestor overflows = %d, want 0", got)
+	}
+}
+
 func TestOverflowPanicAndStuckHandlerUseBoundedFallback(t *testing.T) {
 	app := mustApp(t, Size{Width: 1, Height: 1})
 	panel := mustPanel(t, app.Root(), PanelOptions{

@@ -258,6 +258,10 @@ const (
 	ControlMenuBar ControlKind = "menu_bar"
 	// ControlStatusBar identifies the persistent bottom-row status surface.
 	ControlStatusBar ControlKind = "status_bar"
+	// ControlHeader identifies one ordered top-edge one-row container.
+	ControlHeader ControlKind = "header"
+	// ControlFooter identifies one ordered bottom-edge one-row container.
+	ControlFooter ControlKind = "footer"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty

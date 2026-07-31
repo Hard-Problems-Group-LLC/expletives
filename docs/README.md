@@ -30,6 +30,9 @@ Keep durable project documentation here.
   controls, delivery phases, and explicitly deferred Structured Input family.
 - [Status Bar API v0](specifications/status-bar-api-v0.md) defines root-owned
   bottom-row context and command hints with deterministic narrow behavior.
+- [Headers and Footers API v0](specifications/headers-footers-api-v0.md)
+  defines ordered root-owned one-row chrome containers and their compatible
+  Layout boundary.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

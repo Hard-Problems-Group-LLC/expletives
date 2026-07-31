@@ -442,6 +442,30 @@ The exact public, geometry, painting, mutation, concurrency, snapshot, and
 automation contract is
 [`status-bar-api-v0.md`](status-bar-api-v0.md).
 
+## Headers And Footers
+
+```go
+func NewHeader(Container, HeaderOptions) (*Header, error)
+func NewFooter(Container, FooterOptions) (*Footer, error)
+```
+
+`Header` and `Footer` are root-owned one-row Containers with derived
+full-physical-width Bounds. Headers retain construction order immediately
+below the visible MenuBar. Footers retain construction order upward from the
+visible StatusBar, making the most recently constructed Footer highest. They
+remain outside root constraints and may not themselves become Layout items.
+
+Each band may own ordinary Layout trees, but attachment is atomic and accepts
+only a complete measured minimum height of at most one. This admits horizontal
+BoxLayouts and one-row GridLayouts while rejecting vertical stacks, multirow
+Grids, and height-consuming borders, gaps, or insets. Hidden bands and bands
+denied a row by tiny-surface priority retain deterministic inspectable
+geometry without an actionable overflow episode.
+
+The exact public, ordering, tiny-surface, Layout, rendering, snapshot, and
+automation contract is
+[`headers-footers-api-v0.md`](headers-footers-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -458,6 +482,8 @@ func (t *Transaction) NewButton(Container, ButtonOptions) (*Button, error)
 func (t *Transaction) NewHotkeyBar(Container, HotkeyBarOptions) (*HotkeyBar, error)
 func (t *Transaction) NewMenuBar(Container, MenuBarOptions) (*MenuBar, error)
 func (t *Transaction) NewStatusBar(Container, StatusBarOptions) (*StatusBar, error)
+func (t *Transaction) NewHeader(Container, HeaderOptions) (*Header, error)
+func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
 func (t *Transaction) SetBounds(Control, Rect) error

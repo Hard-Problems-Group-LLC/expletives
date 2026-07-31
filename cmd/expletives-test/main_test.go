@@ -92,6 +92,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	displayEvidence := make(map[string]bool)
 	actionEvidence := make(map[string]bool)
 	screenEvidence := make(map[string]bool)
+	chromeEvidence := make(map[string]bool)
 	menuEvidence := false
 	statusEvidence := false
 	var statusID automation.ControlID
@@ -126,8 +127,20 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
 			"screen.text", "screen.actions", "screen.menus",
-			"screen.status", "screen.about":
+			"screen.status", "screen.headers_footers", "screen.about":
 			screenEvidence[control.Key] = !control.Visible
+		case "header.primary", "header.secondary":
+			chromeEvidence[control.Key] =
+				control.Kind == "header" &&
+					control.Details.Container != nil &&
+					!control.Visible &&
+					control.Bounds == (automation.Rect{})
+		case "footer.primary", "footer.recent":
+			chromeEvidence[control.Key] =
+				control.Kind == "footer" &&
+					control.Details.Container != nil &&
+					!control.Visible &&
+					control.Bounds == (automation.Rect{})
 		case "menu.main":
 			menuEvidence =
 				control.Kind == "menu_bar" &&
@@ -236,12 +249,14 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(screenEvidence) != 10 {
+		len(screenEvidence) != 11 ||
+		len(chromeEvidence) != 4 {
 		t.Fatalf(
-			"catalog evidence: menu=%t status=%t screens=%#v display=%#v action=%#v",
+			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v",
 			menuEvidence,
 			statusEvidence,
 			screenEvidence,
+			chromeEvidence,
 			displayEvidence,
 			actionEvidence,
 		)

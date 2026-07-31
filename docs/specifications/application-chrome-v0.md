@@ -1,6 +1,6 @@
 # Application Chrome v0
 
-- Status: Directed pre-v1 contract
+- Status: Implemented v0 contract
 - Authority: Direct operator instruction on 2026-07-30
 - Scope: physical edge rows reserved for the Main Menu, Headers, Footers, and
   Status Bar
@@ -36,8 +36,11 @@ semantic identity. At height one with both a Main Menu and Status Bar visible,
 both retain row-0 semantic Bounds and the Main Menu paints last. At height two,
 they own rows 0 and 1 respectively and ordinary content is empty. Geometry is
 always nonnegative and never materializes cells outside the physical surface.
-Header/Footer priority in still-shorter combined stacks is fixed by their
-implementing phase.
+After distinct Main Menu and StatusBar rows are reserved, Headers consume
+remaining rows from the top in construction order and Footers consume
+remaining rows from the bottom in construction order. Excess bands receive
+empty Bounds. The exact container and Layout contract is
+[`headers-footers-api-v0.md`](headers-footers-api-v0.md).
 
 The Main Menu and Status Bar are each optional and unique per App. Headers
 and Footers are optional ordered collections. Every individual Header and
@@ -90,7 +93,8 @@ the Layout overflow contract.
 - Status Bar is the immediately following phase, with its exact segment and
   narrow-width contract in
   [`status-bar-api-v0.md`](status-bar-api-v0.md).
-- Headers and Footers follow Status Bar.
+- Headers and Footers follow Status Bar, with their exact contract in
+  [`headers-footers-api-v0.md`](headers-footers-api-v0.md).
 
 Later chrome phases extend the same physical-edge calculation rather than
 introducing a second coordinate model.

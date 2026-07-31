@@ -342,7 +342,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 9. Status Bar
 
-- Status: `active`
+- Status: `complete`
 - Goal: deliver a root-owned `StatusBar` on the complete physical bottom row.
 - Dependencies: Phase 8 application-chrome seam and the shared Action command
   and shortcut model.
@@ -365,7 +365,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 10. Headers And Footers
 
-- Status: `planned`
+- Status: `complete`
 - Goal: deliver ordered one-row `Header` and `Footer` chrome containers.
 - Dependencies: Phase 9 completes both edge reservations and the shared
   application-chrome geometry seam.
@@ -383,8 +383,11 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: every Header/Footer is exactly one physical row, combined
   chrome reserves the canonical edge order atomically, and incompatible
   Layout attachment leaves all state unchanged.
+- Completion evidence: [`EXPL-TASK-025`](completed-tasks.md).
 - Contract:
-  [`application-chrome-v0.md`](../docs/specifications/application-chrome-v0.md).
+  [`application-chrome-v0.md`](../docs/specifications/application-chrome-v0.md)
+  and
+  [`headers-footers-api-v0.md`](../docs/specifications/headers-footers-api-v0.md).
 
 ### 11. Selection
 

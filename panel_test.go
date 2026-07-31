@@ -33,6 +33,8 @@ func mustApp(t *testing.T, size Size) *App {
 		testStyle("status_bar", RGB(0xC0, 0xC0, 0xC0)),
 		testStyle("status.shortcut", RGB(0xC0, 0xC0, 0xC0)),
 		testStyle("status.disabled", RGB(0xC0, 0xC0, 0xC0)),
+		testStyle("header", RGB(0x10, 0x20, 0x30)),
+		testStyle("footer", RGB(0x30, 0x20, 0x10)),
 		testStyle("menu_bar", RGB(0, 0, 0)),
 		testStyle("menu.popup", RGB(0x10, 0x10, 0x10)),
 		testStyle("menu.border", RGB(0x30, 0x30, 0x30)),

@@ -9,6 +9,26 @@
 
 ## Observed Opportunities
 
+### 30. Resolve Hidden-View Overflow At The Shared Lifecycle Seam
+
+The first Header/Footer catalog integration attached complete Layouts to
+bands that are normally hidden. Their retained zero-sized geometry triggered
+the global overflow fallback, so a menu audit appeared to invoke
+`overflow.dismiss` instead of the selected entry. A demo-only workaround
+would have repeated construction or special-cased every screen transition.
+
+Improvement applied:
+
+- define overflow as actionable only while the Layout owner is effectively
+  visible;
+- keep arrangement and snapshot geometry deterministic while hidden;
+- end the episode on owner or ancestor hiding and begin a fresh episode on
+  re-show when space still does not fit;
+- suppress one-row chrome Layout overflow when tiny-surface priority denies
+  the band any physical row; and
+- cover the shared lifecycle once in core tests so later tabs, pages, and
+  conditional containers inherit it without fixture-specific cleanup.
+
 ### 29. Update Only Changed Catalog Selection Commands
 
 Screen navigation previously replaced every catalog-screen command definition

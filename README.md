@@ -10,17 +10,20 @@ drive-and-observe interface is enabled only with
 `--automation <socket-path>`. The supported `expletivesctl` command connects
 to that explicitly enabled endpoint.
 
-Core/Containers, Basic Presentation, Basic Automation, Basic Layouts, and
-Text/Display are implemented. The public Go package includes non-container
-`Label`, `StaticText`, `Separator`, and `Rule` controls; Box/Grid and nested
-Layouts; independent arrangement and stacking order; structured overflow;
-optional root size/aspect constraints; independent Frame/Layout borders;
-immutable semantic snapshots; and the CGO-free Linux terminal presenter.
+Core/Containers, Basic Presentation, Basic Automation, Basic Layouts,
+Text/Display, Actions, Menus, Status Bar, and Headers/Footers are implemented.
+The public Go package includes non-container `Label`, `StaticText`,
+`Separator`, `Rule`, `Button`, `HotkeyBar`, `MenuBar`, and `StatusBar`
+controls; root-owned one-row `Header` and `Footer` containers; immutable
+`Menu` models; Box/Grid and nested Layouts; independent arrangement and
+stacking order; structured overflow; optional root size/aspect constraints;
+independent Frame/Layout borders; immutable semantic snapshots; and the
+CGO-free Linux terminal presenter.
 Application surfaces are bounded by aggregate allocated cells rather than a
 conventional 240-column ceiling; 1200 by 1200 is a tested geometry. The
-`layouts.basic` `expletives-test` fixture exercises the display controls and
-Layouts through the public API, while `expletivesctl` provides the attached
-closed loop.
+`toolkit.catalog` `expletives-test` application exercises the delivered
+controls and Layouts through purpose-specific menu screens, while
+`expletivesctl` provides the attached closed loop.
 
 Run `make all` to build both commands in debug, release, and profiling modes,
 or `make verify` for the complete local verification workflow. See
@@ -46,7 +49,8 @@ build/debug/expletives-test \
 The fixture includes independent single/double/shade borders on Frames and
 Layouts, including an unbordered Frame whose child Layout supplies the one
 clean outline. It also presents aligned `Label`, word-wrapped `StaticText`,
-double-line `Separator`, and titled `Rule` controls managed by child Layouts.
+double-line `Separator`, titled `Rule`, Action and Menu controls, a persistent
+StatusBar, and one-row Header/Footer Layout examples.
 
 The attached commands `layout.panel.raise`, `layout.panel.lower`,
 `layout.layer.raise`, and `layout.layer.lower` exercise the new stack paths.

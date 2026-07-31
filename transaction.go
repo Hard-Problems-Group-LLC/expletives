@@ -1075,20 +1075,6 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		t.app.root.state.minimumSize = targetConstraints.Minimum
 		changed = true
 	}
-	menuBounds := menuBarSurfaceRect(targetSize)
-	statusBounds := statusBarSurfaceRect(targetSize)
-	for _, state := range t.app.controlsByID {
-		if state.kind == ControlMenuBar && !state.destroyed &&
-			state.bounds != menuBounds {
-			state.bounds = menuBounds
-			changed = true
-		}
-		if state.kind == ControlStatusBar && !state.destroyed &&
-			state.bounds != statusBounds {
-			state.bounds = statusBounds
-			changed = true
-		}
-	}
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
 		case mutationBounds:
@@ -1129,6 +1115,9 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				changed = true
 			}
 		}
+	}
+	if t.app.updateApplicationChromeBoundsLocked(targetSize) {
+		changed = true
 	}
 	for _, stack := range t.stacks {
 		if stack.control != nil {
@@ -1227,6 +1216,14 @@ func (t *Transaction) validateLayoutTreeLocked(
 			return 0, 0, fmt.Errorf(
 				"%w: combined Layout minimum exceeds checked geometry",
 				ErrInvalidGeometry,
+			)
+		}
+		if (owner.kind == ControlHeader || owner.kind == ControlFooter) &&
+			minimum.Height > 1 {
+			return 0, 0, fmt.Errorf(
+				"%w: one-row application chrome Layout minimum height is %d",
+				ErrInvalidLayout,
+				minimum.Height,
 			)
 		}
 	}

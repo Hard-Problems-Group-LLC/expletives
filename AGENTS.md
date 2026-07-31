@@ -152,6 +152,15 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   replacement, Turbo Vision palette roles, and typed rendered/omitted/clipped
   evidence as defined in
   [`docs/specifications/status-bar-api-v0.md`](docs/specifications/status-bar-api-v0.md).
+- `Header` and `Footer` are root-owned one-row Containers with derived,
+  full-physical-width geometry outside root constraints. Headers retain
+  construction order below the Main Menu; Footers retain construction order
+  upward from the Status Bar, so the newest is highest. They accept only
+  Layout trees whose complete measured minimum height is at most one. Hidden
+  or tiny-surface-unallocated bands have empty Bounds and no actionable
+  Layout-overflow episode. Preserve their exact ownership, ordering, geometry,
+  validation, rendering, snapshot, and automation contract from
+  [`docs/specifications/headers-footers-api-v0.md`](docs/specifications/headers-footers-api-v0.md).
 - Follow
   [`docs/Terminal-Shortcut-Compatibility.md`](docs/Terminal-Shortcut-Compatibility.md)
   for toolkit, demo, example, and acceptance-test defaults. Host terminal
@@ -161,8 +170,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
 - Application chrome is anchored to physical terminal edges in this order:
   Main Menu, Headers, root content, Footers, Status Bar. Main Menu and Status
   Bar are full-width edge rows; every Header/Footer is exactly one row and
-  accepts only a Layout tree compatible with that height. Status Bar is
-  delivered; Headers and Footers are the next chrome phase, following
+  accepts only a Layout tree compatible with that height. The complete
+  initial chrome sequence is delivered; follow
   [`docs/specifications/application-chrome-v0.md`](docs/specifications/application-chrome-v0.md).
 - Follow
   [`docs/specifications/layouts-and-overflow.md`](docs/specifications/layouts-and-overflow.md)
@@ -228,8 +237,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   tested across views, editors, modals, long-running work, and automation.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
-- Preserve the completed Actions, Menus, and Status Bar sequence; deliver
-  Headers and Footers next. Use the persistent
+- Preserve the completed Actions, Menus, Status Bar, and Headers/Footers
+  sequence; Selection controls are next. Use the persistent
   `expletives-test` MenuBar to navigate purpose-specific catalog screens as
   the public control set grows, rather than crowding every demonstration onto
   one surface.

@@ -86,6 +86,19 @@ func (a *App) reconcileOverflowsLocked() {
 		if layout.destroyed {
 			continue
 		}
+		// A hidden owner does not currently participate in presentation, so
+		// its retained layout geometry is not an actionable overflow. Keep
+		// arranging it for deterministic snapshots, but end any notification
+		// episode until the owner becomes effectively visible again.
+		if !a.effectivelyVisibleLocked(layout.owner) {
+			continue
+		}
+		// A visible application-chrome band can still be denied a physical
+		// row by the deterministic tiny-surface priority policy. That absence
+		// is an application-size condition, not a one-row Layout failure.
+		if isApplicationChrome(layout.owner.kind) && layout.owner.bounds.Empty() {
+			continue
+		}
 		available := Size{Width: layout.bounds.Width, Height: layout.bounds.Height}
 		required := layout.minimum
 		if available.Width >= required.Width && available.Height >= required.Height {

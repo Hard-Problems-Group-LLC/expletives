@@ -57,6 +57,8 @@ do not use them as retrospective decoration.
 - [`status-bar-api-v0.md`](status-bar-api-v0.md) defines the unique root-owned
   bottom-row StatusBar, copied contextual and command segments, deterministic
   narrow-width priority, and typed automation evidence.
+- [`headers-footers-api-v0.md`](headers-footers-api-v0.md) defines ordered
+  root-owned one-row Header/Footer containers and atomic Layout compatibility.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

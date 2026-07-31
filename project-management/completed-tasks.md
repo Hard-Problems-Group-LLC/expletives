@@ -4,6 +4,69 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-31 — `EXPL-TASK-025` — Deliver Phase 10 Headers and Footers.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T23:55:48-07:00
+  - Completed: 2026-07-31T00:11:03-07:00
+  - Outcome:
+    - added root-owned `Header` and `Footer` one-row Containers with derived
+      full-physical-width geometry outside root constraints;
+    - implemented stable top-down Header ordering and oldest-nearest /
+      newest-highest Footer ordering across resize, hide/show, destroy, and
+      combined MenuBar/StatusBar geometry;
+    - admitted horizontal Box, one-row Grid, and compatible nested Layout
+      trees while atomically rejecting complete decorated minimum heights
+      above one;
+    - defined deterministic tiny-surface allocation with empty Bounds for
+      excess bands and no conventional axis cap; and
+    - extended Theme defaults, typed control kinds, core snapshots, and the
+      validating public automation client without adding an unrestricted
+      details bag.
+  - Catalog:
+    - enabled Controls/Headers / Footers and `screen.headers_footers`;
+    - added two live Headers demonstrating horizontal Box and one-row Grid
+      arrangements plus two Footers demonstrating construction order; and
+    - hid all four bands on every other page, atomically returning their rows.
+  - Corrective integration:
+    - made Layout overflow actionable only while its owner and ancestors are
+      effectively visible;
+    - ended hidden-owner episodes while retaining deterministic arranged
+      snapshot geometry, and began a new episode after re-show when needed;
+    - suppressed false Layout warnings for chrome bands denied a row by the
+      tiny-surface policy; and
+    - documented and tested the shared lifecycle for later conditional views.
+  - Verification:
+    - `make verify` passed vet, all ordinary and Unix-socket tests, the
+      controlling-PTY lifecycle, the full race suite, and debug, release, and
+      profiling builds for `expletives-test` and `expletivesctl`;
+    - focused Go tests cover root/geometry/Layout-item rejection, combined
+      ordering, full-row painting, row return, constrained roots, tiny
+      surfaces, horizontal Box and one-row Grid compatibility, width
+      overflow, multirow atomic rejection, and owner/ancestor visibility
+      episodes;
+    - the exhaustive raw-key catalog audit passes every enabled, disabled,
+      separator, root, and nested Menu entry; and
+    - a live attached 64x20 debug run used raw Alt-C / `h` and Alt-I / `h`
+      navigation to confirm exact Menu/Header/content/Footer/Status row order,
+      child Layout geometry, empty hidden Bounds, returned Home rows, zero
+      overflows, final shutdown, socket cleanup, and no retained temp path.
+  - Contracts:
+    - [`Headers and Footers API v0`](../docs/specifications/headers-footers-api-v0.md)
+    - [`Application Chrome v0`](../docs/specifications/application-chrome-v0.md)
+    - [`Layouts and Overflow`](../docs/specifications/layouts-and-overflow.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+  - Process:
+    - completed as a bounded common-control phase without convening the
+      Panel; and
+    - recorded the shared hidden-view overflow-lifecycle improvement in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 11 Selection is next, followed by the deferred-input boundary and
+      Progress; and
+    - the minimum-usable-geometry fallback remains backlogged.
+
 - 2026-07-30 — `EXPL-TASK-024` — Deliver Phase 9 Status Bar.
   - Requestor: project operator
   - Owner: Codex
