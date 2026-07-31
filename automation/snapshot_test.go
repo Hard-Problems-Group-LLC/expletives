@@ -65,6 +65,20 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 					Style:         "border.style",
 					ResolvedStyle: resolved,
 				},
+				Text: &expletives.TextDetails{
+					Text:                "Text",
+					HorizontalAlignment: expletives.TextAlignCenter,
+					VerticalAlignment:   expletives.TextAlignEnd,
+					Wrap:                expletives.TextWrapWords,
+					Target:              "child",
+					Mnemonic:            "t",
+				},
+				Divider: &expletives.DividerDetails{
+					Orientation: expletives.Vertical,
+					Form:        expletives.BorderDouble,
+					Text:        "Rule",
+					Alignment:   expletives.TextAlignStart,
+				},
 			},
 		}},
 		Layouts: []expletives.LayoutSnapshot{{
@@ -132,6 +146,8 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	core.Controls[0].Children[0] = "changed"
 	core.Controls[0].Details.Container.ClientInset = 9
 	core.Controls[0].Details.Border.Title = "Changed"
+	core.Controls[0].Details.Text.Text = "Changed"
+	core.Controls[0].Details.Divider.Text = "Changed"
 	core.Layouts[0].Items[0].Kind = "layout"
 	core.InputSources[0].Held[0] = expletives.KeyAlt
 	core.Overflows[0].State = "changed"
@@ -149,6 +165,8 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	projected.Controls[0].Children[0] = "mutated"
 	projected.Controls[0].Details.Container.ClientInset = 7
 	projected.Controls[0].Details.Border.Title = "Mutated"
+	projected.Controls[0].Details.Text.Text = "Mutated"
+	projected.Controls[0].Details.Divider.Text = "Mutated"
 	projected.Layouts[0].Items[0].Kind = "layout"
 	projected.InputSources[0].Held[0] = Key(expletives.KeyShift)
 	projected.Overflows[0].State = "mutated"

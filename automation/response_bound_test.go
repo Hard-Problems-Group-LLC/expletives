@@ -170,6 +170,116 @@ func TestSnapshotRejectsInvalidCanonicalText(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidDisplayControlDetails(t *testing.T) {
+	t.Parallel()
+
+	limits := DefaultLimits()
+	textTests := []struct {
+		name   string
+		mutate func(*TextDetails)
+	}{
+		{
+			name: "text bytes",
+			mutate: func(details *TextDetails) {
+				details.Text = strings.Repeat("x", maxDisplayTextBytes+1)
+			},
+		},
+		{
+			name: "wide noncanonical text",
+			mutate: func(details *TextDetails) {
+				details.Text = "界"
+			},
+		},
+		{
+			name: "label newline",
+			mutate: func(details *TextDetails) {
+				details.Text = "first\nsecond"
+			},
+		},
+		{
+			name: "alignment",
+			mutate: func(details *TextDetails) {
+				details.HorizontalAlignment = "middle"
+			},
+		},
+		{
+			name: "wrap",
+			mutate: func(details *TextDetails) {
+				details.Wrap = "words"
+			},
+		},
+		{
+			name: "targetless mnemonic",
+			mutate: func(details *TextDetails) {
+				details.Target = ""
+			},
+		},
+	}
+	for _, test := range textTests {
+		test := test
+		t.Run("text/"+test.name, func(t *testing.T) {
+			t.Parallel()
+			completion := maximumValidTextCompletion(limits)
+			test.mutate(completion.Snapshot.Controls[0].Details.Text)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid TextDetails")
+			}
+		})
+	}
+
+	dividerTests := []struct {
+		name   string
+		mutate func(*DividerDetails)
+	}{
+		{
+			name: "orientation",
+			mutate: func(details *DividerDetails) {
+				details.Orientation = 99
+			},
+		},
+		{
+			name: "form",
+			mutate: func(details *DividerDetails) {
+				details.Form = "ornate"
+			},
+		},
+		{
+			name: "newline",
+			mutate: func(details *DividerDetails) {
+				details.Text = "bad\nrule"
+			},
+		},
+		{
+			name: "alignment",
+			mutate: func(details *DividerDetails) {
+				details.Alignment = "middle"
+			},
+		},
+	}
+	for _, test := range dividerTests {
+		test := test
+		t.Run("divider/"+test.name, func(t *testing.T) {
+			t.Parallel()
+			completion := maximumValidElementCompletion(limits)
+			control := &completion.Snapshot.Controls[0]
+			control.Kind = "rule"
+			control.Details = ControlDetails{
+				Version: 1,
+				Divider: &DividerDetails{
+					Orientation: 0,
+					Form:        "single",
+					Text:        "rule",
+					Alignment:   "start",
+				},
+			}
+			test.mutate(control.Details.Divider)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid DividerDetails")
+			}
+		})
+	}
+}
+
 func TestSnapshotRejectsAggregateChildReferencesBeyondBound(t *testing.T) {
 	t.Parallel()
 
@@ -208,7 +318,39 @@ func maximumCompletionJSONBytes(
 	wireCompletion.Snapshot = &wireSnapshot
 	base := mustMarshal(t, wireCompletion)
 	run := mustMarshal(t, completion.Snapshot.Frame.Runs[0])
-	control := mustMarshal(t, completion.Snapshot.Controls[0])
+	controlValue := completion.Snapshot.Controls[0]
+	control := mustMarshal(t, controlValue)
+	borderControl := controlValue
+	borderControl.Details = ControlDetails{
+		Version: 1,
+		Container: &ContainerDetails{
+			ClientInset: controlValue.Bounds.X,
+		},
+		Border: &BorderDetails{
+			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
+			Form:          "single",
+			Style:         controlValue.Style,
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+	}
+	dividerControl := controlValue
+	dividerControl.Details = ControlDetails{
+		Version: 1,
+		Divider: &DividerDetails{
+			Orientation: Orientation(math.MaxUint8),
+			Form:        string(controlValue.ID),
+			Text:        strings.Repeat("\x00", maxDisplayTextBytes),
+			Alignment:   TextAlignment(controlValue.ID),
+		},
+	}
+	for _, candidate := range [][]byte{
+		mustMarshal(t, borderControl),
+		mustMarshal(t, dividerControl),
+	} {
+		if len(candidate) > len(control) {
+			control = candidate
+		}
+	}
 	source := mustMarshal(t, completion.Snapshot.InputSources[0])
 	overflow := mustMarshal(t, completion.Snapshot.Overflows[0])
 	layout := mustMarshal(t, completion.Snapshot.Layouts[0])
@@ -231,7 +373,7 @@ func maximumElementCompletion(limits Limits) Completion {
 	identifier := strings.Repeat("x", limits.IdentifierBytes)
 	requestID := strings.Repeat("r", limits.RequestIDBytes)
 	escapedCell := strings.Repeat("\x00", maxCellGraphemeBytes)
-	escapedTitle := strings.Repeat("\x00", maxBorderTitleBytes)
+	escapedDisplayText := strings.Repeat("\x00", maxDisplayTextBytes)
 	escapedError := strings.Repeat("<", maxErrorMessageBytes)
 	escapedMessage := strings.Repeat("<", maxSnapshotMessageBytes)
 	maxInt := int(^uint(0) >> 1)
@@ -305,14 +447,13 @@ func maximumElementCompletion(limits Limits) Completion {
 			Visible:       false,
 			Details: ControlDetails{
 				Version: 1,
-				Container: &ContainerDetails{
-					ClientInset: minInt,
-				},
-				Border: &BorderDetails{
-					Title:         escapedTitle,
-					Form:          "single",
-					Style:         StyleID(identifier),
-					ResolvedStyle: resolved,
+				Text: &TextDetails{
+					Text:                escapedDisplayText,
+					HorizontalAlignment: TextAlignment(identifier),
+					VerticalAlignment:   TextAlignment(identifier),
+					Wrap:                TextWrap(identifier),
+					Target:              ControlID(identifier),
+					Mnemonic:            Key(identifier),
 				},
 			},
 		}},
@@ -412,8 +553,18 @@ func maximumValidElementCompletion(limits Limits) Completion {
 	completion.Snapshot.Frame.Size = Size{Width: 1, Height: 1}
 	completion.Snapshot.Frame.Cells[0].Grapheme = "<"
 	compactFrame(&completion.Snapshot.Frame, true)
-	completion.Snapshot.Controls[0].Details.Border.Title =
-		maximumCanonicalTitle()
+	completion.Snapshot.Controls[0].Kind = "frame"
+	completion.Snapshot.Controls[0].Details = ControlDetails{
+		Version:   1,
+		Container: &ContainerDetails{ClientInset: 1},
+		Border: &BorderDetails{
+			Title: maximumCanonicalTitle(),
+			Form:  "single",
+			Style: completion.Snapshot.Controls[0].Style,
+			ResolvedStyle: completion.Snapshot.Controls[0].
+				ResolvedStyle,
+		},
+	}
 	completion.Snapshot.Controls[0].LayoutIndex = limits.LayoutItems - 1
 	completion.Snapshot.Controls[0].StackIndex = limits.LayoutItems - 1
 	completion.Snapshot.Layouts[0].LayoutIndex = limits.LayoutItems - 1
@@ -423,9 +574,31 @@ func maximumValidElementCompletion(limits Limits) Completion {
 	return completion
 }
 
+func maximumValidTextCompletion(limits Limits) Completion {
+	completion := maximumValidElementCompletion(limits)
+	control := &completion.Snapshot.Controls[0]
+	control.Kind = "label"
+	control.Details = ControlDetails{
+		Version: 1,
+		Text: &TextDetails{
+			Text:                maximumCanonicalDisplayText(),
+			HorizontalAlignment: "center",
+			VerticalAlignment:   "end",
+			Wrap:                "none",
+			Target:              control.ID,
+			Mnemonic:            "x",
+		},
+	}
+	return completion
+}
+
 func maximumCanonicalTitle() string {
 	return strings.Repeat("<", maxBorderTitleCells) +
 		strings.Repeat("\u0301", (maxBorderTitleBytes-maxBorderTitleCells)/2)
+}
+
+func maximumCanonicalDisplayText() string {
+	return strings.Repeat("<", maxDisplayTextCells)
 }
 
 func mustMarshal(t *testing.T, value any) []byte {

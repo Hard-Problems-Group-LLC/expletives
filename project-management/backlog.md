@@ -39,7 +39,7 @@ specifications, and ISO 8601 timestamps.
   - Owner: unassigned
   - Created: 2026-07-24T07:07:26-07:00
   - Context: after layout and automation, the toolkit needs the directed
-    display, action, selection, input, progress, navigation, content,
+    display, action, menu, selection, input, progress, navigation, content,
     collection, and modal families.
   - Acceptance criteria:
     - implement one roadmap phase at a time in the directed order;

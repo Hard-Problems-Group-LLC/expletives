@@ -69,10 +69,12 @@ var (
 type Scene struct {
 	App *expletives.App
 
-	mu      sync.Mutex
-	accent  *expletives.Panel
-	layer   *expletives.BoxLayout
-	toggled bool
+	mu         sync.Mutex
+	accent     *expletives.Panel
+	accentText *expletives.StaticText
+	accentRule *expletives.Rule
+	layer      *expletives.BoxLayout
+	toggled    bool
 }
 
 // New constructs the complete fixture through the public toolkit API.
@@ -144,6 +146,63 @@ func NewWithRootConstraints(
 			Style:         greenStyle.ID,
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	label, err := transaction.NewLabel(red, expletives.LabelOptions{
+		PanelOptions: expletives.PanelOptions{
+			AutomationKey: "display.label",
+			Style:         redStyle.ID,
+		},
+		Text:                "Label -> accent",
+		HorizontalAlignment: expletives.TextAlignCenter,
+		VerticalAlignment:   expletives.TextAlignCenter,
+		Target:              accent,
+		Mnemonic:            "a",
+	})
+	if err != nil {
+		return nil, err
+	}
+	separator, err := transaction.NewSeparator(
+		red,
+		expletives.SeparatorOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "display.separator",
+				Style:         redStyle.ID,
+			},
+			Orientation: expletives.Horizontal,
+			Form:        expletives.BorderDouble,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	staticText, err := transaction.NewStaticText(
+		accent,
+		expletives.StaticTextOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "display.static_text",
+				Style:         greenStyle.ID,
+			},
+			Text:                "StaticText wraps words",
+			HorizontalAlignment: expletives.TextAlignCenter,
+			VerticalAlignment:   expletives.TextAlignCenter,
+			Wrap:                expletives.TextWrapWords,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	rule, err := transaction.NewRule(accent, expletives.RuleOptions{
+		PanelOptions: expletives.PanelOptions{
+			AutomationKey: "display.rule",
+			Style:         greenStyle.ID,
+		},
+		Orientation: expletives.Horizontal,
+		Form:        expletives.BorderSingle,
+		Text:        "Rule",
+		Alignment:   expletives.TextAlignCenter,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -279,6 +338,48 @@ func NewWithRootConstraints(
 	if err := mainLayout.AddPanel(banner, expletives.LayoutItemOptions{}); err != nil {
 		return nil, err
 	}
+	redLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.display.red",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := redLayout.AddPanel(
+		label,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	if err := redLayout.AddPanel(
+		separator,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
+	accentLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.display.accent",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := accentLayout.AddPanel(
+		staticText,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	if err := accentLayout.AddPanel(
+		rule,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
 	nestedLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
 		expletives.BoxLayoutOptions{
@@ -336,6 +437,12 @@ func NewWithRootConstraints(
 	if err := transaction.SetLayout(outer, mainLayout); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(red, redLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(accent, accentLayout); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(group, nestedLayout); err != nil {
 		return nil, err
 	}
@@ -350,7 +457,8 @@ func NewWithRootConstraints(
 	}
 
 	scene := &Scene{
-		App: app, accent: accent, layer: backLayout,
+		App: app, accent: accent, accentText: staticText,
+		accentRule: rule, layer: backLayout,
 	}
 	definitions := []expletives.CommandDefinition{
 		{
@@ -486,14 +594,34 @@ func (s *Scene) handleCommand(
 		if s.toggled {
 			style = magentaStyle.ID
 		}
-		if err := s.accent.SetStyle(style); err != nil {
+		transaction := s.App.NewTransaction()
+		for _, control := range []expletives.Control{
+			s.accent,
+			s.accentText,
+			s.accentRule,
+		} {
+			if err := transaction.SetStyle(control, style); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 		return expletives.OutcomeApplied, nil
 	case CommandScenarioReset:
 		changed := s.toggled
 		s.toggled = false
-		if err := s.accent.SetStyle(greenStyle.ID); err != nil {
+		transaction := s.App.NewTransaction()
+		for _, control := range []expletives.Control{
+			s.accent,
+			s.accentText,
+			s.accentRule,
+		} {
+			if err := transaction.SetStyle(control, greenStyle.ID); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 		before := s.App.Snapshot().Sequence
@@ -563,11 +691,11 @@ func SelfCheck() error {
 	if snapshot.Version != expletives.SnapshotVersion {
 		return errors.New("unexpected snapshot version")
 	}
-	if len(snapshot.Controls) != 10 {
-		return fmt.Errorf("control count = %d, want 10", len(snapshot.Controls))
+	if len(snapshot.Controls) != 14 {
+		return fmt.Errorf("control count = %d, want 14", len(snapshot.Controls))
 	}
-	if len(snapshot.Layouts) != 6 {
-		return fmt.Errorf("Layout count = %d, want 6", len(snapshot.Layouts))
+	if len(snapshot.Layouts) != 8 {
+		return fmt.Errorf("Layout count = %d, want 8", len(snapshot.Layouts))
 	}
 	checks := []struct {
 		x     int
@@ -576,8 +704,8 @@ func SelfCheck() error {
 		color expletives.Color
 	}{
 		{x: 0, y: 0, key: "root", color: rootStyle.Background},
-		{x: 4, y: 4, key: "panel.red", color: redStyle.Background},
-		{x: 24, y: 4, key: "panel.accent", color: greenStyle.Background},
+		{x: 4, y: 4, key: "display.label", color: redStyle.Background},
+		{x: 24, y: 4, key: "display.static_text", color: greenStyle.Background},
 		{x: 45, y: 6, key: "panel.nested", color: yellowStyle.Background},
 		{x: 4, y: 13, key: "layer.front", color: greenStyle.Background},
 	}

@@ -10,15 +10,17 @@ drive-and-observe interface is enabled only with
 `--automation <socket-path>`. The supported `expletivesctl` command connects
 to that explicitly enabled endpoint.
 
-Core/Containers, Basic Presentation, Basic Automation, and Basic Layouts are
-implemented. The public Go package now includes Box/Grid and nested Layouts,
-independent arrangement and stacking order, Panel/Layout `Raise` and `Lower`,
-structured overflow handling, optional root size/aspect constraints,
-independent Frame/Layout border forms, immutable semantic snapshots, and the
-CGO-free Linux terminal presenter. Application surfaces are bounded by
-aggregate allocated cells rather than a conventional 240-column ceiling;
-1200 by 1200 is a tested geometry. The `layouts.basic` `expletives-test`
-fixture and `expletivesctl` provide the human and attached closed loop.
+Core/Containers, Basic Presentation, Basic Automation, Basic Layouts, and
+Text/Display are implemented. The public Go package includes non-container
+`Label`, `StaticText`, `Separator`, and `Rule` controls; Box/Grid and nested
+Layouts; independent arrangement and stacking order; structured overflow;
+optional root size/aspect constraints; independent Frame/Layout borders;
+immutable semantic snapshots; and the CGO-free Linux terminal presenter.
+Application surfaces are bounded by aggregate allocated cells rather than a
+conventional 240-column ceiling; 1200 by 1200 is a tested geometry. The
+`layouts.basic` `expletives-test` fixture exercises the display controls and
+Layouts through the public API, while `expletivesctl` provides the attached
+closed loop.
 
 Run `make all` to build both commands in debug, release, and profiling modes,
 or `make verify` for the complete local verification workflow. See
@@ -43,7 +45,8 @@ build/debug/expletives-test \
 
 The fixture includes independent single/double/shade borders on Frames and
 Layouts, including an unbordered Frame whose child Layout supplies the one
-clean outline.
+clean outline. It also presents aligned `Label`, word-wrapped `StaticText`,
+double-line `Separator`, and titled `Rule` controls managed by child Layouts.
 
 The attached commands `layout.panel.raise`, `layout.panel.lower`,
 `layout.layer.raise`, and `layout.layer.lower` exercise the new stack paths.

@@ -9,6 +9,26 @@
 
 ## Observed Opportunities
 
+### 23. Bound Frame-Heavy Failure Diagnostics
+
+One attached-automation assertion formatted an entire completion when a
+single overflow-count check failed. Because the public client intentionally
+expands frame cells, that one diagnostic produced tens of thousands of tokens
+and obscured the actual one-cell minimum mismatch.
+
+Improvement:
+
+- report the small predicate fields that caused a failure rather than the
+  complete snapshot or completion;
+- reserve full frame serialization for an explicitly acquired diagnostic
+  artifact; and
+- keep stable keys, counts, outcomes, sequence numbers, and relevant bounds
+  in ordinary test failures.
+
+Applied immediately: the `expletives-test` attached integration assertions now
+emit concise scenario/count/outcome/geometry evidence instead of expanding
+the complete frame on failure.
+
 ### 1. Use A Small Contract-First Packet
 
 The first design packet inventories 71 files and asks every reviewer to scan
@@ -448,6 +468,11 @@ Improvement applied:
   not selection inputs; and
 - reserve full frame output for capture artifacts or cases that genuinely
   require every cell.
+
+The Text/Display checkpoint repeated this mistake at the command line, which
+shows that caller discipline alone is too fragile. A later focused
+`expletivesctl` improvement should offer a concise summary or field-selection
+mode while retaining full JSON as the compatibility default.
 
 ### 22. Arrange Owner Layouts In Control-Tree Dependency Order
 

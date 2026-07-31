@@ -67,6 +67,10 @@ func DefaultTheme() Theme {
 		"group_box":        resolved,
 		"group_box.border": resolved,
 		"layout.border":    resolved,
+		"label":            resolved,
+		"static_text":      resolved,
+		"separator":        resolved,
+		"rule":             resolved,
 	}
 	return Theme{styles: styles}
 }

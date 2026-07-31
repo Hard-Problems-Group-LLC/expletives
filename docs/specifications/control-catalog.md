@@ -292,7 +292,23 @@ This phase establishes stable command IDs, activation, enabled/disabled
 state, structured hotkey data, focus, and command parity across human input
 and automation.
 
-### 7. Selection
+### 7. Menus
+
+Required controls:
+
+- `MenuBar`;
+- popup `Menu`; and
+- `MenuItem`.
+
+Menus follow Actions immediately because their items invoke the same stable
+commands, enabled-state checks, mnemonics, accelerators, and fallback
+bindings. This phase also moves `expletives-test` from one accumulating
+catalog surface to persistent menu navigation among purpose-specific screens.
+It includes `Alt-F`, F10 and another documented fallback, checked/disabled
+items, separators, nested popups, dismissal, clipping, resize, and exact focus
+restoration.
+
+### 8. Selection
 
 Required controls:
 
@@ -305,7 +321,7 @@ Required controls:
 Supporting item/selection models should be introduced deliberately and reused
 by later collection controls.
 
-### 8. Text And Numeric Input
+### 9. Text And Numeric Input
 
 Required controls:
 
@@ -321,7 +337,7 @@ configurable commit/cancel behavior, and the project's edit-gate policy.
 `TextArea` may use a private viewport/offset primitive without publishing the
 later `ScrollablePanel` API early.
 
-### 9. Progress And Status
+### 10. Progress And Status
 
 Required controls:
 
@@ -334,21 +350,18 @@ Required controls:
 Animations and progress updates must use explicit deterministic tick or state
 events, honor reduced motion, and remain bounded.
 
-### 10. Navigation And Chrome
+### 11. Navigation And Chrome
 
 Required controls:
 
-- `MenuBar`;
-- popup `Menu`;
 - `ScrollBar`;
 - `TabbedPanel`; and
 - `Notebook`.
 
-This phase completes structured menu mnemonics such as `Alt-F`, accelerators,
-fallback bindings, honest viewport-based scrollbars, tab focus, and command
-routing.
+This phase adds honest viewport-based scrollbars, tab focus, and page
+navigation on top of the already-delivered Action and Menu command routing.
 
-### 11. Scrolling And Content
+### 12. Scrolling And Content
 
 Required controls:
 
@@ -362,7 +375,7 @@ This phase makes the earlier private viewport/offset behavior a supported
 public contract and adds bounded streaming, follow/scrollback, and honest
 drop reporting.
 
-### 12. Collections
+### 13. Collections
 
 Required controls:
 
@@ -378,7 +391,7 @@ selection/data-source contracts. Composition and capability reuse must be
 chosen deliberately; the older Draft's deep inheritance relationships are
 not approved by this ordering decision.
 
-### 13. Modal Controls
+### 14. Modal Controls
 
 Required controls:
 
@@ -427,7 +440,7 @@ contract:
 - `BoxLayout`, `GridLayout`, their Panel-item options, and the structured
   overflow report with Basic Layouts;
 - command and hotkey descriptors with Actions;
-- `MenuItem` with Navigation and Chrome;
+- `MenuItem` with Menus;
 - `Tab` with Navigation and Chrome;
 - item and selection models with Selection or Collections, according to the
   approved ownership design;

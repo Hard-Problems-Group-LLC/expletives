@@ -599,7 +599,7 @@ func (p *containerHandle) AddLayout(layout Layout) error {
 }
 
 // Raise moves this Panel to the highest Panel stack slot in its Layout.
-func (p *containerHandle) Raise() error {
+func (p *controlHandle) Raise() error {
 	state, err := p.mutableState()
 	if err != nil {
 		return err
@@ -612,7 +612,7 @@ func (p *containerHandle) Raise() error {
 }
 
 // Lower moves this Panel to the lowest Panel stack slot in its Layout.
-func (p *containerHandle) Lower() error {
+func (p *controlHandle) Lower() error {
 	state, err := p.mutableState()
 	if err != nil {
 		return err

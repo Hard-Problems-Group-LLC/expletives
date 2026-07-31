@@ -115,6 +115,13 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   contain adjacent unbordered Frames without doubled seams. Follow
   [`docs/specifications/root-sizing-and-borders-v0.md`](docs/specifications/root-sizing-and-borders-v0.md)
   for exact sizing, border, snapshot, and terminal-projection contracts.
+- `Label`, `StaticText`, `Separator`, and `Rule` are non-container leaf
+  controls. They retain shared Control geometry, style, Layout, stacking,
+  lifetime, transaction, and snapshot behavior without acquiring container
+  APIs. Follow
+  [`docs/specifications/text-and-display-api-v0.md`](docs/specifications/text-and-display-api-v0.md)
+  for their exact text, wrapping, alignment, mnemonic-target, divider, and
+  one-cell Unicode contracts.
 - Follow
   [`docs/specifications/layouts-and-overflow.md`](docs/specifications/layouts-and-overflow.md)
   for logical versus clipped geometry, attachment, overflow episodes,
@@ -175,6 +182,10 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   tested across views, editors, modals, long-running work, and automation.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
+- Deliver Menus immediately after Actions. Use the persistent
+  `expletives-test` MenuBar to navigate purpose-specific catalog screens as
+  the public control set grows, rather than crowding every demonstration onto
+  one surface.
 
 ## Testing And Builds
 

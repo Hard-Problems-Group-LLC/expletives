@@ -4,6 +4,53 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-016` — Deliver the Text and Display control phase.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T19:12:00-07:00
+  - Completed: 2026-07-30T19:47:44-07:00
+  - Outcome:
+    - delivered copy-safe, non-container `Label`, `StaticText`, `Separator`,
+      and `Rule` controls with ordinary Control geometry, style, Layout,
+      stacking, transaction, lifetime, and thread-safety behavior;
+    - delivered deterministic start/center/end alignment, none/word/cell
+      wrapping, horizontal/vertical divider forms, automatic intrinsic
+      minima, mutable text, and observable Label target/mnemonic association;
+    - applied the one-cell Unicode policy before measurement and painting,
+      preserving composed cells and replacing unsupported widths with one
+      `U+FFFD` cell;
+    - added kind-consistent typed core and automation details with deep-copy
+      projection and client validation; and
+    - added all four controls to the public-API demo through child BoxLayouts,
+      with stable attached-automation evidence and synchronized accent-state
+      changes.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the controlling-PTY lifecycle test, the full race suite, every debug,
+      release, and profiling build, executable checks, and smoke/self-checks;
+    - the display normalization fuzzer executed 180,425 cases in three
+      seconds, and the complete package set cross-compiled for CGO-free Linux
+      arm64;
+    - the conservative response proof measured 28,388,838 JSON bytes and
+      85,166,514 bytes for three retained maxima, below the 36 MiB and
+      128 MiB bounds; and
+    - an attached debug session observed 14 controls, eight Layouts, all four
+      typed display-control records, no overflow, a correlated final
+      shutdown, and owned-socket cleanup.
+  - Contracts:
+    - [`Text And Display API v0`](../docs/specifications/text-and-display-api-v0.md)
+    - [`Foundational Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Process:
+    - completed as one routine feature task without convening the Panel; and
+    - bounded frame-heavy integration diagnostics and recorded the remaining
+      concise-controller-output opportunity in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - mnemonic activation proceeds with Actions;
+    - Menus now follow Actions immediately and will provide
+      purpose-specific `expletives-test` screen navigation.
+
 - 2026-07-30 — `EXPL-TASK-015` — Deliver scalable root geometry and
   independent control/Layout borders.
   - Requestor: project operator

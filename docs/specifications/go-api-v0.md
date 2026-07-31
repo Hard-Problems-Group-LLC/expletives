@@ -19,6 +19,7 @@ Basic Layout foundation in the root `expletives` package. It covers:
 - independent `App` instances and their special root Panels;
 - sealed `Control` and `Container` capabilities;
 - copy-safe `Panel`, `Frame`, and `GroupBox` handles;
+- non-container `Label`, `StaticText`, `Separator`, and `Rule` handles;
 - semantic styles, immutable Themes, and resolved intended-frame cells;
 - bounded atomic `Transaction` updates and recursive destruction;
 - immutable local snapshots;
@@ -74,6 +75,8 @@ The implemented exported limits are:
 | `MaxTitleBytes` | 256 | Maximum UTF-8 bytes in a Frame or GroupBox title |
 | `MaxTitleCells` | 256 | Maximum normalized cells in a title |
 | `MaxCellBytes` | 64 | Maximum UTF-8 bytes in one retained canonical cell |
+| `MaxDisplayTextBytes` | 256 | Maximum retained UTF-8 bytes for one display-control text |
+| `MaxDisplayTextCells` | 256 | Maximum canonical cells, including line separators, for one display-control text |
 | `MaxInputSources` | 4,096 | Maximum sources that may hold keys concurrently |
 | `MaxHeldKeysPerSource` | 8 | Maximum simultaneously held keys for one source |
 | `MaxConcurrentCommandHandlers` | 4 | Maximum live router callbacks per App |
@@ -115,9 +118,10 @@ copied after first use.
 
 - `application.root`;
 - `panel`;
-- `frame` and `frame.border`; and
-- `group_box` and `group_box.border`; and
-- `layout.border`.
+- `frame` and `frame.border`;
+- `group_box` and `group_box.border`;
+- `layout.border`; and
+- `label`, `static_text`, `separator`, and `rule`.
 
 All default definitions resolve to white foreground on black background.
 
@@ -198,9 +202,9 @@ type Container interface {
 ```
 
 The unexported methods prevent fabricated toolkit identity. `Panel`, `Frame`,
-and `GroupBox` implement `Container`; future leaf controls implement only
-`Control`. External compound controls may embed a real toolkit control but
-cannot forge a node.
+and `GroupBox` implement `Container`. `Label`, `StaticText`, `Separator`, and
+`Rule` implement only `Control`. External compound controls may embed a real
+toolkit control but cannot forge a node.
 
 The concrete public types are small handles over one canonical internal node.
 Copying a constructed `Panel`, `Frame`, or `GroupBox` value aliases the same
@@ -293,6 +297,44 @@ ID remains readable, `Visible` is false, `Children` is empty, and mutations
 return `ErrDestroyed`. The concurrent-control count and stable keys are
 released.
 
+## Text And Display Controls
+
+The first leaf-control family is:
+
+```go
+func NewLabel(Container, LabelOptions) (*Label, error)
+func NewStaticText(Container, StaticTextOptions) (*StaticText, error)
+func NewSeparator(Container, SeparatorOptions) (*Separator, error)
+func NewRule(Container, RuleOptions) (*Rule, error)
+
+func (l *Label) Text() string
+func (l *Label) SetText(string) error
+func (s *StaticText) Text() string
+func (s *StaticText) SetText(string) error
+func (r *Rule) Text() string
+func (r *Rule) SetText(string) error
+```
+
+All four types retain common Control geometry, minimum, visibility, style,
+Layout membership, stacking, parentage, and destruction behavior without
+exposing `Children`, `SetLayout`, or `AddLayout`.
+
+`Label` is single-line and supports horizontal/vertical alignment plus an
+observable target and lowercase ASCII mnemonic association. Mnemonic
+activation is deferred to the Actions phase. `StaticText` supports LF/CRLF
+lines and none, word, or cell wrapping. `Separator` is an untitled horizontal
+or vertical divider; `Rule` adds aligned text. Dividers support none, single,
+double, shade, and block forms.
+
+Text normalizes through the one-cell display policy before measurement and is
+bounded by `MaxDisplayTextBytes`, `MaxDisplayTextCells`, and
+`MaxCellBytes`. A zero construction minimum selects intrinsic automatic
+measurement; `SetText` updates that minimum until the application explicitly
+calls `SetMinimumSize`. Destroying a Label target clears both target and
+mnemonic without destroying the Label. The complete options, wrapping,
+clipping, truncation, minima, snapshot, and automation behavior is defined in
+[`text-and-display-api-v0.md`](text-and-display-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -301,12 +343,17 @@ func (a *App) NewTransaction() *Transaction
 func (t *Transaction) NewPanel(Container, PanelOptions) (*Panel, error)
 func (t *Transaction) NewFrame(Container, FrameOptions) (*Frame, error)
 func (t *Transaction) NewGroupBox(Container, GroupBoxOptions) (*GroupBox, error)
+func (t *Transaction) NewLabel(Container, LabelOptions) (*Label, error)
+func (t *Transaction) NewStaticText(Container, StaticTextOptions) (*StaticText, error)
+func (t *Transaction) NewSeparator(Container, SeparatorOptions) (*Separator, error)
+func (t *Transaction) NewRule(Container, RuleOptions) (*Rule, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
 func (t *Transaction) SetBounds(Control, Rect) error
 func (t *Transaction) SetMinimumSize(Control, Size) error
 func (t *Transaction) SetStyle(Control, StyleID) error
 func (t *Transaction) SetVisible(Control, bool) error
+func (t *Transaction) SetText(Control, string) error
 func (t *Transaction) Destroy(Control) error
 func (t *Transaction) SetTheme(Theme) error
 func (t *Transaction) Commit(context.Context) error
@@ -389,6 +436,9 @@ cursor, typed control tree, Layout tree, held input sources, overflow state,
 and an optional local `Completion`. Control and Layout records expose separate
 arrangement and current stack indices. A `ControlSnapshot` contains semantic
 `StyleID` and its Theme-resolved `ResolvedStyle`; border detail does the same.
+The typed details union contains `TextDetails` for Label/StaticText and
+`DividerDetails` for Separator/Rule. These expose canonical bounded text,
+alignment, wrap, Label target/mnemonic, divider orientation, and divider form.
 
 Snapshot storage is independent, including frame cells, child IDs, Layout
 items, held keys, typed detail, overflow records, and completion. History is
@@ -559,7 +609,7 @@ Callers branch with `errors.Is` over:
 | `ErrSnapshotNotRetained` | Exact local sequence is unavailable |
 | `ErrStyleConflict` | Theme definition or attributes conflict |
 | `ErrStyleMissing` | Theme or referenced semantic style is missing |
-| `ErrTextLimit` | Bounded title, description, or message validation failed |
+| `ErrTextLimit` | Bounded title, display text, description, or message validation failed |
 
 Context-aware methods reject nil contexts and may return
 `context.Canceled` or `context.DeadlineExceeded`.

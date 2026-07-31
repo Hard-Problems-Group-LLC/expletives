@@ -255,7 +255,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 6. Text/Display
 
-- Status: `planned`
+- Status: `complete`
 - Goal: deliver `Label`, `StaticText`, `Separator`, and `Rule`.
 - Dependencies: Phase 5 plus the directed Limited Unicode and approved
   decoration-fallback policies.
@@ -273,6 +273,8 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: every public display control and important state has
   human, headless, and attached-automation evidence at normal and constrained
   geometries.
+- Completion evidence:
+  [`EXPL-TASK-016`](completed-tasks.md).
 
 ### 7. Actions
 
@@ -292,7 +294,33 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: every activation route reaches the same stable command,
   enabled-state check, explicit outcome, and associated frame.
 
-### 8. Selection
+### 8. Menus
+
+- Status: `planned`
+- Goal: deliver `MenuBar`, popup `Menu`, and `MenuItem` immediately after the
+  Action controls they invoke, then use them to navigate the growing
+  `expletives-test` catalog.
+- Dependencies: Phase 7 Button/HotkeyBar activation, command, focus,
+  mnemonic, accelerator, and fallback behavior.
+- Includes: `Alt-F`-style menu access, F10 and another documented fallback,
+  structured mnemonics and accelerators, checked/disabled items, separators,
+  nested popup stacking, dismissal, clipping, resize, focus restoration, and
+  one active purpose-specific catalog screen.
+- `expletives-test` scenarios: `menus.navigation`, `menus.alt-f`,
+  `menus.f10-fallback`, `menus.disabled-command`, and
+  `menus.popup-clipping`. The persistent MenuBar switches among Core/Layout,
+  Text/Display, Actions, and later purpose-specific screens so catalog growth
+  does not force every demonstration into one cluttered view.
+- Normal Go tests: command-route parity, binding precedence and ambiguous Alt,
+  arrow/Home/End navigation, disabled and separator skipping, nested popup
+  dismissal, screen switching, clipping/resize/focus restoration, and raw
+  automation key lifecycle parity with applicable PTY input.
+- Acceptance gate: menu, HotkeyBar, Button, mnemonic, direct command, and
+  automation routes converge on the same command outcome; both `Alt-F` and
+  the documented fallback work; and screen navigation is deterministic and
+  observable.
+
+### 9. Selection
 
 - Status: `planned`
 - Goal: deliver `Checkbox`, `RadioButton`, `RadioGroup`, `CycleField`, and
@@ -310,18 +338,18 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: human input, raw automation key lifecycle events, and
   direct semantic commands preserve the same observable selection contract.
 
-### 9. Text/Numeric Input
+### 10. Text/Numeric Input
 
 - Status: `planned`
 - Goal: deliver `TextField`, `NumberField`, `SpinBox`, and `TextArea`.
-- Dependencies: Phase 8 plus approved editing, validation, caret, paste, and
+- Dependencies: Phase 9 plus approved editing, validation, caret, paste, and
   interrupt contracts.
 - Includes: committed text distinct from commands, caret and selection over
   supported one-cell grapheme clusters and combining sequences, bounded paste,
   exact one-cell `U+FFFD` replacement of unsupported display elements,
   validation and disabled/invalid reasons, numeric range and step behavior,
   multiline editing, cursor policy, resize, and configurable Ctrl-C behavior.
-  `TextArea` uses the internal scroll model later exposed through Phase 12
+  `TextArea` uses the internal scroll model later exposed through Phase 13
   controls.
 - `expletives-test` scenarios: `input.text-field`, `input.numeric`,
   `input.spin`, `input.text-area`, `input.validation`, and
@@ -336,12 +364,12 @@ ordered backlog and the active-task record; it does not replace either.
   invalid input, paste, resize, focus changes, and every supported Ctrl-C
   policy.
 
-### 10. Progress/Status
+### 11. Progress/Status
 
 - Status: `planned`
 - Goal: deliver `ProgressBar`, `Meter`, `Spinner`, `ActivityDots`, and
   `StatusBar`.
-- Dependencies: Phase 9 plus approved clock/tick and bounded worker-result
+- Dependencies: Phase 10 plus approved clock/tick and bounded worker-result
   delivery.
 - Includes: determinate and indeterminate state, supplied deterministic ticks,
   reduced motion, textual narrow fallback, contextual status segments,
@@ -355,32 +383,27 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: progress scenarios stay responsive, bounded, observable,
   and interruptible without rendering or terminal access from workers.
 
-### 11. Navigation/Chrome
+### 12. Navigation/Chrome
 
 - Status: `planned`
-- Goal: deliver `MenuBar`, popup `Menu`, `ScrollBar`, `TabbedPanel`,
-  `Notebook`, `MenuItem`, and `Tab`.
-- Dependencies: Phase 10 plus approved modal-capture, accelerator precedence,
-  and focus-restoration contracts.
-- Includes: `Alt-F`-style menu access, F10 and other fallback paths,
-  mnemonics, accelerators, checked/disabled menu items, popup stacking,
-  dismissal, tabs/pages, and viewport-derived scrollbar thumbs.
-- `expletives-test` scenarios: `navigation.menu`, `navigation.alt-f`,
-  `navigation.f10-fallback`, `navigation.tabs`, and
+- Goal: deliver `ScrollBar`, `TabbedPanel`, `Notebook`, and `Tab` on the
+  already-complete menu and action foundation.
+- Dependencies: Phase 11 plus approved tab focus and viewport contracts.
+- Includes: tabs/pages, tab focus and activation, page switching, and
+  viewport-derived scrollbar thumbs.
+- `expletives-test` scenarios: `navigation.tabs` and
   `navigation.scrollbar`.
-- Normal Go tests: binding precedence and ambiguous Alt, menu navigation and
-  disabled commands, popup clipping/resize/focus restoration, tab removal and
-  reorder, and empty/full/tiny scrollbar ranges.
-- Acceptance gate: menu, hotkey, Button, and automation routes converge on
-  the same command; both `Alt-F` and the documented fallback work through
-  raw key lifecycle injection and the applicable PTY path.
+- Normal Go tests: tab removal and reorder, focus restoration, page switching,
+  and empty/full/tiny scrollbar ranges.
+- Acceptance gate: tab and scrollbar behavior remains keyboard complete,
+  resize-safe, semantically observable, and reachable from the catalog menu.
 
-### 12. Scrolling/Content
+### 13. Scrolling/Content
 
 - Status: `planned`
 - Goal: deliver `ScrollablePanel`, `Viewport`, `MarkdownView`, `LogView`, and
   `StreamView`.
-- Dependencies: Phase 11 scrolling chrome and the internal scroll model
+- Dependencies: Phase 12 scrolling chrome and the internal scroll model
   established for `TextArea`.
 - Includes: bounded offsets, keep-visible behavior, arbitrary clipped
   content, a documented Markdown subset, ring-buffered logs, follow versus
@@ -396,12 +419,12 @@ ordered backlog and the active-task record; it does not replace either.
   semantically observable and remain correct under resize and sustained
   bounded input.
 
-### 13. Collections
+### 14. Collections
 
 - Status: `planned`
 - Goal: deliver `ListBox`, `ComboBox`, `DropDown`, `TreeView`, `Table`,
   `DataGrid`, `ListItem`, `TreeNode`, and `Column`.
-- Dependencies: Phase 12 viewport, scrolling, selection, popup, and editing
+- Dependencies: Phase 13 viewport, scrolling, selection, popup, and editing
   capabilities.
 - Includes: stable item identity, empty/loading/error state, single and
   multiple selection, popup selection, tree expansion, row/cell focus,
@@ -415,12 +438,12 @@ ordered backlog and the active-task record; it does not replace either.
   identity, remains keyboard complete, and has deterministic normal, empty,
   large, disabled, and resized evidence.
 
-### 14. Modals
+### 15. Modals
 
 - Status: `planned`
 - Goal: deliver `ModalPanel`, `Dialog`, `MessageBox`, `ConfirmDialog`,
   `InputDialog`, and `ProgressDialog`.
-- Dependencies: Phase 13 plus approved modal-stack, result, and nested-modal
+- Dependencies: Phase 14 plus approved modal-stack, result, and nested-modal
   policy.
 - Includes: centering, stacking, shadows, focus capture/restoration,
   default/cancel buttons, validation, small-screen degradation,
@@ -437,13 +460,13 @@ ordered backlog and the active-task record; it does not replace either.
   associated snapshot; focus restoration is exact; Ctrl-C remains distinct
   from cancel, back, and quit.
 
-### 15. Terminal Compatibility And Operational Hardening
+### 16. Terminal Compatibility And Operational Hardening
 
 - Status: `planned`
 - Goal: validate terminal capabilities, terminfo integration, input parsing,
   resize, signals, suspension/resume, remote transports, physical rendering,
   bounded concurrency, profiling, and failure recovery.
-- Dependencies: Phase 14 supplies the complete interaction and control-state
+- Dependencies: Phase 15 supplies the complete interaction and control-state
   matrix to exercise at the physical boundary.
 - `expletives-test` scenarios: terminal-lab cases for supported one-cell
   Unicode and combining-sequence alignment, exact one-cell `U+FFFD`
@@ -460,13 +483,13 @@ ordered backlog and the active-task record; it does not replace either.
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.
 
-### 16. Release Readiness
+### 17. Release Readiness
 
 - Status: `planned`
 - Goal: stabilize the public Go API, documentation, examples, compatibility
   policy, release builds, provenance, security review, and downstream
   consumption.
-- Dependencies: Phase 15 and completion of every non-deferred catalog phase.
+- Dependencies: Phase 16 and completion of every non-deferred catalog phase.
 - `expletives-test` scenario: a catalog-completeness check fails whenever an
   exported control or required important state lacks a stable scenario and
   state-matrix entry.

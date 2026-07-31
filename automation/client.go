@@ -13,8 +13,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
+	expletives "github.com/Hard-Problems-Group-LLC/expletives"
 	"github.com/Hard-Problems-Group-LLC/expletives/internal/display"
 )
 
@@ -759,13 +761,8 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				return errors.New("snapshot control child has an invalid identity")
 			}
 		}
-		if control.Details.Version != 1 {
-			return errors.New("snapshot control details use an unsupported version")
-		}
-		if control.Details.Border != nil {
-			if !validBorderDetails(control.Details.Border, limits) {
-				return errors.New("snapshot border details exceed bounds")
-			}
+		if !validControlDetails(control.Kind, control.Details, limits) {
+			return errors.New("snapshot control details are invalid for its kind")
 		}
 	}
 	if len(snapshot.Layouts) > limits.Layouts {
@@ -883,6 +880,141 @@ func validBorderDetails(border *BorderDetails, limits Limits) bool {
 			validColor(*border.ForegroundOverride)) &&
 		(border.BackgroundOverride == nil ||
 			validColor(*border.BackgroundOverride))
+}
+
+func validControlDetails(
+	kind ControlKind,
+	details ControlDetails,
+	limits Limits,
+) bool {
+	if details.Version != 1 {
+		return false
+	}
+	switch kind {
+	case "root", "panel":
+		return details.Container != nil &&
+			details.Container.ClientInset == 0 &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil
+	case "frame", "group_box":
+		return details.Container != nil &&
+			validBorderDetails(details.Border, limits) &&
+			((details.Border.Form == "none" &&
+				details.Container.ClientInset == 0) ||
+				(details.Border.Form != "none" &&
+					details.Container.ClientInset == 1)) &&
+			details.Text == nil &&
+			details.Divider == nil
+	case "label":
+		return details.Container == nil &&
+			details.Border == nil &&
+			validTextDetails(details.Text, limits, false) &&
+			details.Text.Wrap == "none" &&
+			details.Divider == nil
+	case "static_text":
+		return details.Container == nil &&
+			details.Border == nil &&
+			validTextDetails(details.Text, limits, true) &&
+			details.Text.Target == "" &&
+			details.Text.Mnemonic == "" &&
+			details.Divider == nil
+	case "separator":
+		return details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			validDividerDetails(details.Divider) &&
+			details.Divider.Text == ""
+	case "rule":
+		return details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			validDividerDetails(details.Divider)
+	default:
+		return false
+	}
+}
+
+func validTextDetails(
+	text *TextDetails,
+	limits Limits,
+	multiline bool,
+) bool {
+	if text == nil ||
+		!canonicalDisplayText(text.Text, multiline) ||
+		!validTextAlignment(text.HorizontalAlignment) ||
+		!validTextAlignment(text.VerticalAlignment) ||
+		!validTextWrap(text.Wrap) ||
+		(text.Target != "" &&
+			!validIdentifier(string(text.Target), limits.IdentifierBytes)) {
+		return false
+	}
+	if text.Mnemonic == "" {
+		return true
+	}
+	return text.Target != "" &&
+		len(text.Mnemonic) == 1 &&
+		validLogicalKey(string(text.Mnemonic))
+}
+
+func validDividerDetails(divider *DividerDetails) bool {
+	return divider != nil &&
+		(divider.Orientation == Orientation(expletives.Horizontal) ||
+			divider.Orientation == Orientation(expletives.Vertical)) &&
+		validBorderForm(divider.Form) &&
+		canonicalDisplayText(divider.Text, false) &&
+		validTextAlignment(divider.Alignment)
+}
+
+func validTextAlignment(alignment TextAlignment) bool {
+	switch alignment {
+	case "start", "center", "end":
+		return true
+	default:
+		return false
+	}
+}
+
+func validTextWrap(wrap TextWrap) bool {
+	switch wrap {
+	case "none", "words", "cells":
+		return true
+	default:
+		return false
+	}
+}
+
+func canonicalDisplayText(value string, multiline bool) bool {
+	if len(value) > maxDisplayTextBytes || !utf8.ValidString(value) {
+		return false
+	}
+	lines := strings.Split(value, "\n")
+	cellCount := len(lines) - 1
+	for _, current := range value {
+		if current == '\n' {
+			if multiline {
+				continue
+			}
+			return false
+		}
+		if unicode.IsControl(current) {
+			return false
+		}
+	}
+	for _, line := range lines {
+		cells := display.Normalize(line)
+		cellCount += len(cells)
+		if cellCount > maxDisplayTextCells ||
+			strings.Join(cells, "") != line {
+			return false
+		}
+		for _, cell := range cells {
+			if len(cell) > maxCellGraphemeBytes {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func validCompletionError(issue *Error, limits Limits) bool {

@@ -75,12 +75,22 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	}
 	if observe.Snapshot == nil ||
 		observe.Snapshot.Scenario != demo.ScenarioID ||
-		len(observe.Snapshot.Layouts) != 6 ||
+		len(observe.Snapshot.Layouts) != 8 ||
 		len(observe.Snapshot.Overflows) != 0 {
-		t.Fatalf("initial Layout snapshot = %+v", observe.Snapshot)
+		if observe.Snapshot == nil {
+			t.Fatal("initial observation has no snapshot")
+		}
+		t.Fatalf(
+			"initial snapshot scenario=%q controls=%d Layouts=%d overflows=%d",
+			observe.Snapshot.Scenario,
+			len(observe.Snapshot.Controls),
+			len(observe.Snapshot.Layouts),
+			len(observe.Snapshot.Overflows),
+		)
 	}
 	var backID, frontID automation.ControlID
 	var accentBounds, frontBounds, rootBounds automation.Rect
+	displayEvidence := make(map[string]bool)
 	for _, control := range observe.Snapshot.Controls {
 		switch control.Key {
 		case "root":
@@ -92,6 +102,36 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			frontBounds = control.AbsoluteBounds
 		case "panel.accent":
 			accentBounds = control.Bounds
+		case "display.label":
+			displayEvidence[control.Key] =
+				control.Kind == "label" &&
+					control.Details.Text != nil &&
+					control.Details.Text.Target != "" &&
+					control.Details.Text.Mnemonic == "a"
+		case "display.static_text":
+			displayEvidence[control.Key] =
+				control.Kind == "static_text" &&
+					control.Details.Text != nil &&
+					control.Details.Text.Wrap == "words"
+		case "display.separator":
+			displayEvidence[control.Key] =
+				control.Kind == "separator" &&
+					control.Details.Divider != nil &&
+					control.Details.Divider.Form == "double"
+		case "display.rule":
+			displayEvidence[control.Key] =
+				control.Kind == "rule" &&
+					control.Details.Divider != nil &&
+					control.Details.Divider.Text == "Rule"
+		}
+	}
+	if len(observe.Snapshot.Controls) != 14 ||
+		len(displayEvidence) != 4 {
+		t.Fatalf("display catalog evidence = %#v", displayEvidence)
+	}
+	for key, valid := range displayEvidence {
+		if !valid {
+			t.Fatalf("display control %q has invalid typed evidence", key)
 		}
 	}
 	if rootBounds != (automation.Rect{
@@ -126,7 +166,12 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if raised.Outcome != automation.OutcomeApplied ||
 		raised.Snapshot == nil ||
 		raised.Snapshot.Frame.Cells[layerCell].Owner != backID {
-		t.Fatalf("Layout Raise completion = %+v", raised)
+		t.Fatalf(
+			"Layout Raise outcome=%q snapshot=%t expected_owner=%q",
+			raised.Outcome,
+			raised.Snapshot != nil,
+			backID,
+		)
 	}
 	lowered, err := client.InvokeCommand(
 		ctx,
@@ -138,7 +183,10 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		t.Fatalf("InvokeCommand(Panel Lower) error = %v", err)
 	}
 	if lowered.Snapshot == nil {
-		t.Fatalf("Panel Lower completion has no snapshot: %+v", lowered)
+		t.Fatalf(
+			"Panel Lower outcome=%q has no snapshot",
+			lowered.Outcome,
+		)
 	}
 	var loweredAccent *automation.ControlSnapshot
 	for index := range lowered.Snapshot.Controls {
@@ -152,7 +200,12 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		loweredAccent.Bounds != accentBounds ||
 		loweredAccent.LayoutIndex != 1 ||
 		loweredAccent.StackIndex != 0 {
-		t.Fatalf("Panel Lower completion = %+v", lowered)
+		t.Fatalf(
+			"Panel Lower outcome=%q accent=%+v want bounds=%+v indices=1/0",
+			lowered.Outcome,
+			loweredAccent,
+			accentBounds,
+		)
 	}
 
 	requestID, err := automation.NewRequestID()
@@ -166,7 +219,12 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if completion.Outcome != automation.OutcomeExited ||
 		completion.Snapshot == nil ||
 		!completion.Snapshot.Final {
-		t.Fatalf("shutdown completion = %+v", completion)
+		t.Fatalf(
+			"shutdown outcome=%q snapshot=%t final=%t",
+			completion.Outcome,
+			completion.Snapshot != nil,
+			completion.Snapshot != nil && completion.Snapshot.Final,
+		)
 	}
 
 	select {

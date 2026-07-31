@@ -858,7 +858,9 @@ the root package's local snapshot. The client checks:
 - at most 4,096 controls and at most 4,096 aggregate child references;
 - at most 1,024 Layouts and 4,096 aggregate Layout item references, with
   bounded identities, geometry, arrangement indices, and stack indices;
-- canonical bounded border titles;
+- kind-consistent typed control details, including canonical bounded border
+  titles, Label/StaticText values, target/mnemonic associations, and
+  Separator/Rule orientation, form, title, alignment, and wrapping state;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -875,13 +877,14 @@ the compact `runs` evidence. If both views are decoded, they must agree
 exactly. The DTO never contains a local-only command `Cause`, captured
 terminal escape bytes, or physical-terminal degradation.
 
-Version 1 additionally bounds each projected border title to 256 UTF-8 bytes,
-256 normalized cells, and 64 bytes per canonical cell. A nested public
+Version 1 additionally bounds each projected border title and display-control
+text to 256 UTF-8 bytes, 256 normalized cells, and 64 bytes per canonical
+cell. Control-detail union members must match the control kind. A nested public
 snapshot-completion message is at most 1,024 UTF-8 bytes without NUL. A
 top-level protocol `error.message` is trimmed to at most 256 valid UTF-8
 bytes. Every encoded response must also fit the 36 MiB response-line limit.
-The conservative legal-maximum completion proof is 27,647,462 JSON bytes;
-three such records total 82,942,386 bytes and remain below the 128 MiB
+The conservative legal-maximum completion proof is 28,388,838 JSON bytes;
+three such records total 85,166,514 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
 
 ## Public Go Client Contract
@@ -1050,12 +1053,12 @@ revalidated on 2026-07-30 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 
-That command passed. The maximum fixture encoded to 27,647,462 bytes; three
-retained maximum records total 82,942,386 bytes.
+That command passed. The maximum fixture encoded to 28,388,838 bytes; three
+retained maximum records total 85,166,514 bytes.
 
 The relevant integration assertions are:
 

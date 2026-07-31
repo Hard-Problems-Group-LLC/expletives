@@ -127,10 +127,12 @@ func NewApp(options AppOptions) (*App, error) {
 		style:         rootStyle,
 		visible:       true,
 		root:          true,
-		behavior:      plainBehavior{},
+		behavior:      containerBehavior{},
 	}
 	root := &Panel{
-		containerHandle: containerHandle{state: rootState},
+		containerHandle: containerHandle{
+			controlHandle: controlHandle{state: rootState},
+		},
 	}
 	rootState.control = root
 	rootState.container = root
@@ -604,6 +606,8 @@ type borderGlyphs struct {
 
 func glyphsForBorder(form BorderForm) borderGlyphs {
 	switch form {
+	case BorderNone:
+		return uniformBorderGlyphs(" ")
 	case BorderDouble:
 		return borderGlyphs{
 			topLeft: "╔", topRight: "╗", bottomLeft: "╚", bottomRight: "╝",

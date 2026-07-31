@@ -95,6 +95,8 @@ const (
 	maxCellGraphemeBytes    = 64
 	maxBorderTitleBytes     = 256
 	maxBorderTitleCells     = expletives.MaxTitleCells
+	maxDisplayTextBytes     = expletives.MaxDisplayTextBytes
+	maxDisplayTextCells     = expletives.MaxDisplayTextCells
 	maxErrorMessageBytes    = 256
 	maxSnapshotMessageBytes = 1024
 	lineReaderBufferBytes   = 64 << 10

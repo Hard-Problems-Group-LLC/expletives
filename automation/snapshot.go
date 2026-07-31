@@ -26,6 +26,12 @@ type (
 	LayoutKind string
 	// Key is a logical key identity independent of terminal bytes.
 	Key string
+	// TextAlignment selects start, center, or end placement.
+	TextAlignment string
+	// TextWrap selects no wrapping, word wrapping, or cell wrapping.
+	TextWrap string
+	// Orientation selects a horizontal or vertical divider axis.
+	Orientation uint8
 )
 
 // Point is a zero-based snapshot cell coordinate.
@@ -145,6 +151,10 @@ type ControlDetails struct {
 	Container *ContainerDetails `json:"container,omitempty"`
 	// Border is present for bordered controls.
 	Border *BorderDetails `json:"border,omitempty"`
+	// Text is present for Label and StaticText controls.
+	Text *TextDetails `json:"text,omitempty"`
+	// Divider is present for Separator and Rule controls.
+	Divider *DividerDetails `json:"divider,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -164,6 +174,24 @@ type BorderDetails struct {
 	ResolvedStyle      ResolvedStyle `json:"resolved_style"`
 	ForegroundOverride *Color        `json:"foreground_override,omitempty"`
 	BackgroundOverride *Color        `json:"background_override,omitempty"`
+}
+
+// TextDetails describes one canonical Label or StaticText value.
+type TextDetails struct {
+	Text                string        `json:"text"`
+	HorizontalAlignment TextAlignment `json:"horizontal_alignment"`
+	VerticalAlignment   TextAlignment `json:"vertical_alignment"`
+	Wrap                TextWrap      `json:"wrap"`
+	Target              ControlID     `json:"target,omitempty"`
+	Mnemonic            Key           `json:"mnemonic,omitempty"`
+}
+
+// DividerDetails describes one Separator or Rule.
+type DividerDetails struct {
+	Orientation Orientation   `json:"orientation"`
+	Form        string        `json:"form"`
+	Text        string        `json:"text,omitempty"`
+	Alignment   TextAlignment `json:"alignment"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -342,6 +370,30 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				BackgroundOverride: backgroundOverride,
 			}
 		}
+		if control.Details.Text != nil {
+			projectedControl.Details.Text = &TextDetails{
+				Text: control.Details.Text.Text,
+				HorizontalAlignment: TextAlignment(
+					control.Details.Text.HorizontalAlignment,
+				),
+				VerticalAlignment: TextAlignment(
+					control.Details.Text.VerticalAlignment,
+				),
+				Wrap:     TextWrap(control.Details.Text.Wrap),
+				Target:   ControlID(control.Details.Text.Target),
+				Mnemonic: Key(control.Details.Text.Mnemonic),
+			}
+		}
+		if control.Details.Divider != nil {
+			projectedControl.Details.Divider = &DividerDetails{
+				Orientation: Orientation(control.Details.Divider.Orientation),
+				Form:        string(control.Details.Divider.Form),
+				Text:        control.Details.Divider.Text,
+				Alignment: TextAlignment(
+					control.Details.Divider.Alignment,
+				),
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -433,6 +485,14 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 				border.BackgroundOverride = &color
 			}
 			cloned.Controls[index].Details.Border = &border
+		}
+		if snapshot.Controls[index].Details.Text != nil {
+			text := *snapshot.Controls[index].Details.Text
+			cloned.Controls[index].Details.Text = &text
+		}
+		if snapshot.Controls[index].Details.Divider != nil {
+			divider := *snapshot.Controls[index].Details.Divider
+			cloned.Controls[index].Details.Divider = &divider
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

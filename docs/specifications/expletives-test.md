@@ -135,6 +135,10 @@ bounded by aggregate frame cells, not by a conventional terminal axis.
 The application must maintain an inspectable catalog that covers every
 public UI element. Each catalog entry needs a stable scenario ID, a concise
 purpose, deterministic reset behavior, and the important applicable states.
+After the Action controls exist, the following Menu phase adds a persistent
+MenuBar that selects one purpose-specific catalog screen at a time. Screen
+selection is a normal stable command reachable through menu input and
+automation; it must not create a private test-only navigation path.
 
 The coverage inventory must include, as the library gains them:
 
@@ -170,7 +174,11 @@ decoration: a single-line outer Frame, a double-line GroupBox, an unbordered
 Frame, independently bordered Grid and nested Layouts, and light, medium,
 dark, and full-cell shade forms. The unbordered Frame combined with its
 bordered child Layout is the regression fixture for clean shared framing
-without doubled seams.
+without doubled seams. The same public-API scene embeds an aligned Label with
+an observable mnemonic target, word-wrapped StaticText, a double-line
+Separator, and a titled Rule in two child BoxLayouts. Their stable automation
+keys are `display.label`, `display.static_text`, `display.separator`, and
+`display.rule`.
 
 The authoritative inventory and order are in
 [`control-catalog.md`](control-catalog.md). `FormPanel`, `Wizard`, and

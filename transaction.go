@@ -46,15 +46,18 @@ const (
 	mutationMinimum
 	mutationStyle
 	mutationVisible
+	mutationText
 )
 
 type transactionMutation struct {
-	kind    transactionMutationKind
-	state   *controlState
-	rect    Rect
-	size    Size
-	style   StyleID
-	visible bool
+	kind     transactionMutationKind
+	state    *controlState
+	rect     Rect
+	size     Size
+	style    StyleID
+	visible  bool
+	text     string
+	behavior controlBehavior
 }
 
 // NewTransaction creates an empty App-scoped transaction builder. Building it
@@ -78,7 +81,7 @@ func (t *Transaction) NewPanel(
 	parent Container,
 	options PanelOptions,
 ) (*Panel, error) {
-	return t.newControl(parent, options, ControlPanel, plainBehavior{})
+	return t.newControl(parent, options, ControlPanel, containerBehavior{})
 }
 
 // NewFrame records construction of a bordered Frame. Its provisional handle
@@ -246,6 +249,36 @@ func (t *Transaction) SetMinimumSize(control Control, size Size) error {
 		kind:  mutationMinimum,
 		state: state,
 		size:  size,
+	})
+	return nil
+}
+
+// SetText records a canonical text change for a Label, StaticText, or Rule.
+// Unsupported control kinds return ErrInvalidControl.
+func (t *Transaction) SetText(control Control, text string) error {
+	state, err := t.control(control)
+	if err != nil {
+		return err
+	}
+	multiline := false
+	switch state.kind {
+	case ControlLabel, ControlRule:
+	case ControlStaticText:
+		multiline = true
+	default:
+		return fmt.Errorf("%w: control has no mutable text", ErrInvalidControl)
+	}
+	normalized, err := normalizeDisplayText(text, multiline)
+	if err != nil {
+		return err
+	}
+	if err := t.reserveOperation(); err != nil {
+		return err
+	}
+	t.mutations = append(t.mutations, transactionMutation{
+		kind:  mutationText,
+		state: state,
+		text:  normalized.text,
 	})
 	return nil
 }
@@ -514,6 +547,39 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			return fmt.Errorf("%w: transaction mutates a destroyed control", ErrDestroyed)
 		}
 	}
+	for index := range t.mutations {
+		mutation := &t.mutations[index]
+		if mutation.kind != mutationText {
+			continue
+		}
+		mutable, ok := mutation.state.behavior.(mutableTextBehavior)
+		if !ok {
+			return fmt.Errorf("%w: control has no mutable text", ErrInvalidControl)
+		}
+		behavior, err := mutable.withText(mutation.text)
+		if err != nil {
+			return err
+		}
+		mutation.behavior = behavior
+	}
+	for _, state := range t.creates {
+		target := controlBehaviorTarget(state.behavior)
+		if target == nil {
+			continue
+		}
+		if err := t.validateTargetLocked(target, provisional); err != nil {
+			return fmt.Errorf("%w: invalid Label target", err)
+		}
+	}
+	for _, mutation := range t.mutations {
+		target := controlBehaviorTarget(mutation.behavior)
+		if target == nil {
+			continue
+		}
+		if err := t.validateTargetLocked(target, provisional); err != nil {
+			return fmt.Errorf("%w: invalid Label target", err)
+		}
+	}
 
 	plannedLayouts := make(map[*layoutState]bool)
 	plannedPanels := make(map[*controlState]bool)
@@ -692,6 +758,37 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	}
 
 	changed := false
+	for _, state := range t.app.controlsByID {
+		if destroyed[state] {
+			continue
+		}
+		if behavior, cleared := clearControlBehaviorTarget(
+			state.behavior,
+			destroyed,
+		); cleared {
+			state.behavior = behavior
+			changed = true
+		}
+	}
+	for _, state := range t.creates {
+		if destroyed[state] {
+			continue
+		}
+		if behavior, cleared := clearControlBehaviorTarget(
+			state.behavior,
+			destroyed,
+		); cleared {
+			state.behavior = behavior
+		}
+	}
+	for index := range t.mutations {
+		if behavior, cleared := clearControlBehaviorTarget(
+			t.mutations[index].behavior,
+			destroyed,
+		); cleared {
+			t.mutations[index].behavior = behavior
+		}
+	}
 	for _, state := range uniqueTopLevelDestroys(t.destroys, destroyed) {
 		if state.id == "" || state.destroyed {
 			continue
@@ -757,6 +854,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				mutation.state.minimumSize = mutation.size
 				changed = true
 			}
+			mutation.state.autoMinimum = false
 		case mutationStyle:
 			if mutation.state.style != mutation.style {
 				mutation.state.style = mutation.style
@@ -765,6 +863,15 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationVisible:
 			if mutation.state.visible != mutation.visible {
 				mutation.state.visible = mutation.visible
+				changed = true
+			}
+		case mutationText:
+			if !controlBehaviorEqual(mutation.state.behavior, mutation.behavior) {
+				mutation.state.behavior = mutation.behavior
+				if mutation.state.autoMinimum {
+					mutation.state.minimumSize =
+						mutation.behavior.(intrinsicMinimumBehavior).intrinsicMinimum()
+				}
 				changed = true
 			}
 		}

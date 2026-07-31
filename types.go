@@ -43,6 +43,13 @@ const (
 	MaxTitleCells = MaxTitleBytes
 	// MaxCellBytes bounds one canonical cell grapheme's UTF-8 encoding.
 	MaxCellBytes = 64
+	// MaxDisplayTextBytes bounds one retained Label, StaticText, or Rule text.
+	// It keeps worst-case snapshot and automation evidence within their
+	// aggregate resource budgets.
+	MaxDisplayTextBytes = 256
+	// MaxDisplayTextCells bounds canonical cells, including line separators,
+	// in one Text/Display control.
+	MaxDisplayTextCells = 256
 	// MaxInputSources bounds sources that may hold keys concurrently.
 	MaxInputSources = MaxControls
 	// MaxHeldKeysPerSource bounds one source's simultaneous held-key state.
@@ -220,6 +227,36 @@ const (
 	ControlFrame ControlKind = "frame"
 	// ControlGroupBox identifies a titled bordered GroupBox.
 	ControlGroupBox ControlKind = "group_box"
+	// ControlLabel identifies a single-line non-container Label.
+	ControlLabel ControlKind = "label"
+	// ControlStaticText identifies multiline optionally wrapped display text.
+	ControlStaticText ControlKind = "static_text"
+	// ControlSeparator identifies an untitled structural divider.
+	ControlSeparator ControlKind = "separator"
+	// ControlRule identifies a titled structural divider.
+	ControlRule ControlKind = "rule"
+)
+
+// TextAlignment selects placement on one logical control axis. Its empty
+// value selects TextAlignStart.
+type TextAlignment string
+
+const (
+	TextAlignDefault TextAlignment = ""
+	TextAlignStart   TextAlignment = "start"
+	TextAlignCenter  TextAlignment = "center"
+	TextAlignEnd     TextAlignment = "end"
+)
+
+// TextWrap selects StaticText line wrapping. Its empty value selects
+// TextWrapNone.
+type TextWrap string
+
+const (
+	TextWrapDefault TextWrap = ""
+	TextWrapNone    TextWrap = "none"
+	TextWrapWords   TextWrap = "words"
+	TextWrapCells   TextWrap = "cells"
 )
 
 // StyleID is a stable semantic reference into an App Theme.
@@ -446,6 +483,10 @@ type ControlDetails struct {
 	Container *ContainerDetails `json:"container,omitempty"`
 	// Border is present for bordered controls.
 	Border *BorderDetails `json:"border,omitempty"`
+	// Text is present for Label and StaticText.
+	Text *TextDetails `json:"text,omitempty"`
+	// Divider is present for Separator and Rule.
+	Divider *DividerDetails `json:"divider,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -467,6 +508,24 @@ type BorderDetails struct {
 	// replaced that component of the Theme-resolved border style.
 	ForegroundOverride *Color `json:"foreground_override,omitempty"`
 	BackgroundOverride *Color `json:"background_override,omitempty"`
+}
+
+// TextDetails describes one canonical Label or StaticText value.
+type TextDetails struct {
+	Text                string        `json:"text"`
+	HorizontalAlignment TextAlignment `json:"horizontal_alignment"`
+	VerticalAlignment   TextAlignment `json:"vertical_alignment"`
+	Wrap                TextWrap      `json:"wrap"`
+	Target              ControlID     `json:"target,omitempty"`
+	Mnemonic            Key           `json:"mnemonic,omitempty"`
+}
+
+// DividerDetails describes one Separator or Rule.
+type DividerDetails struct {
+	Orientation Orientation   `json:"orientation"`
+	Form        BorderForm    `json:"form"`
+	Text        string        `json:"text,omitempty"`
+	Alignment   TextAlignment `json:"alignment"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -571,6 +630,14 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 			border.ForegroundOverride = cloneColor(border.ForegroundOverride)
 			border.BackgroundOverride = cloneColor(border.BackgroundOverride)
 			cloned.Controls[index].Details.Border = &border
+		}
+		if snapshot.Controls[index].Details.Text != nil {
+			text := *snapshot.Controls[index].Details.Text
+			cloned.Controls[index].Details.Text = &text
+		}
+		if snapshot.Controls[index].Details.Divider != nil {
+			divider := *snapshot.Controls[index].Details.Divider
+			cloned.Controls[index].Details.Divider = &divider
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

@@ -82,8 +82,12 @@ type Container interface {
 	containerState() *controlState
 }
 
-type containerHandle struct {
+type controlHandle struct {
 	state *controlState
+}
+
+type containerHandle struct {
+	controlHandle
 }
 
 // Panel is the foundational container control. It is a copy-safe handle over
@@ -118,6 +122,7 @@ type controlState struct {
 	layout        *layoutState
 	bounds        Rect
 	minimumSize   Size
+	autoMinimum   bool
 	style         StyleID
 	visible       bool
 	root          bool
@@ -139,13 +144,13 @@ type controlBehavior interface {
 	details() ControlDetails
 }
 
-type plainBehavior struct{}
+type containerBehavior struct{}
 
-func (plainBehavior) clientInset() int {
+func (containerBehavior) clientInset() int {
 	return 0
 }
 
-func (plainBehavior) paintDecoration(
+func (containerBehavior) paintDecoration(
 	*App,
 	*IntendedFrame,
 	*controlState,
@@ -154,7 +159,7 @@ func (plainBehavior) paintDecoration(
 ) {
 }
 
-func (plainBehavior) details() ControlDetails {
+func (containerBehavior) details() ControlDetails {
 	return ControlDetails{
 		Version:   ControlDetailsVersion,
 		Container: &ContainerDetails{},
@@ -396,7 +401,9 @@ func preparePanel(
 		provisional:   true,
 		behavior:      behavior,
 	}
-	panel := &Panel{containerHandle: containerHandle{state: state}}
+	panel := &Panel{containerHandle: containerHandle{
+		controlHandle: controlHandle{state: state},
+	}}
 	state.control = panel
 	state.container = panel
 	return panel, nil
@@ -411,7 +418,7 @@ func validateMinimumSize(size Size) error {
 	return nil
 }
 
-func (p *containerHandle) controlState() *controlState {
+func (p *controlHandle) controlState() *controlState {
 	if p == nil {
 		return nil
 	}
@@ -419,13 +426,16 @@ func (p *containerHandle) controlState() *controlState {
 }
 
 func (p *containerHandle) containerState() *controlState {
-	return p.controlState()
+	if p == nil {
+		return nil
+	}
+	return p.controlHandle.controlState()
 }
 
 // ID returns the stable runtime identity. It is empty before a transaction
 // commits or after construction aborts, and remains readable after logical
 // destruction.
-func (p *containerHandle) ID() ControlID {
+func (p *controlHandle) ID() ControlID {
 	if p == nil || p.state == nil || p.state.app == nil {
 		return ""
 	}
@@ -439,7 +449,7 @@ func (p *containerHandle) ID() ControlID {
 
 // AutomationKey returns the optional caller-selected stable key. It remains
 // readable after logical destruction.
-func (p *containerHandle) AutomationKey() string {
+func (p *controlHandle) AutomationKey() string {
 	if p == nil || p.state == nil || p.state.app == nil {
 		return ""
 	}
@@ -453,7 +463,7 @@ func (p *containerHandle) AutomationKey() string {
 
 // Parent returns the immutable App-owned container parent or nil for the App
 // root or an aborted handle.
-func (p *containerHandle) Parent() Container {
+func (p *controlHandle) Parent() Container {
 	if p == nil || p.state == nil || p.state.app == nil {
 		return nil
 	}
@@ -466,7 +476,7 @@ func (p *containerHandle) Parent() Container {
 }
 
 // Bounds returns the current parent-client-relative logical rectangle.
-func (p *containerHandle) Bounds() Rect {
+func (p *controlHandle) Bounds() Rect {
 	state := p.controlState()
 	if state == nil || state.app == nil {
 		return Rect{}
@@ -480,7 +490,7 @@ func (p *containerHandle) Bounds() Rect {
 }
 
 // MinimumSize returns the declared minimum size.
-func (p *containerHandle) MinimumSize() Size {
+func (p *controlHandle) MinimumSize() Size {
 	state := p.controlState()
 	if state == nil || state.app == nil {
 		return Size{}
@@ -495,7 +505,7 @@ func (p *containerHandle) MinimumSize() Size {
 
 // Visible reports the control's own active visibility. An invisible ancestor
 // may still prevent a visible descendant from painting.
-func (p *containerHandle) Visible() bool {
+func (p *controlHandle) Visible() bool {
 	state := p.controlState()
 	if state == nil || state.app == nil {
 		return false
@@ -506,7 +516,7 @@ func (p *containerHandle) Visible() bool {
 }
 
 // Style returns the semantic style ID.
-func (p *containerHandle) Style() StyleID {
+func (p *controlHandle) Style() StyleID {
 	state := p.controlState()
 	if state == nil || state.app == nil {
 		return ""
@@ -543,7 +553,7 @@ func (p *containerHandle) Children() []Control {
 // SetBounds changes an ordinary control's logical rectangle and publishes one
 // complete snapshot when the value changed. It waits at most
 // DefaultMutationWait.
-func (p *containerHandle) SetBounds(bounds Rect) error {
+func (p *controlHandle) SetBounds(bounds Rect) error {
 	state, err := p.mutableState()
 	if err != nil {
 		return err
@@ -558,7 +568,7 @@ func (p *containerHandle) SetBounds(bounds Rect) error {
 // SetStyle changes the semantic style and publishes one complete snapshot when
 // the value changed. The ID must exist in the App Theme. SetStyle waits at most
 // DefaultMutationWait.
-func (p *containerHandle) SetStyle(style StyleID) error {
+func (p *controlHandle) SetStyle(style StyleID) error {
 	state, err := p.mutableState()
 	if err != nil {
 		return err
@@ -573,7 +583,7 @@ func (p *containerHandle) SetStyle(style StyleID) error {
 // SetVisible changes painting and effective descendant visibility and
 // publishes one complete snapshot when the value changed. It waits at most
 // DefaultMutationWait.
-func (p *containerHandle) SetVisible(visible bool) error {
+func (p *controlHandle) SetVisible(visible bool) error {
 	state, err := p.mutableState()
 	if err != nil {
 		return err
@@ -588,7 +598,7 @@ func (p *containerHandle) SetVisible(visible bool) error {
 // SetMinimumSize changes the declared logical minimum and publishes one
 // complete snapshot when the value changed. It waits at most
 // DefaultMutationWait.
-func (p *containerHandle) SetMinimumSize(size Size) error {
+func (p *controlHandle) SetMinimumSize(size Size) error {
 	state, err := p.mutableState()
 	if err != nil {
 		return err
@@ -604,7 +614,7 @@ func (p *containerHandle) SetMinimumSize(size Size) error {
 // publication. The root cannot be destroyed independently of its App. The
 // handle remains readable but later mutations return ErrDestroyed. Destroy
 // waits at most DefaultMutationWait.
-func (p *containerHandle) Destroy() error {
+func (p *controlHandle) Destroy() error {
 	state, err := p.mutableState()
 	if err != nil {
 		return err
@@ -616,7 +626,7 @@ func (p *containerHandle) Destroy() error {
 	return transaction.Commit(context.Background())
 }
 
-func (p *containerHandle) mutableState() (*controlState, error) {
+func (p *controlHandle) mutableState() (*controlState, error) {
 	if p == nil || p.state == nil || p.state.app == nil {
 		return nil, ErrInvalidControl
 	}
