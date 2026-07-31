@@ -17,6 +17,9 @@ coverage.*
 *.coverprofile
 profile.cov
 
+# Project build artifacts
+/build/
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
@@ -30,3 +33,17 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# BEGIN FieldManual managed local state
+.local/
+# END FieldManual managed local state
+
+# BEGIN managed by codex-wrangler
+# Local Codex package, home, wrapper, and sentinel artifacts.
+.codex-local/
+.codex-home/
+.codex
+.local/
+bin/codex-local
+README-LOCAL-Start-Codex.md
+# END managed by codex-wrangler

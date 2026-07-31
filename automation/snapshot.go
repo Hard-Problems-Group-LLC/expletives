@@ -1,0 +1,585 @@
+package automation
+
+import (
+	"fmt"
+
+	expletives "github.com/Hard-Problems-Group-LLC/expletives"
+)
+
+// Snapshot DTO scalar types are automation-owned so the wire contract remains
+// independent of the toolkit's in-process representation.
+type (
+	// StyleID is a bounded semantic style identity.
+	StyleID string
+	// StyleAttributes carries the version 1 attribute bits: bold, dim, italic,
+	// underline, and reverse.
+	StyleAttributes uint16
+	// Color is a resolved #RRGGBB color string.
+	Color string
+	// ControlID is an App-scoped runtime control identity.
+	ControlID string
+	// ControlKind identifies one bounded control behavior.
+	ControlKind string
+	// LayoutID is an App-scoped runtime Layout identity.
+	LayoutID string
+	// LayoutKind identifies one bounded arrangement algorithm.
+	LayoutKind string
+	// Key is a logical key identity independent of terminal bytes.
+	Key string
+)
+
+// Point is a zero-based snapshot cell coordinate.
+type Point struct {
+	// X is the column.
+	X int `json:"x"`
+	// Y is the row.
+	Y int `json:"y"`
+}
+
+// Size is a logical width and height in cells.
+type Size struct {
+	// Width is the number of columns.
+	Width int `json:"width"`
+	// Height is the number of rows.
+	Height int `json:"height"`
+}
+
+// Rect is logical snapshot geometry.
+type Rect struct {
+	// X and Y locate the top-left cell.
+	X int `json:"x"`
+	Y int `json:"y"`
+	// Width and Height are nonnegative cell counts.
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+// ResolvedStyle is the terminal-independent visual value of a StyleID.
+type ResolvedStyle struct {
+	// Foreground is the intended text color.
+	Foreground Color `json:"foreground"`
+	// Background is the intended cell background.
+	Background Color `json:"background"`
+	// Attributes contains only version 1 attribute bits.
+	Attributes StyleAttributes `json:"attributes,omitempty"`
+}
+
+// Cell is one canonical single-cell intended-frame element.
+type Cell struct {
+	// Grapheme is exactly one canonical display cell.
+	Grapheme string `json:"grapheme"`
+	// Style is the semantic style ID used to render this cell.
+	Style StyleID `json:"style"`
+	// Foreground, Background, and Attributes are the resolved intended style.
+	Foreground Color           `json:"foreground"`
+	Background Color           `json:"background"`
+	Attributes StyleAttributes `json:"attributes,omitempty"`
+	// Owner is the runtime control that most recently painted this cell.
+	Owner ControlID `json:"owner"`
+}
+
+// CellRun is one row-major run of identical canonical cells on the wire.
+type CellRun struct {
+	Count int  `json:"count"`
+	Cell  Cell `json:"cell"`
+}
+
+// IntendedFrame is a pure terminal-independent character-cell surface.
+type IntendedFrame struct {
+	// Size is the frame geometry.
+	Size Size `json:"size"`
+	// Runs is the compact bounded wire representation.
+	Runs []CellRun `json:"runs,omitempty"`
+	// Cells is the expanded caller-facing row-major representation. It is
+	// populated after decoding. Server completions clear it before wire
+	// encoding; expletivesctl output retains it for direct frame inspection.
+	Cells []Cell `json:"cells,omitempty"`
+}
+
+// CursorState describes the intended logical cursor.
+type CursorState struct {
+	// Visible controls whether a presenter should show the cursor.
+	Visible bool `json:"visible"`
+	// Position is meaningful when Visible is true.
+	Position Point `json:"position"`
+}
+
+// ControlSnapshot is the bounded semantic observation of one control node.
+type ControlSnapshot struct {
+	// ID is the App-scoped runtime identity.
+	ID ControlID `json:"id"`
+	// Key is the optional stable automation key.
+	Key string `json:"key,omitempty"`
+	// Kind identifies the control behavior.
+	Kind ControlKind `json:"kind"`
+	// Parent is empty only for the App root.
+	Parent ControlID `json:"parent,omitempty"`
+	// Children preserves direct-child insertion order.
+	Children []ControlID `json:"children,omitempty"`
+	// Bounds is parent-client-relative logical geometry.
+	Bounds Rect `json:"bounds"`
+	// AbsoluteBounds is unclipped App-relative geometry.
+	AbsoluteBounds Rect `json:"absolute_bounds"`
+	// EffectiveClip intersects visibility, ancestors, and the App surface.
+	EffectiveClip Rect `json:"effective_clip"`
+	// Minimum is the declared logical minimum.
+	Minimum Size `json:"minimum"`
+	// Layout identifies the manager of Bounds, when any.
+	Layout      LayoutID `json:"layout,omitempty"`
+	LayoutIndex int      `json:"layout_index"`
+	StackIndex  int      `json:"stack_index"`
+	// Style and ResolvedStyle pair semantic and visual state.
+	Style         StyleID       `json:"style"`
+	ResolvedStyle ResolvedStyle `json:"resolved_style"`
+	// Visible reports effective visibility through the ancestor chain.
+	Visible bool `json:"visible"`
+	// Details is versioned control-specific state.
+	Details ControlDetails `json:"details"`
+}
+
+// ControlDetails is the versioned typed union for control-specific state.
+type ControlDetails struct {
+	// Version identifies the union schema.
+	Version int `json:"version"`
+	// Container is present for controls that can parent children.
+	Container *ContainerDetails `json:"container,omitempty"`
+	// Border is present for bordered controls.
+	Border *BorderDetails `json:"border,omitempty"`
+}
+
+// ContainerDetails describes a container's client area.
+type ContainerDetails struct {
+	// ClientInset is the number of cells reserved on every edge.
+	ClientInset int `json:"client_inset"`
+}
+
+// BorderDetails describes one bordered container.
+type BorderDetails struct {
+	// Title is canonical bounded display text.
+	Title string `json:"title,omitempty"`
+	// Form identifies the canonical border geometry.
+	Form string `json:"form"`
+	// Style and ResolvedStyle pair the border's semantic and visual state.
+	Style              StyleID       `json:"style"`
+	ResolvedStyle      ResolvedStyle `json:"resolved_style"`
+	ForegroundOverride *Color        `json:"foreground_override,omitempty"`
+	BackgroundOverride *Color        `json:"background_override,omitempty"`
+}
+
+// InputSourceSnapshot reports held keys for one isolated input source.
+type InputSourceSnapshot struct {
+	// Source is the bounded input-source identity.
+	Source string `json:"source"`
+	// Held is the sorted set of currently held logical keys.
+	Held []Key `json:"held"`
+}
+
+// OverflowSnapshot describes one bounded Layout overflow observation.
+type OverflowSnapshot struct {
+	// EpisodeID identifies one continuous overflow episode.
+	EpisodeID string `json:"episode_id"`
+	// Panel identifies the overflowing container.
+	Panel ControlID `json:"panel"`
+	// Layout identifies the overflowing Layout.
+	Layout LayoutID `json:"layout"`
+	// Available and Required describe the layout-space comparison.
+	Available Size `json:"available"`
+	Required  Size `json:"required"`
+	// Deficit is the missing width and height.
+	Deficit Size `json:"deficit"`
+	// State is the bounded overflow lifecycle state.
+	State string `json:"state"`
+}
+
+// LayoutItemSnapshot describes one Panel or nested Layout item.
+type LayoutItemSnapshot struct {
+	Kind        string    `json:"kind"`
+	Panel       ControlID `json:"panel,omitempty"`
+	Layout      LayoutID  `json:"layout,omitempty"`
+	Bounds      Rect      `json:"bounds"`
+	Minimum     Size      `json:"minimum"`
+	LayoutIndex int       `json:"layout_index"`
+	StackIndex  int       `json:"stack_index"`
+}
+
+// LayoutSnapshot is one bounded nonvisual arrangement observation.
+type LayoutSnapshot struct {
+	ID          LayoutID             `json:"id"`
+	Key         string               `json:"key,omitempty"`
+	Kind        LayoutKind           `json:"kind"`
+	Owner       ControlID            `json:"owner"`
+	Parent      LayoutID             `json:"parent,omitempty"`
+	Bounds      Rect                 `json:"bounds"`
+	OwnerBounds Rect                 `json:"owner_bounds"`
+	Minimum     Size                 `json:"minimum"`
+	Border      *BorderDetails       `json:"border"`
+	LayoutIndex int                  `json:"layout_index"`
+	StackIndex  int                  `json:"stack_index"`
+	Items       []LayoutItemSnapshot `json:"items"`
+}
+
+// SnapshotCompletion is the bounded public command association embedded in a
+// snapshot. It deliberately has no local-only Cause field.
+type SnapshotCompletion struct {
+	// RequestID is the associated request correlation ID.
+	RequestID string `json:"request_id"`
+	// Outcome is the associated terminal result.
+	Outcome string `json:"outcome"`
+	// Command is the optional resolved semantic command.
+	Command string `json:"command,omitempty"`
+	// FrameSequence equals the containing snapshot sequence.
+	FrameSequence uint64 `json:"frame_sequence"`
+	// Code and Message are bounded public diagnostics.
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// SnapshotV1 is the automation-owned version 1 observation DTO. Client
+// completions contain a newly decoded, caller-owned object graph; mutating it
+// cannot affect server or App state.
+type SnapshotV1 struct {
+	// Version is the snapshot schema version and equals 1.
+	Version int `json:"version"`
+	// Sequence is the exact associated App frame sequence.
+	Sequence uint64 `json:"sequence"`
+	// Final reports that the observed App no longer accepts ordinary work.
+	Final bool `json:"final"`
+	// Scenario is the stable App scenario identity.
+	Scenario string `json:"scenario,omitempty"`
+	// Frame and semantic fields belong to the same atomic observation.
+	Frame        IntendedFrame         `json:"frame"`
+	Cursor       CursorState           `json:"cursor"`
+	Controls     []ControlSnapshot     `json:"controls"`
+	Layouts      []LayoutSnapshot      `json:"layouts"`
+	InputSources []InputSourceSnapshot `json:"input_sources,omitempty"`
+	// Overflows is a bounded required array.
+	Overflows []OverflowSnapshot `json:"overflows"`
+	// Completion is the optional sanitized App request association.
+	Completion *SnapshotCompletion `json:"completion,omitempty"`
+}
+
+func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
+	projected := SnapshotV1{
+		Version:  snapshot.Version,
+		Sequence: snapshot.Sequence,
+		Final:    snapshot.Final,
+		Scenario: snapshot.Scenario,
+		Frame: IntendedFrame{
+			Size: Size{
+				Width:  snapshot.Frame.Size.Width,
+				Height: snapshot.Frame.Size.Height,
+			},
+			Cells: make([]Cell, len(snapshot.Frame.Cells)),
+		},
+		Cursor: CursorState{
+			Visible: snapshot.Cursor.Visible,
+			Position: Point{
+				X: snapshot.Cursor.Position.X,
+				Y: snapshot.Cursor.Position.Y,
+			},
+		},
+		Controls:     make([]ControlSnapshot, len(snapshot.Controls)),
+		Layouts:      make([]LayoutSnapshot, len(snapshot.Layouts)),
+		InputSources: make([]InputSourceSnapshot, len(snapshot.InputSources)),
+		Overflows:    make([]OverflowSnapshot, len(snapshot.Overflows)),
+	}
+	for index, cell := range snapshot.Frame.Cells {
+		projected.Frame.Cells[index] = Cell{
+			Grapheme:   cell.Grapheme,
+			Style:      StyleID(cell.Style),
+			Foreground: colorFromCore(cell.Foreground),
+			Background: colorFromCore(cell.Background),
+			Attributes: StyleAttributes(cell.Attributes),
+			Owner:      ControlID(cell.Owner),
+		}
+	}
+	compactFrame(&projected.Frame, true)
+	for index, control := range snapshot.Controls {
+		projectedControl := ControlSnapshot{
+			ID:             ControlID(control.ID),
+			Key:            control.Key,
+			Kind:           ControlKind(control.Kind),
+			Parent:         ControlID(control.Parent),
+			Children:       make([]ControlID, len(control.Children)),
+			Bounds:         rectFromCore(control.Bounds),
+			AbsoluteBounds: rectFromCore(control.AbsoluteBounds),
+			EffectiveClip:  rectFromCore(control.EffectiveClip),
+			Minimum:        sizeFromCore(control.Minimum),
+			Layout:         LayoutID(control.Layout),
+			LayoutIndex:    control.LayoutIndex,
+			StackIndex:     control.StackIndex,
+			Style:          StyleID(control.Style),
+			ResolvedStyle:  resolvedStyleFromCore(control.ResolvedStyle),
+			Visible:        control.Visible,
+			Details: ControlDetails{
+				Version: control.Details.Version,
+			},
+		}
+		for childIndex, child := range control.Children {
+			projectedControl.Children[childIndex] = ControlID(child)
+		}
+		if control.Details.Container != nil {
+			projectedControl.Details.Container = &ContainerDetails{
+				ClientInset: control.Details.Container.ClientInset,
+			}
+		}
+		if control.Details.Border != nil {
+			var foregroundOverride, backgroundOverride *Color
+			if color := control.Details.Border.ForegroundOverride; color != nil {
+				projected := colorFromCore(*color)
+				foregroundOverride = &projected
+			}
+			if color := control.Details.Border.BackgroundOverride; color != nil {
+				projected := colorFromCore(*color)
+				backgroundOverride = &projected
+			}
+			projectedControl.Details.Border = &BorderDetails{
+				Title:              control.Details.Border.Title,
+				Form:               string(control.Details.Border.Form),
+				Style:              StyleID(control.Details.Border.Style),
+				ResolvedStyle:      resolvedStyleFromCore(control.Details.Border.ResolvedStyle),
+				ForegroundOverride: foregroundOverride,
+				BackgroundOverride: backgroundOverride,
+			}
+		}
+		projected.Controls[index] = projectedControl
+	}
+	for index, layout := range snapshot.Layouts {
+		projectedLayout := LayoutSnapshot{
+			ID:          LayoutID(layout.ID),
+			Key:         layout.Key,
+			Kind:        LayoutKind(layout.Kind),
+			Owner:       ControlID(layout.Owner),
+			Parent:      LayoutID(layout.Parent),
+			Bounds:      rectFromCore(layout.Bounds),
+			OwnerBounds: rectFromCore(layout.OwnerBounds),
+			Minimum:     sizeFromCore(layout.Minimum),
+			LayoutIndex: layout.LayoutIndex,
+			StackIndex:  layout.StackIndex,
+			Items:       make([]LayoutItemSnapshot, len(layout.Items)),
+		}
+		if layout.Border != nil {
+			projectedLayout.Border = borderDetailsFromCore(layout.Border)
+		}
+		for itemIndex, item := range layout.Items {
+			projectedLayout.Items[itemIndex] = LayoutItemSnapshot{
+				Kind:        item.Kind,
+				Panel:       ControlID(item.Panel),
+				Layout:      LayoutID(item.Layout),
+				Bounds:      rectFromCore(item.Bounds),
+				Minimum:     sizeFromCore(item.Minimum),
+				LayoutIndex: item.LayoutIndex,
+				StackIndex:  item.StackIndex,
+			}
+		}
+		projected.Layouts[index] = projectedLayout
+	}
+	for index, source := range snapshot.InputSources {
+		projectedSource := InputSourceSnapshot{
+			Source: source.Source,
+			Held:   make([]Key, len(source.Held)),
+		}
+		for keyIndex, key := range source.Held {
+			projectedSource.Held[keyIndex] = Key(key)
+		}
+		projected.InputSources[index] = projectedSource
+	}
+	for index, overflow := range snapshot.Overflows {
+		projected.Overflows[index] = OverflowSnapshot{
+			EpisodeID: overflow.EpisodeID,
+			Panel:     ControlID(overflow.Panel),
+			Layout:    LayoutID(overflow.Layout),
+			Available: sizeFromCore(overflow.Available),
+			Required:  sizeFromCore(overflow.Required),
+			Deficit:   sizeFromCore(overflow.Deficit),
+			State:     overflow.State,
+		}
+	}
+	if snapshot.Completion != nil {
+		projected.Completion = &SnapshotCompletion{
+			RequestID:     snapshot.Completion.RequestID,
+			Outcome:       string(snapshot.Completion.Outcome),
+			Command:       string(snapshot.Completion.Command),
+			FrameSequence: snapshot.Completion.FrameSequence,
+			Code:          snapshot.Completion.Code,
+			Message:       snapshot.Completion.Message,
+		}
+	}
+	return projected
+}
+
+func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
+	cloned := snapshot
+	cloned.Frame.Cells = append([]Cell{}, snapshot.Frame.Cells...)
+	cloned.Frame.Runs = append([]CellRun{}, snapshot.Frame.Runs...)
+	cloned.Controls = append([]ControlSnapshot{}, snapshot.Controls...)
+	for index := range cloned.Controls {
+		cloned.Controls[index].Children = append(
+			[]ControlID{},
+			snapshot.Controls[index].Children...,
+		)
+		if snapshot.Controls[index].Details.Container != nil {
+			container := *snapshot.Controls[index].Details.Container
+			cloned.Controls[index].Details.Container = &container
+		}
+		if snapshot.Controls[index].Details.Border != nil {
+			border := *snapshot.Controls[index].Details.Border
+			if border.ForegroundOverride != nil {
+				color := *border.ForegroundOverride
+				border.ForegroundOverride = &color
+			}
+			if border.BackgroundOverride != nil {
+				color := *border.BackgroundOverride
+				border.BackgroundOverride = &color
+			}
+			cloned.Controls[index].Details.Border = &border
+		}
+	}
+	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)
+	for index := range cloned.Layouts {
+		cloned.Layouts[index].Items = append(
+			[]LayoutItemSnapshot{},
+			snapshot.Layouts[index].Items...,
+		)
+		if snapshot.Layouts[index].Border != nil {
+			border := *snapshot.Layouts[index].Border
+			if border.ForegroundOverride != nil {
+				color := *border.ForegroundOverride
+				border.ForegroundOverride = &color
+			}
+			if border.BackgroundOverride != nil {
+				color := *border.BackgroundOverride
+				border.BackgroundOverride = &color
+			}
+			cloned.Layouts[index].Border = &border
+		}
+	}
+	cloned.InputSources = append([]InputSourceSnapshot{}, snapshot.InputSources...)
+	for index := range cloned.InputSources {
+		cloned.InputSources[index].Held = append([]Key{}, snapshot.InputSources[index].Held...)
+	}
+	cloned.Overflows = append([]OverflowSnapshot{}, snapshot.Overflows...)
+	if snapshot.Completion != nil {
+		completion := *snapshot.Completion
+		cloned.Completion = &completion
+	}
+	return cloned
+}
+
+func compactFrame(frame *IntendedFrame, keepCells bool) {
+	if frame == nil {
+		return
+	}
+	if len(frame.Cells) == 0 {
+		return
+	}
+	frame.Runs = frame.Runs[:0]
+	for _, cell := range frame.Cells {
+		last := len(frame.Runs) - 1
+		if last >= 0 && frame.Runs[last].Cell == cell {
+			frame.Runs[last].Count++
+			continue
+		}
+		frame.Runs = append(frame.Runs, CellRun{Count: 1, Cell: cell})
+	}
+	if !keepCells {
+		frame.Cells = nil
+	}
+}
+
+func expandFrame(frame *IntendedFrame, cellCount, maxRuns int) error {
+	if frame == nil {
+		return nil
+	}
+	if len(frame.Runs) > maxRuns {
+		return fmt.Errorf("snapshot frame run count exceeds advertised bound")
+	}
+	if len(frame.Cells) == cellCount {
+		if len(frame.Runs) == 0 {
+			compactFrame(frame, true)
+			return nil
+		}
+		offset := 0
+		for _, run := range frame.Runs {
+			if run.Count <= 0 || run.Count > cellCount-offset {
+				return fmt.Errorf("snapshot frame run exceeds bounded geometry")
+			}
+			for index := range run.Count {
+				if frame.Cells[offset+index] != run.Cell {
+					return fmt.Errorf(
+						"snapshot frame runs disagree with expanded cells",
+					)
+				}
+			}
+			offset += run.Count
+		}
+		if offset != cellCount {
+			return fmt.Errorf("snapshot frame runs do not match bounded geometry")
+		}
+		return nil
+	}
+	if len(frame.Cells) != 0 {
+		return fmt.Errorf("snapshot cell array does not match bounded geometry")
+	}
+	frame.Cells = make([]Cell, 0, cellCount)
+	for _, run := range frame.Runs {
+		if run.Count <= 0 || run.Count > cellCount-len(frame.Cells) {
+			return fmt.Errorf("snapshot frame run exceeds bounded geometry")
+		}
+		for range run.Count {
+			frame.Cells = append(frame.Cells, run.Cell)
+		}
+	}
+	if len(frame.Cells) != cellCount {
+		return fmt.Errorf("snapshot frame runs do not match bounded geometry")
+	}
+	return nil
+}
+
+func borderDetailsFromCore(border *expletives.BorderDetails) *BorderDetails {
+	if border == nil {
+		return nil
+	}
+	var foregroundOverride, backgroundOverride *Color
+	if border.ForegroundOverride != nil {
+		projected := colorFromCore(*border.ForegroundOverride)
+		foregroundOverride = &projected
+	}
+	if border.BackgroundOverride != nil {
+		projected := colorFromCore(*border.BackgroundOverride)
+		backgroundOverride = &projected
+	}
+	return &BorderDetails{
+		Title:              border.Title,
+		Form:               string(border.Form),
+		Style:              StyleID(border.Style),
+		ResolvedStyle:      resolvedStyleFromCore(border.ResolvedStyle),
+		ForegroundOverride: foregroundOverride,
+		BackgroundOverride: backgroundOverride,
+	}
+}
+
+func colorFromCore(color expletives.Color) Color {
+	return Color(color.String())
+}
+
+func resolvedStyleFromCore(style expletives.ResolvedStyle) ResolvedStyle {
+	return ResolvedStyle{
+		Foreground: colorFromCore(style.Foreground),
+		Background: colorFromCore(style.Background),
+		Attributes: StyleAttributes(style.Attributes),
+	}
+}
+
+func sizeFromCore(size expletives.Size) Size {
+	return Size{Width: size.Width, Height: size.Height}
+}
+
+func rectFromCore(rect expletives.Rect) Rect {
+	return Rect{
+		X:      rect.X,
+		Y:      rect.Y,
+		Width:  rect.Width,
+		Height: rect.Height,
+	}
+}
