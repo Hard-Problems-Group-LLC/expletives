@@ -154,7 +154,7 @@ The coverage inventory must include, as the library gains them:
   capture and restoration;
 - normal, focused, selected, activated, editing, disabled-with-reason,
   invalid, empty, loading, error, and completed states where meaningful;
-- keyboard-only operation, structured menu accelerators such as `Alt-F`,
+- keyboard-only operation, structured menu accelerators such as `Alt-I`,
   component hotkeys, fallback key paths, and inspectable bindings;
 - configurable interrupt behavior, including robust Ctrl-C handling in
   ordinary views, editors, modals, long-running operations, and automation;
@@ -187,7 +187,7 @@ keys are `display.label`, `display.static_text`, `display.separator`, and
 The Actions screen embeds default/focused, ordinary, disabled-with-reason,
 and cancel Buttons in `action.panel`, plus a live HotkeyBar in the automation
 status Frame. Their stable keys are `action.toggle`, `action.reset`,
-`action.disabled`, `action.quit`, and `action.hotkeys`. Raw Alt-T, Tab plus
+`action.disabled`, `action.quit`, and `action.hotkeys`. Raw Alt-G, Tab plus
 Enter/Space, the existing Ctrl-R binding, and direct command invocation all
 enter the shared command router. The Toggle command's checked presentation
 state changes with the same controller transition observed in the accent
@@ -212,16 +212,19 @@ an end-aligned Help root.
 - Dialogs reserves Message, Confirm, Input, and Progress dialog tests.
 - Help contains an enabled About page and is right-justified as the end group.
 
-Alt-F, Alt-P, Alt-L, Alt-C, Alt-M, Alt-D, Alt-H, F10, Ctrl-Space,
-arrows, Home/End, Enter, sibling mnemonics, and Escape all use the ordinary
-raw logical key path. F10 and Ctrl-Space first activate the root-label row;
-Down or Enter opens its popup. Menus use the Turbo Vision black/light-gray,
-red-mnemonic, and green-selection look; child menus measure complete entries
-and backset left when their preferred cascade would cross the right edge.
-Top-level end placement remains typed snapshot data, and Help popup placement
-is derived from its right-justified label rather than declaration offset.
-Popups remain visible in typed snapshots as a flat bounded tree with open and
-selected paths.
+The collision-audited direct root chords are Alt-I for File, Alt-N for
+Panels, Alt-A for Layouts, Alt-C for Controls, Alt-M for Menus, Alt-D for
+Dialogs, and Alt-P for Help. F9, Ctrl-Space, arrows, Home/End, Enter, sibling
+mnemonics, and Escape all use the ordinary raw logical key path. F9 and
+Ctrl-Space first activate the root-label row; Down or Enter opens its popup.
+Menus use the Turbo Vision black/light-gray, red-mnemonic, and
+green-selection look; child menus measure complete entries and backset left
+when their preferred cascade would cross the right edge. Top-level end
+placement remains typed snapshot data, and Help popup placement is derived
+from its right-justified label rather than declaration offset. Popups remain
+visible in typed snapshots as a flat bounded tree with open and selected
+paths. Project-selected defaults follow
+[`../Terminal-Shortcut-Compatibility.md`](../Terminal-Shortcut-Compatibility.md).
 
 The authoritative inventory and order are in
 [`control-catalog.md`](control-catalog.md). `FormPanel`, `Wizard`, and
@@ -355,7 +358,7 @@ correlated submission levels:
 `KeyDown` and `KeyUp` maintain pressed-key state for their automation source,
 including modifier keys. `KeyPress` is a distinct one-shot raw logical event
 that does not leave a key held. Ordered down/press/up sequences must be able
-to create chords such as `Alt-F` and `Ctrl-S` and enter the same
+to create chords such as `Alt-I` and `Ctrl-S` and enter the same
 context-sensitive mnemonic, accelerator, hotkey, and command resolver used by
 physical input.
 

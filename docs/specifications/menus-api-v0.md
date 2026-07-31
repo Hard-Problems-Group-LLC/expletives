@@ -112,7 +112,7 @@ gives focus to the MenuBar, and is in one of two states:
 - **popup active:** the selected root popup and zero or more child popups are
   open.
 
-`MenuBar.Open()` opens the first root popup. F10 and Ctrl-Space enter the
+`MenuBar.Open()` opens the first root popup. F9 and Ctrl-Space enter the
 bar-active state. Exact Alt plus a root mnemonic opens that root popup
 directly.
 
@@ -134,11 +134,11 @@ mnemonics and global chords.
 When closed:
 
 - exact Alt plus a root mnemonic opens that popup;
-- F10 activates the first root label without opening its popup; and
+- F9 activates the first root label without opening its popup; and
 - Ctrl-Space provides the documented non-Alt/non-function-key fallback with
   the same bar-active behavior.
 
-F10 and Ctrl-Space close an existing session. While only the bar is active:
+F9 and Ctrl-Space close an existing session. While only the bar is active:
 
 - Left/Right select the previous/next root cyclically;
 - Down or Enter opens the selected root popup;
@@ -240,12 +240,15 @@ operations.
 
 Normal Go tests cover construction, immutable copies, invalid trees,
 root-chrome ownership, geometry mutation and Layout rejection, surface and
-root-constraint resize, row reservation, F10 bar activation, traversal,
+root-constraint resize, row reservation, F9 bar activation, traversal,
 disabled selection/nonactivation, mnemonics, nesting, focus restoration,
 exact style roles, separators, shadows, measured popup width, child backset,
 start/end alignment and popup anchoring, tiny viewports, snapshot paths,
 concurrency, and response bounds.
 
-Attached and PTY tests exercise raw Alt-F, F10, Ctrl-Space, arrows, Enter,
-Escape, nested popups, commands, resize, Ctrl-C, and clean terminal
-restoration through the same logical input path.
+Attached and PTY tests exercise the collision-audited `expletives-test`
+mnemonics, F9, Ctrl-Space, arrows, Enter, Escape, nested popups, commands,
+resize, Ctrl-C, and clean terminal restoration through the same logical input
+path. Project defaults follow
+[`../Terminal-Shortcut-Compatibility.md`](../Terminal-Shortcut-Compatibility.md);
+clients may still deliberately select other raw chords.

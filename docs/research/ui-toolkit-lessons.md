@@ -56,7 +56,7 @@ Keep these concepts distinct:
 1. physical or backend key identity and modifiers;
 2. committed Unicode text and input-method output;
 3. bounded paste;
-4. menu mnemonics or access keys such as `Alt-F`;
+4. menu mnemonics or access keys such as `Alt-I`;
 5. scope-bound accelerators such as `Ctrl-S`;
 6. focus traversal and component navigation;
 7. application commands; and

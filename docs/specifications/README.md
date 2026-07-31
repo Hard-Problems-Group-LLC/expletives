@@ -20,6 +20,9 @@ do not use them as retrospective decoration.
 - [`../Limited-Unicode-Support.md`](../Limited-Unicode-Support.md) defines the
   governing one-cell Unicode, `U+FFFD` replacement, and conservative
   basic-terminal degradation boundary for every specification below.
+- [`../Terminal-Shortcut-Compatibility.md`](../Terminal-Shortcut-Compatibility.md)
+  defines the governing host-emulator collision policy for project-selected
+  keyboard defaults while preserving client-selected raw chord support.
 - [`application-architecture.md`](application-architecture.md) requires the
   toolkit to support multithreaded MVC, MVVC, and similar
   consuming-application structures without forcing toolkit model inheritance

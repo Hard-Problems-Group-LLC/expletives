@@ -54,25 +54,25 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		waitForFrameHeight(t, ctx, process, inputStart, 30)
 
 		altStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{0x1b, 'F'})
+		writePTY(t, process.pair.master, []byte{0x1b, 'i'})
 		if err := process.pair.waitInputDrained(ctx); err != nil {
-			t.Fatalf("deliver Alt-F: %v", err)
+			t.Fatalf("deliver Alt-I: %v", err)
 		}
 		waitForFrameHeight(t, ctx, process, altStart, 30)
 		escapeStart := process.output.mark()
 		writePTY(t, process.pair.master, []byte{0x1b})
 		waitForFrameHeight(t, ctx, process, escapeStart, 30)
 
-		f10Start := process.output.mark()
+		f9Start := process.output.mark()
 		writePTY(
 			t,
 			process.pair.master,
-			[]byte("\x1b[21~\x1b[C\x1b[B\r"),
+			[]byte("\x1b[20~\x1b[C\x1b[B\r"),
 		)
 		if err := process.pair.waitInputDrained(ctx); err != nil {
-			t.Fatalf("deliver F10/Right/Down/Enter: %v", err)
+			t.Fatalf("deliver F9/Right/Down/Enter: %v", err)
 		}
-		waitForFrameHeight(t, ctx, process, f10Start, 30)
+		waitForFrameHeight(t, ctx, process, f9Start, 30)
 
 		controlSpaceStart := process.output.mark()
 		writePTY(t, process.pair.master, []byte{0})
@@ -88,9 +88,9 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		waitForFrameHeight(t, ctx, process, controlSpaceEscapeStart, 30)
 
 		nestedStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{0x1b, 'L', 's'})
+		writePTY(t, process.pair.master, []byte{0x1b, 'a', 's'})
 		if err := process.pair.waitInputDrained(ctx); err != nil {
-			t.Fatalf("deliver Alt-L/S: %v", err)
+			t.Fatalf("deliver Alt-A/S: %v", err)
 		}
 		waitForFrameHeight(t, ctx, process, nestedStart, 30)
 		nestedEscapeStart := process.output.mark()
@@ -107,9 +107,9 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		waitForFrameHeight(t, ctx, process, rootEscapeStart, 30)
 
 		helpStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{0x1b, 'H', 'a'})
+		writePTY(t, process.pair.master, []byte{0x1b, 'p', 'a'})
 		if err := process.pair.waitInputDrained(ctx); err != nil {
-			t.Fatalf("deliver Alt-H/A: %v", err)
+			t.Fatalf("deliver Alt-P/A: %v", err)
 		}
 		waitForFrameHeight(t, ctx, process, helpStart, 30)
 

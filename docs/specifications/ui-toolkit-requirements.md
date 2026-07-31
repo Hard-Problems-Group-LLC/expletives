@@ -418,7 +418,7 @@ Panel                         rect, background, border(optional), children, focu
 ├─ Spinner / ActivityDots     animation tick; honors reduced-motion
 ├─ Separator / Rule           horizontal/vertical divider
 ├─ ScrollBar                  component; track/thumb from viewport ratio
-├─ MenuBar                    top accelerators; F10/[M] fallback focus
+├─ MenuBar                    top accelerators; audited fallback focus
 ├─ StatusBar                  bottom band; contextual segments
 ├─ HotkeyBar                  ordered items: Label | Hotkey | Comment
 ├─ TabbedPanel / Notebook     tab strip + page container (Diagnostics tabs)
@@ -524,14 +524,16 @@ Beyond the textbook behavior of each control, we specifically need:
 - **Raw key lifecycle.** `KeyDown` and `KeyUp` maintain pressed-key state for
   their input source, including modifier keys. `KeyPress` is an atomic
   convenience that does not leave a key held. Modifier chords such as
-  `Alt-F` and `Ctrl-S` enter mnemonic, accelerator, hotkey, and binding
+  `Alt-I` and `Ctrl-S` enter mnemonic, accelerator, hotkey, and binding
   resolution with the same source-local state whether they came from the
   terminal adapter, headless tests, or attached automation. Disconnect,
   cancellation, failure, and shutdown clear or synthesize release for that
   source so a modifier cannot remain stuck.
-- **Accelerators & hotkeys.** Global hotkeys; menu `ALT`+letter with a
-  non-ALT fallback (F10 / an unclaimed `[M]`); per-control hotkeys; edit-gate
-  suppression while a field captures text.
+- **Accelerators & hotkeys.** Global hotkeys; menu `ALT`+letter with
+  collision-audited F9 and Ctrl-Space fallbacks; per-control hotkeys;
+  edit-gate suppression while a field captures text. Project-selected
+  defaults follow
+  [`../Terminal-Shortcut-Compatibility.md`](../Terminal-Shortcut-Compatibility.md).
 - **Multi-stroke sequences** (future-proofing): a pluggable key-sequence
   resolver (e.g. `Ctrl-X Ctrl-S`) with timeout. This is distinct from the
   required simultaneous modifier chords represented by the raw key

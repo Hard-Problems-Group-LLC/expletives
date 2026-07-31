@@ -10,10 +10,56 @@ For each entry, include:
 - rationale
 - related files, proposals, or backlog items
 
-## EXPL-DEC-013 — Anchor Application Chrome And Adopt Turbo Vision Menu Look
+## EXPL-DEC-014 — Avoid Host-Terminal Shortcut Collisions
 
 - Date: 2026-07-30
 - Status: Directed and adopted
+- Authority: Direct operator instruction
+
+### Decision
+
+- Treat terminal-emulator, desktop, and input-method interception as a host
+  boundary: a TUI cannot recover a chord consumed before it reaches the PTY.
+- Avoid audited Terminator, Ptyxis, and GNOME Terminal shortcuts in project
+  defaults, examples, and acceptance paths while retaining arbitrary
+  client-selected raw chord support.
+- Replace the MenuBar's F10 activation with F9 and retain Ctrl-Space as a
+  secondary fallback.
+- Use Alt-I, Alt-N, Alt-A, Alt-C, Alt-M, Alt-D, and Alt-P for the
+  `expletives-test` File, Panels, Layouts, Controls, Menus, Dialogs, and Help
+  roots. Use Alt-G and Alt-R for its Toggle and Reset Button mnemonics.
+- Require an alternate visible or navigable route for essential behavior and
+  verify project defaults through a controlling PTY as well as structured raw
+  automation.
+
+### Rationale
+
+Terminator consumes Alt-L for its Layout Launcher. Ptyxis consumes F10 for
+its primary menu, and Ptyxis is the current terminal on RHEL 10, Fedora
+Workstation 41 and later, and Ubuntu 26.04 LTS. GNOME Terminal remains
+relevant on earlier supported releases and customized or upgraded systems;
+its optional menubar consumes conventional menu mnemonics including the
+former File and Help chords. The replacement set is not claimed by the
+audited default terminal bindings.
+
+### Supersession
+
+This decision supersedes only `EXPL-DEC-013`'s F10 activation default and any
+conventional example mnemonic that collides with the host. It retains that
+decision's Turbo Vision menu appearance, traversal behavior, Ctrl-Space
+fallback, edge ownership, placement, and focus rules.
+
+### Related Records
+
+- [`Terminal Shortcut Compatibility Advisory`](../docs/Terminal-Shortcut-Compatibility.md)
+- [`Menus API v0`](../docs/specifications/menus-api-v0.md)
+- [`EXPL-TASK-022`](tasks-in-progress.md)
+
+## EXPL-DEC-013 — Anchor Application Chrome And Adopt Turbo Vision Menu Look
+
+- Date: 2026-07-30
+- Status: Directed and adopted; activation binding narrowed by
+  `EXPL-DEC-014`
 - Authority: Direct operator instruction
 
 ### Decision

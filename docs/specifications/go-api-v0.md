@@ -402,7 +402,7 @@ an end item. Command items derive label, enabled/disabled reason, checked
 state, and first binding from the same `CommandDefinition` used by Button and
 HotkeyBar.
 
-Exact Alt top-level mnemonics open popups. F10 and Ctrl-Space activate the
+Exact Alt top-level mnemonics open popups. F9 and Ctrl-Space activate the
 menu row; Down or Enter opens the selected root. Arrow, Home, End, Enter,
 Escape, and unmodified sibling mnemonics traverse without activation
 surprises, and disabled items remain selectable but not activatable. Opening

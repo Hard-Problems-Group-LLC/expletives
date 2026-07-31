@@ -4,6 +4,53 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-30 — `EXPL-TASK-022` — Audit terminal-emulator shortcut collisions
+  and rebind project defaults.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-30T22:40:07-07:00
+  - Completed: 2026-07-30T22:55:04-07:00
+  - Outcome:
+    - audited Terminator, Ptyxis, and GNOME Terminal shortcut defaults and
+      mapped Ptyxis to current RHEL, Fedora, and Ubuntu desktop releases while
+      retaining GNOME Terminal coverage for earlier, upgraded, and customized
+      systems;
+    - added the project shortcut-compatibility advisory, governing links, and
+      `EXPL-DEC-014`, while preserving arbitrary client-selected raw chords;
+    - changed MenuBar activation from F10 to F9, retained Ctrl-Space as a
+      secondary fallback, and made reserved F10 a tested no-op;
+    - changed the catalog roots to Alt-I/Alt-N/Alt-A/Alt-C/Alt-M/Alt-D/Alt-P
+      and the Toggle/Reset Button mnemonics to Alt-G/Alt-R; and
+    - corrected the controlling-PTY fixture to encode unshifted Alt-letter
+      chords as lowercase legacy escape prefixes, avoiding the false
+      `ESC P` DCS interpretation.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the controlling-PTY integration test, the full race suite, all
+      debug/release/profiling builds, and all-mode smoke/self-checks;
+    - focused core, public automation-client, and self-check coverage verifies
+      the exact mnemonic catalog, Action mnemonics, F9 activation, F10 no-op,
+      and typed red mnemonic cells; and
+    - a live attached debug run observed F10 `no_op`, F9 bar activation,
+      Alt-I File, Alt-A/Stacking nesting, Alt-P/About navigation, orderly final
+      shutdown, socket cleanup, and temporary-workspace removal.
+  - Contracts and decision:
+    - [`Terminal Shortcut Compatibility Advisory`](../docs/Terminal-Shortcut-Compatibility.md)
+    - [`Menus API v0`](../docs/specifications/menus-api-v0.md)
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+    - [`EXPL-DEC-014`](decision-log.md#expl-dec-014--avoid-host-terminal-shortcut-collisions)
+  - Process:
+    - completed as a bounded compatibility correction without convening the
+      Panel; and
+    - recorded the compact closed-loop projection opportunity in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - future project-selected defaults must follow the advisory;
+    - user customizations, desktop/input-method bindings, multiplexers, and
+      remote clients still require deployment-local inspection; and
+    - a built-in concise `expletivesctl` projection remains a process
+      improvement, not part of this compatibility correction.
+
 - 2026-07-30 — `EXPL-TASK-021` — Add end-aligned Help and scalable catalog
   Menu namespaces.
   - Requestor: project operator

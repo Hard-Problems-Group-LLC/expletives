@@ -7,6 +7,9 @@ Keep durable project documentation here.
 - [Limited Unicode Support](Limited-Unicode-Support.md) defines the strict
   one-cell text boundary, `U+FFFD` replacement policy, and conservative
   black-on-yellow ASCII degradation for basic terminals.
+- [Terminal Shortcut Compatibility](Terminal-Shortcut-Compatibility.md)
+  identifies host-emulator collisions on supported RHEL, Fedora, and Ubuntu
+  terminal families and defines the project's safe default-binding policy.
 - [Specifications](specifications/README.md) contains behavior, interface,
   data, build, verification, and operational contracts.
 - [Go API v0](specifications/go-api-v0.md) records the implemented public

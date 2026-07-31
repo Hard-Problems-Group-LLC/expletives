@@ -139,10 +139,16 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   appearance and keyboard behavior (not implementation), including red
   mnemonic letters, green selection, measured/backset child popups,
   start/end top-level groups with conventional right-justified Help, Alt
-  top-level mnemonics, F10 bar activation, Ctrl-Space,
+  top-level mnemonics, F9 bar activation, Ctrl-Space,
   arrow/Home/End/Enter/Escape traversal, nested popup clipping, and
   command-route parity as defined in
   [`docs/specifications/menus-api-v0.md`](docs/specifications/menus-api-v0.md).
+- Follow
+  [`docs/Terminal-Shortcut-Compatibility.md`](docs/Terminal-Shortcut-Compatibility.md)
+  for toolkit, demo, example, and acceptance-test defaults. Host terminal
+  bindings consume input before the application can recover it: do not make a
+  reserved or conditionally intercepted chord the preferred or only route to
+  essential behavior. Preserve client-configurable raw chord support.
 - Application chrome is anchored to physical terminal edges in this order:
   Main Menu, Headers, root content, Footers, Status Bar. Main Menu and Status
   Bar are full-width edge rows; every Header/Footer is exactly one row and

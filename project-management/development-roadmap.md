@@ -306,14 +306,15 @@ ordered backlog and the active-task record; it does not replace either.
   mnemonic, accelerator, and fallback behavior.
 - Includes: root-owned full-width physical-row chrome; Turbo Vision
   appearance and keyboard behavior without copying implementation; red
-  mnemonic letters, green selection, disabled roles and shadows; `Alt-F`
-  popup access; F10 and Ctrl-Space bar activation; checked/disabled items;
+  mnemonic letters, green selection, disabled roles and shadows;
+  collision-audited exact Alt popup access; F9 and Ctrl-Space bar activation;
+  checked/disabled items;
   measured nested popups with right-edge backsetting; dismissal, clipping,
   resize, focus restoration; start/end top-level placement with conventional
   right-justified Help; scalable File/Panels/Layouts/Controls/Menus/Dialogs/
   Help catalog namespaces; and one active purpose-specific catalog screen.
-- `expletives-test` scenarios: `menus.navigation`, `menus.alt-f`,
-  `menus.f10-fallback`, `menus.disabled-command`, and
+- `expletives-test` scenarios: `menus.navigation`, `menus.alt-mnemonic`,
+  `menus.f9-fallback`, `menus.disabled-command`, and
   `menus.popup-clipping`, and `menus.end-placement`. The persistent MenuBar
   routes current screens through purpose-specific namespaces and holds
   disabled phase-owned future entries so catalog growth does not force every
@@ -326,9 +327,9 @@ ordered backlog and the active-task record; it does not replace either.
   resize/focus restoration, and raw automation key lifecycle parity with
   applicable PTY input.
 - Acceptance gate: menu, HotkeyBar, Button, mnemonic, direct command, and
-  automation routes converge on the same command outcome; both `Alt-F` and
-  the documented fallback work; and screen navigation is deterministic and
-  observable.
+  automation routes converge on the same command outcome; the audited exact
+  Alt mnemonics and documented fallbacks work; and screen navigation is
+  deterministic and observable.
 - Completion evidence:
   [`EXPL-TASK-019`](completed-tasks.md) and corrective
   [`EXPL-TASK-020`](completed-tasks.md), extended by

@@ -94,6 +94,16 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	screenEvidence := make(map[string]bool)
 	menuEvidence := false
 	helpEnd := false
+	expectedRootMnemonics := map[string]automation.Key{
+		"menu.file":     "i",
+		"menu.panels":   "n",
+		"menu.layouts":  "a",
+		"menu.controls": "c",
+		"menu.menus":    "m",
+		"menu.dialogs":  "d",
+		"menu.help":     "p",
+	}
+	rootMnemonicEvidence := make(map[string]bool, len(expectedRootMnemonics))
 	for _, control := range observe.Snapshot.Controls {
 		switch control.Key {
 		case "root":
@@ -128,6 +138,10 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					if entry.Key == "menu.help" {
 						helpEnd = entry.Placement == "end"
 					}
+					if mnemonic, ok := expectedRootMnemonics[entry.Key]; ok {
+						rootMnemonicEvidence[entry.Key] =
+							entry.Mnemonic == mnemonic
+					}
 				}
 			}
 		case "display.label":
@@ -158,12 +172,14 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.Action != nil &&
 					control.Details.Action.Command ==
 						string(demo.CommandFixtureToggle) &&
-					control.Details.Action.Default
+					control.Details.Action.Default &&
+					control.Details.Action.Mnemonic == "g"
 		case "action.reset":
 			actionEvidence[control.Key] =
 				control.Kind == "button" &&
 					control.Details.Action != nil &&
-					control.Details.Action.Enabled
+					control.Details.Action.Enabled &&
+					control.Details.Action.Mnemonic == "r"
 		case "action.disabled":
 			actionEvidence[control.Key] =
 				control.Kind == "button" &&
@@ -185,11 +201,13 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if len(observe.Snapshot.Frame.Cells) > 2 {
 		menuEvidence = menuEvidence &&
 			observe.Snapshot.Frame.Cells[0].Style == "menu_bar" &&
-			observe.Snapshot.Frame.Cells[2].Style == "menu.mnemonic" &&
-			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-5].Grapheme == "H" &&
-			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-5].Style == "menu.mnemonic"
+			observe.Snapshot.Frame.Cells[3].Grapheme == "i" &&
+			observe.Snapshot.Frame.Cells[3].Style == "menu.mnemonic" &&
+			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-2].Grapheme == "p" &&
+			observe.Snapshot.Frame.Cells[observe.Snapshot.Frame.Size.Width-2].Style == "menu.mnemonic"
 	}
 	if !menuEvidence || !helpEnd ||
+		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
 		len(screenEvidence) != 5 {
@@ -209,6 +227,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	for key, valid := range actionEvidence {
 		if !valid {
 			t.Fatalf("Action control %q has invalid typed evidence", key)
+		}
+	}
+	for key, valid := range rootMnemonicEvidence {
+		if !valid {
+			t.Fatalf("Menu root %q has a colliding mnemonic", key)
 		}
 	}
 	for key, valid := range screenEvidence {
@@ -386,9 +409,9 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if _, err := client.InjectInput(
 		ctx,
 		"menu-layouts-open",
-		automation.KeyEvent{Kind: automation.KeyPress, Key: "l"},
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "a"},
 	); err != nil {
-		t.Fatalf("InjectInput(Alt-L) error = %v", err)
+		t.Fatalf("InjectInput(Alt-A) error = %v", err)
 	}
 	if _, err := client.InjectInput(
 		ctx,
@@ -441,17 +464,17 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	toggled, err := client.InjectInput(
 		ctx,
 		"action-toggle",
-		automation.KeyEvent{Kind: automation.KeyPress, Key: "t"},
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "g"},
 	)
 	if err != nil {
-		t.Fatalf("InjectInput(Alt-T) error = %v", err)
+		t.Fatalf("InjectInput(Alt-G) error = %v", err)
 	}
 	if toggled.Outcome != automation.OutcomeApplied ||
 		toggled.Snapshot == nil ||
 		toggled.Snapshot.Completion == nil ||
 		toggled.Snapshot.Completion.Command !=
 			string(demo.CommandFixtureToggle) {
-		t.Fatalf("Alt-T completion = %+v", toggled)
+		t.Fatalf("Alt-G completion = %+v", toggled)
 	}
 	var checked bool
 	for _, control := range toggled.Snapshot.Controls {
@@ -461,7 +484,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		}
 	}
 	if !checked {
-		t.Fatal("Alt-T did not publish checked command state")
+		t.Fatal("Alt-G did not publish checked command state")
 	}
 	if _, err := client.InjectInput(
 		ctx,
@@ -480,9 +503,9 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if _, err := client.InjectInput(
 		ctx,
 		"help-open",
-		automation.KeyEvent{Kind: automation.KeyPress, Key: "h"},
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "p"},
 	); err != nil {
-		t.Fatalf("InjectInput(Alt-H) error = %v", err)
+		t.Fatalf("InjectInput(Alt-P) error = %v", err)
 	}
 	if _, err := client.InjectInput(
 		ctx,

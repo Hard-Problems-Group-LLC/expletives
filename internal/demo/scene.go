@@ -292,7 +292,7 @@ func NewWithRootConstraints(
 				Style:         canvasStyle.ID,
 			},
 			Text: "Menu demonstrations\n\n" +
-				"Use Alt plus a red mnemonic, F10, arrows, Enter, and Escape. " +
+				"Use Alt plus a red mnemonic, F9, arrows, Enter, and Escape. " +
 				"Panel-owned and context menus arrive with their required controls.",
 			HorizontalAlignment: expletives.TextAlignCenter,
 			VerticalAlignment:   expletives.TextAlignCenter,
@@ -513,7 +513,7 @@ func NewWithRootConstraints(
 				Style:         yellowStyle.ID,
 			},
 			Command:  CommandFixtureToggle,
-			Mnemonic: "t",
+			Mnemonic: "g",
 			Default:  true,
 		},
 	)
@@ -528,7 +528,7 @@ func NewWithRootConstraints(
 				Style:         yellowStyle.ID,
 			},
 			Command:  CommandScenarioReset,
-			Mnemonic: "s",
+			Mnemonic: "r",
 		},
 	)
 	if err != nil {
@@ -1449,15 +1449,15 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 	return []expletives.MenuItem{
 		{
 			Key: "menu.file", Kind: expletives.MenuItemSubmenu,
-			Label: "File", Mnemonic: "f", Menu: file,
+			Label: "File", Mnemonic: "i", Menu: file,
 		},
 		{
 			Key: "menu.panels", Kind: expletives.MenuItemSubmenu,
-			Label: "Panels", Mnemonic: "p", Menu: panels,
+			Label: "Panels", Mnemonic: "n", Menu: panels,
 		},
 		{
 			Key: "menu.layouts", Kind: expletives.MenuItemSubmenu,
-			Label: "Layouts", Mnemonic: "l", Menu: layouts,
+			Label: "Layouts", Mnemonic: "a", Menu: layouts,
 		},
 		{
 			Key: "menu.controls", Kind: expletives.MenuItemSubmenu,
@@ -1473,7 +1473,7 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 		},
 		{
 			Key: "menu.help", Kind: expletives.MenuItemSubmenu,
-			Label: "Help", Mnemonic: "h", Menu: help,
+			Label: "Help", Mnemonic: "p", Menu: help,
 			Placement: expletives.MenuBarPlacementEnd,
 		},
 	}, nil
@@ -1709,6 +1709,16 @@ func SelfCheck() error {
 		return errors.New("MenuBar typed evidence is incomplete")
 	}
 	helpAtEnd := false
+	expectedRootMnemonics := map[string]expletives.Key{
+		"menu.file":     "i",
+		"menu.panels":   "n",
+		"menu.layouts":  "a",
+		"menu.controls": "c",
+		"menu.menus":    "m",
+		"menu.dialogs":  "d",
+		"menu.help":     "p",
+	}
+	seenRootMnemonics := make(map[string]bool, len(expectedRootMnemonics))
 	catalogLabels := map[string]string{
 		"menu.panels.core":   "Core Panels",
 		"menu.panels.styles": "Visual Styles",
@@ -1720,6 +1730,9 @@ func SelfCheck() error {
 		if entry.Key == "menu.help" &&
 			entry.Placement == expletives.MenuBarPlacementEnd {
 			helpAtEnd = true
+		}
+		if mnemonic, ok := expectedRootMnemonics[entry.Key]; ok {
+			seenRootMnemonics[entry.Key] = entry.Mnemonic == mnemonic
 		}
 		if label, ok := catalogLabels[entry.Key]; ok {
 			if entry.Label != label {
@@ -1735,6 +1748,14 @@ func SelfCheck() error {
 	}
 	if !helpAtEnd {
 		return errors.New("Help menu is not in the end-aligned group")
+	}
+	if len(seenRootMnemonics) != len(expectedRootMnemonics) {
+		return errors.New("catalog root mnemonics are incomplete")
+	}
+	for key, valid := range seenRootMnemonics {
+		if !valid {
+			return fmt.Errorf("catalog root mnemonic %q is not collision-audited", key)
+		}
 	}
 	if len(seenCatalogLabels) != len(catalogLabels) {
 		return errors.New("catalog navigation labels are incomplete")

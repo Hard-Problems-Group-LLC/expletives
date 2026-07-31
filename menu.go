@@ -829,7 +829,7 @@ func (a *App) dispatchMenuKeyLocked(
 	key Key,
 	held map[Key]bool,
 ) (CommandID, bool, bool) {
-	toggle := (key == "f10" && noHeldModifiers(held)) ||
+	toggle := (key == "f9" && noHeldModifiers(held)) ||
 		(key == KeySpace &&
 			held[KeyControl] &&
 			!held[KeyAlt] &&

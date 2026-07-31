@@ -389,7 +389,14 @@ func TestMenuKeyboardTraversalActivationAndFocusRestore(t *testing.T) {
 	}
 	mu.Unlock()
 
-	pressKey(t, app, "f10-open", "f10")
+	pressKey(t, app, "reserved-f10", "f10")
+	details = menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar
+	if len(details.OpenPath) != 0 || len(details.SelectedPath) != 0 ||
+		app.Focused() != button {
+		t.Fatalf("reserved F10 changed menu state: %#v", details)
+	}
+
+	pressKey(t, app, "f9-open", "f9")
 	pressChord(t, app, "alt-view-switch", KeyAlt, "v")
 	details = menuBarByKey(t, app.Snapshot(), "menu.main").Details.MenuBar
 	if details.OpenPath[0] != "menu.view" {
@@ -409,9 +416,9 @@ func TestMenuKeyboardTraversalActivationAndFocusRestore(t *testing.T) {
 		Details.MenuBar.OpenPath) == 0 {
 		t.Fatal("Down did not open active menu")
 	}
-	pressKey(t, app, "f10-close", "f10")
+	pressKey(t, app, "f9-close", "f9")
 	if app.Focused() != button {
-		t.Fatal("F10 toggle did not restore focus")
+		t.Fatal("F9 toggle did not restore focus")
 	}
 }
 

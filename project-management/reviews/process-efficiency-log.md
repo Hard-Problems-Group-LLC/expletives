@@ -9,6 +9,32 @@
 
 ## Observed Opportunities
 
+### 27. Give Closed-Loop Commands A Built-In Compact Projection
+
+The shortcut compatibility check needed only outcome, MenuBar open/selected
+paths, and one screen-visible flag. `expletivesctl` emitted the complete
+snapshot for each input event, and one omitted projection produced more than
+55,000 output tokens. Multi-event `keys` also returns an array while
+single-event commands return one object, so an ad hoc query initially assumed
+the wrong shape.
+
+Improvement:
+
+- add a built-in concise output mode that normalizes single and multi-event
+  results and selects outcome, sequence, final state, menu paths, requested
+  control fields, and a bounded frame sample;
+- document that mode in the ordinary closed-loop recipe so full snapshots are
+  deliberate evidence acquisitions rather than the default diagnostic path;
+- keep the full response available for artifact capture and deep inspection;
+  and
+- consider a future bounded server-side projection only as a versioned
+  automation-protocol extension, because client-side filtering reduces local
+  output but not transport and parse cost.
+
+Applied immediately: the remainder of `EXPL-TASK-022` piped live results
+through a compact normalized projection and recorded only the changed menu
+paths and About visibility.
+
 ### 26. Exercise New Semantic States Through The Public Client Early
 
 The core Menu tests accepted the new F10 bar-active state, but the first live

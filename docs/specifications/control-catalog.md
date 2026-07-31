@@ -305,10 +305,11 @@ Menus follow Actions immediately because their items invoke the same stable
 commands, enabled-state checks, mnemonics, accelerators, and fallback
 bindings. This phase also moves `expletives-test` from one accumulating
 catalog surface to persistent menu navigation among purpose-specific screens.
-It includes `Alt-F`, F10 and another documented fallback, checked/disabled
-items, separators, nested popups, dismissal, clipping, resize, and exact focus
-restoration. Top-level items support stable start/end edge placement so
-conventional right-justified Help remains part of the same MenuBar.
+It includes exact Alt mnemonics, collision-audited F9 and Ctrl-Space
+fallbacks, checked/disabled items, separators, nested popups, dismissal,
+clipping, resize, and exact focus restoration. Top-level items support stable
+start/end edge placement so conventional right-justified Help remains part of
+the same MenuBar.
 
 The implemented exact contract is
 [`menus-api-v0.md`](menus-api-v0.md). The public-API catalog now uses its
