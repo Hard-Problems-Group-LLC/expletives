@@ -970,6 +970,78 @@ func TestSnapshotProjectsListBoxDetailsAndCopiesViewport(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsTreeViewDetailsAndCopiesViewport(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 36, Height: 12},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = expletives.NewTreeView(app.Root(), expletives.TreeViewOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "tree",
+					Bounds:        expletives.Rect{Width: 24, Height: 6},
+				},
+			},
+			BorderForm:  expletives.BorderSingle,
+			VerticalBar: expletives.ScrollBarVisibilityAuto,
+		},
+		Nodes: []expletives.TreeNode{{
+			Key: "root", Label: "Root", Expanded: true,
+			Children: []expletives.TreeNode{
+				{Key: "one", Label: "One"},
+				{Key: "two", Label: "Two"},
+			},
+		}},
+		Current: "one", SelectionMode: expletives.CollectionSelectionMultiple,
+		Selected: []string{"root", "two"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *TreeViewDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "tree" {
+			details = projected.Controls[index].Details.TreeView
+			break
+		}
+	}
+	if details == nil || details.Status != "ready" ||
+		details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
+		details.NodeCount != 3 || details.VisibleCount != 3 ||
+		details.EnabledCount != 3 || details.RetainedBytes <= 0 ||
+		details.Current != "one" || details.CurrentIndex != 1 ||
+		details.SelectionMode != "multiple" || details.SelectedCount != 2 ||
+		details.FirstSelected != "root" || details.LastSelected != "two" ||
+		details.ExpandedCount != 1 || details.FirstExpanded != "root" ||
+		details.LastExpanded != "root" ||
+		len(details.SelectionDigest) != 64 || len(details.ExpansionDigest) != 64 {
+		t.Fatalf("projected TreeView details = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	var clonedDetails *TreeViewDetails
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "tree" {
+			clonedDetails = cloned.Controls[index].Details.TreeView
+			break
+		}
+	}
+	if clonedDetails == nil {
+		t.Fatal("clone has no TreeView details")
+	}
+	clonedDetails.Status = "mutated"
+	if details.Status == "mutated" {
+		t.Fatal("cloneSnapshot exposed TreeViewDetails storage")
+	}
+}
+
 func TestSnapshotProjectsPopupCollectionDetailsAndCopiesState(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

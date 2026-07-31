@@ -65,6 +65,7 @@ const (
 	mutationMarkdownView
 	mutationLogView
 	mutationListBox
+	mutationTreeView
 	mutationPopupCollection
 )
 
@@ -428,6 +429,7 @@ func (t *Transaction) SetFocus(control Control) error {
 		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
 		ControlViewport, ControlScrollablePanel, ControlMarkdownView,
 		ControlLogView, ControlStreamView, ControlListBox,
+		ControlTreeView,
 		ControlDropDown, ControlComboBox:
 	default:
 		return ErrNotFocusable
@@ -757,7 +759,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationPopupCollection:
+			mutationListBox, mutationTreeView, mutationPopupCollection:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -914,7 +916,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationPopupCollection,
+			mutationListBox, mutationTreeView, mutationPopupCollection,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -1355,6 +1357,33 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					)
 				}
 			}
+		case treeViewBehavior:
+			collectionBytes += treeViewStorageBytes(behavior)
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"TreeView",
+			); err != nil {
+				return err
+			}
+			for _, command := range []struct {
+				id   CommandID
+				role string
+			}{
+				{id: behavior.activateCommand, role: "activation"},
+				{id: behavior.expandCommand, role: "expansion"},
+			} {
+				if command.id != "" && requireCommand {
+					if _, exists := t.app.commands[command.id]; !exists {
+						return fmt.Errorf(
+							"%w: TreeView %s command %q is not registered",
+							ErrInvalidControl,
+							command.role,
+							command.id,
+						)
+					}
+				}
+			}
 		case dropDownBehavior:
 			collectionBytes += popupCollectionStorageBytes(behavior.popup)
 			if err := validatePopupCollectionCommands(
@@ -1604,7 +1633,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationPopupCollection:
+			mutationListBox, mutationTreeView, mutationPopupCollection:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

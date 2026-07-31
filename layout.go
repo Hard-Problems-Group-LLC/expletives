@@ -163,7 +163,7 @@ func defaultControlLayoutHints(
 		ControlTabbedPanel, ControlNotebook, ControlViewport,
 		ControlScrollablePanel, ControlMarkdownView:
 		return hints(LayoutSizeStretch, LayoutSizeStretch)
-	case ControlLogView, ControlStreamView, ControlListBox:
+	case ControlLogView, ControlStreamView, ControlListBox, ControlTreeView:
 		return hints(LayoutSizeStretch, LayoutSizeStretch)
 	case ControlMenuBar, ControlStatusBar, ControlHeader, ControlFooter,
 		ControlHotkeyBar, ControlFocusGuideBar, ControlTextField,
@@ -959,6 +959,7 @@ func arrangeControlLayoutsLocked(app *App, owner *controlState) {
 	reconcileMarkdownLocked(owner)
 	reconcileLogViewLocked(owner)
 	reconcileListBoxLocked(owner)
+	reconcileTreeViewLocked(owner)
 	for _, root := range owner.layoutRoots {
 		client := controlClientSize(owner)
 		if owner.root {

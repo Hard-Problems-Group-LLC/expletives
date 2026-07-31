@@ -21,5 +21,9 @@ owner, known blockers, and brief status notes.
   - Status: shared contracts are fixed. ListBox, DropDown, and ComboBox now
     have stable-key repair, keyboard-complete selection/editing, transient
     popup ownership, compact typed automation, catalog/self-check coverage,
-    and ordinary-suite evidence. Proceeding through final race/build gates for
-    the popup slice, then TreeView.
+    full ordinary/race verification, debug builds, live attached evidence, and
+    pushed ACPs. TreeView now has its copied flat preorder model, stable
+    expansion/current/selection repair, keyboard behavior, compact typed
+    automation, catalog fixture, full ordinary/race/static/self-check gates,
+    and live raw-key/frame evidence. ACP is the remaining checkpoint before
+    Table.

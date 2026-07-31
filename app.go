@@ -502,6 +502,9 @@ func (a *App) paintControlLocked(
 	case listBoxBehavior:
 		listBox := listBoxDetails(bounds, behavior)
 		details.ListBox = &listBox
+	case treeViewBehavior:
+		treeView := treeViewDetails(bounds, behavior)
+		details.TreeView = &treeView
 	case dropDownBehavior:
 		dropDown := a.popupDetailsLocked(state, behavior.popup)
 		details.DropDown = &dropDown

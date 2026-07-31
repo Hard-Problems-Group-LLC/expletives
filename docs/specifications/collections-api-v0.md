@@ -328,13 +328,93 @@ type TreeNode struct {
     Expanded       bool
     Children       []TreeNode
 }
+
+type TreeViewOptions struct {
+    ScrollablePanelOptions
+    Nodes            []TreeNode
+    Current          string
+    Selected         []string
+    Expanded         []string
+    SelectionMode    CollectionSelectionMode
+    RequireSelection bool
+    Status           CollectionStatus
+    StatusMessage    string
+    ActivateCommand  CommandID
+    ExpandCommand    CommandID
+}
+
+type TreeViewState struct {
+    Status        CollectionStatus
+    StatusMessage string
+    Current       string
+    CurrentIndex  int
+    Selected      []string
+    Expanded      []string
+    Offset        Point
+    NodeCount     int
+    VisibleCount  int
+    EnabledCount  int
+}
+
+func NewTreeView(Container, TreeViewOptions) (*TreeView, error)
+func (t *Transaction) NewTreeView(
+    Container,
+    TreeViewOptions,
+) (*TreeView, error)
+func (v *TreeView) Nodes() []TreeNode
+func (v *TreeView) State() TreeViewState
+func (v *TreeView) SetNodes([]TreeNode) error
+func (v *TreeView) Replace(
+    []TreeNode,
+    current string,
+    selected []string,
+    expanded []string,
+) error
+func (v *TreeView) SetCurrent(string) error
+func (v *TreeView) SetSelection([]string) error
+func (v *TreeView) SetExpanded([]string) error
+func (v *TreeView) SetNodeExpanded(string, bool) error
+func (v *TreeView) SetStatus(CollectionStatus, string) error
+func (v *TreeView) Focus() error
+func (v *TreeView) Activate(
+    context.Context,
+    source string,
+    requestID string,
+) (Completion, error)
+
+func (t *Transaction) SetTreeNodes(*TreeView, []TreeNode) error
+func (t *Transaction) ReplaceTree(
+    *TreeView,
+    []TreeNode,
+    current string,
+    selected []string,
+    expanded []string,
+) error
+func (t *Transaction) SetTreeCurrent(*TreeView, string) error
+func (t *Transaction) SetTreeSelection(*TreeView, []string) error
+func (t *Transaction) SetTreeExpanded(*TreeView, []string) error
+func (t *Transaction) SetTreeNodeExpanded(
+    *TreeView,
+    string,
+    bool,
+) error
+func (t *Transaction) SetTreeStatus(
+    *TreeView,
+    CollectionStatus,
+    string,
+) error
 ```
 
 TreeView has ListBox-equivalent status, current, selection mode, required
 selection, change command, activation command, and scrolling options. Nodes
 are copied iteratively with unique keys across the complete tree, a maximum
 depth of `MaxCollectionDepth`, and a maximum total node count of
-`MaxCollectionItems`.
+`MaxCollectionItems`. Only branches may be expanded. A nil `Options.Expanded`
+uses the copied `TreeNode.Expanded` flags; a non-nil slice is an exact initial
+expansion set. `SetNodes` preserves surviving expansion by stable key and
+uses node flags only for new keys. `Replace` and `SetExpanded` apply exact
+expansion sets. Every expansion getter and setter uses canonical model
+pre-order.
 
 Up and Down move through visible pre-order rows. Right expands a collapsed
 branch or moves to its first enabled visible child. Left collapses an expanded
@@ -345,7 +425,16 @@ separate optional `ExpandCommand`; programmatic expansion does not.
 
 Tree guides, branch markers, indentation, current, selection, disabled state,
 and horizontal clipping use semantic styles. Expansion and current are
-observable by node key and visible-row index.
+observable by node key and visible-row index. Hidden selections survive a
+collapse; when collapse hides current, current moves to its nearest enabled
+visible ancestor. `EnabledCount` is the number of enabled visible nodes.
+TreeView offers to stretch on both axes and keeps current vertically visible.
+
+Core typed details expose exact state. The automation projection omits the
+recursive node model and exact status/disabled-reason text. It reports bounded
+node, visible, enabled, selected, expanded, and retained-byte counts; first
+and last selected/expanded keys; stable selection and expansion digests;
+current visible index; optional commands; and the compact content viewport.
 
 ## Table
 

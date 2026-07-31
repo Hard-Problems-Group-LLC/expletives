@@ -684,6 +684,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case listBoxBehavior:
 		rightValue, ok := right.(listBoxBehavior)
 		return ok && listBoxBehaviorEqual(leftValue, rightValue)
+	case treeViewBehavior:
+		rightValue, ok := right.(treeViewBehavior)
+		return ok && treeViewBehaviorEqual(leftValue, rightValue)
 	case dropDownBehavior:
 		rightValue, ok := right.(dropDownBehavior)
 		return ok && dropDownBehaviorEqual(leftValue, rightValue)

@@ -972,6 +972,11 @@ the root package's local snapshot. The client checks:
   cardinality/endpoints/SHA-256 digest, required-selection implications,
   enabled and command policy, and compact viewport geometry without retained
   item labels or status text;
+- kind-consistent TreeView details with ready/loading/error evidence, bounded
+  node/visible/enabled/retained counts, stable current visible identity/index,
+  exact selection and expansion cardinality/endpoints/SHA-256 digests,
+  required-selection implications, enabled and command policy, and compact
+  viewport geometry without retained recursive nodes or status text;
 - kind-consistent DropDown details with bounded item/enabled/retained counts,
   stable current and selected identities/indices, collapsed or exact open
   popup geometry, provisional current/selection, row cap, enabled policy,
@@ -981,7 +986,7 @@ the root package's local snapshot. The client checks:
   valid exact TextField-compatible editor record, matching enabled/disabled
   and change-command policy, no password mode, and no simultaneous popup-open
   and editor-editing state;
-- aggregate ListBox, DropDown, and ComboBox retained bytes within
+- aggregate ListBox, TreeView, DropDown, and ComboBox retained bytes within
   `MaxCollectionAggregateBytes`;
 - aggregate retained Markdown, LogView, and StreamView content, including
   StreamView partial-line storage, within `MaxContentAggregateBytes`;
@@ -1177,7 +1182,7 @@ separately revalidated on 2026-07-31 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks|TestSnapshotRejectsInvalidMarkdownDetails|TestSnapshotProjectsLogAndStreamDetailsAndCopiesState|TestSnapshotRejectsInvalidLogAndStreamDetails|TestSnapshotProjectsListBoxDetailsAndCopiesViewport|TestSnapshotProjectsPopupCollectionDetailsAndCopiesState|TestSnapshotRejectsInvalidListBoxDetails|TestSnapshotRejectsInvalidPopupCollectionDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks|TestSnapshotRejectsInvalidMarkdownDetails|TestSnapshotProjectsLogAndStreamDetailsAndCopiesState|TestSnapshotRejectsInvalidLogAndStreamDetails|TestSnapshotProjectsListBoxDetailsAndCopiesViewport|TestSnapshotProjectsTreeViewDetailsAndCopiesViewport|TestSnapshotProjectsPopupCollectionDetailsAndCopiesState|TestSnapshotRejectsInvalidListBoxDetails|TestSnapshotRejectsInvalidTreeViewDetails|TestSnapshotRejectsInvalidPopupCollectionDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 

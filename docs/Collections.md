@@ -1,8 +1,8 @@
 # Collections
 
 Phase 16 collection controls use copied, bounded application models and stable
-keys. `ListBox`, `DropDown`, and `ComboBox` are implemented. The formal shared
-contract, including the planned TreeView, Table, and DataGrid, is
+keys. `ListBox`, `DropDown`, `ComboBox`, and `TreeView` are implemented. The
+formal shared contract, including the planned Table and DataGrid, is
 [`specifications/collections-api-v0.md`](specifications/collections-api-v0.md).
 
 ## Construct A ListBox
@@ -164,15 +164,74 @@ Transactions provide `SetDropDownItems`, `SetDropDownSelection`,
 Only one collection popup is open at a time per App, and it uses the ordinary
 event loop rather than a nested modal loop.
 
+## Hierarchies With TreeView
+
+TreeView copies a recursive caller model into a bounded internal preorder
+representation. Keys are unique across the complete tree, branches and leaves
+use the same selection model, and disabled nodes remain visible but cannot
+become current, selected, or activated.
+
+```go
+tree, err := expletives.NewTreeView(panel, expletives.TreeViewOptions{
+    ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+        ScrollViewOptions: expletives.ScrollViewOptions{
+            PanelOptions: expletives.PanelOptions{
+                AutomationKey: "project.tree",
+            },
+            ChangeCommand: "project.selection.changed",
+        },
+        BorderForm:  expletives.BorderSingle,
+        VerticalBar: expletives.ScrollBarVisibilityAuto,
+    },
+    Nodes: []expletives.TreeNode{{
+        Key: "workspace", Label: "Workspace", Expanded: true,
+        Children: []expletives.TreeNode{
+            {Key: "docs", Label: "Documentation"},
+            {
+                Key: "source", Label: "Source",
+                Children: []expletives.TreeNode{
+                    {Key: "core", Label: "Core toolkit"},
+                    {Key: "terminal", Label: "Terminal adapter"},
+                },
+            },
+        },
+    }},
+    SelectionMode:   expletives.CollectionSelectionMultiple,
+    Selected:        []string{"workspace"},
+    ActivateCommand: "project.open",
+    ExpandCommand:   "project.expansion.changed",
+})
+```
+
+Up and Down move through enabled visible nodes without changing selection.
+Right expands a collapsed branch or enters its first enabled child; Left
+collapses an expanded branch or returns to the nearest enabled parent. Space
+changes selection and Enter activates. `+` and `-` expand or collapse the
+current branch; `*` recursively expands it. Tab and Shift-Tab leave the tree
+as one focus group.
+
+Only actual keyboard expansion changes route `ExpandCommand`. Programmatic
+`SetExpanded`, `SetNodeExpanded`, and Transaction equivalents are silent.
+Collapsed descendants retain selection. If a programmatic collapse hides
+current, current moves to the nearest enabled visible ancestor.
+
+`SetNodes` preserves current, selection, and expansion for surviving keys.
+New branches use their copied `Expanded` flags; surviving collapsed branches
+stay collapsed even if replacement flags differ. Use `Replace` or
+`Transaction.ReplaceTree` when a view model owns the exact current, selected,
+and expanded key sets. A nil `TreeViewOptions.Expanded` uses node flags, while
+a non-nil slice overrides them exactly.
+
 ## Layout, Theme, And Automation
 
-ListBox offers to stretch on both axes. DropDown and ComboBox offer to stretch
-horizontally and remain one row high. A border adds the normal one-cell inset;
-integrated scrollbars consume ListBox client cells only when their policies
-and content require them. Current is always kept vertically visible when the
-viewport has height.
+ListBox and TreeView offer to stretch on both axes. DropDown and ComboBox offer
+to stretch horizontally and remain one row high. A border adds the normal
+one-cell inset; integrated scrollbars consume collection client cells only
+when their policies and content require them. Current is always kept
+vertically visible when the viewport has height.
 
-Theme roles are `list_box`, `list_box.border`, `drop_down`,
+Theme roles are `list_box`, `list_box.border`, `tree_view`,
+`tree_view.border`, `tree.guide`, `tree.branch`, `tree.expanded`, `drop_down`,
 `drop_down.focused`, `drop_down.disabled`, `drop_down.popup`,
 `drop_down.popup_border`, `combo_box`, `combo_box.focused`,
 `combo_box.disabled`, `collection.current`,
@@ -182,11 +241,13 @@ Theme roles are `list_box`, `list_box.border`, `drop_down`,
 meaning.
 
 Core typed details expose exact bounded state. Automation intentionally omits
-retained item models. ListBox replaces status text and disabled reason with
-bounded evidence; DropDown exposes compact popup geometry and stable
-identities; ComboBox adds the exact bounded editor record. Pull the intended
-frame for exact visible labels, markers, and semantic styles. Raw automation
-key events exercise the same current, provisional selection, commit/cancel,
-editing, scrolling, and activation paths as a terminal user. The catalog page
-is reachable at Controls / Collections with stable keys `collections.list`,
+retained item and recursive node models. ListBox and TreeView replace status
+text and disabled reason with bounded evidence; TreeView also publishes
+selection and expansion digests. DropDown exposes compact popup geometry and
+stable identities; ComboBox adds the exact bounded editor record. Pull the
+intended frame for exact visible labels, markers, and semantic styles. Raw
+automation key events exercise the same current, provisional selection,
+expansion, commit/cancel, editing, scrolling, and activation paths as a
+terminal user. The catalog page is reachable at Controls / Collections with
+stable keys `collections.list`, `collections.tree`,
 `collections.drop-down`, and `collections.combo`.

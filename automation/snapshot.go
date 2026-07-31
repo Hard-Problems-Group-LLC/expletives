@@ -202,6 +202,8 @@ type ControlDetails struct {
 	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
 	// ListBox is present for ListBox.
 	ListBox *ListBoxDetails `json:"list_box,omitempty"`
+	// TreeView is present for TreeView.
+	TreeView *TreeViewDetails `json:"tree_view,omitempty"`
 	// DropDown is present for DropDown.
 	DropDown *DropDownDetails `json:"drop_down,omitempty"`
 	// ComboBox is present for ComboBox.
@@ -621,6 +623,36 @@ type ListBoxDetails struct {
 	DisabledReasonBytes int                    `json:"disabled_reason_bytes"`
 	ChangeCommand       string                 `json:"change_command,omitempty"`
 	ActivateCommand     string                 `json:"activate_command,omitempty"`
+	Viewport            ContentViewportDetails `json:"viewport"`
+}
+
+// TreeViewDetails is a compact stable-identity hierarchy observation that
+// omits the retained recursive node model and exact status/reason text.
+type TreeViewDetails struct {
+	Status              string                 `json:"status"`
+	StatusMessageBytes  int                    `json:"status_message_bytes"`
+	StatusMessageDigest string                 `json:"status_message_digest,omitempty"`
+	NodeCount           int                    `json:"node_count"`
+	VisibleCount        int                    `json:"visible_count"`
+	EnabledCount        int                    `json:"enabled_count"`
+	RetainedBytes       int                    `json:"retained_bytes"`
+	Current             string                 `json:"current,omitempty"`
+	CurrentIndex        int                    `json:"current_index"`
+	SelectionMode       string                 `json:"selection_mode"`
+	RequireSelection    bool                   `json:"require_selection"`
+	SelectedCount       int                    `json:"selected_count"`
+	FirstSelected       string                 `json:"first_selected,omitempty"`
+	LastSelected        string                 `json:"last_selected,omitempty"`
+	SelectionDigest     string                 `json:"selection_digest"`
+	ExpandedCount       int                    `json:"expanded_count"`
+	FirstExpanded       string                 `json:"first_expanded,omitempty"`
+	LastExpanded        string                 `json:"last_expanded,omitempty"`
+	ExpansionDigest     string                 `json:"expansion_digest"`
+	Enabled             bool                   `json:"enabled"`
+	DisabledReasonBytes int                    `json:"disabled_reason_bytes"`
+	ChangeCommand       string                 `json:"change_command,omitempty"`
+	ActivateCommand     string                 `json:"activate_command,omitempty"`
+	ExpandCommand       string                 `json:"expand_command,omitempty"`
 	Viewport            ContentViewportDetails `json:"viewport"`
 }
 
@@ -1252,14 +1284,10 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			}
 		}
 		if details := control.Details.ListBox; details != nil {
-			statusDigest := ""
-			if details.StatusMessage != "" {
-				hash := sha256.Sum256([]byte(details.StatusMessage))
-				statusDigest = fmt.Sprintf("%x", hash)
-			}
+			statusBytes, statusDigest := compactTextEvidence(details.StatusMessage)
 			projectedControl.Details.ListBox = &ListBoxDetails{
 				Status:              string(details.Status),
-				StatusMessageBytes:  len(details.StatusMessage),
+				StatusMessageBytes:  statusBytes,
 				StatusMessageDigest: statusDigest,
 				ItemCount:           details.ItemCount,
 				EnabledCount:        details.EnabledCount,
@@ -1276,6 +1304,38 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				DisabledReasonBytes: len(details.DisabledReason),
 				ChangeCommand:       string(details.ChangeCommand),
 				ActivateCommand:     string(details.ActivateCommand),
+				Viewport: contentViewportDetailsFromCore(
+					&details.Viewport,
+				),
+			}
+		}
+		if details := control.Details.TreeView; details != nil {
+			statusBytes, statusDigest := compactTextEvidence(details.StatusMessage)
+			projectedControl.Details.TreeView = &TreeViewDetails{
+				Status:              string(details.Status),
+				StatusMessageBytes:  statusBytes,
+				StatusMessageDigest: statusDigest,
+				NodeCount:           details.NodeCount,
+				VisibleCount:        details.VisibleCount,
+				EnabledCount:        details.EnabledCount,
+				RetainedBytes:       details.RetainedBytes,
+				Current:             details.Current,
+				CurrentIndex:        details.CurrentIndex,
+				SelectionMode:       string(details.SelectionMode),
+				RequireSelection:    details.RequireSelection,
+				SelectedCount:       details.SelectedCount,
+				FirstSelected:       details.FirstSelected,
+				LastSelected:        details.LastSelected,
+				SelectionDigest:     details.SelectionDigest,
+				ExpandedCount:       details.ExpandedCount,
+				FirstExpanded:       details.FirstExpanded,
+				LastExpanded:        details.LastExpanded,
+				ExpansionDigest:     details.ExpansionDigest,
+				Enabled:             details.Enabled,
+				DisabledReasonBytes: len(details.DisabledReason),
+				ChangeCommand:       string(details.ChangeCommand),
+				ActivateCommand:     string(details.ActivateCommand),
+				ExpandCommand:       string(details.ExpandCommand),
 				Viewport: contentViewportDetailsFromCore(
 					&details.Viewport,
 				),
@@ -1355,6 +1415,14 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 		}
 	}
 	return projected
+}
+
+func compactTextEvidence(value string) (int, string) {
+	if value == "" {
+		return 0, ""
+	}
+	hash := sha256.Sum256([]byte(value))
+	return len(value), fmt.Sprintf("%x", hash)
 }
 
 func textFieldDetailsFromCore(
@@ -1654,6 +1722,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.ListBox != nil {
 			listBox := *snapshot.Controls[index].Details.ListBox
 			cloned.Controls[index].Details.ListBox = &listBox
+		}
+		if snapshot.Controls[index].Details.TreeView != nil {
+			treeView := *snapshot.Controls[index].Details.TreeView
+			cloned.Controls[index].Details.TreeView = &treeView
 		}
 		if snapshot.Controls[index].Details.DropDown != nil {
 			dropDown := *snapshot.Controls[index].Details.DropDown

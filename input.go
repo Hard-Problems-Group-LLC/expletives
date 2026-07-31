@@ -20,8 +20,8 @@ const (
 )
 
 // Key is a stable logical key identity independent of terminal key codes.
-// Dispatch accepts lowercase ASCII letters, digits, [, ], the named keys
-// below, and function-key IDs "f1" through "f12".
+// Dispatch accepts canonical single-cell printable keys, the named keys below,
+// and function-key IDs "f1" through "f12".
 type Key string
 
 const (
@@ -71,6 +71,12 @@ const (
 	KeyLeftBracket Key = "["
 	// KeyRightBracket is the unmodified ] key.
 	KeyRightBracket Key = "]"
+	// KeyPlus is the unmodified + key.
+	KeyPlus Key = "+"
+	// KeyMinus is the unmodified - key.
+	KeyMinus Key = "-"
+	// KeyAsterisk is the unmodified * key.
+	KeyAsterisk Key = "*"
 )
 
 // KeyEventKind identifies one raw logical key lifecycle transition.
@@ -720,6 +726,10 @@ func (a *App) DispatchKey(
 			if noHeldModifiers(held) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.listBoxKeyLocked(a.focus, event.Key)
+			}
+			if noHeldModifiers(held) && !scrollHandled {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.treeViewKeyLocked(a.focus, event.Key)
 			}
 			if noHeldModifiers(held) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =

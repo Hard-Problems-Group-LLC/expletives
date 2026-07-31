@@ -120,6 +120,7 @@ func DefaultTheme() Theme {
 		"log_view":          resolved,
 		"stream_view":       resolved,
 		"list_box":          menuNormal,
+		"tree_view":         menuNormal,
 		"drop_down":         inputNormal,
 		"combo_box":         inputNormal,
 		"drop_down.focused": menuSelected,
@@ -142,7 +143,20 @@ func DefaultTheme() Theme {
 		"log_view.border":         resolved,
 		"stream_view.border":      resolved,
 		"list_box.border":         menuNormal,
-		"collection.current":      menuSelected,
+		"tree_view.border":        menuNormal,
+		"tree.guide": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: menuNormal.Background,
+		},
+		"tree.branch": {
+			Foreground: black,
+			Background: menuNormal.Background,
+		},
+		"tree.expanded": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: menuNormal.Background,
+		},
+		"collection.current": menuSelected,
 		"collection.selected": {
 			Foreground: white,
 			Background: RGB(0x00, 0x00, 0xAA),

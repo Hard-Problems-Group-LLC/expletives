@@ -15,8 +15,9 @@ Text/Display, Actions, Menus, Status Bar, Headers/Footers, Selection,
 Text and Numeric Input, Progress, and Navigation/Chrome are implemented.
 Scrolling and Content is implemented through Viewport, ScrollablePanel,
 MarkdownView, LogView, and StreamView. Collections is the active phase;
-ListBox, DropDown, and editable ComboBox now implement stable-identity bounded
-models, keyboard behavior, transient popup ownership, and compact automation.
+ListBox, TreeView, DropDown, and editable ComboBox now implement
+stable-identity bounded models, keyboard behavior, transient popup ownership,
+and compact automation.
 The public Go package includes non-container `Label`, `StaticText`,
 `Separator`, `Rule`, `Button`, `HotkeyBar`, `MenuBar`, and `StatusBar`
 controls; `Checkbox`, `RadioButton`/`RadioGroup`, `CycleField`, `SelectField`,
@@ -27,7 +28,8 @@ horizontal/vertical `ScrollBar`; page-owning `TabbedPanel` and `Notebook`;
 generic `Viewport` and framed `ScrollablePanel` containers; read-only
 `MarkdownView`; structured bounded `LogView`; inert byte-oriented
 `StreamView`; stable-key single/multiple-selection `ListBox`; selection-only
-`DropDown` and editable validated `ComboBox`; root-owned
+`DropDown`, editable validated `ComboBox`, and hierarchical `TreeView`;
+root-owned
 one-row `Header` and `Footer` containers; immutable
 `Menu` models; Box/Grid and nested Layouts;
 independent arrangement and stacking order; structured overflow; optional

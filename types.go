@@ -361,6 +361,8 @@ const (
 	ControlStreamView ControlKind = "stream_view"
 	// ControlListBox identifies one bounded stable-identity item list.
 	ControlListBox ControlKind = "list_box"
+	// ControlTreeView identifies one bounded stable-identity hierarchy.
+	ControlTreeView ControlKind = "tree_view"
 	// ControlDropDown identifies one selection-only collapsed popup field.
 	ControlDropDown ControlKind = "drop_down"
 	// ControlComboBox identifies one editable collapsed popup field.
@@ -659,6 +661,8 @@ type ControlDetails struct {
 	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
 	// ListBox is present for ListBox.
 	ListBox *ListBoxDetails `json:"list_box,omitempty"`
+	// TreeView is present for TreeView.
+	TreeView *TreeViewDetails `json:"tree_view,omitempty"`
 	// DropDown is present for DropDown.
 	DropDown *DropDownDetails `json:"drop_down,omitempty"`
 	// ComboBox is present for ComboBox.
@@ -1056,6 +1060,35 @@ type ListBoxDetails struct {
 	Viewport         ScrollableDetails       `json:"viewport"`
 }
 
+// TreeViewDetails describes compact stable-identity hierarchy state without
+// duplicating the retained recursive node model.
+type TreeViewDetails struct {
+	Status           CollectionStatus        `json:"status"`
+	StatusMessage    string                  `json:"status_message,omitempty"`
+	NodeCount        int                     `json:"node_count"`
+	VisibleCount     int                     `json:"visible_count"`
+	EnabledCount     int                     `json:"enabled_count"`
+	RetainedBytes    int                     `json:"retained_bytes"`
+	Current          string                  `json:"current,omitempty"`
+	CurrentIndex     int                     `json:"current_index"`
+	SelectionMode    CollectionSelectionMode `json:"selection_mode"`
+	RequireSelection bool                    `json:"require_selection"`
+	SelectedCount    int                     `json:"selected_count"`
+	FirstSelected    string                  `json:"first_selected,omitempty"`
+	LastSelected     string                  `json:"last_selected,omitempty"`
+	SelectionDigest  string                  `json:"selection_digest"`
+	ExpandedCount    int                     `json:"expanded_count"`
+	FirstExpanded    string                  `json:"first_expanded,omitempty"`
+	LastExpanded     string                  `json:"last_expanded,omitempty"`
+	ExpansionDigest  string                  `json:"expansion_digest"`
+	Enabled          bool                    `json:"enabled"`
+	DisabledReason   string                  `json:"disabled_reason,omitempty"`
+	ChangeCommand    CommandID               `json:"change_command,omitempty"`
+	ActivateCommand  CommandID               `json:"activate_command,omitempty"`
+	ExpandCommand    CommandID               `json:"expand_command,omitempty"`
+	Viewport         ScrollableDetails       `json:"viewport"`
+}
+
 // DropDownDetails describes one collapsed field and its optional transient
 // popup without duplicating the retained item model.
 type DropDownDetails struct {
@@ -1420,6 +1453,18 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				listBox.Viewport.VerticalBar = &bar
 			}
 			cloned.Controls[index].Details.ListBox = &listBox
+		}
+		if snapshot.Controls[index].Details.TreeView != nil {
+			treeView := *snapshot.Controls[index].Details.TreeView
+			if treeView.Viewport.HorizontalBar != nil {
+				bar := *treeView.Viewport.HorizontalBar
+				treeView.Viewport.HorizontalBar = &bar
+			}
+			if treeView.Viewport.VerticalBar != nil {
+				bar := *treeView.Viewport.VerticalBar
+				treeView.Viewport.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.TreeView = &treeView
 		}
 		if snapshot.Controls[index].Details.DropDown != nil {
 			dropDown := *snapshot.Controls[index].Details.DropDown

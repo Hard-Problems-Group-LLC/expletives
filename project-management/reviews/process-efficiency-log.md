@@ -976,6 +976,29 @@ one stable test-name prefix so they can be selected with a short `-run`
 expression instead of maintaining the long documentation regex. This should
 remain a test naming cleanup, not a new runner or orchestration layer.
 
+### 32. Keep Recursive Models Flat Internally And Share Compact Evidence
+
+TreeView accepts recursive caller data, but retaining that shape would make
+copying, identity lookup, visible-row traversal, and expansion repair repeat
+tree walks throughout rendering and input. Its automation record also needs
+the same non-disclosing status evidence already used by ListBox.
+
+Improvement applied:
+
+- normalize the bounded caller tree iteratively into one private preorder
+  slice with parent, direct-child, depth, and subtree-end indices;
+- reconstruct caller-owned recursive `Nodes()` results iteratively from that
+  flat representation, keeping recursive caller slices out of retained state;
+- derive visible rows by skipping collapsed subtree ranges instead of
+  recursively walking the model during each operation; and
+- use one compact text-evidence helper for ListBox and TreeView status byte
+  counts and digests.
+
+The work also reconfirmed item 29: a focusable typed-detail control still
+touches several explicit kind registries. Keep those trust-boundary switches
+explicit, but add the proposed exhaustive registration test after the
+Collections phase rather than building a generator during feature work.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

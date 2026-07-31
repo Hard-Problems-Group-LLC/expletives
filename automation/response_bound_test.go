@@ -1578,6 +1578,110 @@ func TestSnapshotRejectsInvalidListBoxDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidTreeViewDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 28, Height: 9},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewTreeView(app.Root(), expletives.TreeViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "tree",
+						Bounds:        expletives.Rect{Width: 20, Height: 5},
+					},
+				},
+				BorderForm: expletives.BorderSingle,
+			},
+			Nodes: []expletives.TreeNode{{
+				Key: "root", Label: "Root", Expanded: true,
+				Children: []expletives.TreeNode{
+					{Key: "one", Label: "One"},
+					{Key: "two", Label: "Two"},
+				},
+			}},
+			SelectionMode:    expletives.CollectionSelectionMultiple,
+			RequireSelection: true,
+			Selected:         []string{"root", "two"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(snapshot *SnapshotV1) *ControlSnapshot {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "tree" {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatal("fixture has no TreeView details")
+		return nil
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid TreeView fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ControlSnapshot)
+	}{
+		{"status", func(control *ControlSnapshot) {
+			control.Details.TreeView.Status = "unknown"
+		}},
+		{"node count", func(control *ControlSnapshot) {
+			control.Details.TreeView.NodeCount = expletives.MaxCollectionItems + 1
+		}},
+		{"visible count", func(control *ControlSnapshot) {
+			control.Details.TreeView.VisibleCount = 4
+		}},
+		{"enabled count", func(control *ControlSnapshot) {
+			control.Details.TreeView.EnabledCount = 4
+		}},
+		{"retained bytes", func(control *ControlSnapshot) {
+			control.Details.TreeView.RetainedBytes = -1
+		}},
+		{"current index", func(control *ControlSnapshot) {
+			control.Details.TreeView.CurrentIndex = 3
+		}},
+		{"selection mode", func(control *ControlSnapshot) {
+			control.Details.TreeView.SelectionMode = "range"
+		}},
+		{"selection endpoints", func(control *ControlSnapshot) {
+			control.Details.TreeView.LastSelected = "root"
+		}},
+		{"expansion endpoints", func(control *ControlSnapshot) {
+			control.Details.TreeView.FirstExpanded = "missing"
+		}},
+		{"expansion digest", func(control *ControlSnapshot) {
+			control.Details.TreeView.ExpansionDigest = strings.Repeat("G", 64)
+		}},
+		{"viewport state", func(control *ControlSnapshot) {
+			control.Details.TreeView.Viewport.State.ContentSize.Height++
+		}},
+		{"invalid command", func(control *ControlSnapshot) {
+			control.Details.TreeView.ExpandCommand = "bad command"
+		}},
+		{"detail union", func(control *ControlSnapshot) {
+			control.Details.ListBox = &ListBoxDetails{}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			test.mutate(find(&snapshot))
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid TreeView details")
+			}
+		})
+	}
+}
+
 func TestSnapshotRejectsInvalidPopupCollectionDetails(t *testing.T) {
 	t.Parallel()
 	limits := DefaultLimits()
@@ -2768,6 +2872,41 @@ func maximumCompletionJSONBytes(
 			Viewport:            markdownViewport,
 		},
 	}
+	treeViewControl := controlValue
+	treeViewControl.Details = ControlDetails{
+		Version: 1,
+		Border: &BorderDetails{
+			Form:          "single",
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		TreeView: &TreeViewDetails{
+			Status:              "error",
+			StatusMessageBytes:  math.MaxInt,
+			StatusMessageDigest: strings.Repeat("f", sha256HexBytes),
+			NodeCount:           math.MaxInt,
+			VisibleCount:        math.MaxInt,
+			EnabledCount:        math.MaxInt,
+			RetainedBytes:       math.MaxInt,
+			Current:             string(controlValue.ID),
+			CurrentIndex:        math.MaxInt,
+			SelectionMode:       "multiple",
+			RequireSelection:    true,
+			SelectedCount:       math.MaxInt,
+			FirstSelected:       string(controlValue.ID),
+			LastSelected:        string(controlValue.ID),
+			SelectionDigest:     strings.Repeat("f", sha256HexBytes),
+			ExpandedCount:       math.MaxInt,
+			FirstExpanded:       string(controlValue.ID),
+			LastExpanded:        string(controlValue.ID),
+			ExpansionDigest:     strings.Repeat("f", sha256HexBytes),
+			DisabledReasonBytes: math.MaxInt,
+			ChangeCommand:       string(controlValue.ID),
+			ActivateCommand:     string(controlValue.ID),
+			ExpandCommand:       string(controlValue.ID),
+			Viewport:            markdownViewport,
+		},
+	}
 	comboBoxControl := controlValue
 	comboBoxControl.Details = ControlDetails{
 		Version: 1,
@@ -2806,6 +2945,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, logControl),
 		mustMarshal(t, streamControl),
 		mustMarshal(t, listBoxControl),
+		mustMarshal(t, treeViewControl),
 		mustMarshal(t, comboBoxControl),
 	} {
 		if len(candidate) > len(control) {

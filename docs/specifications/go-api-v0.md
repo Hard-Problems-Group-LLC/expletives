@@ -710,6 +710,18 @@ func (l *ListBox) SetSelection([]string) error
 func (l *ListBox) SetStatus(CollectionStatus, string) error
 func (l *ListBox) Focus() error
 func (l *ListBox) Activate(context.Context, string, string) (Completion, error)
+func NewTreeView(Container, TreeViewOptions) (*TreeView, error)
+func (v *TreeView) Nodes() []TreeNode
+func (v *TreeView) State() TreeViewState
+func (v *TreeView) SetNodes([]TreeNode) error
+func (v *TreeView) Replace([]TreeNode, string, []string, []string) error
+func (v *TreeView) SetCurrent(string) error
+func (v *TreeView) SetSelection([]string) error
+func (v *TreeView) SetExpanded([]string) error
+func (v *TreeView) SetNodeExpanded(string, bool) error
+func (v *TreeView) SetStatus(CollectionStatus, string) error
+func (v *TreeView) Focus() error
+func (v *TreeView) Activate(context.Context, string, string) (Completion, error)
 func NewDropDown(Container, DropDownOptions) (*DropDown, error)
 func (d *DropDown) Items() []ListItem
 func (d *DropDown) State() DropDownState
@@ -780,6 +792,16 @@ copies; snapshots expose compact counts, identities, digests, and viewport
 geometry without duplicating the retained item model. See
 [`collections-api-v0.md`](collections-api-v0.md).
 
+`TreeView` is the hierarchical Phase 16 collection leaf. It iteratively copies
+the bounded recursive `[]TreeNode` input into stable preorder identity, keeps
+selection independent from current and expansion, preserves hidden selection,
+and repairs current to an enabled visible ancestor when collapse hides it.
+Arrows implement conventional tree navigation; `+`, `-`, and `*` expand,
+collapse, and recursively expand; Space selects; Enter activates. Exact and
+preserving replacement APIs support MVC/MVVM publication. Compact automation
+reports visible identity and selection/expansion digests without copying the
+recursive node model.
+
 `DropDown` and `ComboBox` share the same private stable-key popup capability
 without a public inheritance relationship. DropDown is selection-only;
 ComboBox embeds an observable TextField-compatible editor and copied optional
@@ -829,6 +851,7 @@ func (t *Transaction) NewMarkdownView(Container, MarkdownViewOptions) (*Markdown
 func (t *Transaction) NewLogView(Container, LogViewOptions) (*LogView, error)
 func (t *Transaction) NewStreamView(Container, StreamViewOptions) (*StreamView, error)
 func (t *Transaction) NewListBox(Container, ListBoxOptions) (*ListBox, error)
+func (t *Transaction) NewTreeView(Container, TreeViewOptions) (*TreeView, error)
 func (t *Transaction) NewDropDown(Container, DropDownOptions) (*DropDown, error)
 func (t *Transaction) NewComboBox(Container, ComboBoxOptions) (*ComboBox, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
@@ -868,6 +891,13 @@ func (t *Transaction) ReplaceList(*ListBox, []ListItem, string, []string) error
 func (t *Transaction) SetListCurrent(*ListBox, string) error
 func (t *Transaction) SetListSelection(*ListBox, []string) error
 func (t *Transaction) SetListStatus(*ListBox, CollectionStatus, string) error
+func (t *Transaction) SetTreeNodes(*TreeView, []TreeNode) error
+func (t *Transaction) ReplaceTree(*TreeView, []TreeNode, string, []string, []string) error
+func (t *Transaction) SetTreeCurrent(*TreeView, string) error
+func (t *Transaction) SetTreeSelection(*TreeView, []string) error
+func (t *Transaction) SetTreeExpanded(*TreeView, []string) error
+func (t *Transaction) SetTreeNodeExpanded(*TreeView, string, bool) error
+func (t *Transaction) SetTreeStatus(*TreeView, CollectionStatus, string) error
 func (t *Transaction) SetDropDownItems(Control, []ListItem) error
 func (t *Transaction) SetDropDownSelection(Control, string) error
 func (t *Transaction) SetComboBoxText(*ComboBox, string) error
