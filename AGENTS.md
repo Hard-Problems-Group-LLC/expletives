@@ -172,8 +172,8 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   physically from lowest to highest as global application hotkeys,
   current-screen hotkeys, then focused-control-type hotkeys/advisories. Allow
   applications to append to or override the generic focused-control guidance
-  for one instance. Preserve the dynamic `FocusGuideBar` and typed evidence
-  contract in
+  for one instance. All three guidance layers are left-justified. Preserve
+  the dynamic `FocusGuideBar` and typed evidence contract in
   [`docs/specifications/focus-guide-bar-api-v0.md`](docs/specifications/focus-guide-bar-api-v0.md).
 - Follow
   [`docs/Terminal-Shortcut-Compatibility.md`](docs/Terminal-Shortcut-Compatibility.md)

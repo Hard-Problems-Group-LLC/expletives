@@ -210,8 +210,8 @@ func (focusGuideBarBehavior) paintDecoration(
 		absolute,
 		clip,
 		content.lines,
-		TextAlignCenter,
-		TextAlignCenter,
+		TextAlignStart,
+		TextAlignStart,
 	)
 }
 

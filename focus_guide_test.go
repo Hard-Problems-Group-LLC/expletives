@@ -86,11 +86,11 @@ func TestFocusGuideBarTracksFocusAndCustomization(t *testing.T) {
 		guide.Customization != FocusGuidanceOverride {
 		t.Fatalf("overridden FocusGuideBarDetails = %#v", guide)
 	}
-	if got := rowText(app.Snapshot(), 3); !strings.Contains(
+	if got := rowText(app.Snapshot(), 3); !strings.HasPrefix(
 		got,
 		"Application-owned guidance",
 	) {
-		t.Fatalf("FocusGuideBar rendered row = %q", got)
+		t.Fatalf("FocusGuideBar rendered row = %q, want left-aligned guidance", got)
 	}
 
 	if err := app.ClearFocusGuidance(checkbox); err != nil {

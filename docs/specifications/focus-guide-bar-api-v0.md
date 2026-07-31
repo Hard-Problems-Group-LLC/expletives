@@ -95,7 +95,8 @@ or semantic state in snapshots.
 ## Rendering And Typed Evidence
 
 The default style is `focus_guide_bar`. The complete row is filled by normal
-control painting and current text is centered and clipped to Bounds.
+control painting. Current text is left-justified and clipped to Bounds,
+matching the other footer guidance layers.
 
 `ControlDetails.FocusGuideBar` contains:
 
