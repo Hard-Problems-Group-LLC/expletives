@@ -154,6 +154,10 @@ func genericFocusGuidance(kind ControlKind) string {
 		return "Select field: [ previous; ] next; arrows move focus"
 	case ControlTextField:
 		return "Text field: Enter edits/commits; Esc cancels; arrows move caret"
+	case ControlNumberField:
+		return "Number field: Enter edits/commits; Esc cancels; arrows move caret"
+	case ControlSpinBox:
+		return "Spin box: [ decrements; ] increments; Enter edits"
 	case ControlMenuBar:
 		return "Menu: arrows navigate; Enter activates; Esc closes"
 	default:

@@ -657,6 +657,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case textFieldBehavior:
 		rightValue, ok := right.(textFieldBehavior)
 		return ok && textFieldBehaviorEqual(leftValue, rightValue)
+	case numberFieldBehavior:
+		rightValue, ok := right.(numberFieldBehavior)
+		return ok && numberFieldBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

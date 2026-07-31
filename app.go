@@ -458,6 +458,9 @@ func (a *App) paintControlLocked(
 	case textFieldBehavior:
 		field := a.textFieldDetailsLocked(state, behavior)
 		details.TextField = &field
+	case numberFieldBehavior:
+		field := a.numberFieldDetailsLocked(state, behavior)
+		details.NumberField = &field
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

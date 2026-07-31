@@ -88,6 +88,8 @@ func DefaultTheme() Theme {
 		"cycle_field":      resolved,
 		"select_field":     resolved,
 		"text_field":       resolved,
+		"number_field":     resolved,
+		"spin_box":         resolved,
 		"text_input.valid": {
 			Foreground: RGB(0x00, 0xAA, 0x00),
 			Background: resolved.Background,

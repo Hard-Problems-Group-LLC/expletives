@@ -631,6 +631,83 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidNumberFieldDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "number_field"
+		control.Details = ControlDetails{
+			Version: 1,
+			NumberField: &NumberFieldDetails{
+				Text: "1.5", Value: 1.5, Length: 3, Caret: 3,
+				Valid: true, Minimum: float64Pointer(0),
+				Maximum: float64Pointer(2), DecimalPlaces: 1,
+				Enabled: true,
+			},
+		}
+		return completion
+	}
+	if err := validateCompletion(valid(), limits); err != nil {
+		t.Fatalf("valid NumberField fixture rejected: %v", err)
+	}
+	tests := map[string]func(*NumberFieldDetails){
+		"length mismatch": func(details *NumberFieldDetails) {
+			details.Length++
+		},
+		"nonfinite value": func(details *NumberFieldDetails) {
+			details.Value = math.NaN()
+		},
+		"invalid precision": func(details *NumberFieldDetails) {
+			details.DecimalPlaces = expletives.MaxNumberDecimalPlaces + 1
+		},
+		"reversed range": func(details *NumberFieldDetails) {
+			*details.Minimum = 3
+		},
+		"noncanonical committed text": func(details *NumberFieldDetails) {
+			details.Text = "01.5"
+			details.Length = 4
+			details.Caret = 4
+		},
+		"unexpected step": func(details *NumberFieldDetails) {
+			details.Step = 0.5
+		},
+		"invalid reason mismatch": func(details *NumberFieldDetails) {
+			details.Editing = true
+			details.Text = "-"
+			details.Length = 1
+			details.Caret = 1
+			details.Valid = false
+		},
+		"disabled editing": func(details *NumberFieldDetails) {
+			details.Enabled = false
+			details.DisabledReason = "Disabled"
+			details.Editing = true
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			completion := valid()
+			mutate(completion.Snapshot.Controls[0].Details.NumberField)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid numeric details")
+			}
+		})
+	}
+
+	spin := valid()
+	spin.Snapshot.Controls[0].Kind = "spin_box"
+	spin.Snapshot.Controls[0].Details.NumberField.Step = 0.5
+	if err := validateCompletion(spin, limits); err != nil {
+		t.Fatalf("valid SpinBox fixture rejected: %v", err)
+	}
+	spin.Snapshot.Controls[0].Details.NumberField.Step = 0
+	if err := validateCompletion(spin, limits); err == nil {
+		t.Fatal("validateCompletion() accepted zero-step SpinBox")
+	}
+}
+
 func TestSnapshotRejectsInvalidMenuBarDetails(t *testing.T) {
 	t.Parallel()
 
@@ -1182,6 +1259,22 @@ func maximumCompletionJSONBytes(
 			},
 		},
 	}
+	numberFieldControl := controlValue
+	numberFieldControl.Details = ControlDetails{
+		Version: 1,
+		NumberField: &NumberFieldDetails{
+			Value: math.MaxFloat64, Length: math.MaxInt,
+			Caret: math.MaxInt, ViewOffset: math.MaxInt,
+			Editing: true, Valid: false,
+			InvalidReason: strings.Repeat("<", maxDisplayTextBytes),
+			Minimum:       float64Pointer(-math.MaxFloat64),
+			Maximum:       float64Pointer(math.MaxFloat64),
+			DecimalPlaces: math.MaxInt,
+			Step:          math.MaxFloat64,
+			Enabled:       true,
+			ChangeCommand: string(controlValue.ID),
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -1189,6 +1282,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, hotkeyControl),
 		mustMarshal(t, focusGuideControl),
 		mustMarshal(t, textFieldControl),
+		mustMarshal(t, numberFieldControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate
@@ -1235,6 +1329,10 @@ func maximumCompletionJSONBytes(
 		expletives.MaxSelectionItems*(selectionItemBytes+1) +
 		expletives.MaxSelectionItems*selectionControlOverhead +
 		2*expletives.MaxTextInputAggregateBytes
+}
+
+func float64Pointer(value float64) *float64 {
+	return &value
 }
 
 func maximumElementCompletion(limits Limits) Completion {

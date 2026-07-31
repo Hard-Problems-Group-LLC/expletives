@@ -492,6 +492,8 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return a.choiceFieldEnabledLocked(state)
 	case textFieldBehavior:
 		return !behavior.disabled
+	case numberFieldBehavior:
+		return !behavior.editor.disabled
 	default:
 		return false
 	}
@@ -524,6 +526,8 @@ func (a *App) focusBehaviorEligibleLocked(
 		}
 	case textFieldBehavior:
 		return !behavior.disabled
+	case numberFieldBehavior:
+		return !behavior.editor.disabled
 	}
 	return false
 }
@@ -609,7 +613,7 @@ func (a *App) ensureFocusLocked() bool {
 		return false
 	}
 	previous := a.focus
-	_, _, committed := a.commitTextFieldStateLocked(previous)
+	committed := a.commitOrCancelEditorStateLocked(previous)
 	a.focus = nil
 	controls := a.focusableControlsLocked()
 	if len(controls) != 0 {

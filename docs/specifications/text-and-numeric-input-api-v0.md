@@ -175,18 +175,71 @@ User commits publish the value first and then invoke the optional registered
 
 ## NumberField And SpinBox
 
-`NumberField` is a decimal numeric specialization of the single-line editor.
-Its invariant numeric validator composes with range and precision rules rather
-than weakening the text validator contract. Empty/intermediate edit strings
-may exist while editing; commit either produces one bounded numeric value or
-retains editing with an invalid fact according to the configured policy.
+```go
+const MaxNumberDecimalPlaces = 9
 
-`SpinBox` adds step, minimum, maximum, and `[`/`]` decrement/increment behavior
-to `NumberField`. Arrow keys retain focus-navigation meaning outside edit mode
-and caret-navigation meaning inside edit mode.
+type NumberFieldOptions struct {
+    PanelOptions
+    Value          float64
+    Minimum        *float64
+    Maximum        *float64
+    DecimalPlaces  int
+    Disabled       bool
+    DisabledReason string
+    ChangeCommand  CommandID
+}
 
-Exact numeric types, overflow behavior, commit policy, and typed evidence are
-specified before those controls are exposed.
+type SpinBoxOptions struct {
+    PanelOptions
+    Value          float64
+    Minimum        *float64
+    Maximum        *float64
+    DecimalPlaces  int
+    Step           float64
+    Disabled       bool
+    DisabledReason string
+    ChangeCommand  CommandID
+}
+
+func NewNumberField(Container, NumberFieldOptions) (*NumberField, error)
+func NewSpinBox(Container, SpinBoxOptions) (*SpinBox, error)
+func (f *NumberField) Value() float64
+func (f *NumberField) SetValue(float64) error
+func (s *SpinBox) Value() float64
+func (s *SpinBox) SetValue(float64) error
+```
+
+Both controls use finite `float64` application values with fixed decimal
+presentation from zero through nine places. They are not arbitrary-precision
+financial decimal types. Constructors, bounds, steps, and programmatic values
+must already fit the configured precision; the toolkit rejects them rather
+than silently rounding caller-owned model data. Optional copied minimum and
+maximum values are inclusive and must be ordered.
+
+Editing admits digits, one leading minus when the complete value is parsed,
+and a decimal point only when `DecimalPlaces` is nonzero. Intermediate text
+such as empty, `-`, or an incomplete/out-of-range value may exist while
+editing and is painted in the invalid style with a typed reason. Enter and
+Tab refuse an invalid commit and keep focus/edit mode. Escape restores the
+committed value. A forced programmatic or screen focus loss commits a valid
+edit and cancels an invalid edit. A successful commit publishes a canonical
+fixed-place string and the new numeric value before routing `ChangeCommand`.
+
+`SpinBox` adds a positive finite step that fits the configured precision. A
+zero option selects step `1`. Outside edit mode, `[` decrements and `]`
+increments, clamping to an optional bound; a step already at the bound is a
+no-op. Inside edit mode those characters are rejected by the numeric
+character policy, so arrows retain caret meaning and bracket stepping cannot
+silently replace a working edit. Arithmetic overflow without an applicable
+bound is a no-op.
+
+`ControlDetails.NumberField` is present for both kinds. It contains current
+text, committed numeric value, length, caret/view position, edit and validity
+state, invalid reason, copied optional bounds, decimal places, optional step,
+disabled reason, and change command. `Step` is zero for NumberField and
+positive for SpinBox. Core and wire snapshots deep-copy bound pointers and
+the client revalidates syntax, precision, range, kind consistency, and finite
+values.
 
 ## TextArea
 

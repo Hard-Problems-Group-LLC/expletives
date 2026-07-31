@@ -363,6 +363,7 @@ func TestHeaderFooterLayoutCompatibilityAndAtomicRejection(t *testing.T) {
 	if len(app.Snapshot().Overflows) == 0 {
 		t.Fatal("one-row Footer width overflow is not observable")
 	}
+	waitOverflowState(t, app, "default_active")
 
 	bad, err := NewHeader(app.Root(), HeaderOptions{
 		PanelOptions: PanelOptions{AutomationKey: "header.bad"},

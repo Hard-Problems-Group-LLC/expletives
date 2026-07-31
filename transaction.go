@@ -56,6 +56,7 @@ const (
 	mutationChoiceOptions
 	mutationFocusGuidance
 	mutationTextField
+	mutationNumberField
 )
 
 type transactionMutation struct {
@@ -379,7 +380,8 @@ func (t *Transaction) SetFocus(control Control) error {
 	}
 	switch state.kind {
 	case ControlButton, ControlCheckbox, ControlRadioButton,
-		ControlCycleField, ControlSelectField, ControlTextField:
+		ControlCycleField, ControlSelectField, ControlTextField,
+		ControlNumberField, ControlSpinBox:
 	default:
 		return ErrNotFocusable
 	}
@@ -693,7 +695,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
-		case mutationTextField:
+		case mutationTextField, mutationNumberField:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -847,7 +849,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	selectedBehaviors := make(map[*controlState]controlBehavior)
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
-		case mutationTextField, mutationStatusSegments,
+		case mutationTextField, mutationNumberField, mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
 			selectedBehaviors[mutation.state] = mutation.behavior
@@ -1123,10 +1125,26 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+		case numberFieldBehavior:
+			textInputBytes += len(behavior.editor.committed.text)
+			if behavior.editor.editing {
+				textInputBytes += len(behavior.editor.working.text)
+			}
+			if behavior.editor.validator != nil {
+				textInputBytes += len(
+					behavior.editor.validator.value.Characters,
+				)
+			}
 			if err := validateChangeCommand(
-				behavior.changeCommand,
+				behavior.editor.changeCommand,
 				requireCommand,
-				"choice field",
+				"numeric field",
+			); err != nil {
+				return err
+			}
+			if _, _, err := normalizeNumberValue(
+				behavior.value,
+				behavior.policy,
 			); err != nil {
 				return err
 			}
@@ -1338,7 +1356,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				mutation.state.focusGuidance = mutation.focusGuidance
 				changed = true
 			}
-		case mutationTextField:
+		case mutationTextField, mutationNumberField:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,
@@ -1382,9 +1400,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			changed = true
 		}
 		if t.app.focus != t.focus {
-			if _, _, committed := t.app.commitTextFieldStateLocked(
-				t.app.focus,
-			); committed {
+			if t.app.commitOrCancelEditorStateLocked(t.app.focus) {
 				changed = true
 			}
 			t.app.focus = t.focus

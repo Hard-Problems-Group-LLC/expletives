@@ -579,7 +579,7 @@ func (a *App) DispatchKey(
 		} else if mnemonicKeyEvent(event.Key, held) {
 			control, activate := a.mnemonicControlLocked(event.Key)
 			if control != nil && control != a.focus {
-				_, _, _ = a.commitTextFieldStateLocked(a.focus)
+				_ = a.commitOrCancelEditorStateLocked(a.focus)
 			}
 			if control != nil && activate {
 				if behavior, ok := control.behavior.(buttonBehavior); ok {
@@ -615,12 +615,12 @@ func (a *App) DispatchKey(
 			}
 		} else if event.Key == KeyTab && tabModifiers(held) {
 			result.Outcome = OutcomeNoOp
-			var committed bool
-			command, target, committed = a.commitFocusedTextFieldLocked()
+			var committed, move bool
+			command, target, committed, move = a.commitFocusedEditorLocked()
 			if committed {
 				result.Outcome = OutcomeApplied
 			}
-			if a.moveFocusLocked(held[KeyShift]) {
+			if move && a.moveFocusLocked(held[KeyShift]) {
 				result.Outcome = OutcomeApplied
 			}
 			if command != "" {
@@ -631,7 +631,7 @@ func (a *App) DispatchKey(
 			if textInputModifiers(held) {
 				var textChanged bool
 				command, target, textHandled, textChanged =
-					a.textFieldInputLocked(a.focus, event.Key, held)
+					a.editorInputLocked(a.focus, event.Key, held)
 				if textHandled {
 					result.Outcome = OutcomeNoOp
 					if textChanged {

@@ -575,6 +575,22 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 		password.Text != "" || password.Length != len("secret") {
 		t.Fatalf("password details = %#v", password)
 	}
+	dispatch("tab-number", expletives.KeyTab)
+	number := control("input.number.ranged").Details.NumberField
+	if number == nil || !control("input.number.ranged").Focused ||
+		number.Value != 12.5 || number.DecimalPlaces != 1 ||
+		number.Minimum == nil || *number.Minimum != 0 ||
+		number.Maximum == nil || *number.Maximum != 20 {
+		t.Fatalf("NumberField details = %#v", number)
+	}
+	dispatch("tab-spin", expletives.KeyTab)
+	if completion := dispatch("spin-increment", expletives.KeyRightBracket); completion.Command != CommandNumberChanged {
+		t.Fatalf("SpinBox increment = %+v", completion)
+	}
+	spin := control("input.spin.clamped").Details.NumberField
+	if spin == nil || spin.Value != 1.5 || spin.Step != 0.5 {
+		t.Fatalf("SpinBox details = %#v", spin)
+	}
 
 	reset, err := scene.App.InvokeCommand(
 		context.Background(),
@@ -591,6 +607,12 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	}
 	if details := control("input.text.soft_whitelist").Details.TextField; details == nil || details.Text != "ABC-123" || !details.Valid {
 		t.Fatalf("Scenario Reset left soft details = %#v", details)
+	}
+	if details := control("input.number.ranged").Details.NumberField; details == nil || details.Value != 12.5 {
+		t.Fatalf("Scenario Reset left NumberField details = %#v", details)
+	}
+	if details := control("input.spin.clamped").Details.NumberField; details == nil || details.Value != 1 {
+		t.Fatalf("Scenario Reset left SpinBox details = %#v", details)
 	}
 }
 

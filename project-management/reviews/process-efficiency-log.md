@@ -9,6 +9,21 @@
 
 ## Observed Opportunities
 
+### 33. Quiesce Asynchronous Preconditions Before Atomicity Assertions
+
+A header/footer atomicity test captured a snapshot sequence while a
+deliberately-created overflow episode was still pending asynchronous fallback
+disposition. The valid disposition publication could then be mistaken for a
+partial publication from the later rejected transaction.
+
+Improvement applied:
+
+- wait for the prerequisite overflow episode to reach its expected stable
+  state before capturing an unrelated transaction baseline;
+- keep the production asynchronous overflow contract unchanged; and
+- repeat the focused race test before spending time on the full verification
+  matrix.
+
 ### 32. Reuse One Bounded Editor Core Across Input Specializations
 
 TextField required normalization, caret/view state, focus-loss commit,

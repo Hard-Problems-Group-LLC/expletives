@@ -221,7 +221,7 @@ callback.
 Scenario Reset restores the initial selection values without emitting user
 change callbacks.
 
-The Text / Numeric Input screen begins the input-control catalog with four
+The Text / Numeric Input screen contains four
 single-line TextFields under stable `input.text.*` keys: an unrestricted
 field, a soft whitelist, a hard filename-character blacklist, and a
 password-masked soft blacklist. Enter starts and commits editing, Escape
@@ -229,8 +229,12 @@ cancels, caret keys edit locally, and Tab crosses the four parent groups.
 Soft-invalid input remains visible with the specified green/yellow/red
 validation presentation. Hard-invalid input is ignored. Password text is
 masked in the frame and redacted from all snapshot and automation payloads.
-Successful user commits route the optional `text.changed` command; Scenario
-Reset restores all four initial committed values silently.
+Successful user commits route the optional `text.changed` command.
+`input.number.ranged` demonstrates a one-decimal NumberField with inclusive
+minimum/maximum bounds, and `input.spin.clamped` demonstrates a half-unit
+SpinBox step with `[`/`]` clamping. Numeric edits expose current text and a
+separate committed value; numeric changes route `number.changed`. Scenario
+Reset restores all six initial committed values silently.
 
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static

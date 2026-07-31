@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -835,6 +837,14 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 		}
+		if control.Details.NumberField != nil {
+			textInputBytes += len(control.Details.NumberField.Text)
+			if textInputBytes > expletives.MaxTextInputAggregateBytes {
+				return errors.New(
+					"snapshot numeric input data exceeds advertised aggregate bound",
+				)
+			}
+		}
 		if control.Details.StatusBar != nil {
 			statusBarCount++
 			if statusBarCount > 1 ||
@@ -992,6 +1002,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.TextField != nil {
+		specialMembers++
+	}
+	if details.NumberField != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1171,9 +1184,154 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil &&
 			validTextFieldDetails(details.TextField, limits)
+	case "number_field", "spin_box":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validNumberFieldDetails(
+				details.NumberField,
+				kind == "spin_box",
+				limits,
+			)
 	default:
 		return false
 	}
+}
+
+func validNumberFieldDetails(
+	details *NumberFieldDetails,
+	spin bool,
+	limits Limits,
+) bool {
+	if details == nil ||
+		details.Length < 0 ||
+		details.Length > expletives.MaxTextInputCells ||
+		details.Caret < 0 ||
+		details.Caret > details.Length ||
+		details.ViewOffset < 0 ||
+		details.ViewOffset > details.Length ||
+		details.DecimalPlaces < 0 ||
+		details.DecimalPlaces > expletives.MaxNumberDecimalPlaces ||
+		!finiteWireNumber(details.Value) ||
+		(!details.Enabled && details.Editing) ||
+		!validSelectionReason(details.Enabled, details.DisabledReason) ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) ||
+		len(details.InvalidReason) > maxDisplayTextBytes ||
+		!utf8.ValidString(details.InvalidReason) ||
+		strings.ContainsRune(details.InvalidReason, 0) {
+		return false
+	}
+	cells, ok := canonicalInputCells(details.Text)
+	if !ok || len(cells) != details.Length {
+		return false
+	}
+	if details.Minimum != nil {
+		if !finiteWireNumber(*details.Minimum) ||
+			canonicalWireNumber(
+				*details.Minimum,
+				details.DecimalPlaces,
+			) != *details.Minimum {
+			return false
+		}
+	}
+	if details.Maximum != nil {
+		if !finiteWireNumber(*details.Maximum) ||
+			canonicalWireNumber(
+				*details.Maximum,
+				details.DecimalPlaces,
+			) != *details.Maximum {
+			return false
+		}
+	}
+	if details.Minimum != nil && details.Maximum != nil &&
+		*details.Minimum > *details.Maximum {
+		return false
+	}
+	if canonicalWireNumber(details.Value, details.DecimalPlaces) !=
+		details.Value ||
+		(details.Minimum != nil && details.Value < *details.Minimum) ||
+		(details.Maximum != nil && details.Value > *details.Maximum) {
+		return false
+	}
+	if spin {
+		if !finiteWireNumber(details.Step) || details.Step <= 0 ||
+			canonicalWireNumber(details.Step, details.DecimalPlaces) !=
+				details.Step {
+			return false
+		}
+	} else if details.Step != 0 {
+		return false
+	}
+	if !details.Editing {
+		return details.Valid &&
+			details.InvalidReason == "" &&
+			details.Text == formatWireNumber(
+				details.Value,
+				details.DecimalPlaces,
+			)
+	}
+	_, reason, valid := parseWireNumberText(
+		details.Text,
+		details.DecimalPlaces,
+		details.Minimum,
+		details.Maximum,
+	)
+	return details.Valid == valid &&
+		details.InvalidReason == reason
+}
+
+func finiteWireNumber(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func canonicalWireNumber(value float64, decimalPlaces int) float64 {
+	factor := math.Pow10(decimalPlaces)
+	canonical := math.Round(value*factor) / factor
+	if canonical == 0 {
+		return 0
+	}
+	return canonical
+}
+
+func formatWireNumber(value float64, decimalPlaces int) string {
+	return strconv.FormatFloat(value, 'f', decimalPlaces, 64)
+}
+
+func parseWireNumberText(
+	text string,
+	decimalPlaces int,
+	minimum *float64,
+	maximum *float64,
+) (float64, string, bool) {
+	if text == "" || text == "-" || text == "." || text == "-." ||
+		strings.HasPrefix(text, "+") || strings.Count(text, ".") > 1 {
+		return 0, "Enter a complete decimal number", false
+	}
+	if point := strings.IndexByte(text, '.'); point >= 0 &&
+		len(text)-point-1 > decimalPlaces {
+		return 0, "Too many decimal places", false
+	}
+	value, err := strconv.ParseFloat(text, 64)
+	if err != nil || !finiteWireNumber(value) {
+		return 0, "Enter a complete decimal number", false
+	}
+	if canonicalWireNumber(value, decimalPlaces) != value {
+		return 0, "Too many decimal places", false
+	}
+	if minimum != nil && value < *minimum {
+		return 0, "Value is below the minimum", false
+	}
+	if maximum != nil && value > *maximum {
+		return 0, "Value is above the maximum", false
+	}
+	return value, "", true
 }
 
 func validTextFieldDetails(
@@ -1289,7 +1447,7 @@ func validFocusGuideBarDetails(
 func validFocusTargetKind(kind ControlKind) bool {
 	switch kind {
 	case "button", "checkbox", "radio_button", "cycle_field",
-		"select_field", "text_field", "menu_bar":
+		"select_field", "text_field", "number_field", "spin_box", "menu_bar":
 		return true
 	default:
 		return false

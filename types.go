@@ -297,6 +297,10 @@ const (
 	ControlSelectField ControlKind = "select_field"
 	// ControlTextField identifies one focusable single-line editor.
 	ControlTextField ControlKind = "text_field"
+	// ControlNumberField identifies one focusable bounded decimal editor.
+	ControlNumberField ControlKind = "number_field"
+	// ControlSpinBox identifies one bracket-steppable NumberField.
+	ControlSpinBox ControlKind = "spin_box"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -571,6 +575,8 @@ type ControlDetails struct {
 	FocusGuideBar *FocusGuideBarDetails `json:"focus_guide_bar,omitempty"`
 	// TextField is present for TextField.
 	TextField *TextFieldDetails `json:"text_field,omitempty"`
+	// NumberField is present for NumberField and SpinBox.
+	NumberField *NumberFieldDetails `json:"number_field,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -783,6 +789,26 @@ type TextFieldDetails struct {
 	DisabledReason string                `json:"disabled_reason,omitempty"`
 	ChangeCommand  CommandID             `json:"change_command,omitempty"`
 	Validator      *TextValidatorDetails `json:"validator,omitempty"`
+}
+
+// NumberFieldDetails describes current decimal editing, range, and step
+// state. Step is positive for SpinBox and zero for NumberField.
+type NumberFieldDetails struct {
+	Text           string    `json:"text"`
+	Value          float64   `json:"value"`
+	Length         int       `json:"length"`
+	Caret          int       `json:"caret"`
+	ViewOffset     int       `json:"view_offset"`
+	Editing        bool      `json:"editing"`
+	Valid          bool      `json:"valid"`
+	InvalidReason  string    `json:"invalid_reason,omitempty"`
+	Minimum        *float64  `json:"minimum,omitempty"`
+	Maximum        *float64  `json:"maximum,omitempty"`
+	DecimalPlaces  int       `json:"decimal_places"`
+	Step           float64   `json:"step,omitempty"`
+	Enabled        bool      `json:"enabled"`
+	DisabledReason string    `json:"disabled_reason,omitempty"`
+	ChangeCommand  CommandID `json:"change_command,omitempty"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -998,6 +1024,12 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 			}
 			cloned.Controls[index].Details.TextField = &field
 		}
+		if snapshot.Controls[index].Details.NumberField != nil {
+			field := *snapshot.Controls[index].Details.NumberField
+			field.Minimum = cloneFloat64(field.Minimum)
+			field.Maximum = cloneFloat64(field.Maximum)
+			cloned.Controls[index].Details.NumberField = &field
+		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)
 	for index := range cloned.Layouts {
@@ -1024,4 +1056,12 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		cloned.Completion = &completion
 	}
 	return cloned
+}
+
+func cloneFloat64(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }

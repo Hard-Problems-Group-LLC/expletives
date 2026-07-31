@@ -274,7 +274,11 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   accepts input with green valid text or yellow valid/red invalid text when
   invalid. Hard mode ignores disallowed typed input. Password defaults false,
   paints `*`, still validates the real value, and never exposes that value in
-  frames, snapshots, automation, diagnostics, or logs.
+  frames, snapshots, automation, diagnostics, or logs. NumberField and
+  SpinBox use finite fixed-place `float64` values, reject caller values that
+  require rounding, retain invalid intermediate edits, refuse invalid
+  Enter/Tab commits, and use `[`/`]` for clamped SpinBox stepping outside edit
+  mode.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
 - Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and

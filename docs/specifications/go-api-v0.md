@@ -85,6 +85,7 @@ The implemented exported limits are:
 | `MaxTextValidatorBytes` | 4,096 | Maximum copied validator-set UTF-8 bytes |
 | `MaxTextValidatorCells` | 1,024 | Maximum copied validator-set elements |
 | `MaxTextInputAggregateBytes` | 262,144 | Maximum editor values and validators retained by one App |
+| `MaxNumberDecimalPlaces` | 9 | Maximum fixed decimal places in NumberField/SpinBox |
 | `MaxHotkeyBarItems` | 64 | Maximum entries in one HotkeyBar |
 | `MaxActionItems` | 4,096 | Maximum aggregate HotkeyBar entries in one App |
 | `MaxMenuDepth` | 8 | Maximum immutable popup Menu tree depth |
@@ -544,6 +545,13 @@ The exact public, validation, editing, Limited Unicode, snapshot, and
 automation contract is
 [`text-and-numeric-input-api-v0.md`](text-and-numeric-input-api-v0.md).
 
+`NumberField` and `SpinBox` reuse the bounded editor with finite fixed-place
+numeric values, optional inclusive bounds, typed invalid-intermediate state,
+and atomic `SetValue`. SpinBox adds positive fixed-place `Step` and clamped
+`[`/`]` changes outside edit mode. Invalid Enter/Tab commits retain edit
+focus. Their complete surface and typed `ControlDetails.NumberField` evidence
+are defined by the same input contract.
+
 ## Atomic Transactions
 
 ```go
@@ -568,6 +576,8 @@ func (t *Transaction) NewRadioButton(*RadioGroup, RadioButtonOptions) (*RadioBut
 func (t *Transaction) NewCycleField(Container, CycleFieldOptions) (*CycleField, error)
 func (t *Transaction) NewSelectField(Container, SelectFieldOptions) (*SelectField, error)
 func (t *Transaction) NewTextField(Container, TextFieldOptions) (*TextField, error)
+func (t *Transaction) NewNumberField(Container, NumberFieldOptions) (*NumberField, error)
+func (t *Transaction) NewSpinBox(Container, SpinBoxOptions) (*SpinBox, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -578,6 +588,7 @@ func (t *Transaction) SetVisible(Control, bool) error
 func (t *Transaction) SetText(Control, string) error
 func (t *Transaction) SetTextValidator(*TextField, *TextValidator) error
 func (t *Transaction) SetTextPassword(*TextField, bool) error
+func (t *Transaction) SetNumberValue(Control, float64) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error

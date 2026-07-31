@@ -12,12 +12,13 @@ to that explicitly enabled endpoint.
 
 Core/Containers, Basic Presentation, Basic Automation, Basic Layouts,
 Text/Display, Actions, Menus, Status Bar, Headers/Footers, Selection, and
-TextField are implemented.
+TextField/NumberField/SpinBox input are implemented.
 The public Go package includes non-container `Label`, `StaticText`,
 `Separator`, `Rule`, `Button`, `HotkeyBar`, `MenuBar`, and `StatusBar`
 controls; `Checkbox`, `RadioButton`/`RadioGroup`, `CycleField`, `SelectField`,
-and validated/password-safe `TextField`; root-owned one-row `Header` and
-`Footer` containers; immutable `Menu` models; Box/Grid and nested Layouts;
+validated/password-safe `TextField`, ranged `NumberField`, and clamped
+`SpinBox`; root-owned one-row `Header` and `Footer` containers; immutable
+`Menu` models; Box/Grid and nested Layouts;
 independent arrangement and stacking order; structured overflow; optional
 root size/aspect constraints; independent Frame/Layout borders; immutable
 semantic snapshots; and the CGO-free Linux terminal presenter.
@@ -53,7 +54,8 @@ Layouts, including an unbordered Frame whose child Layout supplies the one
 clean outline. It also presents aligned `Label`, word-wrapped `StaticText`,
 double-line `Separator`, titled `Rule`, Action and Menu controls, a persistent
 StatusBar, one-row Header/Footer Layout examples, grouped Selection controls,
-and unrestricted/soft/hard/password TextField examples.
+unrestricted/soft/hard/password TextField examples, and ranged/steppable
+numeric input.
 
 The attached commands `layout.panel.raise`, `layout.panel.lower`,
 `layout.layer.raise`, and `layout.layer.lower` exercise the new stack paths.

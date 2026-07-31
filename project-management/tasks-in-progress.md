@@ -15,8 +15,7 @@ owner, known blockers, and brief status notes.
   - Dependencies: completed Phase 11 focus, Selection, typed snapshot, and
     raw automation input contracts.
   - Blockers: none.
-  - Status: TextField, soft/hard whitelist/blacklist validation, password
-    masking/redaction, caret editing, Limited Unicode normalization, typed
-    core/automation evidence, the Input catalog page, and full `make verify`
-    evidence are complete. NumberField/SpinBox are next, followed by TextArea
-    and the Phase ACP gate.
+  - Status: TextField, NumberField, and SpinBox are complete with shared
+    bounded editing, exact fixed-place numeric policy, typed core/automation
+    evidence, catalog coverage, and full `make verify` evidence. TextArea,
+    bounded paste/selection behavior, and the Phase ACP gate remain.

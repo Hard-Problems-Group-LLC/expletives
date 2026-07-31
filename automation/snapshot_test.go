@@ -514,6 +514,62 @@ func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 2},
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	minimum, maximum := 0.0, 10.0
+	if _, err := expletives.NewSpinBox(
+		app.Root(),
+		expletives.SpinBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.spin",
+				Bounds: expletives.Rect{
+					Width: 20, Height: 1,
+				},
+			},
+			Value: 2.5, Minimum: &minimum, Maximum: &maximum,
+			DecimalPlaces: 1, Step: 0.5,
+		},
+	); err != nil {
+		t.Fatalf("NewSpinBox() error = %v", err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *NumberFieldDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "input.spin" {
+			details = projected.Controls[index].Details.NumberField
+			break
+		}
+	}
+	if details == nil || details.Text != "2.5" || details.Value != 2.5 ||
+		details.DecimalPlaces != 1 || details.Step != 0.5 ||
+		details.Minimum == nil || *details.Minimum != 0 ||
+		details.Maximum == nil || *details.Maximum != 10 ||
+		!details.Valid {
+		t.Fatalf("projected NumberFieldDetails = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	*details.Minimum = 99
+	*details.Maximum = 100
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "input.spin" {
+			copied := cloned.Controls[index].Details.NumberField
+			if copied.Minimum == nil || *copied.Minimum != 0 ||
+				copied.Maximum == nil || *copied.Maximum != 10 {
+				t.Fatal("cloned numeric bounds alias projected storage")
+			}
+		}
+	}
+}
+
 func TestExpandFrameRejectsDisagreeingCompactAndExpandedViews(t *testing.T) {
 	t.Parallel()
 

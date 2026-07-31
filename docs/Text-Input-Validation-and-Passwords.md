@@ -86,3 +86,25 @@ This leaves screen hotkeys usable while navigating controls.
 
 Use an optional `ChangeCommand` to notify an MVC/MVVC controller after a user
 commit. Programmatic setters do not emit that command.
+
+## Numeric Fields
+
+`NumberField` adds fixed decimal precision and optional inclusive bounds.
+`SpinBox` adds a step and uses `[`/`]` outside edit mode:
+
+```go
+minimum, maximum := 0.0, 10.0
+spin, err := expletives.NewSpinBox(parent, expletives.SpinBoxOptions{
+    Value:         2.5,
+    Minimum:       &minimum,
+    Maximum:       &maximum,
+    DecimalPlaces: 1,
+    Step:          0.5,
+})
+```
+
+Numeric options and programmatic values must be finite and already fit the
+configured precision. Invalid intermediate text remains editable, but Enter
+or Tab will not commit it or leave the field. Escape restores the committed
+value. `Value()` exposes committed application state; typed details expose
+both that value and the current working text.

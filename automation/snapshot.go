@@ -181,6 +181,8 @@ type ControlDetails struct {
 	FocusGuideBar *FocusGuideBarDetails `json:"focus_guide_bar,omitempty"`
 	// TextField is present for TextField.
 	TextField *TextFieldDetails `json:"text_field,omitempty"`
+	// NumberField is present for NumberField and SpinBox.
+	NumberField *NumberFieldDetails `json:"number_field,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -392,6 +394,25 @@ type TextFieldDetails struct {
 	DisabledReason string                `json:"disabled_reason,omitempty"`
 	ChangeCommand  string                `json:"change_command,omitempty"`
 	Validator      *TextValidatorDetails `json:"validator,omitempty"`
+}
+
+// NumberFieldDetails describes current decimal editing, range, and step state.
+type NumberFieldDetails struct {
+	Text           string   `json:"text"`
+	Value          float64  `json:"value"`
+	Length         int      `json:"length"`
+	Caret          int      `json:"caret"`
+	ViewOffset     int      `json:"view_offset"`
+	Editing        bool     `json:"editing"`
+	Valid          bool     `json:"valid"`
+	InvalidReason  string   `json:"invalid_reason,omitempty"`
+	Minimum        *float64 `json:"minimum,omitempty"`
+	Maximum        *float64 `json:"maximum,omitempty"`
+	DecimalPlaces  int      `json:"decimal_places"`
+	Step           float64  `json:"step,omitempty"`
+	Enabled        bool     `json:"enabled"`
+	DisabledReason string   `json:"disabled_reason,omitempty"`
+	ChangeCommand  string   `json:"change_command,omitempty"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -811,6 +832,20 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			}
 			projectedControl.Details.TextField = field
 		}
+		if details := control.Details.NumberField; details != nil {
+			projectedControl.Details.NumberField = &NumberFieldDetails{
+				Text: details.Text, Value: details.Value,
+				Length: details.Length, Caret: details.Caret,
+				ViewOffset: details.ViewOffset, Editing: details.Editing,
+				Valid: details.Valid, InvalidReason: details.InvalidReason,
+				Minimum:       cloneFloat64(details.Minimum),
+				Maximum:       cloneFloat64(details.Maximum),
+				DecimalPlaces: details.DecimalPlaces, Step: details.Step,
+				Enabled:        details.Enabled,
+				DisabledReason: details.DisabledReason,
+				ChangeCommand:  string(details.ChangeCommand),
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -1013,6 +1048,12 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 			}
 			cloned.Controls[index].Details.TextField = &field
 		}
+		if snapshot.Controls[index].Details.NumberField != nil {
+			field := *snapshot.Controls[index].Details.NumberField
+			field.Minimum = cloneFloat64(field.Minimum)
+			field.Maximum = cloneFloat64(field.Maximum)
+			cloned.Controls[index].Details.NumberField = &field
+		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)
 	for index := range cloned.Layouts {
@@ -1140,6 +1181,14 @@ func borderDetailsFromCore(border *expletives.BorderDetails) *BorderDetails {
 
 func colorFromCore(color expletives.Color) Color {
 	return Color(color.String())
+}
+
+func cloneFloat64(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func resolvedStyleFromCore(style expletives.ResolvedStyle) ResolvedStyle {

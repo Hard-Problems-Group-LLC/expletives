@@ -343,8 +343,31 @@ func (b textFieldBehavior) paintDecoration(
 	absolute Rect,
 	clip Rect,
 ) {
+	paintTextEditor(
+		app,
+		frame,
+		state,
+		absolute,
+		clip,
+		b,
+		false,
+	)
+}
+
+func paintTextEditor(
+	app *App,
+	frame *IntendedFrame,
+	state *controlState,
+	absolute Rect,
+	clip Rect,
+	b textFieldBehavior,
+	forceInvalid bool,
+) {
 	current := b.current()
 	invalid, valid := textValidationMask(current.cells, b.validator)
+	if forceInvalid {
+		valid = false
+	}
 	offset := textViewOffset(b.viewOffset, b.caret, len(current.cells), absolute.Width)
 	y := absolute.Y + max(0, (absolute.Height-1)/2)
 	for column := 0; column < absolute.Width; column++ {
@@ -621,8 +644,9 @@ func (a *App) activateTextField(
 	}
 	changed := a.focus != state
 	if changed {
-		_, _, committed := a.commitTextFieldStateLocked(a.focus)
-		changed = changed || committed
+		if a.commitOrCancelEditorStateLocked(a.focus) {
+			changed = true
+		}
 	}
 	a.focus = state
 	behavior := state.behavior.(textFieldBehavior)
@@ -678,33 +702,35 @@ func (a *App) textFieldDetailsLocked(
 	return details
 }
 
-func (a *App) textFieldInputLocked(
+func (a *App) textEditorInputLocked(
 	state *controlState,
+	behavior textFieldBehavior,
 	key Key,
 	held map[Key]bool,
-) (command CommandID, target ControlID, handled, changed bool) {
-	if state == nil || state != a.focus || !a.focusEligibleLocked(state) {
-		return "", "", false, false
-	}
-	behavior, ok := state.behavior.(textFieldBehavior)
-	if !ok {
-		return "", "", false, false
-	}
+) (
+	textFieldBehavior,
+	CommandID,
+	ControlID,
+	bool,
+	bool,
+) {
 	if !behavior.editing {
 		if key != KeyEnter || !noHeldModifiers(held) {
-			return "", "", false, false
+			return behavior, "", "", false, false
 		}
 		behavior.working = cloneInputText(behavior.committed)
 		behavior.editing = true
 		behavior.caret = len(behavior.working.cells)
 		behavior.viewOffset = 0
-		state.behavior = behavior
-		return "", "", true, true
+		return behavior, "", "", true, true
 	}
 	if !textInputModifiers(held) {
-		return "", "", false, false
+		return behavior, "", "", false, false
 	}
-	handled = true
+	handled := true
+	changed := false
+	command := CommandID("")
+	target := ControlID("")
 	switch key {
 	case KeyEnter:
 		changed = true
@@ -762,18 +788,17 @@ func (a *App) textFieldInputLocked(
 	default:
 		text, printable := printableTextForKey(key, held)
 		if !printable {
-			handled = false
-			return "", "", handled, false
+			return behavior, "", "", false, false
 		}
 		inserted, err := normalizeInputText(text)
 		if err != nil || len(inserted.cells) != 1 {
-			return "", "", true, false
+			return behavior, "", "", true, false
 		}
 		cell := inserted.cells[0]
 		if behavior.validator != nil &&
 			behavior.validator.value.Enforcement == TextValidationHard &&
 			!textCellAllowed(cell, behavior.validator) {
-			return "", "", true, false
+			return behavior, "", "", true, false
 		}
 		candidate := make([]string, 0, len(behavior.working.cells)+1)
 		candidate = append(candidate, behavior.working.cells[:behavior.caret]...)
@@ -782,7 +807,7 @@ func (a *App) textFieldInputLocked(
 		candidateText := strings.Join(candidate, "")
 		if len(candidateText) > MaxTextInputBytes ||
 			len(candidate) > MaxTextInputCells {
-			return "", "", true, false
+			return behavior, "", "", true, false
 		}
 		behavior.working.cells = candidate
 		behavior.caret++
@@ -796,17 +821,8 @@ func (a *App) textFieldInputLocked(
 			len(behavior.working.cells),
 			state.bounds.Width,
 		)
-		state.behavior = behavior
 	}
-	return command, target, handled, changed
-}
-
-func (a *App) commitFocusedTextFieldLocked() (
-	command CommandID,
-	target ControlID,
-	changed bool,
-) {
-	return a.commitTextFieldStateLocked(a.focus)
+	return behavior, command, target, handled, changed
 }
 
 func (a *App) commitTextFieldStateLocked(

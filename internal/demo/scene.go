@@ -42,6 +42,7 @@ const (
 	CommandSelectionChanged expletives.CommandID = "selection.changed"
 	CommandTextInput        expletives.CommandID = "catalog.controls.input"
 	CommandTextChanged      expletives.CommandID = "text.changed"
+	CommandNumberChanged    expletives.CommandID = "number.changed"
 	CommandProgress         expletives.CommandID = "catalog.controls.progress"
 	CommandNavigation       expletives.CommandID = "catalog.controls.navigation"
 	CommandScrolling        expletives.CommandID = "catalog.controls.scrolling"
@@ -254,6 +255,8 @@ type Scene struct {
 	inputSoft               *expletives.TextField
 	inputHard               *expletives.TextField
 	inputPassword           *expletives.TextField
+	inputNumber             *expletives.NumberField
+	inputSpin               *expletives.SpinBox
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -339,6 +342,16 @@ func NewWithRootConstraints(
 		textInputInvalidStyle,
 		textInputInvalidCharacterStyle,
 		textInputDisabledStyle,
+		expletives.Style{
+			ID:         "number_field",
+			Foreground: textFieldStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "spin_box",
+			Foreground: textFieldStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -1343,7 +1356,7 @@ func NewWithRootConstraints(
 		expletives.GroupBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.group.plain",
-				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				MinimumSize:   expletives.Size{Width: 18, Height: 5},
 				Style:         canvasStyle.ID,
 			},
 			Title:       "Plain TextField",
@@ -1382,7 +1395,7 @@ func NewWithRootConstraints(
 		expletives.GroupBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.group.soft",
-				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				MinimumSize:   expletives.Size{Width: 18, Height: 5},
 				Style:         canvasStyle.ID,
 			},
 			Title:       "Soft Whitelist",
@@ -1417,7 +1430,7 @@ func NewWithRootConstraints(
 		expletives.GroupBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.group.hard",
-				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				MinimumSize:   expletives.Size{Width: 18, Height: 5},
 				Style:         canvasStyle.ID,
 			},
 			Title:       "Hard Filename Blacklist",
@@ -1452,7 +1465,7 @@ func NewWithRootConstraints(
 		expletives.GroupBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "input.group.password",
-				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				MinimumSize:   expletives.Size{Width: 18, Height: 5},
 				Style:         canvasStyle.ID,
 			},
 			Title:       "Password + Soft Blacklist",
@@ -1477,6 +1490,69 @@ func NewWithRootConstraints(
 				Characters:  " ",
 			},
 			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	numberInputGroup, err := transaction.NewGroupBox(
+		inputScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.group.number",
+				MinimumSize:   expletives.Size{Width: 18, Height: 5},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "NumberField",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	numberMinimum, numberMaximum := 0.0, 20.0
+	inputNumber, err := transaction.NewNumberField(
+		numberInputGroup,
+		expletives.NumberFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.number.ranged",
+			},
+			Value: 12.5, Minimum: &numberMinimum, Maximum: &numberMaximum,
+			DecimalPlaces: 1, ChangeCommand: CommandNumberChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	spinInputGroup, err := transaction.NewGroupBox(
+		inputScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.group.spin",
+				MinimumSize:   expletives.Size{Width: 18, Height: 5},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "SpinBox [ / ]",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	spinMinimum, spinMaximum := 0.0, 2.0
+	inputSpin, err := transaction.NewSpinBox(
+		spinInputGroup,
+		expletives.SpinBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.spin.clamped",
+			},
+			Value: 1, Minimum: &spinMinimum, Maximum: &spinMaximum,
+			DecimalPlaces: 1, Step: 0.5,
+			ChangeCommand: CommandNumberChanged,
 		},
 	)
 	if err != nil {
@@ -2109,7 +2185,7 @@ func NewWithRootConstraints(
 	inputGrid, err := expletives.NewGridLayout(
 		expletives.GridLayoutOptions{
 			AutomationKey: "layout.input.grid",
-			Columns:       2,
+			Columns:       3,
 			HorizontalGap: 1,
 			VerticalGap:   1,
 		},
@@ -2122,6 +2198,8 @@ func NewWithRootConstraints(
 		softInputGroup,
 		hardInputGroup,
 		passwordInputGroup,
+		numberInputGroup,
+		spinInputGroup,
 	} {
 		if err := inputGrid.AddPanel(
 			group,
@@ -2139,6 +2217,8 @@ func NewWithRootConstraints(
 		{"soft", softInputGroup, inputSoft},
 		{"hard", hardInputGroup, inputHard},
 		{"password", passwordInputGroup, inputPassword},
+		{"number", numberInputGroup, inputNumber},
+		{"spin", spinInputGroup, inputSpin},
 	} {
 		layout, layoutErr := expletives.NewBoxLayout(
 			expletives.Vertical,
@@ -2339,6 +2419,8 @@ func NewWithRootConstraints(
 		inputSoft:               inputSoft,
 		inputHard:               inputHard,
 		inputPassword:           inputPassword,
+		inputNumber:             inputNumber,
+		inputSpin:               inputSpin,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -2503,6 +2585,11 @@ func initialCommandDefinitions(
 		{
 			ID: CommandTextChanged, Label: "Text Changed",
 			Description: "Report a user-originated TextField commit",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandNumberChanged, Label: "Number Changed",
+			Description: "Report a user-originated numeric-field commit or step",
 			Enabled:     true, Automation: true,
 		},
 		unavailableCatalogDefinition(
@@ -3191,6 +3278,12 @@ func (s *Scene) handleCommand(
 				return expletives.OutcomeFailed, err
 			}
 		}
+		if err := transaction.SetNumberValue(s.inputNumber, 12.5); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetNumberValue(s.inputSpin, 1); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -3217,7 +3310,7 @@ func (s *Scene) handleCommand(
 		CommandViewActions, CommandSelection, CommandTextInput, CommandViewMenus,
 		CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
-	case CommandSelectionChanged, CommandTextChanged:
+	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged:
 		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -3587,10 +3680,14 @@ func SelfCheck() error {
 		"input.group.soft",
 		"input.group.hard",
 		"input.group.password",
+		"input.group.number",
+		"input.group.spin",
 		"input.text.plain",
 		"input.text.soft_whitelist",
 		"input.text.hard_blacklist",
 		"input.text.password",
+		"input.number.ranged",
+		"input.spin.clamped",
 		"layer.back",
 		"layer.front",
 	} {
@@ -3871,6 +3968,8 @@ func SelfCheck() error {
 	softDetails := controls["input.text.soft_whitelist"].Details.TextField
 	hardDetails := controls["input.text.hard_blacklist"].Details.TextField
 	passwordDetails := controls["input.text.password"].Details.TextField
+	numberDetails := controls["input.number.ranged"].Details.NumberField
+	spinDetails := controls["input.spin.clamped"].Details.NumberField
 	if !controls["screen.input"].Visible ||
 		!controls["input.text.plain"].Focused ||
 		plainDetails == nil || plainDetails.Text != "Edit me" ||
@@ -3879,7 +3978,13 @@ func SelfCheck() error {
 		hardDetails == nil || hardDetails.Validator == nil ||
 		hardDetails.Validator.Enforcement != expletives.TextValidationHard ||
 		passwordDetails == nil || !passwordDetails.Password ||
-		!passwordDetails.Redacted || passwordDetails.Text != "" {
+		!passwordDetails.Redacted || passwordDetails.Text != "" ||
+		numberDetails == nil || numberDetails.Value != 12.5 ||
+		numberDetails.Minimum == nil || *numberDetails.Minimum != 0 ||
+		numberDetails.Maximum == nil || *numberDetails.Maximum != 20 ||
+		numberDetails.Step != 0 ||
+		spinDetails == nil || spinDetails.Value != 1 ||
+		spinDetails.Step != 0.5 {
 		return errors.New("TextField catalog typed evidence is incomplete")
 	}
 	if completion, inputErr := scene.App.DispatchKey(

@@ -268,6 +268,22 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.TextField.Redacted &&
 					control.Details.TextField.Text == "" &&
 					control.Details.TextField.Length == len("secret")
+		case "input.number.ranged":
+			inputEvidence[control.Key] =
+				control.Kind == "number_field" &&
+					control.Details.NumberField != nil &&
+					control.Details.NumberField.Value == 12.5 &&
+					control.Details.NumberField.Minimum != nil &&
+					*control.Details.NumberField.Minimum == 0 &&
+					control.Details.NumberField.Maximum != nil &&
+					*control.Details.NumberField.Maximum == 20 &&
+					control.Details.NumberField.Step == 0
+		case "input.spin.clamped":
+			inputEvidence[control.Key] =
+				control.Kind == "spin_box" &&
+					control.Details.NumberField != nil &&
+					control.Details.NumberField.Value == 1 &&
+					control.Details.NumberField.Step == 0.5
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -287,7 +303,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(inputEvidence) != 4 ||
+		len(inputEvidence) != 6 ||
 		len(screenEvidence) != 13 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
@@ -677,6 +693,93 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		automation.KeyEvent{Kind: automation.KeyUp, Key: "alt"},
 	); err != nil {
 		t.Fatalf("InjectInput(Alt up) error = %v", err)
+	}
+	inputScreen, err := client.InvokeCommand(
+		ctx,
+		"show-input",
+		string(demo.CommandTextInput),
+		"",
+	)
+	if err != nil || inputScreen.Outcome != automation.OutcomeApplied {
+		t.Fatalf("InvokeCommand(Text Input) = outcome %q, %v",
+			inputScreen.Outcome, err)
+	}
+	for _, event := range []struct {
+		request string
+		key     string
+	}{
+		{"input-edit", "enter"},
+		{"input-type", "z"},
+	} {
+		if _, err := client.InjectInput(
+			ctx,
+			event.request,
+			automation.KeyEvent{Kind: automation.KeyPress, Key: event.key},
+		); err != nil {
+			t.Fatalf("InjectInput(%s) error = %v", event.key, err)
+		}
+	}
+	textCommit, err := client.InjectInput(
+		ctx,
+		"input-commit",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "enter"},
+	)
+	if err != nil {
+		t.Fatalf("InjectInput(TextField commit) error = %v", err)
+	}
+	if textCommit.Snapshot == nil ||
+		textCommit.Snapshot.Completion == nil ||
+		textCommit.Snapshot.Completion.Command !=
+			string(demo.CommandTextChanged) {
+		t.Fatalf("TextField commit outcome=%q snapshot=%t",
+			textCommit.Outcome, textCommit.Snapshot != nil)
+	}
+	var spinCompletion automation.Completion
+	for index := range 5 {
+		spinCompletion, err = client.InjectInput(
+			ctx,
+			"input-tab-"+string(rune('0'+index)),
+			automation.KeyEvent{Kind: automation.KeyPress, Key: "tab"},
+		)
+		if err != nil {
+			t.Fatalf("InjectInput(Tab %d) error = %v", index, err)
+		}
+	}
+	spinCompletion, err = client.InjectInput(
+		ctx,
+		"input-spin-increment",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "]"},
+	)
+	if err != nil {
+		t.Fatalf("InjectInput(SpinBox increment) error = %v", err)
+	}
+	spinValue := 0.0
+	if spinCompletion.Snapshot != nil {
+		for _, control := range spinCompletion.Snapshot.Controls {
+			if control.Key == "input.spin.clamped" &&
+				control.Details.NumberField != nil {
+				spinValue = control.Details.NumberField.Value
+			}
+		}
+	}
+	if spinCompletion.Outcome != automation.OutcomeApplied ||
+		spinCompletion.Snapshot == nil ||
+		spinCompletion.Snapshot.Completion == nil ||
+		spinCompletion.Snapshot.Completion.Command !=
+			string(demo.CommandNumberChanged) ||
+		spinValue != 1.5 {
+		t.Fatalf(
+			"SpinBox completion outcome=%q command=%q value=%v",
+			spinCompletion.Outcome,
+			func() string {
+				if spinCompletion.Snapshot == nil ||
+					spinCompletion.Snapshot.Completion == nil {
+					return ""
+				}
+				return spinCompletion.Snapshot.Completion.Command
+			}(),
+			spinValue,
+		)
 	}
 	if _, err := client.InjectInput(
 		ctx,

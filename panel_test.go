@@ -37,6 +37,8 @@ func mustApp(t *testing.T, size Size) *App {
 		testStyle("cycle_field", RGB(0, 0, 0)),
 		testStyle("select_field", RGB(0, 0, 0)),
 		testStyle("text_field", RGB(0, 0, 0)),
+		testStyle("number_field", RGB(0, 0, 0)),
+		testStyle("spin_box", RGB(0, 0, 0)),
 		testStyle("text_input.valid", RGB(0, 0, 0)),
 		testStyle("text_input.invalid", RGB(0, 0, 0)),
 		testStyle("text_input.invalid_character", RGB(0, 0, 0)),
