@@ -213,6 +213,10 @@ func (t *Transaction) SetMarkdown(
     *MarkdownView,
     string,
 ) error
+func (t *Transaction) SetMarkdownOffset(
+    *MarkdownView,
+    Point,
+) error
 ```
 
 Markdown is copied, LF-normalized, valid UTF-8, one-cell canonical content.
@@ -225,7 +229,8 @@ unordered and ordered lists without semantic nesting, blockquotes, fenced
 code blocks, and horizontal rules. The inline subset is emphasis, strong
 emphasis, code spans, and links. Unsupported HTML is rendered as ordinary
 text; no script, image, URL fetch, file read, command, terminal sequence, or
-plugin is executed. Link labels and destinations are visible text only in v0.
+plugin is executed. Links render as visible `label (destination)` text and
+have no activation behavior in v0.
 
 Ordinary prose word-wraps to viewport width. Fenced code preserves cells and
 may scroll horizontally. Resize deterministically recomputes rendered rows and
@@ -234,8 +239,14 @@ strong text, code, links, quotes, list markers, and rules without making color
 the only cue.
 
 `ControlDetails.Markdown` contains source byte/cell counts, block and rendered
-row counts, scroll geometry, and bounded structural summaries. It does not
-duplicate the complete off-screen source into automation.
+row counts, scroll geometry, and no more than `MaxMarkdownSummaries`
+structural summaries. When truncation is required, it retains the first two
+and last two summaries and sets `SummariesTruncated`. The root snapshot uses
+the complete generic `ScrollableDetails` geometry. The automation projection
+uses a purpose-specific Markdown viewport summary containing only state,
+maximum offset, viewport bounds, bar policies, and visibility; it deliberately
+does not repeat managed-content identities or complete integrated-bar records.
+Neither representation duplicates the complete off-screen source.
 
 ## LogView
 

@@ -100,6 +100,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	inputEvidence := make(map[string]bool)
 	progressEvidence := make(map[string]bool)
 	navigationEvidence := make(map[string]bool)
+	contentEvidence := make(map[string]bool)
 	screenEvidence := make(map[string]bool)
 	chromeEvidence := make(map[string]bool)
 	menuEvidence := false
@@ -138,7 +139,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
 			"screen.text", "screen.actions", "screen.selection", "screen.input",
-			"screen.progress", "screen.navigation",
+			"screen.progress", "screen.navigation", "screen.scrolling",
 			"screen.menus", "screen.status", "screen.headers_footers",
 			"screen.about":
 			screenEvidence[control.Key] = !control.Visible
@@ -422,6 +423,12 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.TabbedPanel.Selected == "one" &&
 					control.Details.TabbedPanel.Current == "one" &&
 					len(control.Details.TabbedPanel.Tabs) == 2
+		case "content.markdown":
+			contentEvidence[control.Key] =
+				control.Kind == "markdown_view" &&
+					control.Details.Markdown != nil &&
+					control.Details.Markdown.SourceBytes > 0 &&
+					control.Details.Markdown.BlockCount >= 8
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -444,10 +451,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(inputEvidence) != 9 ||
 		len(progressEvidence) != 11 ||
 		len(navigationEvidence) != 4 ||
-		len(screenEvidence) != 15 ||
+		len(contentEvidence) != 1 ||
+		len(screenEvidence) != 16 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
-			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v progress=%#v navigation=%#v",
+			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v progress=%#v navigation=%#v content=%#v",
 			menuEvidence,
 			statusEvidence,
 			screenEvidence,
@@ -457,6 +465,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			inputEvidence,
 			progressEvidence,
 			navigationEvidence,
+			contentEvidence,
 		)
 	}
 	for key, valid := range displayEvidence {
@@ -482,6 +491,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	for key, valid := range navigationEvidence {
 		if !valid {
 			t.Fatalf("Navigation control %q has invalid typed evidence", key)
+		}
+	}
+	for key, valid := range contentEvidence {
+		if !valid {
+			t.Fatalf("Content control %q has invalid typed evidence", key)
 		}
 	}
 	for key, valid := range rootMnemonicEvidence {
@@ -1482,6 +1496,63 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			"navigation.notebook.page.two",
 		).Visible {
 		t.Fatal("attached Notebook mnemonic did not switch visible page")
+	}
+	markdownScreen, err := client.InvokeCommand(
+		ctx,
+		"show-scrolling",
+		string(demo.CommandScrolling),
+		"",
+	)
+	if err != nil || markdownScreen.Outcome != automation.OutcomeApplied ||
+		markdownScreen.Snapshot == nil {
+		t.Fatalf("InvokeCommand(Scrolling) = %+v, %v", markdownScreen, err)
+	}
+	markdown := progressControl(markdownScreen.Snapshot, "content.markdown")
+	markdownDetails := markdown.Details.Markdown
+	if !progressControl(markdownScreen.Snapshot, "screen.scrolling").Visible ||
+		!markdown.Focused || markdownDetails == nil ||
+		markdownDetails.SourceBytes == 0 || markdownDetails.BlockCount < 8 ||
+		markdownDetails.RenderedRows < 8 ||
+		!markdownDetails.Viewport.HorizontalVisible ||
+		!markdownDetails.Viewport.VerticalVisible ||
+		len(markdownDetails.Blocks) != expletives.MaxMarkdownSummaries ||
+		!markdownDetails.SummariesTruncated {
+		t.Fatalf("attached Markdown evidence = %+v", markdown)
+	}
+	markdownStyles := map[automation.StyleID]bool{}
+	for _, cell := range markdownScreen.Snapshot.Frame.Cells {
+		if cell.Owner == markdown.ID {
+			markdownStyles[cell.Style] = true
+		}
+	}
+	for _, style := range []automation.StyleID{
+		"markdown.heading", "markdown.emphasis", "markdown.strong",
+		"markdown.code", "markdown.link", "markdown.quote",
+	} {
+		if !markdownStyles[style] {
+			t.Fatalf("attached Markdown frame omitted style %q: %v", style, markdownStyles)
+		}
+	}
+	markdownEnd, err := client.InjectInput(
+		ctx,
+		"markdown-end",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "end"},
+	)
+	if err != nil || markdownEnd.Outcome != automation.OutcomeApplied ||
+		markdownEnd.Snapshot == nil ||
+		markdownEnd.Snapshot.Completion == nil ||
+		markdownEnd.Snapshot.Completion.Command !=
+			string(demo.CommandContentChanged) {
+		t.Fatalf("attached Markdown End completion = %+v, %v", markdownEnd, err)
+	}
+	markdownDetails = progressControl(
+		markdownEnd.Snapshot,
+		"content.markdown",
+	).Details.Markdown
+	if markdownDetails == nil ||
+		markdownDetails.Viewport.State.Offset !=
+			markdownDetails.Viewport.MaximumOffset {
+		t.Fatalf("attached Markdown End offset = %+v", markdownDetails)
 	}
 	if _, err := client.InjectInput(
 		ctx,

@@ -1,6 +1,6 @@
 # `expletives-test` Interactive and Automation Requirements
 
-Status: Directed, implemented through TextField
+Status: Directed, implemented through MarkdownView
 Authority: Direct operator requests on 2026-07-24
 Related decisions: `EXPL-DEC-001` through `EXPL-DEC-007` in
 [`project-management/decision-log.md`](../../project-management/decision-log.md)
@@ -281,6 +281,18 @@ viewport offsets and both selected pages. Attached automation must drive these
 behaviors through raw key lifecycle events and inspect the same typed
 `details.scroll_bar` and `details.tabbed_panel` records used by headless tests.
 
+The Scrolling / Content screen contains the stable `content.markdown`
+MarkdownView in `screen.scrolling`. Its deterministic fixture demonstrates
+every supported block and inline form, literal HTML, visible link
+destinations, a horizontally overflowing fenced-code row, and one unsupported
+width-two character normalized to `U+FFFD`. Controls/Scrolling / Content and
+the direct `catalog.controls.scrolling` command reach the same screen. Raw
+arrow, page, Home, and End keys move the view through the ordinary input path;
+an actual offset change routes `content.changed`. Scenario Reset restores the
+origin silently. Attached automation verifies the semantic styles, bounded
+first-two/last-two block summaries, fixed-point scrollbar geometry, focus,
+and movement without receiving the retained Markdown source.
+
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static
 context and no shortcut inventory. Sections/Status Bar is an independent
@@ -318,8 +330,8 @@ roots plus an end-aligned Help root.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
 - Controls links current Text/Display, Actions, Selection, Text / Numeric
-  Input, Progress, and Navigation pages, then uses a separator to group
-  disabled phase-owned Scrolling/Content and Collection pages.
+  Input, Progress, Navigation, and Scrolling / Content pages, then uses a
+  separator before the disabled phase-owned Collection page.
 - Sections owns the independent Status Bar toggle, the Headers lifecycle
   submenu, and the semantic Footer-role visibility submenu.
 - Menus links the Menu overview and reserves Panel-owned and context-menu

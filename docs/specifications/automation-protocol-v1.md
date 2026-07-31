@@ -953,6 +953,11 @@ the root package's local snapshot. The client checks:
   whenever those integrated bars are visible. Shared enabled policy,
   disabled reason, and change command occur once on the containing Scrollable
   record rather than being repeated by its integrated bar subrecords;
+- kind-consistent MarkdownView details with bounded source metrics, block and
+  rendered-row counts, no more than four first-two/last-two structural block
+  summaries, truncation state, exact derived viewport geometry and bar
+  visibility, and no retained source, managed-content identity, or repeated
+  integrated-bar records;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -1140,17 +1145,17 @@ go test ./cmd/expletives-test \
 
 All four commands passed.
 
-The corrected response, text, and retained-evidence bounds were separately
-revalidated on 2026-07-30 with:
+The corrected response, text, content, and retained-evidence bounds were
+separately revalidated on 2026-07-31 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks|TestSnapshotRejectsInvalidMarkdownDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 
-That command passed. The current maximum fixture encoded to 41,389,979 bytes;
-three retained maximum records total 124,169,937 bytes.
+That command passed. The current maximum fixture encoded to 41,391,622 bytes;
+three retained maximum records total 124,174,866 bytes.
 
 The relevant integration assertions are:
 

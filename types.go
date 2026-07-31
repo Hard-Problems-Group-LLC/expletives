@@ -96,6 +96,17 @@ const (
 	MaxCommandDescriptionBytes = 256
 	// MaxPublicMessageBytes bounds a result message's UTF-8 encoding.
 	MaxPublicMessageBytes = 1024
+	// MaxContentBytes bounds one retained Markdown, log, or stream source.
+	MaxContentBytes = 64 << 10
+	// MaxContentAggregateBytes bounds retained content source across one App.
+	MaxContentAggregateBytes = 1 << 20
+	// MaxMarkdownBlocks bounds parsed blocks in one MarkdownView.
+	MaxMarkdownBlocks = 4096
+	// MaxMarkdownSummaries bounds structural block records in one control
+	// snapshot. The first and last records are retained when truncation is
+	// necessary so evidence remains useful without inflating worst-case wire
+	// responses.
+	MaxMarkdownSummaries = 4
 )
 
 // Coordinates and Layout arithmetic share the frame allocation scale. This
@@ -322,6 +333,8 @@ const (
 	// ControlScrollablePanel identifies one framed scrolling container with
 	// integrated scrollbar decoration.
 	ControlScrollablePanel ControlKind = "scrollable_panel"
+	// ControlMarkdownView identifies one read-only rendered Markdown leaf.
+	ControlMarkdownView ControlKind = "markdown_view"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -608,6 +621,8 @@ type ControlDetails struct {
 	TabbedPanel *TabbedPanelDetails `json:"tabbed_panel,omitempty"`
 	// Scrollable is present for Viewport and ScrollablePanel.
 	Scrollable *ScrollableDetails `json:"scrollable,omitempty"`
+	// Markdown is present for MarkdownView.
+	Markdown *MarkdownDetails `json:"markdown,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -925,6 +940,29 @@ type ScrollableDetails struct {
 	VerticalBar       *ScrollBarDetails   `json:"vertical_bar,omitempty"`
 }
 
+// MarkdownBlockDetails is one bounded structural Markdown block summary.
+type MarkdownBlockDetails struct {
+	Kind          string `json:"kind"`
+	Level         int    `json:"level,omitempty"`
+	SourceLine    int    `json:"source_line"`
+	SourceLines   int    `json:"source_lines"`
+	RenderedStart int    `json:"rendered_start"`
+	RenderedRows  int    `json:"rendered_rows"`
+}
+
+// MarkdownDetails describes bounded source structure and derived viewport
+// geometry without duplicating the retained source.
+type MarkdownDetails struct {
+	SourceBytes        int                    `json:"source_bytes"`
+	SourceCells        int                    `json:"source_cells"`
+	BlockCount         int                    `json:"block_count"`
+	RenderedRows       int                    `json:"rendered_rows"`
+	MaximumLineWidth   int                    `json:"maximum_line_width"`
+	Viewport           ScrollableDetails      `json:"viewport"`
+	Blocks             []MarkdownBlockDetails `json:"blocks"`
+	SummariesTruncated bool                   `json:"summaries_truncated"`
+}
+
 // TabDetails describes one copied page descriptor and its rendered strip
 // state. Bounds is relative to the owning tab container.
 type TabDetails struct {
@@ -1207,6 +1245,22 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				scrollable.VerticalBar = &bar
 			}
 			cloned.Controls[index].Details.Scrollable = &scrollable
+		}
+		if snapshot.Controls[index].Details.Markdown != nil {
+			markdown := *snapshot.Controls[index].Details.Markdown
+			markdown.Blocks = append(
+				[]MarkdownBlockDetails(nil),
+				markdown.Blocks...,
+			)
+			if markdown.Viewport.HorizontalBar != nil {
+				bar := *markdown.Viewport.HorizontalBar
+				markdown.Viewport.HorizontalBar = &bar
+			}
+			if markdown.Viewport.VerticalBar != nil {
+				bar := *markdown.Viewport.VerticalBar
+				markdown.Viewport.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.Markdown = &markdown
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

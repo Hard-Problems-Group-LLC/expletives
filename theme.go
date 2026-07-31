@@ -116,10 +116,49 @@ func DefaultTheme() Theme {
 		"notebook":                resolved,
 		"viewport":                resolved,
 		"scrollable_panel":        resolved,
+		"markdown_view":           resolved,
 		"tabbed_panel.border":     resolved,
 		"notebook.border":         resolved,
 		"viewport.border":         resolved,
 		"scrollable_panel.border": resolved,
+		"markdown_view.border":    resolved,
+		"markdown.heading": {
+			Foreground: white,
+			Background: resolved.Background,
+			Attributes: StyleBold,
+		},
+		"markdown.emphasis": {
+			Foreground: white,
+			Background: resolved.Background,
+			Attributes: StyleItalic,
+		},
+		"markdown.strong": {
+			Foreground: white,
+			Background: resolved.Background,
+			Attributes: StyleBold,
+		},
+		"markdown.code": {
+			Foreground: RGB(0x00, 0xAA, 0xAA),
+			Background: resolved.Background,
+		},
+		"markdown.link": {
+			Foreground: RGB(0x00, 0xAA, 0xAA),
+			Background: resolved.Background,
+			Attributes: StyleUnderline,
+		},
+		"markdown.quote": {
+			Foreground: RGB(0xC0, 0xC0, 0xC0),
+			Background: resolved.Background,
+			Attributes: StyleItalic,
+		},
+		"markdown.list_marker": {
+			Foreground: RGB(0xAA, 0xAA, 0x00),
+			Background: resolved.Background,
+		},
+		"markdown.rule": {
+			Foreground: RGB(0xC0, 0xC0, 0xC0),
+			Background: resolved.Background,
+		},
 		"progress.fill": {
 			Foreground: black,
 			Background: RGB(0x00, 0xAA, 0x00),

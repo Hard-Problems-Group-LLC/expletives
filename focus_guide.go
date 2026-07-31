@@ -168,6 +168,8 @@ func genericFocusGuidance(kind ControlKind) string {
 		return "Tabs: Left or Right moves focus; Space or Enter selects; Tab leaves group"
 	case ControlViewport, ControlScrollablePanel:
 		return "Viewport: arrows scroll; Page Up or Page Down pages; Home or End jumps"
+	case ControlMarkdownView:
+		return "Markdown: arrows scroll; Page Up or Page Down pages; Home or End jumps"
 	default:
 		return "No focused control"
 	}

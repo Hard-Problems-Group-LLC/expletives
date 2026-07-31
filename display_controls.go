@@ -675,6 +675,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case scrollViewBehavior:
 		rightValue, ok := right.(scrollViewBehavior)
 		return ok && scrollViewBehaviorEqual(leftValue, rightValue)
+	case markdownBehavior:
+		rightValue, ok := right.(markdownBehavior)
+		return ok && markdownBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

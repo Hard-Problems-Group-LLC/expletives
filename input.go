@@ -703,6 +703,10 @@ func (a *App) DispatchKey(
 			scrollChanged := false
 			if noHeldModifiers(held) {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.markdownKeyLocked(a.focus, event.Key)
+			}
+			if noHeldModifiers(held) && !scrollHandled {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.scrollViewKeyLocked(a.focus, event.Key)
 			}
 			if noHeldModifiers(held) && !scrollHandled {

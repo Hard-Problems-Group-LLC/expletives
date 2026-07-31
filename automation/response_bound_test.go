@@ -540,6 +540,7 @@ func TestSnapshotRejectsInvalidFocusGuideBarDetails(t *testing.T) {
 		"notebook",
 		"viewport",
 		"scrollable_panel",
+		"markdown_view",
 	} {
 		completion := valid()
 		completion.Snapshot.Controls[0].Details.FocusGuideBar.TargetKind = kind
@@ -1099,6 +1100,160 @@ func TestSnapshotRejectsInvalidScrollableDetailsAndRelationships(t *testing.T) {
 				t.Fatal("validateSnapshot() accepted invalid Scrollable details")
 			}
 		})
+	}
+}
+
+func TestSnapshotRejectsInvalidMarkdownDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 30, Height: 12},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewMarkdownView(
+			app.Root(),
+			expletives.MarkdownViewOptions{
+				ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+					ScrollViewOptions: expletives.ScrollViewOptions{
+						PanelOptions: expletives.PanelOptions{
+							AutomationKey: "markdown",
+							Bounds:        expletives.Rect{Width: 14, Height: 6},
+						},
+					},
+					BorderForm:    expletives.BorderSingle,
+					HorizontalBar: expletives.ScrollBarVisibilityAuto,
+					VerticalBar:   expletives.ScrollBarVisibilityAuto,
+				},
+				Markdown: "# Title\n\nparagraph words that wrap\n\n---\n\n" +
+					"```\n0123456789abcdefghijklmnop\n```",
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(snapshot *SnapshotV1) (*ControlSnapshot, *MarkdownDetails) {
+		for index := range snapshot.Controls {
+			control := &snapshot.Controls[index]
+			if control.Key == "markdown" && control.Details.Markdown != nil {
+				return control, control.Details.Markdown
+			}
+		}
+		t.Fatal("fixture has no Markdown details")
+		return nil, nil
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid Markdown fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ControlSnapshot, *MarkdownDetails)
+	}{
+		{
+			name: "source bound",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.SourceBytes = expletives.MaxContentBytes + 1
+			},
+		},
+		{
+			name: "content metrics",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.Viewport.State.ContentSize.Height++
+			},
+		},
+		{
+			name: "block kind",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.Blocks[0].Kind = "script"
+			},
+		},
+		{
+			name: "block ordering",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.Blocks[1].SourceLine = details.Blocks[0].SourceLine
+			},
+		},
+		{
+			name: "summary truncation",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.SummariesTruncated = false
+			},
+		},
+		{
+			name: "maximum offset",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.Viewport.MaximumOffset.X++
+			},
+		},
+		{
+			name: "viewport geometry",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.Viewport.ViewportBounds.X++
+			},
+		},
+		{
+			name: "visibility",
+			mutate: func(_ *ControlSnapshot, details *MarkdownDetails) {
+				details.Viewport.HorizontalVisible = false
+			},
+		},
+		{
+			name: "unsupported title",
+			mutate: func(control *ControlSnapshot, _ *MarkdownDetails) {
+				control.Details.Border.Title = "Title"
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			control, details := find(&snapshot)
+			test.mutate(control, details)
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid Markdown details")
+			}
+		})
+	}
+
+	aggregateApp, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 12},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index <
+		expletives.MaxContentAggregateBytes/expletives.MaxContentBytes+1; index++ {
+		if _, err := expletives.NewMarkdownView(
+			aggregateApp.Root(),
+			expletives.MarkdownViewOptions{
+				ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+					ScrollViewOptions: expletives.ScrollViewOptions{
+						PanelOptions: expletives.PanelOptions{
+							AutomationKey: "markdown.aggregate." +
+								string(rune('a'+index)),
+							Bounds: expletives.Rect{Width: 10, Height: 4},
+						},
+					},
+				},
+				Markdown: "x",
+			},
+		); err != nil {
+			t.Fatalf("aggregate fixture control %d: %v", index, err)
+		}
+	}
+	aggregate := snapshotFromCore(aggregateApp.Snapshot())
+	for index := range aggregate.Controls {
+		if details := aggregate.Controls[index].Details.Markdown; details != nil {
+			details.SourceBytes = expletives.MaxContentBytes
+		}
+	}
+	if err := validateSnapshot(&aggregate, limits); err == nil {
+		t.Fatal("validateSnapshot() accepted aggregate Markdown overflow")
 	}
 }
 
@@ -1988,6 +2143,54 @@ func maximumCompletionJSONBytes(
 			VerticalBar:       maximumScrollBar,
 		},
 	}
+	markdownControl := controlValue
+	markdownBlocks := make(
+		[]MarkdownBlockDetails,
+		expletives.MaxMarkdownSummaries,
+	)
+	for index := range markdownBlocks {
+		markdownBlocks[index] = MarkdownBlockDetails{
+			Kind:          "paragraph",
+			SourceLine:    math.MaxInt,
+			SourceLines:   math.MaxInt,
+			RenderedStart: math.MaxInt,
+			RenderedRows:  math.MaxInt,
+		}
+	}
+	markdownViewport := MarkdownViewportDetails{
+		State: ViewportState{
+			ContentSize: Size{Width: math.MaxInt, Height: math.MaxInt},
+			Offset:      Point{X: math.MaxInt, Y: math.MaxInt},
+		},
+		MaximumOffset: Point{X: math.MaxInt, Y: math.MaxInt},
+		ViewportBounds: Rect{
+			X: math.MaxInt, Y: math.MaxInt,
+			Width: math.MaxInt, Height: math.MaxInt,
+		},
+		HorizontalPolicy:  string(controlValue.ID),
+		VerticalPolicy:    string(controlValue.ID),
+		HorizontalVisible: true,
+		VerticalVisible:   true,
+	}
+	markdownControl.Details = ControlDetails{
+		Version: 1,
+		Border: &BorderDetails{
+			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
+			Form:          string(controlValue.ID),
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		Markdown: &MarkdownDetails{
+			SourceBytes:        math.MaxInt,
+			SourceCells:        math.MaxInt,
+			BlockCount:         math.MaxInt,
+			RenderedRows:       math.MaxInt,
+			MaximumLineWidth:   math.MaxInt,
+			Viewport:           markdownViewport,
+			Blocks:             markdownBlocks,
+			SummariesTruncated: true,
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -1998,6 +2201,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, numberFieldControl),
 		mustMarshal(t, textAreaControl),
 		mustMarshal(t, progressControl),
+		mustMarshal(t, markdownControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

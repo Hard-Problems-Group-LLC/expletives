@@ -688,6 +688,13 @@ complete canonical state, viewport, managed Content relationship, policies,
 and integrated bar subrecords. The exact contract is
 [`scrolling-content-api-v0.md`](scrolling-content-api-v0.md).
 
+`MarkdownView` is the Panel-derived read-only document leaf built on that
+scroll model. It supports the contract's bounded Markdown subset, visible
+link destinations, deterministic prose reflow, non-wrapping fenced code,
+thread-safe source replacement, and typed structural evidence without I/O or
+link activation. Its complete surface is defined by the same Phase 15
+contract.
+
 ## Atomic Transactions
 
 ```go
@@ -724,6 +731,7 @@ func (t *Transaction) NewTabbedPanel(Container, TabbedPanelOptions) (*TabbedPane
 func (t *Transaction) NewNotebook(Container, TabbedPanelOptions) (*Notebook, error)
 func (t *Transaction) NewViewport(Container, ScrollViewOptions) (*Viewport, error)
 func (t *Transaction) NewScrollablePanel(Container, ScrollablePanelOptions) (*ScrollablePanel, error)
+func (t *Transaction) NewMarkdownView(Container, MarkdownViewOptions) (*MarkdownView, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -746,6 +754,8 @@ func (t *Transaction) SetTabs(Control, []Tab, selected string) error
 func (t *Transaction) SetSelectedTab(Control, string) error
 func (t *Transaction) SetViewportState(Control, ViewportState) error
 func (t *Transaction) EnsureViewportVisible(Control, Rect) error
+func (t *Transaction) SetMarkdown(*MarkdownView, string) error
+func (t *Transaction) SetMarkdownOffset(*MarkdownView, Point) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
@@ -846,7 +856,8 @@ Selection, Text/Numeric Input, Progress, and Navigation controls add their
 kind-consistent `CheckboxDetails`, `RadioButtonDetails`,
 `RadioGroupDetails`, `ChoiceFieldDetails`, `TextFieldDetails`,
 `NumberFieldDetails`, `TextAreaDetails`, `ProgressDetails`,
-`ScrollBarDetails`, `TabbedPanelDetails`, and `ScrollableDetails` members.
+`ScrollBarDetails`, `TabbedPanelDetails`, `ScrollableDetails`, and
+`MarkdownDetails` members.
 These expose canonical bounded text,
 alignment, wrap, Label target/mnemonic, divider orientation/form, generic
 focus, command presentation state, pressed/default/cancel roles, and

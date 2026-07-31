@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	expletives "github.com/Hard-Problems-Group-LLC/expletives"
@@ -53,6 +54,7 @@ const (
 	CommandNavigation           expletives.CommandID = "catalog.controls.navigation"
 	CommandNavigationChanged    expletives.CommandID = "navigation.changed"
 	CommandScrolling            expletives.CommandID = "catalog.controls.scrolling"
+	CommandContentChanged       expletives.CommandID = "content.changed"
 	CommandCollections          expletives.CommandID = "catalog.controls.collections"
 	CommandPanelMenu            expletives.CommandID = "catalog.menus.panel"
 	CommandContextMenu          expletives.CommandID = "catalog.menus.context"
@@ -69,6 +71,25 @@ const (
 	inputFieldMinimumWidth                           = 20
 	inputAlphanumericCharacters                      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	inputSymbolCharacters                            = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+	markdownCatalogSource                            = "# MarkdownView\n\n" +
+		"A read-only, bounded document control with *emphasis*, **strong text**, " +
+		"`inline code`, and [visible links](https://example.invalid/docs).\n\n" +
+		"> MarkdownView performs no file, network, command, plugin, or terminal I/O.\n\n" +
+		"## Supported blocks\n\n" +
+		"- ATX headings and paragraphs\n" +
+		"- ordered and unordered lists\n" +
+		"- blockquotes, rules, and fenced code\n\n" +
+		"---\n\n" +
+		"1. Arrow keys scroll one cell\n" +
+		"2. Page Up and Page Down page vertically\n" +
+		"3. Home and End jump to the document boundaries\n\n" +
+		"```text\n" +
+		"Fenced code preserves this deliberately long line: " +
+		"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\n" +
+		"```\n\n" +
+		"Unsupported HTML such as <widget action='none'> remains literal text.\n\n" +
+		"A multi-cell glyph is safely normalized to the replacement cell: 界\n\n" +
+		"Resize the terminal to observe deterministic prose reflow and clamped offsets."
 )
 
 var catalogScreens = []struct {
@@ -86,6 +107,7 @@ var catalogScreens = []struct {
 	{CommandTextInput, "Text / Numeric Input"},
 	{CommandProgress, "Progress"},
 	{CommandNavigation, "Navigation"},
+	{CommandScrolling, "Scrolling / Content"},
 	{CommandViewMenus, "Menu Bar"},
 	{CommandViewAbout, "About"},
 }
@@ -316,6 +338,7 @@ type Scene struct {
 	navigationVertical      *expletives.ScrollBar
 	navigationTabs          *expletives.TabbedPanel
 	navigationNotebook      *expletives.Notebook
+	markdownView            *expletives.MarkdownView
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -498,6 +521,61 @@ func NewWithRootConstraints(
 		expletives.Style{
 			ID:         "scrollable_panel.border",
 			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "markdown_view",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "markdown_view.border",
+			Foreground: borderStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "markdown.heading",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0x55),
+			Background: canvasStyle.Background,
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "markdown.emphasis",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+			Attributes: expletives.StyleItalic,
+		},
+		expletives.Style{
+			ID:         "markdown.strong",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0x55),
+			Background: canvasStyle.Background,
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "markdown.code",
+			Foreground: expletives.RGB(0x55, 0xFF, 0xFF),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "markdown.link",
+			Foreground: expletives.RGB(0x55, 0xFF, 0xFF),
+			Background: canvasStyle.Background,
+			Attributes: expletives.StyleUnderline,
+		},
+		expletives.Style{
+			ID:         "markdown.quote",
+			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: canvasStyle.Background,
+			Attributes: expletives.StyleItalic,
+		},
+		expletives.Style{
+			ID:         "markdown.list_marker",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0x55),
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "markdown.rule",
+			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
 			Background: canvasStyle.Background,
 		},
 		expletives.Style{
@@ -828,6 +906,17 @@ func NewWithRootConstraints(
 		content,
 		expletives.PanelOptions{
 			AutomationKey: "screen.navigation",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	scrollingScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.scrolling",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
 		},
@@ -2504,6 +2593,28 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	markdownView, err := transaction.NewMarkdownView(
+		scrollingScreen,
+		expletives.MarkdownViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "content.markdown",
+						Style:         "markdown_view",
+					},
+					ChangeCommand: CommandContentChanged,
+				},
+				BorderStyle:   "markdown_view.border",
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Markdown: markdownCatalogSource,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	hotkeyBar, err := transaction.NewHotkeyBar(
 		recentFooter,
@@ -2568,6 +2679,7 @@ func NewWithRootConstraints(
 		{"input", inputScreen},
 		{"progress", progressScreen},
 		{"navigation", navigationScreen},
+		{"scrolling", scrollingScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
 		{"headers_footers", chromeScreen},
@@ -2591,6 +2703,24 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 		screenLayouts = append(screenLayouts, layout)
+	}
+	scrollingLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.scrolling",
+			Insets: expletives.Insets{
+				Top: 1, Right: 2, Bottom: 1, Left: 2,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := scrollingLayout.AddPanel(
+		markdownView,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
 	}
 	menusLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
@@ -3571,6 +3701,9 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
+	if err := transaction.SetLayout(scrollingScreen, scrollingLayout); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
 		return nil, err
 	}
@@ -3654,6 +3787,7 @@ func NewWithRootConstraints(
 		navigationVertical:      navigationVertical,
 		navigationTabs:          navigationTabs,
 		navigationNotebook:      navigationNotebook,
+		markdownView:            markdownView,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -3681,6 +3815,7 @@ func NewWithRootConstraints(
 			CommandTextInput:       inputScreen,
 			CommandProgress:        progressScreen,
 			CommandNavigation:      navigationScreen,
+			CommandScrolling:       scrollingScreen,
 			CommandViewMenus:       menusScreen,
 			CommandViewAbout:       aboutScreen,
 		},
@@ -3866,6 +4001,11 @@ func initialCommandDefinitions(
 			Description: "Report a user-originated ScrollBar or tab selection change",
 			Enabled:     true, Automation: true,
 		},
+		{
+			ID: CommandContentChanged, Label: "Content Changed",
+			Description: "Report a user-originated content viewport movement",
+			Enabled:     true, Automation: true,
+		},
 		unavailableCatalogDefinition(
 			CommandPanelScrollbars,
 			"Panel Scroll Bars",
@@ -3875,11 +4015,6 @@ func initialCommandDefinitions(
 			CommandLayoutAbsolute,
 			"Absolute Positioning",
 			"future Layout",
-		),
-		unavailableCatalogDefinition(
-			CommandScrolling,
-			"Scrolling / Content",
-			"Scrolling and Content",
 		),
 		unavailableCatalogDefinition(
 			CommandCollections,
@@ -4715,6 +4850,12 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.SetMarkdownOffset(
+			s.markdownView,
+			expletives.Point{},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -4747,7 +4888,7 @@ func (s *Scene) handleCommand(
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
 		CommandViewActions, CommandSelection, CommandTextInput, CommandProgress,
-		CommandNavigation, CommandViewMenus, CommandViewAbout:
+		CommandNavigation, CommandScrolling, CommandViewMenus, CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
 	case CommandProgressTick:
 		return s.progressTickLocked()
@@ -4762,7 +4903,7 @@ func (s *Scene) handleCommand(
 	case CommandProgressMotion:
 		return s.toggleProgressMotionLocked()
 	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged,
-		CommandNavigationChanged:
+		CommandNavigationChanged, CommandContentChanged:
 		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -5329,6 +5470,7 @@ func SelfCheck() error {
 		"screen.input",
 		"screen.progress",
 		"screen.navigation",
+		"screen.scrolling",
 		"screen.menus",
 		"screen.status",
 		"screen.headers_footers",
@@ -5435,6 +5577,7 @@ func SelfCheck() error {
 		"navigation.notebook",
 		"navigation.notebook.page.one",
 		"navigation.notebook.page.two",
+		"content.markdown",
 		"layer.back",
 		"layer.front",
 	} {
@@ -5469,6 +5612,7 @@ func SelfCheck() error {
 		"menu.controls.input":      "Text / Numeric Input",
 		"menu.controls.progress":   "Progress",
 		"menu.controls.navigation": "Navigation",
+		"menu.controls.scrolling":  "Scrolling / Content",
 	}
 	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
 	homeChecked := false
@@ -6086,6 +6230,45 @@ func SelfCheck() error {
 		!controls["navigation.notebook.page.two"].Visible {
 		return errors.New("Notebook mnemonic did not switch page visibility")
 	}
+	if err := invoke("show-scrolling", CommandScrolling); err != nil {
+		return err
+	}
+	markdown := controls["content.markdown"]
+	markdownDetails := markdown.Details.Markdown
+	if !controls["screen.scrolling"].Visible || !markdown.Focused ||
+		markdownDetails == nil || markdownDetails.SourceBytes == 0 ||
+		markdownDetails.BlockCount < 8 || markdownDetails.RenderedRows < 8 ||
+		!markdownDetails.Viewport.HorizontalVisible ||
+		!markdownDetails.Viewport.VerticalVisible ||
+		!strings.Contains(scene.markdownView.Markdown(), "\uFFFD") {
+		return fmt.Errorf(
+			"Markdown catalog typed evidence is incomplete: control=%+v details=%+v",
+			markdown,
+			markdownDetails,
+		)
+	}
+	markdownEnd, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"markdown-end",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyEnd,
+		},
+	)
+	if inputErr != nil || markdownEnd.Command != CommandContentChanged ||
+		markdownEnd.Outcome != expletives.OutcomeApplied ||
+		scene.markdownView.Offset() != markdownDetails.Viewport.MaximumOffset {
+		return fmt.Errorf(
+			"Markdown raw End dispatch = %+v, %v offset=%+v",
+			markdownEnd,
+			inputErr,
+			scene.markdownView.Offset(),
+		)
+	}
+	if err := scene.markdownView.SetOffset(expletives.Point{}); err != nil {
+		return fmt.Errorf("reset Markdown offset: %w", err)
+	}
 	if err := invoke("hide-status", CommandStatusBar); err != nil {
 		return err
 	}
@@ -6129,6 +6312,7 @@ func SelfCheck() error {
 		controls["screen.selection"].Visible ||
 		controls["screen.progress"].Visible ||
 		controls["screen.navigation"].Visible ||
+		controls["screen.scrolling"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
 		!controls["header.primary"].Visible ||

@@ -842,6 +842,44 @@ Improvement applied:
 - retained one attached screen transition in the phase gate so contextual
   chrome is validated with the newly focused control, not only in isolation.
 
+### 26. Benchmark Adversarial Bounded Content Before The Phase Gate
+
+The ordinary Markdown fixtures passed while a maximum-size run of literal
+link markers still drove repeated suffix scans and continuation-prefix
+copies. A single one-iteration benchmark made that hidden cost obvious: the
+initial maximum fixture took about 489 ms and 265,686 allocations on the
+development host.
+
+Improvement applied:
+
+- retain one maximum-size adversarial benchmark beside the parser tests;
+- remember when no link terminator remains instead of rescanning every
+  literal `[` suffix;
+- build hanging-indent rows from a prefix plus one source slice instead of
+  repeatedly prepending the prefix to the unconsumed document; and
+- use focused one-iteration measurements during development, leaving the
+  complete benchmark suite for phase verification.
+
+The same fixture fell to about 28 ms and 3,558 allocations without changing
+the public bound or rendered result.
+
+### 27. Project Unique Typed Details To Their Actual Wire Evidence
+
+Embedding the complete generic scroll record in every Markdown automation
+detail repeated managed-content and scrollbar records that MarkdownView does
+not expose as addressable controls. Multiplying that representation by the
+maximum control count exceeded the already-large bounded response line and
+made snapshots harder to inspect.
+
+Improvement applied:
+
+- keep the complete reusable scroll geometry in the in-process snapshot;
+- project only state, maximum offset, viewport bounds, policies, and
+  visibility into the Markdown wire detail;
+- preserve exact fixed-point validation rather than weakening the client; and
+- apply this purpose-specific projection rule only to unique controls whose
+  omitted generic records cannot be independently addressed.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

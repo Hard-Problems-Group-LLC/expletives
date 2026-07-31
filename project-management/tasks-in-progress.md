@@ -25,4 +25,7 @@ owner, known blockers, and brief status notes.
     clipping, fixed-point integrated bars, keyboard/focus behavior, typed
     automation, and ordinary Go coverage. The Text/Numeric page uses the
     public ScrollablePanel and has frame-verified Turbo Vision input contrast;
-    phase-wide verification and ACP remain in progress.
+    MarkdownView now adds bounded deterministic parsing/reflow, semantic
+    styles, compact typed evidence, an enabled catalog page, adversarial
+    performance coverage, and live closed-loop evidence. LogView and
+    StreamView remain before phase-wide verification and ACP.

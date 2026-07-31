@@ -62,6 +62,7 @@ const (
 	mutationScrollBar
 	mutationTabbedPanel
 	mutationScrollView
+	mutationMarkdownView
 )
 
 type transactionMutation struct {
@@ -422,7 +423,7 @@ func (t *Transaction) SetFocus(control Control) error {
 		ControlCycleField, ControlSelectField, ControlTextField,
 		ControlNumberField, ControlSpinBox, ControlTextArea,
 		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
-		ControlViewport, ControlScrollablePanel:
+		ControlViewport, ControlScrollablePanel, ControlMarkdownView:
 	default:
 		return ErrNotFocusable
 	}
@@ -750,7 +751,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			stagedMutationBehaviors[mutation.state] = behavior
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView:
+			mutationScrollView, mutationMarkdownView:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -906,7 +907,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		switch mutation.kind {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView,
+			mutationScrollView, mutationMarkdownView,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -987,6 +988,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	actionItems := 0
 	selectionItems := 0
 	textInputBytes := 0
+	contentBytes := 0
 	menuBars := 0
 	statusBars := 0
 	mnemonics := make(map[Key]*controlState)
@@ -1308,6 +1310,15 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					ErrInvalidParent,
 				)
 			}
+		case markdownBehavior:
+			contentBytes += len(behavior.source)
+			if err := validateChangeCommand(
+				behavior.scroll.changeCommand,
+				requireCommand,
+				"MarkdownView",
+			); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -1358,6 +1369,13 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			"%w: aggregate text input exceeds %d bytes",
 			ErrControlCapacity,
 			MaxTextInputAggregateBytes,
+		)
+	}
+	if contentBytes > MaxContentAggregateBytes {
+		return fmt.Errorf(
+			"%w: aggregate content exceeds %d bytes",
+			ErrControlCapacity,
+			MaxContentAggregateBytes,
 		)
 	}
 	if err := ctx.Err(); err != nil {
@@ -1522,7 +1540,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
-			mutationScrollView:
+			mutationScrollView, mutationMarkdownView:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

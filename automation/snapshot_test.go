@@ -830,6 +830,78 @@ func TestSnapshotProjectsScrollableDetailsAndCopiesNestedBars(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 12},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := expletives.NewMarkdownView(
+		app.Root(),
+		expletives.MarkdownViewOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "markdown",
+						Bounds:        expletives.Rect{Width: 14, Height: 6},
+					},
+				},
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Markdown: "# Title\n\nparagraph words that wrap\n\n---\n\n" +
+				"```\n0123456789abcdefghijklmnop\n```",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var control *ControlSnapshot
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "markdown" {
+			control = &projected.Controls[index]
+			break
+		}
+	}
+	if control == nil || control.Details.Markdown == nil {
+		t.Fatalf("projected Markdown control = %#v", control)
+	}
+	details := control.Details.Markdown
+	if control.Kind != "markdown_view" || len(control.Children) != 0 ||
+		details.SourceBytes != len(view.Markdown()) ||
+		details.BlockCount != 7 || len(details.Blocks) != 4 ||
+		!details.SummariesTruncated ||
+		details.Viewport.State.ContentSize != (Size{
+			Width: details.MaximumLineWidth, Height: details.RenderedRows,
+		}) ||
+		!details.Viewport.HorizontalVisible ||
+		!details.Viewport.VerticalVisible {
+		t.Fatalf("projected Markdown details = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	var clonedDetails *MarkdownDetails
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "markdown" {
+			clonedDetails = cloned.Controls[index].Details.Markdown
+			break
+		}
+	}
+	if clonedDetails == nil {
+		t.Fatal("clone has no Markdown details")
+	}
+	clonedDetails.Blocks[0].Kind = "mutated"
+	if details.Blocks[0].Kind == "mutated" {
+		t.Fatal("cloneSnapshot exposed Markdown block storage")
+	}
+}
+
 func TestSnapshotProjectsTabbedPanelDetailsAndCopiesTabs(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

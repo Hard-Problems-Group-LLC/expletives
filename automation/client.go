@@ -734,6 +734,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	statusBarCount := 0
 	selectionItemCount := 0
 	textInputBytes := 0
+	contentBytes := 0
 	controlsByID := make(map[ControlID]*ControlSnapshot, len(snapshot.Controls))
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
@@ -869,6 +870,14 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 			if textInputBytes > expletives.MaxTextInputAggregateBytes {
 				return errors.New(
 					"snapshot TextArea data exceeds advertised aggregate bound",
+				)
+			}
+		}
+		if control.Details.Markdown != nil {
+			contentBytes += control.Details.Markdown.SourceBytes
+			if contentBytes > expletives.MaxContentAggregateBytes {
+				return errors.New(
+					"snapshot Markdown data exceeds advertised aggregate bound",
 				)
 			}
 		}
@@ -1093,6 +1102,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.Scrollable != nil {
+		specialMembers++
+	}
+	if details.Markdown != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1364,6 +1376,149 @@ func validControlDetails(
 				controlHeight,
 				limits,
 			)
+	case "markdown_view":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validMarkdownDetails(
+				details.Markdown,
+				details.Border,
+				controlWidth,
+				controlHeight,
+			)
+	default:
+		return false
+	}
+}
+
+func validMarkdownDetails(
+	details *MarkdownDetails,
+	border *BorderDetails,
+	controlWidth int,
+	controlHeight int,
+) bool {
+	if details == nil || border == nil || border.Title != "" ||
+		details.SourceBytes < 0 ||
+		details.SourceBytes > expletives.MaxContentBytes ||
+		details.SourceCells < 0 ||
+		details.SourceCells > details.SourceBytes ||
+		details.BlockCount < 1 ||
+		details.BlockCount > expletives.MaxMarkdownBlocks ||
+		details.RenderedRows < 1 ||
+		details.RenderedRows >
+			expletives.MaxContentBytes+expletives.MaxMarkdownBlocks ||
+		details.MaximumLineWidth < 0 ||
+		details.MaximumLineWidth > expletives.MaxContentBytes ||
+		len(details.Blocks) > expletives.MaxMarkdownSummaries ||
+		len(details.Blocks) > details.BlockCount ||
+		(details.SummariesTruncated &&
+			(len(details.Blocks) != expletives.MaxMarkdownSummaries ||
+				details.BlockCount <= len(details.Blocks))) ||
+		(!details.SummariesTruncated &&
+			len(details.Blocks) != details.BlockCount) ||
+		details.Viewport.State.ContentSize != (Size{
+			Width: details.MaximumLineWidth, Height: details.RenderedRows,
+		}) ||
+		details.Viewport.State.Offset.X < 0 ||
+		details.Viewport.State.Offset.Y < 0 ||
+		!validScrollVisibility(details.Viewport.HorizontalPolicy) ||
+		!validScrollVisibility(details.Viewport.VerticalPolicy) {
+		return false
+	}
+	previousSourceLine := 0
+	previousRenderedStart := -1
+	for _, block := range details.Blocks {
+		if !validMarkdownBlockKind(block.Kind) ||
+			block.SourceLine < 1 ||
+			block.SourceLines < 1 ||
+			block.RenderedStart < 0 ||
+			block.RenderedRows < 1 ||
+			block.RenderedStart+block.RenderedRows > details.RenderedRows ||
+			block.SourceLine <= previousSourceLine ||
+			block.RenderedStart <= previousRenderedStart ||
+			(block.Kind == "heading" &&
+				(block.Level < 1 || block.Level > 6)) ||
+			(block.Kind != "heading" && block.Level != 0) {
+			return false
+		}
+		previousSourceLine = block.SourceLine
+		previousRenderedStart = block.RenderedStart
+	}
+	inset := 0
+	if border.Form != "none" {
+		inset = 1
+	}
+	baseWidth := max(0, controlWidth-2*inset)
+	baseHeight := max(0, controlHeight-2*inset)
+	horizontal := details.Viewport.HorizontalPolicy == "always" &&
+		baseWidth > 0 && baseHeight > 0
+	vertical := details.Viewport.VerticalPolicy == "always" &&
+		baseWidth > 0 && baseHeight > 0
+	for range 3 {
+		viewportWidth := max(0, baseWidth-boolInt(vertical))
+		viewportHeight := max(0, baseHeight-boolInt(horizontal))
+		nextHorizontal := horizontal
+		nextVertical := vertical
+		if details.Viewport.HorizontalPolicy == "auto" {
+			nextHorizontal = baseWidth > 0 && baseHeight > 0 &&
+				details.MaximumLineWidth > viewportWidth
+		}
+		if details.Viewport.HorizontalPolicy == "never" {
+			nextHorizontal = false
+		}
+		if details.Viewport.VerticalPolicy == "auto" {
+			nextVertical = baseWidth > 0 && baseHeight > 0 &&
+				details.RenderedRows > viewportHeight
+		}
+		if details.Viewport.VerticalPolicy == "never" {
+			nextVertical = false
+		}
+		if nextHorizontal == horizontal && nextVertical == vertical {
+			break
+		}
+		horizontal, vertical = nextHorizontal, nextVertical
+	}
+	expectedBounds := Rect{
+		X: inset,
+		Y: inset,
+		Width: max(
+			0,
+			baseWidth-boolInt(vertical),
+		),
+		Height: max(
+			0,
+			baseHeight-boolInt(horizontal),
+		),
+	}
+	maximum := Point{
+		X: max(0, details.MaximumLineWidth-expectedBounds.Width),
+		Y: max(0, details.RenderedRows-expectedBounds.Height),
+	}
+	return details.Viewport.ViewportBounds == expectedBounds &&
+		details.Viewport.MaximumOffset == maximum &&
+		details.Viewport.State.Offset.X <= maximum.X &&
+		details.Viewport.State.Offset.Y <= maximum.Y &&
+		details.Viewport.HorizontalVisible == horizontal &&
+		details.Viewport.VerticalVisible == vertical
+}
+
+func boolInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func validMarkdownBlockKind(kind string) bool {
+	switch kind {
+	case "blank", "code", "heading", "list", "paragraph", "quote", "rule":
+		return true
 	default:
 		return false
 	}
@@ -2177,7 +2332,7 @@ func validFocusTargetKind(kind ControlKind) bool {
 	case "button", "checkbox", "radio_button", "cycle_field",
 		"select_field", "text_field", "number_field", "spin_box",
 		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook",
-		"viewport", "scrollable_panel":
+		"viewport", "scrollable_panel", "markdown_view":
 		return true
 	default:
 		return false

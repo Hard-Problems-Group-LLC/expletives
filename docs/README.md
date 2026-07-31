@@ -53,6 +53,9 @@ Keep durable project documentation here.
 - [Scrolling and Content API v0](specifications/scrolling-content-api-v0.md)
   defines the Phase 15 Viewport/ScrollablePanel foundation and the directed
   MarkdownView, LogView, and StreamView contracts.
+- [Scrolling and Content](Scrolling-and-Content.md) shows consuming
+  applications how to construct, update, scroll, theme, and inspect the
+  implemented Viewport, ScrollablePanel, and MarkdownView controls.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

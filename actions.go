@@ -505,6 +505,8 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return tabbedPanelEnabled(behavior)
 	case scrollViewBehavior:
 		return scrollViewCanMove(state, behavior)
+	case markdownBehavior:
+		return markdownCanMove(state, behavior)
 	default:
 		return false
 	}
@@ -547,6 +549,8 @@ func (a *App) focusBehaviorEligibleLocked(
 		return tabbedPanelEnabled(behavior)
 	case scrollViewBehavior:
 		return scrollViewCanMove(state, behavior)
+	case markdownBehavior:
+		return markdownCanMove(state, behavior)
 	}
 	return false
 }

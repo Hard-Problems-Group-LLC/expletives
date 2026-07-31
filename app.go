@@ -486,6 +486,9 @@ func (a *App) paintControlLocked(
 	case scrollViewBehavior:
 		scrollable := scrollViewDetails(bounds, behavior)
 		details.Scrollable = &scrollable
+	case markdownBehavior:
+		markdown := markdownDetails(bounds, behavior)
+		details.Markdown = &markdown
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,
