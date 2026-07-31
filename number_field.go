@@ -217,6 +217,7 @@ func newNumberFieldBehavior(
 			validator: validator,
 			disabled:  disabled, disabledReason: reason,
 			changeCommand: changeCommand, caret: len(normalized.cells),
+			selectionAnchor: -1,
 		},
 		policy: policy,
 		value:  value,
@@ -633,6 +634,7 @@ func (t *Transaction) SetNumberValue(control Control, value float64) error {
 	behavior.editor.editing = false
 	behavior.editor.caret = len(normalized.cells)
 	behavior.editor.viewOffset = 0
+	behavior.editor.selectionAnchor = -1
 	return t.recordNumberFieldBehavior(state, behavior)
 }
 
@@ -686,6 +688,7 @@ func (a *App) activateNumberField(
 		behavior.editor.editing = true
 		behavior.editor.caret = len(behavior.editor.working.cells)
 		behavior.editor.viewOffset = 0
+		behavior.editor.selectionAnchor = -1
 		state.behavior = behavior
 		changed = true
 	}
@@ -723,6 +726,8 @@ func (a *App) numberFieldDetailsLocked(
 		ChangeCommand:  behavior.editor.changeCommand,
 		Step:           behavior.policy.step,
 	}
+	details.SelectionStart, details.SelectionEnd, _ =
+		textSelectionRange(behavior.editor)
 	if behavior.policy.hasMinimum {
 		minimum := behavior.policy.minimum
 		details.Minimum = &minimum
@@ -752,6 +757,8 @@ func (a *App) editorInputLocked(
 		return command, target, handled, changed
 	case numberFieldBehavior:
 		return a.numberFieldInputLocked(state, behavior, key, held)
+	case textAreaBehavior:
+		return a.textAreaInputLocked(state, behavior, key, held)
 	default:
 		return "", "", false, false
 	}
@@ -797,6 +804,7 @@ func (a *App) numberFieldInputLocked(
 		behavior.editor.working = cloneInputText(normalized)
 		behavior.editor.caret = len(normalized.cells)
 		behavior.editor.viewOffset = 0
+		behavior.editor.selectionAnchor = -1
 		state.behavior = behavior
 		return behavior.editor.changeCommand, state.id, true, true
 	}
@@ -824,6 +832,7 @@ func (a *App) numberFieldInputLocked(
 		)
 		behavior.editor.committed = cloneInputText(canonical)
 		behavior.editor.editing = false
+		behavior.editor.selectionAnchor = -1
 		behavior.editor.viewOffset = textViewOffset(
 			behavior.editor.viewOffset,
 			behavior.editor.caret,
@@ -871,6 +880,17 @@ func (a *App) commitOrCancelEditorStateLocked(state *controlState) bool {
 		behavior.editor.editing = false
 		behavior.editor.caret = len(behavior.editor.committed.cells)
 		behavior.editor.viewOffset = 0
+		behavior.editor.selectionAnchor = -1
+		state.behavior = behavior
+		return true
+	case textAreaBehavior:
+		if !behavior.editing {
+			return false
+		}
+		behavior.committed = cloneInputText(behavior.working)
+		behavior.editing = false
+		behavior.selectionAnchor = -1
+		behavior.preferredColumn = -1
 		state.behavior = behavior
 		return true
 	default:
@@ -914,12 +934,27 @@ func (a *App) commitFocusedEditorLocked() (
 			len(behavior.editor.committed.cells),
 		)
 		behavior.editor.viewOffset = 0
+		behavior.editor.selectionAnchor = -1
 		a.focus.behavior = behavior
 		if valueChanged {
 			command = behavior.editor.changeCommand
 			target = a.focus.id
 		}
 		return command, target, true, true
+	case textAreaBehavior:
+		if !behavior.editing {
+			return "", "", false, true
+		}
+		valueChanged := behavior.committed.text != behavior.working.text
+		behavior.committed = cloneInputText(behavior.working)
+		behavior.editing = false
+		behavior.selectionAnchor = -1
+		behavior.preferredColumn = -1
+		a.focus.behavior = behavior
+		if valueChanged {
+			return behavior.changeCommand, a.focus.id, true, true
+		}
+		return "", "", true, true
 	default:
 		return "", "", false, true
 	}

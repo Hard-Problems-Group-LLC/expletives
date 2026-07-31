@@ -3,10 +3,11 @@
 //
 // Presenter owns the terminal lifecycle and physical frame projection.
 // InputDecoder incrementally converts terminal bytes into logical toolkit key
-// events. Applications should keep both on their single terminal-owner
-// goroutine and forward decoded events through expletives.App.DispatchKey. The
-// initial direct Presenter implementation supports Linux and a deliberately
-// narrow xterm, Screen, and tmux profile set.
+// and bounded bracketed-paste events. Applications should keep both on their
+// single terminal-owner goroutine and forward decoded events through
+// expletives.App.DispatchKey or DispatchTextInput. The initial direct
+// Presenter implementation supports Linux and a deliberately narrow xterm,
+// Screen, and tmux profile set.
 package terminal
 
 import (

@@ -301,6 +301,8 @@ const (
 	ControlNumberField ControlKind = "number_field"
 	// ControlSpinBox identifies one bracket-steppable NumberField.
 	ControlSpinBox ControlKind = "spin_box"
+	// ControlTextArea identifies one focusable multiline editor.
+	ControlTextArea ControlKind = "text_area"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -577,6 +579,8 @@ type ControlDetails struct {
 	TextField *TextFieldDetails `json:"text_field,omitempty"`
 	// NumberField is present for NumberField and SpinBox.
 	NumberField *NumberFieldDetails `json:"number_field,omitempty"`
+	// TextArea is present for TextArea.
+	TextArea *TextAreaDetails `json:"text_area,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -780,6 +784,8 @@ type TextFieldDetails struct {
 	Text           string                `json:"text,omitempty"`
 	Length         int                   `json:"length"`
 	Caret          int                   `json:"caret"`
+	SelectionStart int                   `json:"selection_start"`
+	SelectionEnd   int                   `json:"selection_end"`
 	ViewOffset     int                   `json:"view_offset"`
 	Editing        bool                  `json:"editing"`
 	Valid          bool                  `json:"valid"`
@@ -798,6 +804,8 @@ type NumberFieldDetails struct {
 	Value          float64   `json:"value"`
 	Length         int       `json:"length"`
 	Caret          int       `json:"caret"`
+	SelectionStart int       `json:"selection_start"`
+	SelectionEnd   int       `json:"selection_end"`
 	ViewOffset     int       `json:"view_offset"`
 	Editing        bool      `json:"editing"`
 	Valid          bool      `json:"valid"`
@@ -809,6 +817,30 @@ type NumberFieldDetails struct {
 	Enabled        bool      `json:"enabled"`
 	DisabledReason string    `json:"disabled_reason,omitempty"`
 	ChangeCommand  CommandID `json:"change_command,omitempty"`
+}
+
+// TextAreaDetails describes current multiline editing, selection, wrapping,
+// and private viewport state. Text is empty when Redacted is true.
+type TextAreaDetails struct {
+	Text              string                `json:"text,omitempty"`
+	Length            int                   `json:"length"`
+	LineCount         int                   `json:"line_count"`
+	Caret             int                   `json:"caret"`
+	SelectionStart    int                   `json:"selection_start"`
+	SelectionEnd      int                   `json:"selection_end"`
+	VisualCaretRow    int                   `json:"visual_caret_row"`
+	VisualCaretColumn int                   `json:"visual_caret_column"`
+	RowOffset         int                   `json:"row_offset"`
+	ColumnOffset      int                   `json:"column_offset"`
+	Wrap              TextWrap              `json:"wrap"`
+	Editing           bool                  `json:"editing"`
+	Valid             bool                  `json:"valid"`
+	Password          bool                  `json:"password"`
+	Redacted          bool                  `json:"redacted"`
+	Enabled           bool                  `json:"enabled"`
+	DisabledReason    string                `json:"disabled_reason,omitempty"`
+	ChangeCommand     CommandID             `json:"change_command,omitempty"`
+	Validator         *TextValidatorDetails `json:"validator,omitempty"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -1029,6 +1061,14 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 			field.Minimum = cloneFloat64(field.Minimum)
 			field.Maximum = cloneFloat64(field.Maximum)
 			cloned.Controls[index].Details.NumberField = &field
+		}
+		if snapshot.Controls[index].Details.TextArea != nil {
+			area := *snapshot.Controls[index].Details.TextArea
+			if area.Validator != nil {
+				validator := *area.Validator
+				area.Validator = &validator
+			}
+			cloned.Controls[index].Details.TextArea = &area
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

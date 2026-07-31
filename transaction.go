@@ -57,6 +57,7 @@ const (
 	mutationFocusGuidance
 	mutationTextField
 	mutationNumberField
+	mutationTextArea
 )
 
 type transactionMutation struct {
@@ -276,8 +277,8 @@ func (t *Transaction) SetMinimumSize(control Control, size Size) error {
 }
 
 // SetText records a canonical text change for a Label, StaticText, Rule, or
-// TextField. A TextField replacement is a silent committed-value change that
-// leaves edit mode.
+// TextField, or TextArea. An editor replacement is a silent committed-value
+// change that leaves edit mode.
 func (t *Transaction) SetText(control Control, text string) error {
 	state, err := t.control(control)
 	if err != nil {
@@ -305,7 +306,35 @@ func (t *Transaction) SetText(control Control, text string) error {
 		behavior.editing = false
 		behavior.caret = len(value.cells)
 		behavior.viewOffset = 0
+		behavior.selectionAnchor = -1
 		return t.recordTextFieldBehavior(state, behavior)
+	}
+	if state.kind == ControlTextArea {
+		value, err := normalizeTextAreaInput(text)
+		if err != nil {
+			return err
+		}
+		behavior, ok := t.recordedControlBehavior(state).(textAreaBehavior)
+		if !ok {
+			return ErrInvalidControl
+		}
+		if behavior.validator != nil &&
+			behavior.validator.value.Enforcement == TextValidationHard &&
+			!textAreaCellsValid(value.cells, behavior.validator) {
+			return fmt.Errorf(
+				"%w: TextArea value violates hard validation",
+				ErrValidation,
+			)
+		}
+		behavior.committed = value
+		behavior.working = cloneInputText(value)
+		behavior.editing = false
+		behavior.caret = len(value.cells)
+		behavior.selectionAnchor = -1
+		behavior.rowOffset = 0
+		behavior.columnOffset = 0
+		behavior.preferredColumn = -1
+		return t.recordTextAreaBehavior(state, behavior)
 	}
 	multiline := false
 	switch state.kind {
@@ -381,7 +410,7 @@ func (t *Transaction) SetFocus(control Control) error {
 	switch state.kind {
 	case ControlButton, ControlCheckbox, ControlRadioButton,
 		ControlCycleField, ControlSelectField, ControlTextField,
-		ControlNumberField, ControlSpinBox:
+		ControlNumberField, ControlSpinBox, ControlTextArea:
 	default:
 		return ErrNotFocusable
 	}
@@ -695,7 +724,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
-		case mutationTextField, mutationNumberField:
+		case mutationTextField, mutationNumberField, mutationTextArea:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -849,7 +878,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	selectedBehaviors := make(map[*controlState]controlBehavior)
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
-		case mutationTextField, mutationNumberField, mutationStatusSegments,
+		case mutationTextField, mutationNumberField, mutationTextArea,
+			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
 			selectedBehaviors[mutation.state] = mutation.behavior
@@ -1148,6 +1178,21 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+		case textAreaBehavior:
+			textInputBytes += len(behavior.committed.text)
+			if behavior.editing {
+				textInputBytes += len(behavior.working.text)
+			}
+			if behavior.validator != nil {
+				textInputBytes += len(behavior.validator.value.Characters)
+			}
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"text area",
+			); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -1356,7 +1401,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				mutation.state.focusGuidance = mutation.focusGuidance
 				changed = true
 			}
-		case mutationTextField, mutationNumberField:
+		case mutationTextField, mutationNumberField, mutationTextArea:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

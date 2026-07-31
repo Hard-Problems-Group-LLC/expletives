@@ -552,6 +552,13 @@ and atomic `SetValue`. SpinBox adds positive fixed-place `Step` and clamped
 focus. Their complete surface and typed `ControlDetails.NumberField` evidence
 are defined by the same input contract.
 
+`TextArea` provides multiline editing over the same validator, password, and
+Limited Unicode policies. Enter inserts LF while editing, Ctrl-Enter commits,
+and Tab commits before group traversal. `TextWrapNone`, `TextWrapWords`, and
+`TextWrapCells` select its private bounded viewport behavior. Shift movement,
+selection replacement/deletion, Ctrl-A, visual-row navigation, and typed
+`ControlDetails.TextArea` evidence are defined by the same input contract.
+
 ## Atomic Transactions
 
 ```go
@@ -578,6 +585,7 @@ func (t *Transaction) NewSelectField(Container, SelectFieldOptions) (*SelectFiel
 func (t *Transaction) NewTextField(Container, TextFieldOptions) (*TextField, error)
 func (t *Transaction) NewNumberField(Container, NumberFieldOptions) (*NumberField, error)
 func (t *Transaction) NewSpinBox(Container, SpinBoxOptions) (*SpinBox, error)
+func (t *Transaction) NewTextArea(Container, TextAreaOptions) (*TextArea, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -589,6 +597,9 @@ func (t *Transaction) SetText(Control, string) error
 func (t *Transaction) SetTextValidator(*TextField, *TextValidator) error
 func (t *Transaction) SetTextPassword(*TextField, bool) error
 func (t *Transaction) SetNumberValue(Control, float64) error
+func (t *Transaction) SetTextAreaValidator(*TextArea, *TextValidator) error
+func (t *Transaction) SetTextAreaPassword(*TextArea, bool) error
+func (t *Transaction) SetTextAreaWrap(*TextArea, TextWrap) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
@@ -734,6 +745,14 @@ valid logical keys.
 Chord modifier order is insignificant; modifiers must be unique, and the
 pressed key cannot itself be a modifier.
 
+`TextInputCommitted` and `TextInputPaste` instead enter through
+`DispatchTextInput`. They are bounded non-key text events delivered only to a
+focused enabled editor in edit mode. They never participate in command,
+mnemonic, accelerator, menu, or binding resolution. Hard validators filter
+disallowed elements, selections are replaced atomically, single-line editors
+reject line separators, and over-capacity candidates are rejected without
+partial insertion.
+
 ## Command Registry And Structured Results
 
 ```go
@@ -796,6 +815,10 @@ The correlated methods are:
 ```go
 func (a *App) DispatchKey(
     context.Context, source, requestID string, event KeyEvent,
+) (Completion, error)
+
+func (a *App) DispatchTextInput(
+    context.Context, source, requestID string, event TextInputEvent,
 ) (Completion, error)
 
 func (a *App) InvokeCommand(
@@ -971,7 +994,7 @@ This contract does not yet provide:
 - Layout replacement, detachment, spacers, and control reparenting;
 - reparenting;
 - a public custom-paint or arbitrary control factory;
-- hit testing, mouse input, or bounded paste events;
+- hit testing or mouse input;
 - mutable titles or border styles;
 - panel-owned/context menus or application-extensible mnemonic scopes;
 - a public cursor mutator;

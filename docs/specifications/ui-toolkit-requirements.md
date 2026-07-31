@@ -269,9 +269,10 @@ byte stream or a backend-specific numeric key code.
 
 `cell.Cell` (value type, cheap to copy):
 
-- `Runes []rune` — a grapheme cluster (base + combining), not a single rune.
-- `Width int` — display width (1 or 2); width-2 occupies this cell plus one
-  **continuation cell** (`Width == 0`, `Cont == true`).
+- one canonical grapheme string that the project width policy measures as
+  exactly one cell, including supported base-plus-combining sequences;
+- no width or continuation-cell member; unsupported zero-width, multi-cell,
+  or indeterminate elements normalize to one `U+FFFD` cell;
 - `FG, BG cell.Color` — resolved color (ANSI-16 / 256 / truecolor, or a
   named palette ref that the theme resolves).
 - `Attrs cell.Attr` — bit flags: Bold, Faint, Italic, Underline, Reverse,
@@ -500,8 +501,9 @@ Beyond the textbook behavior of each control, we specifically need:
 9. **Streaming/bounded content.** `LogView` ingests high-volume subprocess
    output via bounded channels with backpressure and honest drop-counting;
    follow-tail vs. scrollback; raw bytes clipped, never wrapped into bands.
-10. **Wide-char / grapheme correctness** in both rendering and text editing
-    (continuation cells; caret never splits a width-2 cluster).
+10. **One-cell grapheme correctness** in rendering and text editing:
+    supported composed one-cell clusters remain indivisible, while every
+    unsupported cluster becomes exactly one `U+FFFD` cell.
 11. **Disposition/gating.** Controls can be disabled *with a reason* surfaced
     to the user and to automation state.
 12. **Validation hooks.** Fields carry validators; invalid state is a visible

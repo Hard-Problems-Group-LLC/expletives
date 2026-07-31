@@ -81,8 +81,13 @@ This leaves screen hotkeys usable while navigating controls.
 - Enter starts editing, then later commits.
 - Escape cancels the current edit.
 - Left/Right and Home/End move the caret while editing.
-- Backspace/Delete remove complete one-cell elements.
+- Shift with movement extends a selection; Ctrl-A selects the complete value.
+- Typing, committed text, or paste replaces a selection.
+- Backspace/Delete remove a selection or complete one-cell elements.
 - Tab or directional focus movement commits before moving to another group.
+
+Ctrl-C remains the application's configurable interrupt chord while editing;
+the toolkit does not silently reinterpret it as clipboard copy.
 
 Use an optional `ChangeCommand` to notify an MVC/MVVC controller after a user
 commit. Programmatic setters do not emit that command.
@@ -108,3 +113,31 @@ configured precision. Invalid intermediate text remains editable, but Enter
 or Tab will not commit it or leave the field. Escape restores the committed
 value. `Value()` exposes committed application state; typed details expose
 both that value and the current working text.
+
+## Multiline TextArea
+
+`TextArea` uses the same optional validator and password rules:
+
+```go
+area, err := expletives.NewTextArea(parent, expletives.TextAreaOptions{
+    Text: "First line\nSecond line",
+    Wrap: expletives.TextWrapWords,
+    Validator: &expletives.TextValidator{
+        Enforcement: expletives.TextValidationSoft,
+        Mode:        expletives.TextValidationBlacklist,
+        Characters:  "@",
+    },
+})
+```
+
+Enter starts editing and then inserts new lines; Ctrl-Enter commits. Escape
+cancels, Tab commits and traverses focus groups, arrows navigate visual rows,
+and Shift extends selection. CRLF and CR normalize to LF. The internal
+row/column viewport keeps the caret visible with no-wrap, word-wrap, and
+cell-wrap policies.
+
+`App.DispatchTextInput` delivers bounded committed text or paste directly to
+the focused editing control. The content never enters key, menu, mnemonic, or
+command resolution. Candidate values over the 65,536-byte or element limit
+are rejected atomically. The terminal adapter enables bracketed paste,
+buffers at most that bound, and discards an oversized episode in full.

@@ -4,6 +4,52 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-31 — `EXPL-TASK-027` — Deliver Phase 12 Text and Numeric Input.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-31T01:53:48-07:00
+  - Completed: 2026-07-31T03:10:36-07:00
+  - Outcome:
+    - added bounded `TextField`, `NumberField`, `SpinBox`, and multiline
+      `TextArea` controls with atomic public/transaction mutation, grouped
+      focus behavior, explicit editing, commit/cancel, and user-only change
+      commands;
+    - implemented soft/hard whitelist/blacklist validation, password masking
+      and snapshot redaction, exact fixed-place numeric bounds/steps, shared
+      Shift selection and Ctrl-A, multiline navigation/viewports, and
+      no/word/cell wrapping;
+    - added bounded committed-text and terminal bracketed-paste events that
+      enter only an editing control, never command resolution, and discard an
+      entire over-limit physical paste rather than exposing a prefix;
+    - retained configurable Ctrl-C command handling while every editor is
+      active and cleared held-key evidence on terminal outcomes; and
+    - enabled the seven-control Input catalog page with raw-key attached
+      automation coverage, typed core/wire details, and exact client-side
+      trust-boundary validation.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the controlling-PTY lifecycle, the complete race suite, debug/release/
+      profiling builds, and every mode's smoke/self-check;
+    - focused multiline fuzzing completed 83,496 executions without failure;
+    - the conservative maximum completion remains 41,389,979 bytes below the
+      40 MiB line limit, with three retained maxima totaling 124,169,937 bytes
+      below the 128 MiB aggregate budget; and
+    - all required executables are current and executable under
+      `build/{debug,release,profiling}/`.
+  - Contracts:
+    - [`Text and Numeric Input API v0`](../docs/specifications/text-and-numeric-input-api-v0.md)
+    - [`Text Input Validation and Passwords`](../docs/Text-Input-Validation-and-Passwords.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Process:
+    - completed without convening the Panel; and
+    - recorded shared decoder/catalog verification and integration-test
+      budgeting improvements in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 13 Progress controls are next; Structured Input and automation
+      authentication remain deferred.
+
 - 2026-07-31 — `EXPL-TASK-026` — Deliver Phase 11 Selection controls.
   - Requestor: project operator
   - Owner: Codex

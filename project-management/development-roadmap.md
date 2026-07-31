@@ -411,7 +411,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 12. Text/Numeric Input
 
-- Status: `in progress`
+- Status: `complete`
 - Goal: deliver `TextField`, `NumberField`, `SpinBox`, and `TextArea`.
 - Dependencies: Phase 11 plus approved editing, validation, caret, paste, and
   interrupt contracts.
@@ -440,6 +440,8 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: all editors remain deterministic and recoverable through
   invalid input, paste, resize, focus changes, and every supported Ctrl-C
   policy.
+- Completion evidence:
+  [`EXPL-TASK-027`](completed-tasks.md).
 
 ### 13. Progress
 

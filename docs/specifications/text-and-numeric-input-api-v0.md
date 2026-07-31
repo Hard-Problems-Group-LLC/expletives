@@ -160,10 +160,22 @@ screen bindings. Enter activates editing. While editing:
 - printable one-cell input inserts at the caret;
 - Left/Right move by one complete displayed element;
 - Home/End move to the first/last element;
-- Backspace/Delete remove one complete element;
+- holding Shift while using those movement keys extends the selection from
+  its fixed anchor, while movement without Shift clears the selection;
+- Ctrl-A selects the complete working value;
+- printable input and committed text replace a nonempty selection;
+- Backspace/Delete remove a nonempty selection, or one complete element when
+  no selection exists;
 - Enter commits and leaves edit mode;
 - Escape restores the pre-edit committed value and leaves edit mode; and
 - Tab or focus movement commits and leaves edit mode before group traversal.
+
+Selection endpoints are zero-based canonical-element offsets with an
+end-exclusive upper endpoint. They never split a composed one-cell element.
+`Ctrl-C` is not claimed as an editor-copy chord: it remains available to the
+application's configured interrupt policy in every editor state. A later
+clipboard proposal may add copy/cut bindings without weakening that recovery
+path.
 
 The logical cursor is visible only for an effectively visible, focused field
 in edit mode. Horizontal view offset keeps the caret visible. Focus,
@@ -243,26 +255,140 @@ values.
 
 ## TextArea
 
-`TextArea` extends the same editor and validator/password rules to explicit
-line separators. Validator `Characters` describes input elements, not newline;
-the multiline control admits newline structurally through Enter. It uses a
-private bounded viewport until Phase 15 publishes the reusable scrolling
-controls.
+```go
+type TextAreaOptions struct {
+    PanelOptions
+    Text           string
+    Validator      *TextValidator
+    Password       bool
+    Wrap           TextWrap
+    Disabled       bool
+    DisabledReason string
+    ChangeCommand  CommandID
+}
 
-Exact multiline selection, wrapping, offset, and commit behavior are specified
-before `TextArea` is exposed.
+func NewTextArea(Container, TextAreaOptions) (*TextArea, error)
+func (t *Transaction) NewTextArea(
+    Container,
+    TextAreaOptions,
+) (*TextArea, error)
+func (a *TextArea) Text() string
+func (a *TextArea) SetText(string) error
+func (a *TextArea) Validator() *TextValidator
+func (a *TextArea) SetValidator(*TextValidator) error
+func (a *TextArea) Password() bool
+func (a *TextArea) SetPassword(bool) error
+func (a *TextArea) Wrap() TextWrap
+func (a *TextArea) SetWrap(TextWrap) error
+func (a *TextArea) Editing() bool
+func (a *TextArea) Valid() bool
+func (a *TextArea) Focus() error
+func (a *TextArea) Activate(
+    context.Context,
+    source string,
+    requestID string,
+) (Completion, error)
+```
+
+`TextArea` extends the validator/password rules to explicit line separators.
+CRLF and CR input normalize to LF. Other control characters are rejected.
+Validator `Characters` describes input elements, not newline; newline is
+admitted structurally and is never colored as a validator failure.
+
+The zero `Wrap` value selects `TextWrapNone`. `TextWrapNone`,
+`TextWrapCells`, and `TextWrapWords` have the same meanings as StaticText.
+Unwrapped areas maintain both row and column viewport offsets. Wrapped areas
+keep column offset zero and maintain a visual-row offset. Resizing clamps the
+effective offsets and keeps the editing caret visible. The private viewport
+is not a public scrollbar model; Phase 15 may replace its implementation
+without changing this editor contract.
+
+Outside edit mode Enter activates editing. Inside edit mode:
+
+- Enter inserts one LF at the caret;
+- Ctrl-Enter commits and leaves edit mode;
+- Tab commits and moves between focus groups;
+- Escape restores the pre-edit value and leaves edit mode;
+- Left/Right move by one canonical element, including across LF;
+- Up/Down preserve the preferred visual column where possible;
+- Home/End move to the beginning/end of the current visual row;
+- Ctrl-Home/Ctrl-End move to the beginning/end of the complete value;
+- PageUp/PageDown move by one visible page; and
+- Shift extends selection for every movement operation.
+
+The same selection replacement, deletion, Ctrl-A, validation, password
+redaction, focus-loss commit, and user-only `ChangeCommand` rules as
+`TextField` apply. Selection endpoints and caret offsets count canonical
+elements including each LF as one structural element. `TextArea` has an
+intrinsic minimum of 8 by 3 cells.
+
+`ControlDetails.TextArea` contains current text (or an empty redacted value),
+element length, logical-line count, caret and selection offsets, visual
+caret row/column, row/column viewport offsets, wrap, edit/valid/password
+state, disabled reason, change command, and copied validator summary.
+
+## Committed Text And Paste Events
+
+```go
+type TextInputKind string
+
+const (
+    TextInputCommitted TextInputKind = "committed_text"
+    TextInputPaste     TextInputKind = "paste"
+)
+
+type TextInputEvent struct {
+    Kind TextInputKind
+    Text string
+}
+
+func (a *App) DispatchTextInput(
+    context.Context,
+    source string,
+    requestID string,
+    event TextInputEvent,
+) (Completion, error)
+```
+
+Committed text represents an IME or another trusted text-composition
+boundary. Paste represents bracketed-paste content. Both are bounded to
+`MaxTextInputBytes`, enter only the focused enabled editor while it is in edit
+mode, replace its current selection, and produce an exact associated
+completion. They never enter mnemonic, accelerator, hotkey, menu, or command
+resolution.
+
+Input is normalized to canonical one-cell elements before insertion.
+TextField, NumberField, and SpinBox reject an event containing line
+separators. TextArea normalizes line separators as described above. A hard
+validator filters rejected non-newline elements without residue; if nothing
+remains, the event is a handled no-op. Candidate values exceeding the
+per-control byte or element bound are rejected atomically rather than
+truncated. Numeric controls accept a text event only when every retained
+element satisfies their numeric character policy; parse/range validation
+still occurs at commit.
+
+The terminal adapter emits bracketed paste through this semantic path and
+retains at most `MaxTextInputBytes` of one paste. If the physical paste
+exceeds the bound, it discards the complete episode and reports no partial
+text. Escape/control sequences inside a bounded paste remain inert text and
+are rejected or normalized by the target editor; they are never replayed
+through the terminal decoder.
 
 ## Typed Evidence And Security
 
-`ControlDetails.TextField` is a versioned typed member. For ordinary fields it
-contains the canonical committed or current edit value, value length, caret,
-view offset, editing, valid, password, disabled reason, change command, and a
-copied validator summary. For password fields the value member is always
-empty and a redacted flag is true.
+`ControlDetails.TextField`, `ControlDetails.NumberField`, and
+`ControlDetails.TextArea` are versioned typed members. TextField and TextArea
+details expose canonical committed or current edit text, length, caret,
+selection, viewport, editing, validity, password, disabled reason, change
+command, and the applicable copied policy summaries. Number details expose
+the corresponding edit state, exact numeric policy, and committed value. A
+password member always has empty text and an asserted redacted flag.
 
-No unrestricted details map is introduced. Automation projection explicitly
-copies and validates the member, enforces kind consistency and aggregate
-bounds, and rejects a password detail containing a value.
+No unrestricted details map is introduced. Core snapshots deep-copy every
+pointer-bearing detail. Automation projection explicitly copies and validates
+the applicable member, enforces control-kind consistency, canonical text,
+selection/viewport/range invariants, finite numeric values, and aggregate
+bounds, and rejects any password detail containing text.
 
 ## Acceptance
 
@@ -277,6 +403,12 @@ Verification includes:
   automation snapshot;
 - one-cell composed input, `U+FFFD` replacement, deletion, caret motion, and
   horizontal clipping;
+- Shift selection, selection replacement/deletion, Ctrl-A, and Ctrl-C
+  interrupt availability;
+- multiline CR/LF normalization, visual-row navigation, wrapping, viewport
+  clamping, and resize;
+- bounded committed-text and bracketed-paste delivery with no command
+  interpretation or partial over-limit insertion;
 - raw human/headless/automation key equivalence;
 - edit activation, commit, cancel, focus loss, and disabled behavior;
 - ordinary Go, race, headless automation, attached automation, and debug,

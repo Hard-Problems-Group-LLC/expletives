@@ -570,6 +570,68 @@ func TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsAndRedactsTextAreaDetails(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 5},
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	if _, err := expletives.NewTextArea(
+		app.Root(),
+		expletives.TextAreaOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.area",
+				Bounds: expletives.Rect{
+					Width: 12, Height: 3,
+				},
+			},
+			Text: "secret\nvalue", Password: true,
+			Wrap: expletives.TextWrapWords,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  " ",
+			},
+		},
+	); err != nil {
+		t.Fatalf("NewTextArea() error = %v", err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *TextAreaDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "input.area" {
+			details = projected.Controls[index].Details.TextArea
+			break
+		}
+	}
+	if details == nil || details.Text != "" || details.Length != 12 ||
+		details.LineCount != 2 || !details.Password || !details.Redacted ||
+		details.Wrap != "words" || details.Validator == nil {
+		t.Fatalf("projected TextAreaDetails = %#v", details)
+	}
+	encoded, err := json.Marshal(projected)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if bytes.Contains(encoded, []byte("secret")) ||
+		bytes.Contains(encoded, []byte("value")) {
+		t.Fatal("TextArea password leaked into projected JSON")
+	}
+	cloned := cloneSnapshot(projected)
+	details.Validator.Characters = "mutated"
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "input.area" &&
+			cloned.Controls[index].Details.TextArea.Validator.Characters != " " {
+			t.Fatal("cloned TextArea validator aliases projected storage")
+		}
+	}
+}
+
 func TestExpandFrameRejectsDisagreeingCompactAndExpandedViews(t *testing.T) {
 	t.Parallel()
 

@@ -278,7 +278,12 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   SpinBox use finite fixed-place `float64` values, reject caller values that
   require rounding, retain invalid intermediate edits, refuse invalid
   Enter/Tab commits, and use `[`/`]` for clamped SpinBox stepping outside edit
-  mode.
+  mode. TextArea normalizes line separators, supports no/word/cell wrapping,
+  uses Enter for newline and Ctrl-Enter for commit, preserves one-cell
+  selection boundaries, and exposes a private bounded viewport. Committed
+  text and paste are distinct bounded non-key events and must never enter
+  command resolution; Ctrl-C remains available to configured interrupt
+  policy in every editor.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
 - Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and

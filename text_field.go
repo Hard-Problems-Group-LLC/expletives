@@ -65,16 +65,17 @@ type normalizedTextValidator struct {
 }
 
 type textFieldBehavior struct {
-	committed      normalizedInputText
-	working        normalizedInputText
-	validator      *normalizedTextValidator
-	password       bool
-	disabled       bool
-	disabledReason string
-	changeCommand  CommandID
-	editing        bool
-	caret          int
-	viewOffset     int
+	committed       normalizedInputText
+	working         normalizedInputText
+	validator       *normalizedTextValidator
+	password        bool
+	disabled        bool
+	disabledReason  string
+	changeCommand   CommandID
+	editing         bool
+	caret           int
+	viewOffset      int
+	selectionAnchor int
 }
 
 // NewTextField constructs and atomically inserts a TextField.
@@ -136,6 +137,7 @@ func (t *Transaction) NewTextField(
 			validator: validator, password: options.Password,
 			disabled: options.Disabled, disabledReason: reason,
 			changeCommand: options.ChangeCommand, caret: len(value.cells),
+			selectionAnchor: -1,
 		},
 	)
 	if err != nil {
@@ -321,6 +323,7 @@ func (b textFieldBehavior) additionalStyles() []StyleID {
 		"text_input.valid",
 		"text_input.invalid",
 		"text_input.invalid_character",
+		"text_input.selection",
 		"text_input.disabled",
 	}
 }
@@ -383,6 +386,8 @@ func paintTextEditor(
 		switch {
 		case b.disabled:
 			style = "text_input.disabled"
+		case textSelectionContains(b, index):
+			style = "text_input.selection"
 		case b.validator == nil:
 		case valid:
 			style = "text_input.valid"
@@ -572,6 +577,7 @@ func (t *Transaction) SetTextValidator(
 	behavior.editing = false
 	behavior.caret = len(behavior.committed.cells)
 	behavior.viewOffset = 0
+	behavior.selectionAnchor = -1
 	return t.recordTextFieldBehavior(state, behavior)
 }
 
@@ -655,6 +661,7 @@ func (a *App) activateTextField(
 		behavior.editing = true
 		behavior.caret = len(behavior.working.cells)
 		behavior.viewOffset = 0
+		behavior.selectionAnchor = -1
 		state.behavior = behavior
 		changed = true
 	}
@@ -689,6 +696,8 @@ func (a *App) textFieldDetailsLocked(
 		DisabledReason: behavior.disabledReason,
 		ChangeCommand:  behavior.changeCommand,
 	}
+	details.SelectionStart, details.SelectionEnd, _ =
+		textSelectionRange(behavior)
 	if !behavior.password {
 		details.Text = current.text
 	}
@@ -722,21 +731,40 @@ func (a *App) textEditorInputLocked(
 		behavior.editing = true
 		behavior.caret = len(behavior.working.cells)
 		behavior.viewOffset = 0
+		behavior.selectionAnchor = -1
 		return behavior, "", "", true, true
 	}
-	if !textInputModifiers(held) {
+	if held[KeyAlt] || held[KeyMeta] {
 		return behavior, "", "", false, false
 	}
 	handled := true
 	changed := false
 	command := CommandID("")
 	target := ControlID("")
+	if held[KeyControl] && !held[KeyShift] && key == "a" {
+		if len(behavior.working.cells) == 0 {
+			return behavior, "", "", true, false
+		}
+		behavior.selectionAnchor = 0
+		behavior.caret = len(behavior.working.cells)
+		behavior.viewOffset = textViewOffset(
+			behavior.viewOffset,
+			behavior.caret,
+			len(behavior.working.cells),
+			state.bounds.Width,
+		)
+		return behavior, "", "", true, true
+	}
+	if held[KeyControl] {
+		return behavior, "", "", false, false
+	}
 	switch key {
 	case KeyEnter:
 		changed = true
 		valueChanged := behavior.committed.text != behavior.working.text
 		behavior.committed = cloneInputText(behavior.working)
 		behavior.editing = false
+		behavior.selectionAnchor = -1
 		if valueChanged {
 			command = behavior.changeCommand
 			target = state.id
@@ -746,29 +774,26 @@ func (a *App) textEditorInputLocked(
 		behavior.editing = false
 		behavior.caret = len(behavior.committed.cells)
 		behavior.viewOffset = 0
+		behavior.selectionAnchor = -1
 		changed = true
 	case KeyLeft:
-		if behavior.caret > 0 {
-			behavior.caret--
-			changed = true
-		}
+		next := max(0, behavior.caret-1)
+		changed = moveTextCaret(&behavior, next, held[KeyShift])
 	case KeyRight:
-		if behavior.caret < len(behavior.working.cells) {
-			behavior.caret++
-			changed = true
-		}
+		next := min(len(behavior.working.cells), behavior.caret+1)
+		changed = moveTextCaret(&behavior, next, held[KeyShift])
 	case KeyHome:
-		if behavior.caret != 0 {
-			behavior.caret = 0
-			changed = true
-		}
+		changed = moveTextCaret(&behavior, 0, held[KeyShift])
 	case KeyEnd:
-		if behavior.caret != len(behavior.working.cells) {
-			behavior.caret = len(behavior.working.cells)
-			changed = true
-		}
+		changed = moveTextCaret(
+			&behavior,
+			len(behavior.working.cells),
+			held[KeyShift],
+		)
 	case KeyBackspace:
-		if behavior.caret > 0 {
+		if deleteTextSelection(&behavior) {
+			changed = true
+		} else if behavior.caret > 0 {
 			index := behavior.caret - 1
 			behavior.working.cells = append(
 				behavior.working.cells[:index],
@@ -778,7 +803,9 @@ func (a *App) textEditorInputLocked(
 			changed = true
 		}
 	case KeyDelete:
-		if behavior.caret < len(behavior.working.cells) {
+		if deleteTextSelection(&behavior) {
+			changed = true
+		} else if behavior.caret < len(behavior.working.cells) {
 			behavior.working.cells = append(
 				behavior.working.cells[:behavior.caret],
 				behavior.working.cells[behavior.caret+1:]...,
@@ -800,17 +827,22 @@ func (a *App) textEditorInputLocked(
 			!textCellAllowed(cell, behavior.validator) {
 			return behavior, "", "", true, false
 		}
+		start, end, selected := textSelectionRange(behavior)
+		if !selected {
+			start, end = behavior.caret, behavior.caret
+		}
 		candidate := make([]string, 0, len(behavior.working.cells)+1)
-		candidate = append(candidate, behavior.working.cells[:behavior.caret]...)
+		candidate = append(candidate, behavior.working.cells[:start]...)
 		candidate = append(candidate, cell)
-		candidate = append(candidate, behavior.working.cells[behavior.caret:]...)
+		candidate = append(candidate, behavior.working.cells[end:]...)
 		candidateText := strings.Join(candidate, "")
 		if len(candidateText) > MaxTextInputBytes ||
 			len(candidate) > MaxTextInputCells {
 			return behavior, "", "", true, false
 		}
 		behavior.working.cells = candidate
-		behavior.caret++
+		behavior.caret = start + 1
+		behavior.selectionAnchor = -1
 		changed = true
 	}
 	if changed {
@@ -842,6 +874,7 @@ func (a *App) commitTextFieldStateLocked(
 	valueChanged := behavior.committed.text != behavior.working.text
 	behavior.committed = cloneInputText(behavior.working)
 	behavior.editing = false
+	behavior.selectionAnchor = -1
 	behavior.viewOffset = textViewOffset(
 		behavior.viewOffset,
 		behavior.caret,
@@ -902,7 +935,62 @@ func textFieldBehaviorEqual(left, right textFieldBehavior) bool {
 		left.changeCommand == right.changeCommand &&
 		left.editing == right.editing &&
 		left.caret == right.caret &&
-		left.viewOffset == right.viewOffset
+		left.viewOffset == right.viewOffset &&
+		left.selectionAnchor == right.selectionAnchor
+}
+
+func textSelectionRange(
+	behavior textFieldBehavior,
+) (start, end int, selected bool) {
+	if behavior.selectionAnchor < 0 ||
+		behavior.selectionAnchor == behavior.caret {
+		return behavior.caret, behavior.caret, false
+	}
+	return min(behavior.selectionAnchor, behavior.caret),
+		max(behavior.selectionAnchor, behavior.caret),
+		true
+}
+
+func textSelectionContains(behavior textFieldBehavior, index int) bool {
+	start, end, selected := textSelectionRange(behavior)
+	return selected && index >= start && index < end
+}
+
+func moveTextCaret(
+	behavior *textFieldBehavior,
+	next int,
+	extend bool,
+) bool {
+	next = min(max(0, next), len(behavior.working.cells))
+	previousCaret := behavior.caret
+	previousAnchor := behavior.selectionAnchor
+	if extend {
+		if behavior.selectionAnchor < 0 {
+			behavior.selectionAnchor = behavior.caret
+		}
+	} else {
+		behavior.selectionAnchor = -1
+	}
+	behavior.caret = next
+	if behavior.selectionAnchor == behavior.caret {
+		behavior.selectionAnchor = -1
+	}
+	return previousCaret != behavior.caret ||
+		previousAnchor != behavior.selectionAnchor
+}
+
+func deleteTextSelection(behavior *textFieldBehavior) bool {
+	start, end, selected := textSelectionRange(*behavior)
+	if !selected {
+		return false
+	}
+	behavior.working.cells = append(
+		behavior.working.cells[:start],
+		behavior.working.cells[end:]...,
+	)
+	behavior.caret = start
+	behavior.selectionAnchor = -1
+	return true
 }
 
 func textValidatorEqual(

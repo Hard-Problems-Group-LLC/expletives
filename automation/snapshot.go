@@ -183,6 +183,8 @@ type ControlDetails struct {
 	TextField *TextFieldDetails `json:"text_field,omitempty"`
 	// NumberField is present for NumberField and SpinBox.
 	NumberField *NumberFieldDetails `json:"number_field,omitempty"`
+	// TextArea is present for TextArea.
+	TextArea *TextAreaDetails `json:"text_area,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -385,6 +387,8 @@ type TextFieldDetails struct {
 	Text           string                `json:"text,omitempty"`
 	Length         int                   `json:"length"`
 	Caret          int                   `json:"caret"`
+	SelectionStart int                   `json:"selection_start"`
+	SelectionEnd   int                   `json:"selection_end"`
 	ViewOffset     int                   `json:"view_offset"`
 	Editing        bool                  `json:"editing"`
 	Valid          bool                  `json:"valid"`
@@ -402,6 +406,8 @@ type NumberFieldDetails struct {
 	Value          float64  `json:"value"`
 	Length         int      `json:"length"`
 	Caret          int      `json:"caret"`
+	SelectionStart int      `json:"selection_start"`
+	SelectionEnd   int      `json:"selection_end"`
 	ViewOffset     int      `json:"view_offset"`
 	Editing        bool     `json:"editing"`
 	Valid          bool     `json:"valid"`
@@ -413,6 +419,29 @@ type NumberFieldDetails struct {
 	Enabled        bool     `json:"enabled"`
 	DisabledReason string   `json:"disabled_reason,omitempty"`
 	ChangeCommand  string   `json:"change_command,omitempty"`
+}
+
+// TextAreaDetails describes current multiline editing and viewport state.
+type TextAreaDetails struct {
+	Text              string                `json:"text,omitempty"`
+	Length            int                   `json:"length"`
+	LineCount         int                   `json:"line_count"`
+	Caret             int                   `json:"caret"`
+	SelectionStart    int                   `json:"selection_start"`
+	SelectionEnd      int                   `json:"selection_end"`
+	VisualCaretRow    int                   `json:"visual_caret_row"`
+	VisualCaretColumn int                   `json:"visual_caret_column"`
+	RowOffset         int                   `json:"row_offset"`
+	ColumnOffset      int                   `json:"column_offset"`
+	Wrap              TextWrap              `json:"wrap"`
+	Editing           bool                  `json:"editing"`
+	Valid             bool                  `json:"valid"`
+	Password          bool                  `json:"password"`
+	Redacted          bool                  `json:"redacted"`
+	Enabled           bool                  `json:"enabled"`
+	DisabledReason    string                `json:"disabled_reason,omitempty"`
+	ChangeCommand     string                `json:"change_command,omitempty"`
+	Validator         *TextValidatorDetails `json:"validator,omitempty"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -816,8 +845,11 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 		if details := control.Details.TextField; details != nil {
 			field := &TextFieldDetails{
 				Text: details.Text, Length: details.Length,
-				Caret: details.Caret, ViewOffset: details.ViewOffset,
-				Editing: details.Editing, Valid: details.Valid,
+				Caret:          details.Caret,
+				SelectionStart: details.SelectionStart,
+				SelectionEnd:   details.SelectionEnd,
+				ViewOffset:     details.ViewOffset,
+				Editing:        details.Editing, Valid: details.Valid,
 				Password: details.Password, Redacted: details.Redacted,
 				Enabled:        details.Enabled,
 				DisabledReason: details.DisabledReason,
@@ -836,7 +868,9 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			projectedControl.Details.NumberField = &NumberFieldDetails{
 				Text: details.Text, Value: details.Value,
 				Length: details.Length, Caret: details.Caret,
-				ViewOffset: details.ViewOffset, Editing: details.Editing,
+				SelectionStart: details.SelectionStart,
+				SelectionEnd:   details.SelectionEnd,
+				ViewOffset:     details.ViewOffset, Editing: details.Editing,
 				Valid: details.Valid, InvalidReason: details.InvalidReason,
 				Minimum:       cloneFloat64(details.Minimum),
 				Maximum:       cloneFloat64(details.Maximum),
@@ -845,6 +879,32 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				DisabledReason: details.DisabledReason,
 				ChangeCommand:  string(details.ChangeCommand),
 			}
+		}
+		if details := control.Details.TextArea; details != nil {
+			area := &TextAreaDetails{
+				Text: details.Text, Length: details.Length,
+				LineCount: details.LineCount, Caret: details.Caret,
+				SelectionStart:    details.SelectionStart,
+				SelectionEnd:      details.SelectionEnd,
+				VisualCaretRow:    details.VisualCaretRow,
+				VisualCaretColumn: details.VisualCaretColumn,
+				RowOffset:         details.RowOffset,
+				ColumnOffset:      details.ColumnOffset,
+				Wrap:              TextWrap(details.Wrap),
+				Editing:           details.Editing, Valid: details.Valid,
+				Password: details.Password, Redacted: details.Redacted,
+				Enabled:        details.Enabled,
+				DisabledReason: details.DisabledReason,
+				ChangeCommand:  string(details.ChangeCommand),
+			}
+			if details.Validator != nil {
+				area.Validator = &TextValidatorDetails{
+					Enforcement: string(details.Validator.Enforcement),
+					Mode:        string(details.Validator.Mode),
+					Characters:  details.Validator.Characters,
+				}
+			}
+			projectedControl.Details.TextArea = area
 		}
 		projected.Controls[index] = projectedControl
 	}
@@ -1053,6 +1113,14 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 			field.Minimum = cloneFloat64(field.Minimum)
 			field.Maximum = cloneFloat64(field.Maximum)
 			cloned.Controls[index].Details.NumberField = &field
+		}
+		if snapshot.Controls[index].Details.TextArea != nil {
+			area := *snapshot.Controls[index].Details.TextArea
+			if area.Validator != nil {
+				validator := *area.Validator
+				area.Validator = &validator
+			}
+			cloned.Controls[index].Details.TextArea = &area
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

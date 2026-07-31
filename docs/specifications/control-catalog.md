@@ -403,7 +403,9 @@ from snapshots and attached automation.
 The same contract fixes the implemented NumberField and SpinBox public
 surface: finite fixed-place decimal values, copied inclusive bounds, invalid
 intermediate edits, explicit commit/cancel behavior, and clamped `[`/`]`
-SpinBox stepping. TextArea remains the final control in this phase.
+SpinBox stepping. The implemented TextArea adds normalized line separators,
+word/cell/no-wrap presentation, a private bounded viewport, selection-aware
+multiline navigation, Ctrl-Enter commit, and semantic bounded paste.
 
 ### 12. Progress
 

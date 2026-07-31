@@ -461,6 +461,9 @@ func (a *App) paintControlLocked(
 	case numberFieldBehavior:
 		field := a.numberFieldDetailsLocked(state, behavior)
 		details.NumberField = &field
+	case textAreaBehavior:
+		area := a.textAreaDetailsLocked(state, behavior)
+		details.TextArea = &area
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,
@@ -787,6 +790,8 @@ func (a *App) associateLocked(
 	if result.Outcome == OutcomeExited ||
 		result.Outcome == OutcomeInterrupted {
 		a.final = true
+		clear(a.held)
+		clear(a.pressed)
 	}
 	completion := Completion{
 		RequestID:     requestID,

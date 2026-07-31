@@ -90,6 +90,7 @@ func DefaultTheme() Theme {
 		"text_field":       resolved,
 		"number_field":     resolved,
 		"spin_box":         resolved,
+		"text_area":        resolved,
 		"text_input.valid": {
 			Foreground: RGB(0x00, 0xAA, 0x00),
 			Background: resolved.Background,
@@ -101,6 +102,10 @@ func DefaultTheme() Theme {
 		"text_input.invalid_character": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
 			Background: resolved.Background,
+		},
+		"text_input.selection": {
+			Foreground: resolved.Foreground,
+			Background: RGB(0x00, 0x00, 0x00),
 		},
 		"text_input.disabled": {
 			Foreground: RGB(0x80, 0x80, 0x80),

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,7 +50,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// This one process test intentionally audits the complete catalog over
+	// many correlated snapshot-bearing round trips. Race instrumentation can
+	// make the aggregate run substantially slower even though each request
+	// remains within the protocol's independent deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	var client *automation.Client
 	for client == nil {
@@ -284,6 +289,13 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.NumberField != nil &&
 					control.Details.NumberField.Value == 1 &&
 					control.Details.NumberField.Step == 0.5
+		case "input.text_area.multiline":
+			inputEvidence[control.Key] =
+				control.Kind == "text_area" &&
+					control.Details.TextArea != nil &&
+					control.Details.TextArea.Text == "Multiline\ntext area" &&
+					control.Details.TextArea.LineCount == 2 &&
+					control.Details.TextArea.Wrap == "words"
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -303,7 +315,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(inputEvidence) != 6 ||
+		len(inputEvidence) != 7 ||
 		len(screenEvidence) != 13 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
@@ -734,8 +746,103 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		t.Fatalf("TextField commit outcome=%q snapshot=%t",
 			textCommit.Outcome, textCommit.Snapshot != nil)
 	}
+	for index := range 3 {
+		if _, err := client.InjectInput(
+			ctx,
+			"area-tab-"+string(rune('0'+index)),
+			automation.KeyEvent{Kind: automation.KeyPress, Key: "tab"},
+		); err != nil {
+			t.Fatalf("InjectInput(TextArea Tab %d) error = %v", index, err)
+		}
+	}
+	areaFocus, err := client.InjectInput(
+		ctx,
+		"area-focus-down",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "down"},
+	)
+	if err != nil {
+		t.Fatalf("InjectInput(TextArea Down) error = %v", err)
+	}
+	areaFocused := false
+	if areaFocus.Snapshot != nil {
+		for _, control := range areaFocus.Snapshot.Controls {
+			if control.Key == "input.text_area.multiline" {
+				areaFocused = control.Focused
+			}
+		}
+	}
+	if !areaFocused {
+		t.Fatal("raw directional focus did not enter TextArea")
+	}
+	for _, event := range []struct {
+		request string
+		key     string
+	}{
+		{"area-edit", "enter"},
+		{"area-type-x", "x"},
+		{"area-newline", "enter"},
+		{"area-type-y", "y"},
+	} {
+		if _, err := client.InjectInput(
+			ctx,
+			event.request,
+			automation.KeyEvent{Kind: automation.KeyPress, Key: event.key},
+		); err != nil {
+			t.Fatalf("InjectInput(TextArea %s) error = %v", event.key, err)
+		}
+	}
+	if _, err := client.InjectInput(
+		ctx,
+		"area-control-down",
+		automation.KeyEvent{Kind: automation.KeyDown, Key: "control"},
+	); err != nil {
+		t.Fatalf("InjectInput(TextArea Ctrl down) error = %v", err)
+	}
+	areaCommit, err := client.InjectInput(
+		ctx,
+		"area-commit",
+		automation.KeyEvent{Kind: automation.KeyPress, Key: "enter"},
+	)
+	if err != nil {
+		t.Fatalf("InjectInput(TextArea commit) error = %v", err)
+	}
+	if _, err := client.InjectInput(
+		ctx,
+		"area-control-up",
+		automation.KeyEvent{Kind: automation.KeyUp, Key: "control"},
+	); err != nil {
+		t.Fatalf("InjectInput(TextArea Ctrl up) error = %v", err)
+	}
+	areaValue := ""
+	if areaCommit.Snapshot != nil {
+		for _, control := range areaCommit.Snapshot.Controls {
+			if control.Key == "input.text_area.multiline" &&
+				control.Details.TextArea != nil {
+				areaValue = control.Details.TextArea.Text
+			}
+		}
+	}
+	if areaCommit.Outcome != automation.OutcomeApplied ||
+		areaCommit.Snapshot == nil ||
+		areaCommit.Snapshot.Completion == nil ||
+		areaCommit.Snapshot.Completion.Command !=
+			string(demo.CommandTextChanged) ||
+		!strings.HasSuffix(areaValue, "x\ny") {
+		t.Fatalf(
+			"TextArea completion outcome=%q command=%q value=%q",
+			areaCommit.Outcome,
+			func() string {
+				if areaCommit.Snapshot == nil ||
+					areaCommit.Snapshot.Completion == nil {
+					return ""
+				}
+				return areaCommit.Snapshot.Completion.Command
+			}(),
+			areaValue,
+		)
+	}
 	var spinCompletion automation.Completion
-	for index := range 5 {
+	for index := range 2 {
 		spinCompletion, err = client.InjectInput(
 			ctx,
 			"input-tab-"+string(rune('0'+index)),

@@ -25,7 +25,7 @@ const (
 	processPTYOutputLimit = 512 * 1024
 
 	// Presenter.Close must emit this mode restoration before the process exits.
-	processLeaveTerminal = "\x1b[0m\x1b[?25h\x1b[?1049l"
+	processLeaveTerminal = "\x1b[0m\x1b[?25h\x1b[?2004l\x1b[?1049l"
 )
 
 func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {

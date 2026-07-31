@@ -12,12 +12,13 @@ to that explicitly enabled endpoint.
 
 Core/Containers, Basic Presentation, Basic Automation, Basic Layouts,
 Text/Display, Actions, Menus, Status Bar, Headers/Footers, Selection, and
-TextField/NumberField/SpinBox input are implemented.
+Text and Numeric Input are implemented.
 The public Go package includes non-container `Label`, `StaticText`,
 `Separator`, `Rule`, `Button`, `HotkeyBar`, `MenuBar`, and `StatusBar`
 controls; `Checkbox`, `RadioButton`/`RadioGroup`, `CycleField`, `SelectField`,
 validated/password-safe `TextField`, ranged `NumberField`, and clamped
-`SpinBox`; root-owned one-row `Header` and `Footer` containers; immutable
+`SpinBox`, plus wrapped multiline `TextArea`; root-owned one-row `Header` and
+`Footer` containers; immutable
 `Menu` models; Box/Grid and nested Layouts;
 independent arrangement and stacking order; structured overflow; optional
 root size/aspect constraints; independent Frame/Layout borders; immutable
@@ -55,7 +56,7 @@ clean outline. It also presents aligned `Label`, word-wrapped `StaticText`,
 double-line `Separator`, titled `Rule`, Action and Menu controls, a persistent
 StatusBar, one-row Header/Footer Layout examples, grouped Selection controls,
 unrestricted/soft/hard/password TextField examples, and ranged/steppable
-numeric input.
+numeric input, plus multiline wrapping, selection, and bounded paste.
 
 The attached commands `layout.panel.raise`, `layout.panel.lower`,
 `layout.layer.raise`, and `layout.layer.lower` exercise the new stack paths.

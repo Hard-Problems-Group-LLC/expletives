@@ -56,18 +56,26 @@ var pasteEnd = [...]byte{0x1b, '[', '2', '0', '1', '~'}
 
 const pasteStart = "\x1b[200~"
 
+// InputEvent is one decoded terminal event. Exactly one member is non-nil.
+// TextInput is used only for a complete bounded bracketed-paste episode.
+type InputEvent struct {
+	KeyEvent  *expletives.KeyEvent
+	TextInput *expletives.TextInputEvent
+}
+
 // InputDecoder incrementally converts physical terminal input into logical
-// key lifecycle events.
+// key lifecycle and bounded text-input events.
 //
 // The zero value is not initialized; construct an InputDecoder with
 // NewInputDecoder.
 //
 // InputDecoder retains incomplete UTF-8, CSI, and SS3 prefixes across Feed
 // calls. Bare Escape is emitted only after EscapeTimeout. Unknown control
-// sequences, valid non-ASCII text, invalid UTF-8, and bracketed-paste content
-// are discarded because the current toolkit key vocabulary cannot represent
-// committed text. InputDecoder is intentionally a small supported-key parser,
-// not a general terminal-protocol implementation.
+// sequences and invalid UTF-8 outside bracketed paste are discarded.
+// Bracketed paste is retained only through the complete bounded episode and
+// emitted as semantic text, never replayed as keys. InputDecoder is
+// intentionally a small supported-input parser, not a general
+// terminal-protocol implementation.
 //
 // InputDecoder is not safe for concurrent use. It belongs to the one terminal
 // input owner. Feed and Flush times must come from one nondecreasing clock;
@@ -80,6 +88,8 @@ type InputDecoder struct {
 	pending         []byte
 	deadline        time.Time
 	pasteEndMatch   int
+	paste           []byte
+	pasteOverflow   bool
 	stringSawEscape bool
 	stringEndsAtBEL bool
 }
@@ -110,13 +120,28 @@ func NewInputDecoder(options InputDecoderOptions) (*InputDecoder, error) {
 	}, nil
 }
 
-// Feed consumes one arbitrary input chunk at now and returns every complete
-// logical event in byte-stream order. Feed does not retain the caller's input
-// slice after it returns, and the returned slice is caller-owned. If an Escape
-// deadline elapsed before now, that prefix is resolved before the new bytes
-// are consumed.
+// Feed consumes one arbitrary input chunk and returns only decoded key events.
+// It is the compatibility surface for key-only consumers and intentionally
+// drops any complete paste event. Use FeedInput for ordered key and text input.
 func (d *InputDecoder) Feed(now time.Time, input []byte) []expletives.KeyEvent {
-	events := d.flushExpired(now)
+	decoded := d.FeedInput(now, input)
+	events := make([]expletives.KeyEvent, 0, len(decoded))
+	for _, event := range decoded {
+		if event.KeyEvent != nil {
+			events = append(events, *event.KeyEvent)
+		}
+	}
+	return events
+}
+
+// FeedInput consumes one arbitrary input chunk at now and returns every
+// complete logical input event in byte-stream order. It does not retain the
+// caller's slice, and the returned slice and values are caller-owned.
+func (d *InputDecoder) FeedInput(
+	now time.Time,
+	input []byte,
+) []InputEvent {
+	events := d.flushExpiredInput(now)
 	for _, value := range input {
 		events = d.consume(events, now, value)
 	}
@@ -137,7 +162,19 @@ func (d *InputDecoder) Deadline() (time.Time, bool) {
 // A bare Escape emits KeyEscape; incomplete control sequences are discarded.
 // Prefixes whose deadline has not elapsed remain pending.
 func (d *InputDecoder) Flush(now time.Time) []expletives.KeyEvent {
-	return d.flushExpired(now)
+	decoded := d.FlushInput(now)
+	events := make([]expletives.KeyEvent, 0, len(decoded))
+	for _, event := range decoded {
+		if event.KeyEvent != nil {
+			events = append(events, *event.KeyEvent)
+		}
+	}
+	return events
+}
+
+// FlushInput resolves an elapsed Escape prefix and returns ordered input.
+func (d *InputDecoder) FlushInput(now time.Time) []InputEvent {
+	return d.flushExpiredInput(now)
 }
 
 // Reset discards every retained prefix and unknown-sequence recovery state.
@@ -148,11 +185,13 @@ func (d *InputDecoder) Reset() {
 	d.pending = d.pending[:0]
 	d.deadline = time.Time{}
 	d.pasteEndMatch = 0
+	d.paste = d.paste[:0]
+	d.pasteOverflow = false
 	d.stringSawEscape = false
 	d.stringEndsAtBEL = false
 }
 
-func (d *InputDecoder) flushExpired(now time.Time) []expletives.KeyEvent {
+func (d *InputDecoder) flushExpiredInput(now time.Time) []InputEvent {
 	if d.deadline.IsZero() || now.Before(d.deadline) {
 		return nil
 	}
@@ -160,7 +199,7 @@ func (d *InputDecoder) flushExpired(now time.Time) []expletives.KeyEvent {
 	switch d.state {
 	case stateEscape:
 		d.Reset()
-		return []expletives.KeyEvent{keyPress(expletives.KeyEscape)}
+		return keyInput(keyPress(expletives.KeyEscape))
 	case stateCSI, stateSS3:
 		d.state = stateDiscardCSI
 		d.deadline = time.Time{}
@@ -176,10 +215,10 @@ func (d *InputDecoder) flushExpired(now time.Time) []expletives.KeyEvent {
 }
 
 func (d *InputDecoder) consume(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	switch d.state {
 	case stateGround:
 		return d.consumeGround(events, now, value)
@@ -208,16 +247,16 @@ func (d *InputDecoder) consume(
 }
 
 func (d *InputDecoder) consumeGround(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	switch {
 	case value == 0x1b:
 		d.beginEscape(now)
 		return events
 	case value < utf8.RuneSelf:
-		return appendASCII(events, value)
+		return appendInputKeys(events, appendASCII(nil, value))
 	case !utf8.RuneStart(value):
 		return events
 	default:
@@ -228,10 +267,10 @@ func (d *InputDecoder) consumeGround(
 }
 
 func (d *InputDecoder) consumeEscape(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	switch value {
 	case '[':
 		d.state = stateCSI
@@ -257,9 +296,9 @@ func (d *InputDecoder) consumeEscape(
 		return events
 	case 0x1b:
 		d.Reset()
-		return appendAlt(events, []expletives.KeyEvent{
+		return appendInputKeys(events, appendAlt(nil, []expletives.KeyEvent{
 			keyPress(expletives.KeyEscape),
-		})
+		}))
 	}
 
 	if value >= 0x20 && value <= 0x2f {
@@ -282,14 +321,14 @@ func (d *InputDecoder) consumeEscape(
 	if len(decoded) == 0 {
 		return events
 	}
-	return append(events, appendAlt(nil, decoded)...)
+	return appendInputKeys(events, appendAlt(nil, decoded))
 }
 
 func (d *InputDecoder) consumeEscapeIntermediate(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if len(d.pending) >= d.maxPending {
 		d.state = stateDiscardEscape
 		d.pending = d.pending[:0]
@@ -312,10 +351,10 @@ func (d *InputDecoder) consumeEscapeIntermediate(
 }
 
 func (d *InputDecoder) consumeUTF8(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if len(d.pending) >= d.maxPending {
 		d.Reset()
 		return d.consumeGround(events, now, value)
@@ -325,9 +364,9 @@ func (d *InputDecoder) consumeUTF8(
 }
 
 func (d *InputDecoder) finishUTF8(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if !utf8.FullRune(d.pending) {
 		return events
 	}
@@ -342,7 +381,7 @@ func (d *InputDecoder) finishUTF8(
 	if alt {
 		input = appendAlt(nil, input)
 	}
-	events = append(events, input...)
+	events = appendInputKeys(events, input)
 	for _, value := range remainder {
 		events = d.consume(events, now, value)
 	}
@@ -350,10 +389,10 @@ func (d *InputDecoder) finishUTF8(
 }
 
 func (d *InputDecoder) consumeControlSequence(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if len(d.pending) >= d.maxPending {
 		d.state = stateDiscardCSI
 		d.pending = d.pending[:0]
@@ -367,10 +406,12 @@ func (d *InputDecoder) consumeControlSequence(
 		d.Reset()
 		if sequence == pasteStart {
 			d.state = statePaste
+			d.paste = d.paste[:0]
+			d.pasteOverflow = false
 			return events
 		}
-		if key, ok := keyForSequence(sequence); ok {
-			return append(events, keyEvents(key)...)
+		if input, ok := inputForSequence(sequence); ok {
+			return appendInputKeys(events, input)
 		}
 		return events
 	}
@@ -386,10 +427,10 @@ func (d *InputDecoder) consumeControlSequence(
 }
 
 func (d *InputDecoder) consumeDiscardCSI(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if len(d.pending) != 0 {
 		if len(d.pending) < d.maxPending {
 			d.pending = append(d.pending, value)
@@ -402,6 +443,8 @@ func (d *InputDecoder) consumeDiscardCSI(
 		d.Reset()
 		if paste {
 			d.state = statePaste
+			d.paste = d.paste[:0]
+			d.pasteOverflow = false
 		}
 		return events
 	}
@@ -412,10 +455,10 @@ func (d *InputDecoder) consumeDiscardCSI(
 }
 
 func (d *InputDecoder) consumeDiscardEscape(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	now time.Time,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if value >= 0x30 && value <= 0x7e {
 		d.Reset()
 		return events
@@ -427,9 +470,9 @@ func (d *InputDecoder) consumeDiscardEscape(
 }
 
 func (d *InputDecoder) consumeDiscardString(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if (d.stringEndsAtBEL && value == 0x07) ||
 		(d.stringSawEscape && value == '\\') {
 		d.Reset()
@@ -440,22 +483,47 @@ func (d *InputDecoder) consumeDiscardString(
 }
 
 func (d *InputDecoder) consumePaste(
-	events []expletives.KeyEvent,
+	events []InputEvent,
 	value byte,
-) []expletives.KeyEvent {
+) []InputEvent {
 	if value == pasteEnd[d.pasteEndMatch] {
 		d.pasteEndMatch++
 		if d.pasteEndMatch == len(pasteEnd) {
+			if !d.pasteOverflow {
+				text := string(append([]byte(nil), d.paste...))
+				events = append(events, InputEvent{
+					TextInput: &expletives.TextInputEvent{
+						Kind: expletives.TextInputPaste,
+						Text: text,
+					},
+				})
+			}
 			d.Reset()
 		}
 		return events
+	}
+	for _, matched := range pasteEnd[:d.pasteEndMatch] {
+		d.appendPasteByte(matched)
 	}
 	if value == pasteEnd[0] {
 		d.pasteEndMatch = 1
 	} else {
 		d.pasteEndMatch = 0
+		d.appendPasteByte(value)
 	}
 	return events
+}
+
+func (d *InputDecoder) appendPasteByte(value byte) {
+	if d.pasteOverflow {
+		return
+	}
+	if len(d.paste) >= expletives.MaxTextInputBytes {
+		d.paste = d.paste[:0]
+		d.pasteOverflow = true
+		return
+	}
+	d.paste = append(d.paste, value)
 }
 
 func (d *InputDecoder) beginEscape(now time.Time) {
@@ -520,6 +588,32 @@ func keyForSequence(sequence string) (expletives.Key, bool) {
 	}
 }
 
+func inputForSequence(sequence string) ([]expletives.KeyEvent, bool) {
+	if key, ok := keyForSequence(sequence); ok {
+		return keyEvents(key), true
+	}
+	switch sequence {
+	case "\x1b[1;2A":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyUp), true
+	case "\x1b[1;2B":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyDown), true
+	case "\x1b[1;2C":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyRight), true
+	case "\x1b[1;2D":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyLeft), true
+	case "\x1b[1;2H":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyHome), true
+	case "\x1b[1;2F":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyEnd), true
+	case "\x1b[5;2~":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyPageUp), true
+	case "\x1b[6;2~":
+		return modifiedKeyEvents(expletives.KeyShift, expletives.KeyPageDown), true
+	default:
+		return nil, false
+	}
+}
+
 func keyEvents(key expletives.Key) []expletives.KeyEvent {
 	if key == expletives.KeyTab {
 		return []expletives.KeyEvent{
@@ -529,6 +623,32 @@ func keyEvents(key expletives.Key) []expletives.KeyEvent {
 		}
 	}
 	return []expletives.KeyEvent{keyPress(key)}
+}
+
+func modifiedKeyEvents(
+	modifier expletives.Key,
+	key expletives.Key,
+) []expletives.KeyEvent {
+	return []expletives.KeyEvent{
+		{Kind: expletives.KeyEventDown, Key: modifier},
+		keyPress(key),
+		{Kind: expletives.KeyEventUp, Key: modifier},
+	}
+}
+
+func keyInput(events ...expletives.KeyEvent) []InputEvent {
+	return appendInputKeys(nil, events)
+}
+
+func appendInputKeys(
+	events []InputEvent,
+	keys []expletives.KeyEvent,
+) []InputEvent {
+	for index := range keys {
+		key := keys[index]
+		events = append(events, InputEvent{KeyEvent: &key})
+	}
+	return events
 }
 
 func appendASCII(

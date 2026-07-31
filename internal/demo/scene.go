@@ -226,6 +226,11 @@ var (
 		Foreground: expletives.RGB(0xFF, 0x00, 0x00),
 		Background: expletives.RGB(0x00, 0x38, 0x78),
 	}
+	textInputSelectionStyle = expletives.Style{
+		ID:         "text_input.selection",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x00, 0x00, 0x00),
+	}
 	textInputDisabledStyle = expletives.Style{
 		ID:         "text_input.disabled",
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
@@ -257,6 +262,7 @@ type Scene struct {
 	inputPassword           *expletives.TextField
 	inputNumber             *expletives.NumberField
 	inputSpin               *expletives.SpinBox
+	inputArea               *expletives.TextArea
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -341,6 +347,7 @@ func NewWithRootConstraints(
 		textInputValidStyle,
 		textInputInvalidStyle,
 		textInputInvalidCharacterStyle,
+		textInputSelectionStyle,
 		textInputDisabledStyle,
 		expletives.Style{
 			ID:         "number_field",
@@ -349,6 +356,11 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID:         "spin_box",
+			Foreground: textFieldStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "text_area",
 			Foreground: textFieldStyle.Foreground,
 			Background: textFieldStyle.Background,
 		},
@@ -1468,9 +1480,29 @@ func NewWithRootConstraints(
 				MinimumSize:   expletives.Size{Width: 18, Height: 5},
 				Style:         canvasStyle.ID,
 			},
-			Title:       "Password + Soft Blacklist",
+			Title:       "Password / TextArea",
 			BorderStyle: borderStyle.ID,
 			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputArea, err := transaction.NewTextArea(
+		passwordInputGroup,
+		expletives.TextAreaOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text_area.multiline",
+				MinimumSize:   expletives.Size{Width: 8, Height: 1},
+			},
+			Text: "Multiline\ntext area",
+			Wrap: expletives.TextWrapWords,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  "@",
+			},
+			ChangeCommand: CommandTextChanged,
 		},
 	)
 	if err != nil {
@@ -2216,7 +2248,6 @@ func NewWithRootConstraints(
 		{"plain", plainInputGroup, inputPlain},
 		{"soft", softInputGroup, inputSoft},
 		{"hard", hardInputGroup, inputHard},
-		{"password", passwordInputGroup, inputPassword},
 		{"number", numberInputGroup, inputNumber},
 		{"spin", spinInputGroup, inputSpin},
 	} {
@@ -2241,6 +2272,34 @@ func NewWithRootConstraints(
 		if err := transaction.SetLayout(entry.group, layout); err != nil {
 			return nil, err
 		}
+	}
+	passwordLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.input.password",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := passwordLayout.AddPanel(
+		inputPassword,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
+	if err := passwordLayout.AddPanel(
+		inputArea,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		passwordInputGroup,
+		passwordLayout,
+	); err != nil {
+		return nil, err
 	}
 	if err := transaction.SetLayout(app.Root(), rootLayout); err != nil {
 		return nil, err
@@ -2421,6 +2480,7 @@ func NewWithRootConstraints(
 		inputPassword:           inputPassword,
 		inputNumber:             inputNumber,
 		inputSpin:               inputSpin,
+		inputArea:               inputArea,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -3284,6 +3344,12 @@ func (s *Scene) handleCommand(
 		if err := transaction.SetNumberValue(s.inputSpin, 1); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.SetText(
+			s.inputArea,
+			"Multiline\ntext area",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -3688,6 +3754,7 @@ func SelfCheck() error {
 		"input.text.password",
 		"input.number.ranged",
 		"input.spin.clamped",
+		"input.text_area.multiline",
 		"layer.back",
 		"layer.front",
 	} {
@@ -3970,6 +4037,7 @@ func SelfCheck() error {
 	passwordDetails := controls["input.text.password"].Details.TextField
 	numberDetails := controls["input.number.ranged"].Details.NumberField
 	spinDetails := controls["input.spin.clamped"].Details.NumberField
+	areaDetails := controls["input.text_area.multiline"].Details.TextArea
 	if !controls["screen.input"].Visible ||
 		!controls["input.text.plain"].Focused ||
 		plainDetails == nil || plainDetails.Text != "Edit me" ||
@@ -3984,8 +4052,11 @@ func SelfCheck() error {
 		numberDetails.Maximum == nil || *numberDetails.Maximum != 20 ||
 		numberDetails.Step != 0 ||
 		spinDetails == nil || spinDetails.Value != 1 ||
-		spinDetails.Step != 0.5 {
-		return errors.New("TextField catalog typed evidence is incomplete")
+		spinDetails.Step != 0.5 ||
+		areaDetails == nil || areaDetails.Text != "Multiline\ntext area" ||
+		areaDetails.LineCount != 2 ||
+		areaDetails.Wrap != expletives.TextWrapWords {
+		return errors.New("Input catalog typed evidence is incomplete")
 	}
 	if completion, inputErr := scene.App.DispatchKey(
 		context.Background(),
@@ -3997,7 +4068,12 @@ func SelfCheck() error {
 		},
 	); inputErr != nil ||
 		completion.Outcome != expletives.OutcomeApplied {
-		return fmt.Errorf("TextField edit dispatch = %+v, %v", completion, inputErr)
+		return fmt.Errorf(
+			"TextField edit dispatch = %+v, %v; overflows=%+v",
+			completion,
+			inputErr,
+			scene.App.Snapshot().Overflows,
+		)
 	}
 	if completion, inputErr := scene.App.DispatchKey(
 		context.Background(),
@@ -4009,7 +4085,13 @@ func SelfCheck() error {
 		},
 	); inputErr != nil ||
 		completion.Outcome != expletives.OutcomeApplied {
-		return fmt.Errorf("TextField printable dispatch = %+v, %v", completion, inputErr)
+		return fmt.Errorf(
+			"TextField printable dispatch = %+v, %v; field=%+v overflows=%+v",
+			completion,
+			inputErr,
+			indexControls(scene.App.Snapshot())["input.text.plain"].Details.TextField,
+			scene.App.Snapshot().Overflows,
+		)
 	}
 	if completion, inputErr := scene.App.DispatchKey(
 		context.Background(),
@@ -4023,6 +4105,69 @@ func SelfCheck() error {
 		completion.Command != CommandTextChanged ||
 		completion.Outcome != expletives.OutcomeApplied {
 		return fmt.Errorf("TextField commit dispatch = %+v, %v", completion, inputErr)
+	}
+	if err := scene.inputArea.Focus(); err != nil {
+		return fmt.Errorf("TextArea focus: %w", err)
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"area-edit",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyEnter,
+		},
+	); inputErr != nil ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextArea edit dispatch = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := scene.App.DispatchTextInput(
+		context.Background(),
+		"self-check",
+		"area-paste",
+		expletives.TextInputEvent{
+			Kind: expletives.TextInputPaste,
+			Text: "\nPasted",
+		},
+	); inputErr != nil ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextArea paste dispatch = %+v, %v", completion, inputErr)
+	}
+	if _, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"area-control-down",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventDown,
+			Key:  expletives.KeyControl,
+		},
+	); inputErr != nil {
+		return fmt.Errorf("TextArea Ctrl down: %w", inputErr)
+	}
+	areaCommit, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"area-commit",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyEnter,
+		},
+	)
+	if _, releaseErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"area-control-up",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventUp,
+			Key:  expletives.KeyControl,
+		},
+	); releaseErr != nil {
+		return fmt.Errorf("TextArea Ctrl up: %w", releaseErr)
+	}
+	if inputErr != nil ||
+		areaCommit.Command != CommandTextChanged ||
+		areaCommit.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextArea commit dispatch = %+v, %v", areaCommit, inputErr)
 	}
 	if err := invoke("hide-status", CommandStatusBar); err != nil {
 		return err

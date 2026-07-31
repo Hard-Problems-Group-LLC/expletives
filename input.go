@@ -89,6 +89,23 @@ type KeyEvent struct {
 	Key Key `json:"key"`
 }
 
+// TextInputKind distinguishes a trusted composition boundary from bounded
+// bracketed-paste content. Neither kind participates in command resolution.
+type TextInputKind string
+
+const (
+	// TextInputCommitted is normalized committed text, such as IME output.
+	TextInputCommitted TextInputKind = "committed_text"
+	// TextInputPaste is bounded bracketed-paste content.
+	TextInputPaste TextInputKind = "paste"
+)
+
+// TextInputEvent is one bounded non-key text insertion.
+type TextInputEvent struct {
+	Kind TextInputKind `json:"kind"`
+	Text string        `json:"text"`
+}
+
 // CommandID is stable semantic command identity within an App.
 type CommandID string
 
@@ -628,7 +645,7 @@ func (a *App) DispatchKey(
 			}
 		} else {
 			textHandled := false
-			if textInputModifiers(held) {
+			if !held[KeyAlt] && !held[KeyMeta] {
 				var textChanged bool
 				command, target, textHandled, textChanged =
 					a.editorInputLocked(a.focus, event.Key, held)
@@ -719,6 +736,228 @@ func (a *App) DispatchKey(
 		return Completion{}, ErrClosed
 	}
 	return a.associateLocked(requestID, result, command), nil
+}
+
+// DispatchTextInput serializes one bounded committed-text or paste event.
+// Text enters only the focused enabled editor in edit mode and is never
+// interpreted as keys, mnemonics, bindings, menu input, or commands.
+func (a *App) DispatchTextInput(
+	ctx context.Context,
+	source string,
+	requestID string,
+	event TextInputEvent,
+) (Completion, error) {
+	if ctx == nil {
+		return Completion{}, errors.New("expletives: nil context")
+	}
+	if !validBoundedIdentifier(source) ||
+		!validBoundedIdentifier(requestID) {
+		return Completion{}, ErrInvalidRequest
+	}
+	switch event.Kind {
+	case TextInputCommitted, TextInputPaste:
+	default:
+		return Completion{}, ErrInvalidRequest
+	}
+	if len(event.Text) > MaxTextInputBytes {
+		return Completion{}, ErrTextLimit
+	}
+	if err := a.beginDispatch(ctx); err != nil {
+		return Completion{}, err
+	}
+	defer a.endDispatch()
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.final {
+		return Completion{}, ErrClosed
+	}
+	result := a.applyTextInputLocked(event.Text)
+	return a.associateLocked(requestID, result, ""), nil
+}
+
+func (a *App) applyTextInputLocked(text string) CommandResult {
+	state := a.focus
+	if state == nil || !a.focusEligibleLocked(state) {
+		return CommandResult{Outcome: OutcomeNoOp}
+	}
+	switch behavior := state.behavior.(type) {
+	case textFieldBehavior:
+		if !behavior.editing {
+			return CommandResult{Outcome: OutcomeNoOp}
+		}
+		inserted, err := normalizeInputText(text)
+		if err != nil {
+			return rejectedTextInput(err)
+		}
+		inserted.cells = filterTextInputCells(
+			inserted.cells,
+			behavior.validator,
+			false,
+		)
+		candidate, caret, ok := replaceTextInputCells(
+			behavior.working.cells,
+			behavior.caret,
+			behavior.selectionAnchor,
+			inserted.cells,
+		)
+		if !ok {
+			return textInputCapacityResult()
+		}
+		if candidate == nil {
+			return CommandResult{Outcome: OutcomeNoOp}
+		}
+		behavior.working.cells = candidate
+		behavior.working.text = strings.Join(candidate, "")
+		behavior.caret = caret
+		behavior.selectionAnchor = -1
+		behavior.viewOffset = textViewOffset(
+			behavior.viewOffset,
+			behavior.caret,
+			len(candidate),
+			state.bounds.Width,
+		)
+		state.behavior = behavior
+		return CommandResult{Outcome: OutcomeApplied}
+	case numberFieldBehavior:
+		if !behavior.editor.editing {
+			return CommandResult{Outcome: OutcomeNoOp}
+		}
+		inserted, err := normalizeInputText(text)
+		if err != nil {
+			return rejectedTextInput(err)
+		}
+		inserted.cells = filterTextInputCells(
+			inserted.cells,
+			behavior.editor.validator,
+			false,
+		)
+		candidate, caret, ok := replaceTextInputCells(
+			behavior.editor.working.cells,
+			behavior.editor.caret,
+			behavior.editor.selectionAnchor,
+			inserted.cells,
+		)
+		if !ok {
+			return textInputCapacityResult()
+		}
+		if candidate == nil {
+			return CommandResult{Outcome: OutcomeNoOp}
+		}
+		behavior.editor.working.cells = candidate
+		behavior.editor.working.text = strings.Join(candidate, "")
+		behavior.editor.caret = caret
+		behavior.editor.selectionAnchor = -1
+		behavior.editor.viewOffset = textViewOffset(
+			behavior.editor.viewOffset,
+			behavior.editor.caret,
+			len(candidate),
+			state.bounds.Width,
+		)
+		state.behavior = behavior
+		return CommandResult{Outcome: OutcomeApplied}
+	case textAreaBehavior:
+		if !behavior.editing {
+			return CommandResult{Outcome: OutcomeNoOp}
+		}
+		inserted, err := normalizeTextAreaInput(text)
+		if err != nil {
+			return rejectedTextInput(err)
+		}
+		inserted.cells = filterTextInputCells(
+			inserted.cells,
+			behavior.validator,
+			true,
+		)
+		candidate, caret, ok := replaceTextInputCells(
+			behavior.working.cells,
+			behavior.caret,
+			behavior.selectionAnchor,
+			inserted.cells,
+		)
+		if !ok {
+			return textInputCapacityResult()
+		}
+		if candidate == nil {
+			return CommandResult{Outcome: OutcomeNoOp}
+		}
+		behavior.working.cells = candidate
+		rebuildTextAreaWorking(&behavior)
+		behavior.caret = caret
+		behavior.selectionAnchor = -1
+		behavior.preferredColumn = -1
+		_, _, _, behavior.rowOffset, behavior.columnOffset =
+			textAreaViewport(
+				behavior,
+				state.bounds.Width,
+				state.bounds.Height,
+			)
+		state.behavior = behavior
+		return CommandResult{Outcome: OutcomeApplied}
+	default:
+		return CommandResult{Outcome: OutcomeNoOp}
+	}
+}
+
+func filterTextInputCells(
+	cells []string,
+	validator *normalizedTextValidator,
+	allowNewline bool,
+) []string {
+	if validator == nil ||
+		validator.value.Enforcement != TextValidationHard {
+		return cells
+	}
+	filtered := make([]string, 0, len(cells))
+	for _, cell := range cells {
+		if (allowNewline && cell == "\n") ||
+			textCellAllowed(cell, validator) {
+			filtered = append(filtered, cell)
+		}
+	}
+	return filtered
+}
+
+func replaceTextInputCells(
+	current []string,
+	caret int,
+	anchor int,
+	inserted []string,
+) (candidate []string, nextCaret int, ok bool) {
+	start, end := caret, caret
+	if anchor >= 0 && anchor != caret {
+		start, end = min(anchor, caret), max(anchor, caret)
+	}
+	if len(inserted) == 0 && start == end {
+		return nil, caret, true
+	}
+	candidate = make([]string, 0, len(current)-(end-start)+len(inserted))
+	candidate = append(candidate, current[:start]...)
+	candidate = append(candidate, inserted...)
+	candidate = append(candidate, current[end:]...)
+	if len(candidate) > MaxTextInputCells ||
+		len(strings.Join(candidate, "")) > MaxTextInputBytes {
+		return nil, caret, false
+	}
+	return candidate, start + len(inserted), true
+}
+
+func rejectedTextInput(err error) CommandResult {
+	return publicResult(
+		OutcomeRejected,
+		"invalid_text",
+		"text input is invalid for the focused editor",
+		err,
+	)
+}
+
+func textInputCapacityResult() CommandResult {
+	return publicResult(
+		OutcomeRejected,
+		"text_capacity",
+		"text input would exceed the editor capacity",
+		ErrTextLimit,
+	)
 }
 
 // InvokeCommand serializes one stable direct semantic command. It honors ctx

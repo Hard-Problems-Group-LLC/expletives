@@ -22,6 +22,32 @@ func dispatchTextKey(t *testing.T, app *App, request string, key Key) Completion
 	return completion
 }
 
+func dispatchTextChord(
+	t *testing.T,
+	app *App,
+	request string,
+	modifier Key,
+	key Key,
+) Completion {
+	t.Helper()
+	dispatch := func(suffix string, event KeyEvent) Completion {
+		completion, err := app.DispatchKey(
+			context.Background(),
+			"keyboard",
+			request+"-"+suffix,
+			event,
+		)
+		if err != nil {
+			t.Fatalf("DispatchKey(%s) error = %v", suffix, err)
+		}
+		return completion
+	}
+	dispatch("down", KeyEvent{Kind: KeyEventDown, Key: modifier})
+	completion := dispatch("press", KeyEvent{Kind: KeyEventPress, Key: key})
+	dispatch("up", KeyEvent{Kind: KeyEventUp, Key: modifier})
+	return completion
+}
+
 func textFieldDetailsByKey(
 	t *testing.T,
 	app *App,
@@ -424,5 +450,72 @@ func TestTextFieldSnapshotDeepCopy(t *testing.T) {
 	if current.Text != "abc" || current.Validator == nil ||
 		current.Validator.Characters != "abc" {
 		t.Fatalf("snapshot alias changed details to %#v", current)
+	}
+}
+
+func TestTextFieldSelectionAndBoundedTextInput(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 20, Height: 2})
+	field, err := NewTextField(app.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "selection",
+			Bounds:        Rect{Width: 12, Height: 1},
+		},
+		Text: "abcd",
+		Validator: &TextValidator{
+			Enforcement: TextValidationHard,
+			Mode:        TextValidationBlacklist,
+			Characters:  "x",
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewTextField() error = %v", err)
+	}
+	dispatchTextKey(t, app, "edit", KeyEnter)
+	dispatchTextChord(t, app, "select-d", KeyShift, KeyLeft)
+	dispatchTextChord(t, app, "select-c", KeyShift, KeyLeft)
+	details := textFieldDetailsByKey(t, app, "selection")
+	if details.SelectionStart != 2 || details.SelectionEnd != 4 {
+		t.Fatalf("selection details = %#v", details)
+	}
+	if cell, _ := app.Snapshot().Frame.Cell(2, 0); cell.Style !=
+		"text_input.selection" {
+		t.Fatalf("selected cell style = %q", cell.Style)
+	}
+	completion, err := app.DispatchTextInput(
+		context.Background(),
+		"paste",
+		"replace-selection",
+		TextInputEvent{Kind: TextInputPaste, Text: "xy"},
+	)
+	if err != nil {
+		t.Fatalf("DispatchTextInput() error = %v", err)
+	}
+	if completion.Outcome != OutcomeApplied {
+		t.Fatalf("paste Outcome = %q", completion.Outcome)
+	}
+	details = textFieldDetailsByKey(t, app, "selection")
+	if details.Text != "aby" || details.Caret != 3 ||
+		details.SelectionStart != 3 || details.SelectionEnd != 3 {
+		t.Fatalf("hard-filtered replacement = %#v", details)
+	}
+	dispatchTextChord(t, app, "select-all", KeyControl, "a")
+	details = textFieldDetailsByKey(t, app, "selection")
+	if details.SelectionStart != 0 || details.SelectionEnd != 3 {
+		t.Fatalf("Ctrl-A selection = %#v", details)
+	}
+	dispatchTextKey(t, app, "delete", KeyBackspace)
+	dispatchTextKey(t, app, "commit", KeyEnter)
+	if field.Text() != "" {
+		t.Fatalf("selection deletion committed %q", field.Text())
+	}
+
+	if _, err := app.DispatchTextInput(
+		context.Background(),
+		"paste",
+		"multiline-rejected",
+		TextInputEvent{Kind: TextInputPaste, Text: "a\nb"},
+	); err != nil {
+		t.Fatalf("invalid focused-state paste returned transport error: %v", err)
 	}
 }

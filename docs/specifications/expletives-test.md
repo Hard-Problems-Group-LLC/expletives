@@ -234,7 +234,11 @@ Successful user commits route the optional `text.changed` command.
 minimum/maximum bounds, and `input.spin.clamped` demonstrates a half-unit
 SpinBox step with `[`/`]` clamping. Numeric edits expose current text and a
 separate committed value; numeric changes route `number.changed`. Scenario
-Reset restores all six initial committed values silently.
+`input.text_area.multiline` demonstrates word-wrapped multiline editing in the
+Password/TextArea group. Arrow keys enter it from the adjacent field; Enter
+inserts LF, Ctrl-Enter commits, Shift movement selects, and normalized
+committed-text/paste events cannot become commands. Scenario Reset restores
+all seven initial committed values silently.
 
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static

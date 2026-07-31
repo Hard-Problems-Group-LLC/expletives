@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"bytes"
 	"errors"
 	"reflect"
 	"testing"
@@ -120,6 +121,57 @@ func TestInputDecoderRecognizesShiftTab(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("events = %#v, want %#v", got, want)
+	}
+}
+
+func TestInputDecoderEmitsShiftNavigationLifecycle(t *testing.T) {
+	t.Parallel()
+	decoder := mustInputDecoder(t, InputDecoderOptions{})
+	got := decoder.Feed(time.Unix(1, 0), []byte("\x1b[1;2D"))
+	want := []expletives.KeyEvent{
+		{Kind: expletives.KeyEventDown, Key: expletives.KeyShift},
+		keyPress(expletives.KeyLeft),
+		{Kind: expletives.KeyEventUp, Key: expletives.KeyShift},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("shift-left events = %#v, want %#v", got, want)
+	}
+}
+
+func TestInputDecoderEmitsBoundedPasteInStreamOrder(t *testing.T) {
+	t.Parallel()
+	decoder := mustInputDecoder(t, InputDecoderOptions{})
+	got := decoder.FeedInput(
+		time.Unix(1, 0),
+		[]byte("a\x1b[200~line 1\n\x1b[A\x1b[201~b"),
+	)
+	if len(got) != 3 ||
+		got[0].KeyEvent == nil || got[0].KeyEvent.Key != "a" ||
+		got[1].TextInput == nil ||
+		got[1].TextInput.Kind != expletives.TextInputPaste ||
+		got[1].TextInput.Text != "line 1\n\x1b[A" ||
+		got[2].KeyEvent == nil || got[2].KeyEvent.Key != "b" {
+		t.Fatalf("decoded input = %#v", got)
+	}
+}
+
+func TestInputDecoderDiscardsWholeOversizedPaste(t *testing.T) {
+	t.Parallel()
+	decoder := mustInputDecoder(t, InputDecoderOptions{})
+	start := time.Unix(1, 0)
+	if got := decoder.FeedInput(start, []byte(pasteStart)); len(got) != 0 {
+		t.Fatalf("paste start events = %#v", got)
+	}
+	chunk := bytes.Repeat([]byte{'x'}, 4096)
+	for written := 0; written <= expletives.MaxTextInputBytes; written += len(chunk) {
+		if got := decoder.FeedInput(start, chunk); len(got) != 0 {
+			t.Fatalf("paste body events = %#v", got)
+		}
+	}
+	got := decoder.FeedInput(start, append(pasteEnd[:], 'a'))
+	if len(got) != 1 || got[0].KeyEvent == nil ||
+		got[0].KeyEvent.Key != "a" {
+		t.Fatalf("oversized paste tail events = %#v", got)
 	}
 }
 

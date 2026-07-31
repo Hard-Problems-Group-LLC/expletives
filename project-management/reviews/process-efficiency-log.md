@@ -9,6 +9,35 @@
 
 ## Observed Opportunities
 
+### 35. Budget Exhaustive Integration Tests For Their Aggregate Work
+
+The attached catalog test used one five-second context for endpoint startup
+and dozens of independently bounded, snapshot-bearing round trips. Adding the
+TextArea raw-key exercise made that aggregate deadline expire only under race
+instrumentation even though each request remained responsive.
+
+Improvement applied:
+
+- retain the protocol's short independent per-request limits;
+- give the deliberately exhaustive process test one explicit aggregate
+  deadline that accommodates race instrumentation; and
+- rerun the focused race case before repeating the full verification matrix.
+
+### 34. Extend Existing Bounded Seams Instead Of Adding Parallel Pipelines
+
+Bracketed paste and multiline catalog coverage could have introduced a second
+terminal parser, editor core, or demo-only input path.
+
+Improvement applied:
+
+- extend the existing incremental decoder with ordered key-or-text events
+  while preserving its key-only compatibility methods;
+- reuse the shared normalized editor replacement and selection operations;
+- route physical paste through the same public semantic text boundary used by
+  trusted composition; and
+- catch catalog geometry at the existing 64x20 self-check before the full
+  socket/race/build gate.
+
 ### 33. Quiesce Asynchronous Preconditions Before Atomicity Assertions
 
 A header/footer atomicity test captured a snapshot sequence while a

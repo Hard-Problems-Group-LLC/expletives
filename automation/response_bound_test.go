@@ -569,6 +569,7 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 			Version: 1,
 			TextField: &TextFieldDetails{
 				Text: "abc", Length: 3, Caret: 2, ViewOffset: 0,
+				SelectionStart: 2, SelectionEnd: 2,
 				Valid: true, Enabled: true,
 				Validator: &TextValidatorDetails{
 					Enforcement: "soft",
@@ -588,6 +589,10 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 		},
 		"caret beyond value": func(details *TextFieldDetails) {
 			details.Caret = details.Length + 1
+		},
+		"reversed selection": func(details *TextFieldDetails) {
+			details.SelectionStart = 2
+			details.SelectionEnd = 1
 		},
 		"invalid validity": func(details *TextFieldDetails) {
 			details.Text = "abx"
@@ -631,6 +636,86 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidTextAreaDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "text_area"
+		control.Bounds = Rect{Width: 8, Height: 3}
+		control.AbsoluteBounds = control.Bounds
+		control.Details = ControlDetails{
+			Version: 1,
+			TextArea: &TextAreaDetails{
+				Text: "abc\ndef", Length: 7, LineCount: 2,
+				Caret: 7, SelectionStart: 7, SelectionEnd: 7,
+				VisualCaretRow: 1, VisualCaretColumn: 3,
+				Wrap: "none", Valid: true, Enabled: true,
+				Validator: &TextValidatorDetails{
+					Enforcement: "soft",
+					Mode:        "whitelist",
+					Characters:  "abcdef",
+				},
+			},
+		}
+		return completion
+	}
+	if err := validateCompletion(valid(), limits); err != nil {
+		t.Fatalf("valid TextArea fixture rejected: %v", err)
+	}
+	tests := map[string]func(*TextAreaDetails){
+		"length mismatch": func(details *TextAreaDetails) {
+			details.Length++
+		},
+		"line mismatch": func(details *TextAreaDetails) {
+			details.LineCount++
+		},
+		"reversed selection": func(details *TextAreaDetails) {
+			details.SelectionStart = 5
+			details.SelectionEnd = 4
+		},
+		"wrapped column offset": func(details *TextAreaDetails) {
+			details.Wrap = "cells"
+			details.ColumnOffset = 1
+		},
+		"invalid validity": func(details *TextAreaDetails) {
+			details.Text = "abc\nx"
+			details.Length = 5
+			details.Caret = 5
+			details.SelectionStart = 5
+			details.SelectionEnd = 5
+			details.VisualCaretColumn = 1
+		},
+		"redaction mismatch": func(details *TextAreaDetails) {
+			details.Password = true
+			details.Redacted = true
+		},
+		"disabled editing": func(details *TextAreaDetails) {
+			details.Enabled = false
+			details.DisabledReason = "Disabled"
+			details.Editing = true
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			completion := valid()
+			mutate(completion.Snapshot.Controls[0].Details.TextArea)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid TextArea details")
+			}
+		})
+	}
+	password := valid()
+	details := password.Snapshot.Controls[0].Details.TextArea
+	details.Text = ""
+	details.Password = true
+	details.Redacted = true
+	if err := validateCompletion(password, limits); err != nil {
+		t.Fatalf("valid redacted TextArea fixture rejected: %v", err)
+	}
+}
+
 func TestSnapshotRejectsInvalidNumberFieldDetails(t *testing.T) {
 	t.Parallel()
 	limits := DefaultLimits()
@@ -642,6 +727,7 @@ func TestSnapshotRejectsInvalidNumberFieldDetails(t *testing.T) {
 			Version: 1,
 			NumberField: &NumberFieldDetails{
 				Text: "1.5", Value: 1.5, Length: 3, Caret: 3,
+				SelectionStart: 3, SelectionEnd: 3,
 				Valid: true, Minimum: float64Pointer(0),
 				Maximum: float64Pointer(2), DecimalPlaces: 1,
 				Enabled: true,
@@ -1275,6 +1361,26 @@ func maximumCompletionJSONBytes(
 			ChangeCommand: string(controlValue.ID),
 		},
 	}
+	textAreaControl := controlValue
+	textAreaControl.Details = ControlDetails{
+		Version: 1,
+		TextArea: &TextAreaDetails{
+			Length: math.MaxInt, LineCount: math.MaxInt,
+			Caret:          math.MaxInt,
+			SelectionStart: math.MaxInt, SelectionEnd: math.MaxInt,
+			VisualCaretRow: math.MaxInt, VisualCaretColumn: math.MaxInt,
+			RowOffset: math.MaxInt, ColumnOffset: math.MaxInt,
+			Wrap:    TextWrap(controlValue.ID),
+			Editing: true, Valid: true, Password: true, Redacted: true,
+			Enabled:        false,
+			DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+			ChangeCommand:  string(controlValue.ID),
+			Validator: &TextValidatorDetails{
+				Enforcement: string(controlValue.ID),
+				Mode:        string(controlValue.ID),
+			},
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -1283,6 +1389,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, focusGuideControl),
 		mustMarshal(t, textFieldControl),
 		mustMarshal(t, numberFieldControl),
+		mustMarshal(t, textAreaControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

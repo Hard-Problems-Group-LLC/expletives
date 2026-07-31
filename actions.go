@@ -494,6 +494,8 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return !behavior.disabled
 	case numberFieldBehavior:
 		return !behavior.editor.disabled
+	case textAreaBehavior:
+		return !behavior.disabled
 	default:
 		return false
 	}
@@ -528,6 +530,8 @@ func (a *App) focusBehaviorEligibleLocked(
 		return !behavior.disabled
 	case numberFieldBehavior:
 		return !behavior.editor.disabled
+	case textAreaBehavior:
+		return !behavior.disabled
 	}
 	return false
 }

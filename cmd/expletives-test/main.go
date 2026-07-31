@@ -316,20 +316,33 @@ func runInteractive(
 			return err
 		}
 		now := time.Now()
-		var events []expletives.KeyEvent
+		var events []terminal.InputEvent
 		if len(data) == 0 {
-			events = decoder.Flush(now)
+			events = decoder.FlushInput(now)
 		} else {
-			events = decoder.Feed(now, data)
+			events = decoder.FeedInput(now, data)
 		}
 		for _, event := range events {
-			if _, err := scene.App.DispatchKey(
-				ctx,
-				"terminal",
-				counter.id("human"),
-				event,
-			); err != nil && !errors.Is(err, expletives.ErrClosed) {
-				return err
+			requestID := counter.id("human")
+			if event.KeyEvent != nil {
+				if _, err := scene.App.DispatchKey(
+					ctx,
+					"terminal",
+					requestID,
+					*event.KeyEvent,
+				); err != nil && !errors.Is(err, expletives.ErrClosed) {
+					return err
+				}
+			}
+			if event.TextInput != nil {
+				if _, err := scene.App.DispatchTextInput(
+					ctx,
+					"terminal",
+					requestID,
+					*event.TextInput,
+				); err != nil && !errors.Is(err, expletives.ErrClosed) {
+					return err
+				}
 			}
 		}
 	}

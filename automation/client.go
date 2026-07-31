@@ -845,6 +845,19 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 		}
+		if control.Details.TextArea != nil {
+			textInputBytes += len(control.Details.TextArea.Text)
+			if control.Details.TextArea.Validator != nil {
+				textInputBytes += len(
+					control.Details.TextArea.Validator.Characters,
+				)
+			}
+			if textInputBytes > expletives.MaxTextInputAggregateBytes {
+				return errors.New(
+					"snapshot TextArea data exceeds advertised aggregate bound",
+				)
+			}
+		}
 		if control.Details.StatusBar != nil {
 			statusBarCount++
 			if statusBarCount > 1 ||
@@ -1005,6 +1018,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.NumberField != nil {
+		specialMembers++
+	}
+	if details.TextArea != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1199,6 +1215,17 @@ func validControlDetails(
 				kind == "spin_box",
 				limits,
 			)
+	case "text_area":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validTextAreaDetails(details.TextArea, controlWidth, limits)
 	default:
 		return false
 	}
@@ -1214,6 +1241,14 @@ func validNumberFieldDetails(
 		details.Length > expletives.MaxTextInputCells ||
 		details.Caret < 0 ||
 		details.Caret > details.Length ||
+		details.SelectionStart < 0 ||
+		details.SelectionStart > details.SelectionEnd ||
+		details.SelectionEnd > details.Length ||
+		!validEditorSelection(
+			details.Caret,
+			details.SelectionStart,
+			details.SelectionEnd,
+		) ||
 		details.ViewOffset < 0 ||
 		details.ViewOffset > details.Length ||
 		details.DecimalPlaces < 0 ||
@@ -1343,6 +1378,14 @@ func validTextFieldDetails(
 		details.Length > expletives.MaxTextInputCells ||
 		details.Caret < 0 ||
 		details.Caret > details.Length ||
+		details.SelectionStart < 0 ||
+		details.SelectionStart > details.SelectionEnd ||
+		details.SelectionEnd > details.Length ||
+		!validEditorSelection(
+			details.Caret,
+			details.SelectionStart,
+			details.SelectionEnd,
+		) ||
 		details.ViewOffset < 0 ||
 		details.ViewOffset > details.Length ||
 		details.Password != details.Redacted ||
@@ -1405,6 +1448,142 @@ func validTextFieldDetails(
 		(details.Validator.Enforcement != "hard" || valid)
 }
 
+func validTextAreaDetails(
+	details *TextAreaDetails,
+	controlWidth int,
+	limits Limits,
+) bool {
+	if details == nil ||
+		details.Length < 0 ||
+		details.Length > expletives.MaxTextInputCells ||
+		details.LineCount < 1 ||
+		details.LineCount > details.Length+1 ||
+		details.Caret < 0 ||
+		details.Caret > details.Length ||
+		details.SelectionStart < 0 ||
+		details.SelectionStart > details.SelectionEnd ||
+		details.SelectionEnd > details.Length ||
+		!validEditorSelection(
+			details.Caret,
+			details.SelectionStart,
+			details.SelectionEnd,
+		) ||
+		details.VisualCaretRow < 0 ||
+		details.VisualCaretRow > details.Length ||
+		details.VisualCaretColumn < 0 ||
+		details.VisualCaretColumn > details.Length ||
+		details.RowOffset < 0 ||
+		details.RowOffset > details.VisualCaretRow ||
+		details.ColumnOffset < 0 ||
+		details.ColumnOffset > details.VisualCaretColumn ||
+		details.Password != details.Redacted ||
+		(!details.Enabled && details.Editing) ||
+		!validSelectionReason(details.Enabled, details.DisabledReason) ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) {
+		return false
+	}
+	switch details.Wrap {
+	case "none":
+	case "words", "cells":
+		if details.ColumnOffset != 0 ||
+			(controlWidth > 0 &&
+				details.VisualCaretColumn > controlWidth) {
+			return false
+		}
+	default:
+		return false
+	}
+	var valueCells []string
+	if details.Redacted {
+		if details.Text != "" {
+			return false
+		}
+	} else {
+		var ok bool
+		valueCells, ok = canonicalTextAreaCells(details.Text)
+		if !ok || len(valueCells) != details.Length ||
+			1+strings.Count(details.Text, "\n") != details.LineCount {
+			return false
+		}
+	}
+	if details.Validator == nil {
+		return details.Valid
+	}
+	validatorCells, ok := canonicalInputCells(details.Validator.Characters)
+	if !ok || len(validatorCells) == 0 ||
+		len(details.Validator.Characters) > expletives.MaxTextValidatorBytes ||
+		len(validatorCells) > expletives.MaxTextValidatorCells {
+		return false
+	}
+	switch details.Validator.Enforcement {
+	case "soft", "hard":
+	default:
+		return false
+	}
+	switch details.Validator.Mode {
+	case "whitelist", "blacklist":
+	default:
+		return false
+	}
+	set := make(map[string]bool, len(validatorCells))
+	for _, cell := range validatorCells {
+		if set[cell] {
+			return false
+		}
+		set[cell] = true
+	}
+	if details.Redacted {
+		return details.Validator.Enforcement != "hard" || details.Valid
+	}
+	valid := true
+	for _, cell := range valueCells {
+		if cell == "\n" {
+			continue
+		}
+		matched := set[cell]
+		allowed := matched
+		if details.Validator.Mode == "blacklist" {
+			allowed = !matched
+		}
+		valid = valid && allowed
+	}
+	return details.Valid == valid &&
+		(details.Validator.Enforcement != "hard" || valid)
+}
+
+func validEditorSelection(caret, start, end int) bool {
+	if start == end {
+		return caret == start
+	}
+	return caret == start || caret == end
+}
+
+func canonicalTextAreaCells(text string) ([]string, bool) {
+	if len(text) > expletives.MaxTextInputBytes ||
+		!utf8.ValidString(text) ||
+		strings.ContainsRune(text, '\r') {
+		return nil, false
+	}
+	lines := strings.Split(text, "\n")
+	cells := make([]string, 0, len(text))
+	for index, line := range lines {
+		lineCells, ok := canonicalInputCells(line)
+		if !ok {
+			return nil, false
+		}
+		cells = append(cells, lineCells...)
+		if index+1 < len(lines) {
+			cells = append(cells, "\n")
+		}
+	}
+	if len(cells) > expletives.MaxTextInputCells ||
+		strings.Join(cells, "") != text {
+		return nil, false
+	}
+	return cells, true
+}
+
 func canonicalInputCells(text string) ([]string, bool) {
 	if len(text) > expletives.MaxTextInputBytes ||
 		!utf8.ValidString(text) {
@@ -1447,7 +1626,8 @@ func validFocusGuideBarDetails(
 func validFocusTargetKind(kind ControlKind) bool {
 	switch kind {
 	case "button", "checkbox", "radio_button", "cycle_field",
-		"select_field", "text_field", "number_field", "spin_box", "menu_bar":
+		"select_field", "text_field", "number_field", "spin_box",
+		"text_area", "menu_bar":
 		return true
 	default:
 		return false

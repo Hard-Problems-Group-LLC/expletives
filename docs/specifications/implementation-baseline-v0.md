@@ -168,9 +168,10 @@ or other-platform support.
 Before changing terminal state, the adapter verifies terminal descriptors,
 the supported profile, and geometry. It saves the exact termios state, enters
 noncanonical/no-echo mode while retaining signal generation, enters the
-alternate screen, hides the cursor, and uses one owner for input and output.
-Every catchable exit restores style, cursor, alternate-screen, and exact
-termios state in reverse order.
+alternate screen, enables bracketed paste, hides the cursor, and uses one
+owner for input and output. Every catchable exit restores style, cursor,
+bracketed-paste mode, alternate-screen state, and exact termios state in
+reverse order.
 
 The correctness-first presenter emits a complete bounded frame with
 ECMA-48 cursor/style operations and the explicitly supported xterm private
@@ -189,9 +190,12 @@ Headless and self-check modes initialize no terminal and exist for normal Go
 and process integration tests.
 
 The public `terminal.InputDecoder` owns bounded, stateful translation from
-terminal bytes to logical `KeyEvent` values. Human input then enters the same
-App dispatch path as attached automation. Application commands do not parse
-escape sequences themselves.
+terminal bytes to ordered logical key and bracketed-paste values. Keys enter
+`App.DispatchKey`; complete paste enters `App.DispatchTextInput` and cannot
+enter command resolution. The key-only compatibility `Feed` method continues
+to discard paste. Human key input then enters the same App dispatch path as
+attached automation. Application commands do not parse escape sequences
+themselves.
 
 ## Basic Automation Protocol
 
