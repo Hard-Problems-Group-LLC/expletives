@@ -27,8 +27,10 @@ Basic Layout foundation in the root `expletives` package. It covers:
   and overflow delivery;
 - raw key lifecycle events, the command registry, structured command results,
   correlated completions, and Menu popup sessions; and
-- typed Selection controls, focused-control guidance, and bounded TextField
-  editing with validation and password-safe observation; and
+- typed Selection controls, focused-control guidance, bounded validated and
+  password-safe text/numeric input, and multiline editing;
+- deterministic ProgressBar, Meter, Spinner, and ActivityDots state,
+  rendering, worker-update, and typed evidence; and
 - concurrency, dispatch, callback, and final-state behavior.
 
 The import path is:
@@ -136,11 +138,19 @@ copied after first use.
 - `frame` and `frame.border`;
 - `group_box` and `group_box.border`;
 - `layout.border`; and
-- `label`, `static_text`, `separator`, `rule`, `button`, `hotkey_bar`, and
-  `menu_bar`; and
-- `menu.popup`, `menu.border`, `menu.focused`, and `menu.disabled`.
+- `label`, `static_text`, `separator`, `rule`, `button`, `hotkey_bar`,
+  `focus_guide_bar`, and `menu_bar`;
+- `checkbox`, `radio_group`, `radio_button`, `cycle_field`, `select_field`,
+  `text_field`, `number_field`, `spin_box`, and `text_area`;
+- `progress_bar`, `meter`, `spinner`, and `activity_dots`;
+- `progress.fill`, `progress.text`, `progress.completed`, `progress.failed`,
+  and `progress.cancelled`; and
+- the Menu, Status Bar, Selection, and text-input variant roles listed by
+  `DefaultTheme().Styles()`.
 
-All default definitions resolve to white foreground on black background.
+Base content roles resolve to white foreground on black background. Chrome,
+focus, validation, and progress variants carry their documented semantic
+colors.
 
 ```go
 type StyleAttributes uint16
@@ -559,6 +569,39 @@ and Tab commits before group traversal. `TextWrapNone`, `TextWrapWords`, and
 selection replacement/deletion, Ctrl-A, visual-row navigation, and typed
 `ControlDetails.TextArea` evidence are defined by the same input contract.
 
+## Progress Controls
+
+```go
+func NewProgressBar(Container, ProgressBarOptions) (*ProgressBar, error)
+func NewMeter(Container, MeterOptions) (*Meter, error)
+func NewSpinner(Container, SpinnerOptions) (*Spinner, error)
+func NewActivityDots(Container, ActivityDotsOptions) (*ActivityDots, error)
+
+func (p *ProgressBar) State() ProgressBarState
+func (p *ProgressBar) SetState(ProgressBarState) error
+func (p *ProgressBar) Update(context.Context, ProgressBarState) error
+func (m *Meter) State() MeterState
+func (m *Meter) SetState(MeterState) error
+func (m *Meter) Update(context.Context, MeterState) error
+func (s *Spinner) State() ActivityState
+func (s *Spinner) SetState(ActivityState) error
+func (s *Spinner) Update(context.Context, ActivityState) error
+func (a *ActivityDots) State() ActivityState
+func (a *ActivityDots) SetState(ActivityState) error
+func (a *ActivityDots) Update(context.Context, ActivityState) error
+```
+
+Progress controls are non-focusable Panel-derived leaves. They copy complete
+application-owned state and never start a clock or worker. Determinate and
+indeterminate bars, finite horizontal/vertical meters, absolute-tick spinner
+and dot animation, stable terminal states, reduced-motion canonicalization,
+exact ratio rendering, and `ControlDetails.Progress` evidence are fixed by
+[`progress-api-v0.md`](progress-api-v0.md).
+
+`Update` is the cancellation-aware synchronous boundary for worker results;
+Transactions atomically publish a related group of states. Identical
+canonical updates publish nothing.
+
 ## Atomic Transactions
 
 ```go
@@ -586,6 +629,10 @@ func (t *Transaction) NewTextField(Container, TextFieldOptions) (*TextField, err
 func (t *Transaction) NewNumberField(Container, NumberFieldOptions) (*NumberField, error)
 func (t *Transaction) NewSpinBox(Container, SpinBoxOptions) (*SpinBox, error)
 func (t *Transaction) NewTextArea(Container, TextAreaOptions) (*TextArea, error)
+func (t *Transaction) NewProgressBar(Container, ProgressBarOptions) (*ProgressBar, error)
+func (t *Transaction) NewMeter(Container, MeterOptions) (*Meter, error)
+func (t *Transaction) NewSpinner(Container, SpinnerOptions) (*Spinner, error)
+func (t *Transaction) NewActivityDots(Container, ActivityDotsOptions) (*ActivityDots, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -600,6 +647,9 @@ func (t *Transaction) SetNumberValue(Control, float64) error
 func (t *Transaction) SetTextAreaValidator(*TextArea, *TextValidator) error
 func (t *Transaction) SetTextAreaPassword(*TextArea, bool) error
 func (t *Transaction) SetTextAreaWrap(*TextArea, TextWrap) error
+func (t *Transaction) SetProgressBarState(*ProgressBar, ProgressBarState) error
+func (t *Transaction) SetMeterState(*Meter, MeterState) error
+func (t *Transaction) SetActivityState(Control, ActivityState) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
@@ -895,7 +945,7 @@ Callers branch with `errors.Is` over:
 | `ErrStyleConflict` | Theme definition or attributes conflict |
 | `ErrStyleMissing` | Theme or referenced semantic style is missing |
 | `ErrTextLimit` | Bounded title, display text, description, or message validation failed |
-| `ErrValidation` | Invalid validator policy or hard-invalid programmatic text |
+| `ErrValidation` | Invalid control policy/value state or hard-invalid programmatic text |
 
 Context-aware methods reject nil contexts and may return
 `context.Canceled` or `context.DeadlineExceeded`.

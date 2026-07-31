@@ -303,6 +303,14 @@ const (
 	ControlSpinBox ControlKind = "spin_box"
 	// ControlTextArea identifies one focusable multiline editor.
 	ControlTextArea ControlKind = "text_area"
+	// ControlProgressBar identifies one determinate or indeterminate bar.
+	ControlProgressBar ControlKind = "progress_bar"
+	// ControlMeter identifies one horizontal or vertical scalar meter.
+	ControlMeter ControlKind = "meter"
+	// ControlSpinner identifies one deterministic single-cell activity mark.
+	ControlSpinner ControlKind = "spinner"
+	// ControlActivityDots identifies one deterministic dot activity mark.
+	ControlActivityDots ControlKind = "activity_dots"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -581,6 +589,8 @@ type ControlDetails struct {
 	NumberField *NumberFieldDetails `json:"number_field,omitempty"`
 	// TextArea is present for TextArea.
 	TextArea *TextAreaDetails `json:"text_area,omitempty"`
+	// Progress is present for ProgressBar, Meter, Spinner, and ActivityDots.
+	Progress *ProgressDetails `json:"progress,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -843,6 +853,22 @@ type TextAreaDetails struct {
 	Validator         *TextValidatorDetails `json:"validator,omitempty"`
 }
 
+// ProgressDetails describes one kind-consistent progress or activity state.
+type ProgressDetails struct {
+	Status        ProgressStatus   `json:"status"`
+	Current       uint64           `json:"current,omitempty"`
+	Total         uint64           `json:"total,omitempty"`
+	Value         float64          `json:"value,omitempty"`
+	Minimum       float64          `json:"minimum,omitempty"`
+	Maximum       float64          `json:"maximum,omitempty"`
+	Orientation   Orientation      `json:"orientation"`
+	Indeterminate bool             `json:"indeterminate"`
+	Tick          uint64           `json:"tick,omitempty"`
+	ReducedMotion bool             `json:"reduced_motion"`
+	TextMode      ProgressTextMode `json:"text_mode"`
+	FrameIndex    int              `json:"frame_index"`
+}
+
 // InputSourceSnapshot reports held logical keys for one isolated source.
 type InputSourceSnapshot struct {
 	// Source is the caller-selected input-source ID.
@@ -1069,6 +1095,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				area.Validator = &validator
 			}
 			cloned.Controls[index].Details.TextArea = &area
+		}
+		if snapshot.Controls[index].Details.Progress != nil {
+			progress := *snapshot.Controls[index].Details.Progress
+			cloned.Controls[index].Details.Progress = &progress
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

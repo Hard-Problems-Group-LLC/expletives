@@ -4,6 +4,52 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-07-31 — `EXPL-TASK-028` — Deliver Phase 13 Progress controls.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-07-31T03:11:56-07:00
+  - Completed: 2026-07-31T03:44:45-07:00
+  - Outcome:
+    - added non-focusable `ProgressBar`, horizontal/vertical `Meter`,
+      `Spinner`, and `ActivityDots` controls with copied complete state,
+      public/transaction constructors, atomic setters, and
+      cancellation-aware `Update`;
+    - implemented determinate/indeterminate rendering, exact integer ratios
+      and percentages, narrow ASCII fallbacks, absolute animation ticks,
+      reduced-motion canonicalization, terminal states, and semantic styles;
+    - kept clocks, tickers, workers, model ordering, cancellation ownership,
+      and terminal access outside the controls so multithreaded MVC/MVVC
+      applications retain their own work lifecycle;
+    - projected exact kind-consistent `ControlDetails.Progress` through the
+      root snapshot and versioned automation DTO with trust-boundary
+      validation and unchanged aggregate response bounds; and
+    - enabled the Controls/Progress catalog page with six grouped
+      demonstrations and deterministic Tick, Reset, Complete, Fail, Cancel,
+      and Motion command paths.
+  - Verification:
+    - `make verify` passed formatting, vet, ordinary and Unix-socket tests,
+      the controlling-PTY lifecycle, the complete race suite,
+      debug/release/profiling builds, and every mode's smoke/self-check;
+    - a fresh debug build passed direct attached socket inspection at
+      100x30 with no Layout overflow, and Tick evidence advanced the bar,
+      meters, indeterminate bar, Spinner, and ActivityDots atomically;
+    - the conservative maximum completion remains 41,389,979 bytes, with
+      three retained maxima totaling 124,169,937 bytes below the 128 MiB
+      aggregate budget; and
+    - `git diff --check` and the FieldManual bootstrap dry run passed with
+      zero planned writes.
+  - Contracts:
+    - [`Progress API v0`](../docs/specifications/progress-api-v0.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+    - [`expletives-test`](../docs/specifications/expletives-test.md)
+  - Process:
+    - completed without convening the Panel; and
+    - recorded the default-Theme overlay opportunity in the
+      [`process efficiency log`](reviews/process-efficiency-log.md).
+  - Follow-up:
+    - Phase 14 Navigation and Chrome is next.
+
 - 2026-07-31 — `EXPL-TASK-027` — Deliver Phase 12 Text and Numeric Input.
   - Requestor: project operator
   - Owner: Codex

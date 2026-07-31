@@ -91,6 +91,31 @@ func DefaultTheme() Theme {
 		"number_field":     resolved,
 		"spin_box":         resolved,
 		"text_area":        resolved,
+		"progress_bar":     resolved,
+		"meter":            resolved,
+		"spinner":          resolved,
+		"activity_dots":    resolved,
+		"progress.fill": {
+			Foreground: black,
+			Background: RGB(0x00, 0xAA, 0x00),
+		},
+		"progress.text": {
+			Foreground: white,
+			Background: RGB(0x00, 0x00, 0x00),
+			Attributes: StyleBold,
+		},
+		"progress.completed": {
+			Foreground: black,
+			Background: RGB(0x00, 0xAA, 0x00),
+		},
+		"progress.failed": {
+			Foreground: white,
+			Background: RGB(0xAA, 0x00, 0x00),
+		},
+		"progress.cancelled": {
+			Foreground: black,
+			Background: RGB(0xAA, 0xAA, 0x00),
+		},
 		"text_input.valid": {
 			Foreground: RGB(0x00, 0xAA, 0x00),
 			Background: resolved.Background,

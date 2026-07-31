@@ -240,6 +240,18 @@ inserts LF, Ctrl-Enter commits, Shift movement selects, and normalized
 committed-text/paste events cannot become commands. Scenario Reset restores
 all seven initial committed values silently.
 
+The Progress screen contains stable `progress.*` controls for a 42-percent
+determinate ProgressBar, an indeterminate ProgressBar, horizontal and vertical
+Meters, Spinner and ActivityDots animation, completed/failed/cancelled bars,
+and reduced-motion Spinner/Dots presentations. It exposes buttons for Tick,
+Reset, and Motion and automation-callable Complete, Fail, and Cancel commands.
+Tick supplies one new absolute application-owned tick and advances the live
+determinate values in one Transaction. Motion freezes live animation through
+canonical reduced-motion state. Reset restores all initial live state.
+Snapshots and attached automation expose exact kind-consistent
+`details.progress` records, including the effective frame index; controls do
+not own a clock, ticker, worker, or terminal dependency.
+
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static
 context and no shortcut inventory. Sections/Status Bar is an independent
@@ -276,9 +288,9 @@ roots plus an end-aligned Help root.
   nested Stacking menu, and reserves Panel scroll-bar coverage.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
-- Controls links current Text/Display, Actions, Selection, and Text / Numeric
-  Input pages, then uses a separator to group disabled phase-owned Progress,
-  Navigation, Scrolling/Content, and Collection pages.
+- Controls links current Text/Display, Actions, Selection, Text / Numeric
+  Input, and Progress pages, then uses a separator to group disabled
+  phase-owned Navigation, Scrolling/Content, and Collection pages.
 - Sections owns the independent Status Bar toggle, the Headers lifecycle
   submenu, and the semantic Footer-role visibility submenu.
 - Menus links the Menu overview and reserves Panel-owned and context-menu

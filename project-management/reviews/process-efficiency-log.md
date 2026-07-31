@@ -9,6 +9,22 @@
 
 ## Observed Opportunities
 
+### 36. Overlay Catalog Styles On The Complete Default Theme
+
+Adding the first Progress-page buttons initially exposed a missing semantic
+`button` role in the catalog's hand-maintained custom Theme. Every retained
+screen participates in Theme validation, so manually repeating all default
+roles makes each later control phase pay an avoidable synchronization cost.
+
+Improvement for the next catalog phase:
+
+- add one private demo helper that starts with `DefaultTheme().Styles()`;
+- replace only the fixture's intentional semantic overrides and append its
+  `fixture.*` roles before calling `NewTheme`;
+- retain the ordinary missing-style tests for consumer-supplied Themes; and
+- keep this helper private so catalog convenience does not broaden the public
+  Theme API prematurely.
+
 ### 35. Budget Exhaustive Integration Tests For Their Aggregate Work
 
 The attached catalog test used one five-second context for endpoint startup

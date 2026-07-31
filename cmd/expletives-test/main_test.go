@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	expletives "github.com/Hard-Problems-Group-LLC/expletives"
 	"github.com/Hard-Problems-Group-LLC/expletives/automation"
 	"github.com/Hard-Problems-Group-LLC/expletives/internal/demo"
 )
@@ -97,6 +98,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	displayEvidence := make(map[string]bool)
 	actionEvidence := make(map[string]bool)
 	inputEvidence := make(map[string]bool)
+	progressEvidence := make(map[string]bool)
 	screenEvidence := make(map[string]bool)
 	chromeEvidence := make(map[string]bool)
 	menuEvidence := false
@@ -135,6 +137,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
 			"screen.text", "screen.actions", "screen.selection", "screen.input",
+			"screen.progress",
 			"screen.menus", "screen.status", "screen.headers_footers",
 			"screen.about":
 			screenEvidence[control.Key] = !control.Visible
@@ -296,6 +299,80 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.Details.TextArea.Text == "Multiline\ntext area" &&
 					control.Details.TextArea.LineCount == 2 &&
 					control.Details.TextArea.Wrap == "words"
+		case "progress.bar.determinate":
+			progressEvidence[control.Key] =
+				control.Kind == "progress_bar" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Status == "running" &&
+					control.Details.Progress.Current == 42 &&
+					control.Details.Progress.Total == 100 &&
+					!control.Details.Progress.Indeterminate &&
+					control.Details.Progress.TextMode == "percentage"
+		case "progress.bar.indeterminate":
+			progressEvidence[control.Key] =
+				control.Kind == "progress_bar" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Status == "running" &&
+					control.Details.Progress.Indeterminate &&
+					control.Details.Progress.Tick == 0 &&
+					control.Details.Progress.FrameIndex == 0
+		case "progress.meter.horizontal":
+			progressEvidence[control.Key] =
+				control.Kind == "meter" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Value == 65 &&
+					control.Details.Progress.Minimum == 0 &&
+					control.Details.Progress.Maximum == 100 &&
+					control.Details.Progress.Orientation ==
+						automation.Orientation(expletives.Horizontal)
+		case "progress.meter.vertical":
+			progressEvidence[control.Key] =
+				control.Kind == "meter" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Value == 65 &&
+					control.Details.Progress.Orientation ==
+						automation.Orientation(expletives.Vertical)
+		case "progress.spinner":
+			progressEvidence[control.Key] =
+				control.Kind == "spinner" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Status == "running" &&
+					control.Details.Progress.FrameIndex == 0
+		case "progress.activity_dots":
+			progressEvidence[control.Key] =
+				control.Kind == "activity_dots" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Status == "running" &&
+					control.Details.Progress.FrameIndex == 0
+		case "progress.bar.completed":
+			progressEvidence[control.Key] =
+				control.Kind == "progress_bar" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Status == "completed"
+		case "progress.bar.failed":
+			progressEvidence[control.Key] =
+				control.Kind == "progress_bar" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Status == "failed"
+		case "progress.bar.cancelled":
+			progressEvidence[control.Key] =
+				control.Kind == "progress_bar" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.Status == "cancelled"
+		case "progress.spinner.reduced":
+			progressEvidence[control.Key] =
+				control.Kind == "spinner" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.ReducedMotion &&
+					control.Details.Progress.Tick == 0 &&
+					control.Details.Progress.FrameIndex == 0
+		case "progress.activity_dots.reduced":
+			progressEvidence[control.Key] =
+				control.Kind == "activity_dots" &&
+					control.Details.Progress != nil &&
+					control.Details.Progress.ReducedMotion &&
+					control.Details.Progress.Tick == 0 &&
+					control.Details.Progress.FrameIndex == 0
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -316,10 +393,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
 		len(inputEvidence) != 7 ||
-		len(screenEvidence) != 13 ||
+		len(progressEvidence) != 11 ||
+		len(screenEvidence) != 14 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
-			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v",
+			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v progress=%#v",
 			menuEvidence,
 			statusEvidence,
 			screenEvidence,
@@ -327,6 +405,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			displayEvidence,
 			actionEvidence,
 			inputEvidence,
+			progressEvidence,
 		)
 	}
 	for key, valid := range displayEvidence {
@@ -342,6 +421,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	for key, valid := range inputEvidence {
 		if !valid {
 			t.Fatalf("TextField %q has invalid typed evidence", key)
+		}
+	}
+	for key, valid := range progressEvidence {
+		if !valid {
+			t.Fatalf("Progress control %q has invalid typed evidence", key)
 		}
 	}
 	for key, valid := range rootMnemonicEvidence {
@@ -887,6 +971,155 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			}(),
 			spinValue,
 		)
+	}
+	progressScreen, err := client.InvokeCommand(
+		ctx,
+		"show-progress",
+		string(demo.CommandProgress),
+		"",
+	)
+	if err != nil || progressScreen.Outcome != automation.OutcomeApplied ||
+		progressScreen.Snapshot == nil {
+		t.Fatalf(
+			"InvokeCommand(Progress) = outcome %q snapshot=%t, %v",
+			progressScreen.Outcome,
+			progressScreen.Snapshot != nil,
+			err,
+		)
+	}
+	progressControl := func(
+		snapshot *automation.SnapshotV1,
+		key string,
+	) *automation.ControlSnapshot {
+		t.Helper()
+		if snapshot == nil {
+			t.Fatalf("Progress snapshot is absent for %q", key)
+		}
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == key {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatalf("Progress control %q is absent", key)
+		return nil
+	}
+	if !progressControl(progressScreen.Snapshot, "screen.progress").Visible ||
+		!progressControl(
+			progressScreen.Snapshot,
+			"progress.action.tick",
+		).Focused {
+		t.Fatal("Progress screen did not become visible and focused")
+	}
+	bar := progressControl(
+		progressScreen.Snapshot,
+		"progress.bar.determinate",
+	).Details.Progress
+	if bar == nil || bar.Current != 42 || bar.Total != 100 ||
+		bar.Status != "running" {
+		t.Fatalf("initial determinate Progress details = %#v", bar)
+	}
+	progressTick, err := client.InvokeCommand(
+		ctx,
+		"progress-tick",
+		string(demo.CommandProgressTick),
+		"",
+	)
+	if err != nil || progressTick.Outcome != automation.OutcomeApplied ||
+		progressTick.Snapshot == nil {
+		t.Fatalf("InvokeCommand(Progress Tick) = %+v, %v", progressTick, err)
+	}
+	bar = progressControl(
+		progressTick.Snapshot,
+		"progress.bar.determinate",
+	).Details.Progress
+	spinner := progressControl(
+		progressTick.Snapshot,
+		"progress.spinner",
+	).Details.Progress
+	dots := progressControl(
+		progressTick.Snapshot,
+		"progress.activity_dots",
+	).Details.Progress
+	if bar == nil || bar.Current != 49 ||
+		spinner == nil || spinner.Tick != 1 || spinner.FrameIndex != 1 ||
+		dots == nil || dots.Tick != 1 || dots.FrameIndex != 1 {
+		t.Fatal("automation Progress Tick evidence is incomplete")
+	}
+	reducedMotion, err := client.InvokeCommand(
+		ctx,
+		"progress-motion",
+		string(demo.CommandProgressMotion),
+		"",
+	)
+	if err != nil || reducedMotion.Outcome != automation.OutcomeApplied ||
+		reducedMotion.Snapshot == nil {
+		t.Fatalf(
+			"InvokeCommand(Progress Motion) = %+v, %v",
+			reducedMotion,
+			err,
+		)
+	}
+	spinner = progressControl(
+		reducedMotion.Snapshot,
+		"progress.spinner",
+	).Details.Progress
+	if spinner == nil || !spinner.ReducedMotion ||
+		spinner.Tick != 0 || spinner.FrameIndex != 0 {
+		t.Fatalf("reduced-motion Progress details = %#v", spinner)
+	}
+	for index, command := range []struct {
+		id     expletives.CommandID
+		status string
+	}{
+		{demo.CommandProgressFail, "failed"},
+		{demo.CommandProgressCancel, "cancelled"},
+		{demo.CommandProgressComplete, "completed"},
+	} {
+		completion, invokeErr := client.InvokeCommand(
+			ctx,
+			"progress-terminal-"+string(rune('0'+index)),
+			string(command.id),
+			"",
+		)
+		if invokeErr != nil ||
+			completion.Outcome != automation.OutcomeApplied ||
+			completion.Snapshot == nil {
+			t.Fatalf(
+				"InvokeCommand(%s) = %+v, %v",
+				command.id,
+				completion,
+				invokeErr,
+			)
+		}
+		bar = progressControl(
+			completion.Snapshot,
+			"progress.bar.determinate",
+		).Details.Progress
+		if bar == nil || bar.Status != command.status {
+			t.Fatalf("%s Progress status = %#v", command.id, bar)
+		}
+	}
+	progressReset, err := client.InvokeCommand(
+		ctx,
+		"progress-reset",
+		string(demo.CommandProgressReset),
+		"",
+	)
+	if err != nil || progressReset.Outcome != automation.OutcomeApplied ||
+		progressReset.Snapshot == nil {
+		t.Fatalf("InvokeCommand(Progress Reset) = %+v, %v", progressReset, err)
+	}
+	bar = progressControl(
+		progressReset.Snapshot,
+		"progress.bar.determinate",
+	).Details.Progress
+	spinner = progressControl(
+		progressReset.Snapshot,
+		"progress.spinner",
+	).Details.Progress
+	if bar == nil || bar.Current != 42 || bar.Status != "running" ||
+		spinner == nil || spinner.Tick != 0 || spinner.ReducedMotion {
+		t.Fatal("automation Progress Reset evidence is incomplete")
 	}
 	if _, err := client.InjectInput(
 		ctx,

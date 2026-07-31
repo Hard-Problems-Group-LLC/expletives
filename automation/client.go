@@ -1023,6 +1023,9 @@ func validControlDetails(
 	if details.TextArea != nil {
 		specialMembers++
 	}
+	if details.Progress != nil {
+		specialMembers++
+	}
 	switch kind {
 	case "root", "panel", "header", "footer":
 		return specialMembers == 0 &&
@@ -1226,6 +1229,97 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil &&
 			validTextAreaDetails(details.TextArea, controlWidth, limits)
+	case "progress_bar", "meter", "spinner", "activity_dots":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validProgressDetails(
+				kind,
+				details.Progress,
+				controlWidth,
+			)
+	default:
+		return false
+	}
+}
+
+func validProgressDetails(
+	kind ControlKind,
+	details *ProgressDetails,
+	controlWidth int,
+) bool {
+	if details == nil || details.FrameIndex < 0 {
+		return false
+	}
+	switch details.Status {
+	case "idle", "running", "completed", "failed", "cancelled":
+	default:
+		return false
+	}
+	switch kind {
+	case "progress_bar":
+		if details.Orientation != Orientation(expletives.Horizontal) ||
+			details.Value != 0 || details.Minimum != 0 ||
+			details.Maximum != 0 ||
+			(details.TextMode != "none" &&
+				details.TextMode != "percentage") {
+			return false
+		}
+		if details.Indeterminate {
+			if details.Current != 0 || details.Total != 0 ||
+				details.TextMode != "none" {
+				return false
+			}
+		} else if details.Current > details.Total ||
+			(details.Status == "completed" &&
+				details.Current != details.Total) ||
+			details.Tick != 0 || details.FrameIndex != 0 {
+			return false
+		}
+		if details.ReducedMotion || details.Status != "running" {
+			return details.Tick == 0 && details.FrameIndex == 0
+		}
+		if controlWidth <= 0 {
+			return details.FrameIndex == 0
+		}
+		return details.FrameIndex ==
+			int(details.Tick%uint64(controlWidth))
+	case "meter":
+		return !details.Indeterminate &&
+			details.Current == 0 && details.Total == 0 &&
+			details.Tick == 0 && !details.ReducedMotion &&
+			details.TextMode == "" && details.FrameIndex == 0 &&
+			(details.Orientation == Orientation(expletives.Horizontal) ||
+				details.Orientation == Orientation(expletives.Vertical)) &&
+			finiteWireNumber(details.Value) &&
+			finiteWireNumber(details.Minimum) &&
+			finiteWireNumber(details.Maximum) &&
+			details.Minimum < details.Maximum &&
+			details.Value >= details.Minimum &&
+			details.Value <= details.Maximum
+	case "spinner", "activity_dots":
+		if !details.Indeterminate ||
+			details.Current != 0 || details.Total != 0 ||
+			details.Value != 0 || details.Minimum != 0 ||
+			details.Maximum != 0 ||
+			details.Orientation != Orientation(expletives.Horizontal) ||
+			details.TextMode != "none" {
+			return false
+		}
+		if details.ReducedMotion || details.Status != "running" {
+			return details.Tick == 0 && details.FrameIndex == 0
+		}
+		frameCount := uint64(4)
+		if kind == "activity_dots" {
+			frameCount = 5
+		}
+		return details.FrameIndex == int(details.Tick%frameCount)
 	default:
 		return false
 	}

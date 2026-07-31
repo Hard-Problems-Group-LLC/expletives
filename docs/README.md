@@ -44,6 +44,9 @@ Keep durable project documentation here.
 - [Text and Numeric Input API v0](specifications/text-and-numeric-input-api-v0.md)
   defines editor validation, password masking/redaction, and the Phase 12
   `TextField`, `NumberField`, `SpinBox`, and `TextArea` boundary.
+- [Progress API v0](specifications/progress-api-v0.md) defines deterministic,
+  reduced-motion, bounded, thread-safe ProgressBar, Meter, Spinner, and
+  ActivityDots behavior.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

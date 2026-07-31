@@ -91,7 +91,7 @@ are necessary and do not freeze the later public API.
 
 ## Delivery Phases
 
-### 1. Core And Containers
+### 2. Core And Containers
 
 Required public surface:
 
@@ -108,7 +108,7 @@ Required public surface:
 This phase establishes the logical tree and lifecycle. Physical rendering is
 the next phase.
 
-### 2. Basic Presentation
+### 3. Basic Presentation
 
 Required public or testable behavior:
 
@@ -139,7 +139,7 @@ as intended. A Limited Unicode fixture verifies that supported one-cell text
 remains aligned and every unsupported display element becomes exactly one
 `U+FFFD` cell without moving later columns.
 
-### 3. Basic Automation
+### 4. Basic Automation
 
 Required invocation:
 
@@ -181,7 +181,7 @@ The explicit socket path is the initial trust boundary. Authentication remains
 deferred; bounds, framing, collision safety, honest outcomes, and cleanup
 remain required.
 
-### 4. Basic Layouts
+### 5. Basic Layouts
 
 Required instantiated layout objects:
 
@@ -267,7 +267,7 @@ handler paths, fallback warning behavior, notification coalescing, and
 nonblocking automation completion. It also covers panic, dispatcher saturation,
 deadline expiry, and a handler that ignores cancellation.
 
-### 5. Text And Display
+### 6. Text And Display
 
 Required controls:
 
@@ -281,7 +281,7 @@ Unicode text units, deterministic one-cell `U+FFFD` replacement for
 unsupported widths, clipping, semantic text styles, and
 ASCII/reduced-decoration fallbacks.
 
-### 6. Actions
+### 7. Actions
 
 Required controls:
 
@@ -299,7 +299,7 @@ state, structured hotkey data, focus, and command parity across human input
 and automation. The implemented exact contract is
 [`actions-api-v0.md`](actions-api-v0.md).
 
-### 7. Menus
+### 8. Menus
 
 Required controls:
 
@@ -326,7 +326,7 @@ right-justified Help contains About. Sections owns the live Status Bar toggle
 and Header/Footer submenus. Entries that depend on later phases remain
 disabled, named placeholders until that owning phase implements their pages.
 
-### 8. Status Bar
+### 9. Status Bar
 
 Required controls:
 
@@ -341,7 +341,7 @@ snapshot evidence, and the bottom-edge reservation defined by
 segment, command-state, rendering, mutation, and typed automation contract is
 [`status-bar-api-v0.md`](status-bar-api-v0.md).
 
-### 9. Headers And Footers
+### 10. Headers And Footers
 
 Required controls:
 
@@ -355,7 +355,7 @@ Layout attachment accepts only trees whose complete measured and decorated
 minimum height fits one row, as defined by the
 [`headers-footers-api-v0.md`](headers-footers-api-v0.md) contract.
 
-### 10. Selection
+### 11. Selection
 
 Required controls:
 
@@ -374,7 +374,7 @@ rendering, and typed automation contract is
 five public control names on the enabled Controls/Selection page, including
 two/three-state, disabled, exclusive, empty, wrapping, and clamped states.
 
-### 11. Text And Numeric Input
+### 12. Text And Numeric Input
 
 Required controls:
 
@@ -407,7 +407,7 @@ SpinBox stepping. The implemented TextArea adds normalized line separators,
 word/cell/no-wrap presentation, a private bounded viewport, selection-aware
 multiline navigation, Ctrl-Enter commit, and semantic bounded paste.
 
-### 12. Progress
+### 13. Progress
 
 Required controls:
 
@@ -417,9 +417,21 @@ Required controls:
 - `ActivityDots`.
 
 Animations and progress updates must use explicit deterministic tick or state
-events, honor reduced motion, and remain bounded.
+events, honor reduced motion, and remain bounded. These implemented controls
+are non-focusable Panel-derived views of application-owned work. They expose
+copied complete state, synchronous cancellation-aware worker-result updates,
+atomic Transaction mutation, stable completion/failure/cancellation
+presentation, and kind-consistent typed evidence without a toolkit clock,
+ticker, worker, or terminal dependency.
 
-### 13. Navigation And Chrome
+The exact state, validation, rendering, coalescing, threading, style, and
+automation contract is
+[`progress-api-v0.md`](progress-api-v0.md). `expletives-test` enables the
+Controls/Progress page with determinate/indeterminate bars, horizontal and
+vertical meters, spinner/dots, terminal states, reduced-motion examples, and
+deterministic Tick, Reset, Complete, Fail, Cancel, and Motion commands.
+
+### 14. Navigation And Chrome
 
 Required controls:
 
@@ -430,7 +442,7 @@ Required controls:
 This phase adds honest viewport-based scrollbars, tab focus, and page
 navigation on top of the already-delivered Action and Menu command routing.
 
-### 14. Scrolling And Content
+### 15. Scrolling And Content
 
 Required controls:
 
@@ -444,7 +456,7 @@ This phase makes the earlier private viewport/offset behavior a supported
 public contract and adds bounded streaming, follow/scrollback, and honest
 drop reporting.
 
-### 15. Collections
+### 16. Collections
 
 Required controls:
 
@@ -460,7 +472,7 @@ selection/data-source contracts. Composition and capability reuse must be
 chosen deliberately; the older Draft's deep inheritance relationships are
 not approved by this ordering decision.
 
-### 16. Modal Controls
+### 17. Modal Controls
 
 Required controls:
 

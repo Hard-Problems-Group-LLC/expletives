@@ -160,3 +160,109 @@ func TestExternalConsumerBuildsAndStacksLayouts(t *testing.T) {
 		t.Fatalf("external Layout snapshot = %#v", snapshot.Layouts)
 	}
 }
+
+func TestExternalConsumerPublishesCopiedProgressState(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size:     expletives.Size{Width: 24, Height: 4},
+		Scenario: "external.progress",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := app.NewTransaction()
+	bar, err := transaction.NewProgressBar(
+		app.Root(),
+		expletives.ProgressBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress",
+				Bounds:        expletives.Rect{Width: 12, Height: 1},
+			},
+			State: expletives.ProgressBarState{
+				Current: 1,
+				Total:   4,
+				Status:  expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spinner, err := transaction.NewSpinner(
+		app.Root(),
+		expletives.SpinnerOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "spinner",
+				Bounds: expletives.Rect{
+					X: 13, Width: 1, Height: 1,
+				},
+			},
+			State: expletives.ActivityState{
+				Status: expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := bar.Update(
+		context.Background(),
+		expletives.ProgressBarState{
+			Current: 2,
+			Total:   4,
+			Status:  expletives.ProgressRunning,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	transaction = app.NewTransaction()
+	if err := transaction.SetProgressBarState(
+		bar,
+		expletives.ProgressBarState{
+			Current: 4,
+			Total:   4,
+			Status:  expletives.ProgressCompleted,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.SetActivityState(
+		spinner,
+		expletives.ActivityState{
+			Tick:   3,
+			Status: expletives.ProgressRunning,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := app.Snapshot()
+	var barDetails, spinnerDetails *expletives.ProgressDetails
+	for index := range snapshot.Controls {
+		switch snapshot.Controls[index].Key {
+		case "progress":
+			barDetails = snapshot.Controls[index].Details.Progress
+		case "spinner":
+			spinnerDetails = snapshot.Controls[index].Details.Progress
+		}
+	}
+	if barDetails == nil ||
+		barDetails.Status != expletives.ProgressCompleted ||
+		barDetails.Current != 4 || barDetails.Total != 4 ||
+		spinnerDetails == nil ||
+		spinnerDetails.Status != expletives.ProgressRunning ||
+		spinnerDetails.Tick != 3 || spinnerDetails.FrameIndex != 3 {
+		t.Fatalf(
+			"external Progress snapshot bar=%#v spinner=%#v",
+			barDetails,
+			spinnerDetails,
+		)
+	}
+}

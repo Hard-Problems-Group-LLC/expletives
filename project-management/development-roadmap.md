@@ -445,22 +445,27 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 13. Progress
 
-- Status: `planned`
+- Status: `complete`
 - Goal: deliver `ProgressBar`, `Meter`, `Spinner`, and `ActivityDots`.
 - Dependencies: Phase 12 plus approved clock/tick and bounded worker-result
   delivery.
 - Includes: determinate and indeterminate state, supplied deterministic ticks,
-  reduced motion, textual narrow fallback, contextual status segments,
-  completion/error/cancel state, and interruptible long work. Contextual
-  Status Bar segments were delivered separately in Phase 9.
+  reduced motion, textual narrow fallback, completion/error/cancel state, and
+  a synchronous cancellation-aware boundary for application-owned worker
+  updates. Contextual Status Bar segments were delivered separately in
+  Phase 9. Progress controls own no clock, ticker, worker, or terminal access.
 - `expletives-test` scenarios: `progress.determinate`,
-  `progress.indeterminate`, `progress.reduced-motion`, and
-  `progress.interrupt`.
+  `progress.indeterminate`, `progress.terminal-states`, and
+  `progress.reduced-motion`.
 - Normal Go tests: ratio and rounding boundaries, zero/invalid totals, narrow
   rendering, deterministic animation frames, update coalescing, cancellation,
-  worker shutdown, race detection, and goroutine-leak checks.
+  concurrent worker-result delivery, race detection, and the no-hidden-worker
+  invariant.
 - Acceptance gate: progress scenarios stay responsive, bounded, observable,
-  and interruptible without rendering or terminal access from workers.
+  deterministic, and cancellation-aware without rendering or terminal access
+  from workers.
+- Completion evidence:
+  [`EXPL-TASK-028`](completed-tasks.md).
 
 ### 14. Navigation/Chrome
 

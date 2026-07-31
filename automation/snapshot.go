@@ -185,6 +185,8 @@ type ControlDetails struct {
 	NumberField *NumberFieldDetails `json:"number_field,omitempty"`
 	// TextArea is present for TextArea.
 	TextArea *TextAreaDetails `json:"text_area,omitempty"`
+	// Progress is present for ProgressBar, Meter, Spinner, and ActivityDots.
+	Progress *ProgressDetails `json:"progress,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -442,6 +444,22 @@ type TextAreaDetails struct {
 	DisabledReason    string                `json:"disabled_reason,omitempty"`
 	ChangeCommand     string                `json:"change_command,omitempty"`
 	Validator         *TextValidatorDetails `json:"validator,omitempty"`
+}
+
+// ProgressDetails describes one kind-consistent progress or activity state.
+type ProgressDetails struct {
+	Status        string      `json:"status"`
+	Current       uint64      `json:"current,omitempty"`
+	Total         uint64      `json:"total,omitempty"`
+	Value         float64     `json:"value,omitempty"`
+	Minimum       float64     `json:"minimum,omitempty"`
+	Maximum       float64     `json:"maximum,omitempty"`
+	Orientation   Orientation `json:"orientation"`
+	Indeterminate bool        `json:"indeterminate"`
+	Tick          uint64      `json:"tick,omitempty"`
+	ReducedMotion bool        `json:"reduced_motion"`
+	TextMode      string      `json:"text_mode"`
+	FrameIndex    int         `json:"frame_index"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -906,6 +924,22 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			}
 			projectedControl.Details.TextArea = area
 		}
+		if details := control.Details.Progress; details != nil {
+			projectedControl.Details.Progress = &ProgressDetails{
+				Status:        string(details.Status),
+				Current:       details.Current,
+				Total:         details.Total,
+				Value:         details.Value,
+				Minimum:       details.Minimum,
+				Maximum:       details.Maximum,
+				Orientation:   Orientation(details.Orientation),
+				Indeterminate: details.Indeterminate,
+				Tick:          details.Tick,
+				ReducedMotion: details.ReducedMotion,
+				TextMode:      string(details.TextMode),
+				FrameIndex:    details.FrameIndex,
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -1121,6 +1155,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 				area.Validator = &validator
 			}
 			cloned.Controls[index].Details.TextArea = &area
+		}
+		if snapshot.Controls[index].Details.Progress != nil {
+			progress := *snapshot.Controls[index].Details.Progress
+			cloned.Controls[index].Details.Progress = &progress
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

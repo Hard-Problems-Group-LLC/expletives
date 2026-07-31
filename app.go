@@ -464,6 +464,9 @@ func (a *App) paintControlLocked(
 	case textAreaBehavior:
 		area := a.textAreaDetailsLocked(state, behavior)
 		details.TextArea = &area
+	case progressBehavior:
+		progress := progressDetails(state.kind, bounds, behavior)
+		details.Progress = &progress
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

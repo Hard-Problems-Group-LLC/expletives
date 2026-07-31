@@ -58,6 +58,7 @@ const (
 	mutationTextField
 	mutationNumberField
 	mutationTextArea
+	mutationProgress
 )
 
 type transactionMutation struct {
@@ -724,7 +725,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
-		case mutationTextField, mutationNumberField, mutationTextArea:
+		case mutationTextField, mutationNumberField, mutationTextArea,
+			mutationProgress:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -879,6 +881,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
 		case mutationTextField, mutationNumberField, mutationTextArea,
+			mutationProgress,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -1401,7 +1404,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				mutation.state.focusGuidance = mutation.focusGuidance
 				changed = true
 			}
-		case mutationTextField, mutationNumberField, mutationTextArea:
+		case mutationTextField, mutationNumberField, mutationTextArea,
+			mutationProgress:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

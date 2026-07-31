@@ -32,6 +32,7 @@ var enabledCatalogMenuPaths = []enabledMenuPath{
 	{"menu.controls.actions", []expletives.Key{"c", "a"}, CommandViewActions, expletives.OutcomeApplied, CommandViewActions, nil},
 	{"menu.controls.selection", []expletives.Key{"c", "e"}, CommandSelection, expletives.OutcomeApplied, CommandSelection, nil},
 	{"menu.controls.input", []expletives.Key{"c", "n"}, CommandTextInput, expletives.OutcomeApplied, CommandTextInput, nil},
+	{"menu.controls.progress", []expletives.Key{"c", "p"}, CommandProgress, expletives.OutcomeApplied, CommandProgress, nil},
 	{"menu.sections.status", []expletives.Key{"s", "s"}, CommandStatusBar, expletives.OutcomeApplied, "", nil},
 	{"menu.sections.headers.show", []expletives.Key{"s", "h", "s"}, CommandHeadersShow, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
 	{"menu.sections.headers.add", []expletives.Key{"s", "h", "a"}, CommandHeadersAdd, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
@@ -54,7 +55,6 @@ var disabledCatalogMenuEntries = []disabledMenuEntry{
 	{"menu.file.automation_notice", "i", 1},
 	{"menu.panels.scrollbars", "n", 3},
 	{"menu.layouts.absolute", "a", 3},
-	{"menu.controls.progress", "c", 4},
 	{"menu.controls.navigation", "c", 5},
 	{"menu.controls.scrolling", "c", 6},
 	{"menu.controls.collections", "c", 7},
@@ -613,6 +613,142 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	}
 	if details := control("input.spin.clamped").Details.NumberField; details == nil || details.Value != 1 {
 		t.Fatalf("Scenario Reset left SpinBox details = %#v", details)
+	}
+}
+
+func TestProgressCatalogDeterministicUpdatesTerminalStatesAndReset(
+	t *testing.T,
+) {
+	scene, err := New(expletives.Size{Width: 100, Height: 30}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	invoke := func(request string, command expletives.CommandID) {
+		t.Helper()
+		completion, invokeErr := scene.App.InvokeCommand(
+			context.Background(),
+			"progress-audit",
+			request,
+			command,
+			"",
+		)
+		if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied {
+			t.Fatalf("InvokeCommand(%q) = %+v, %v", command, completion, invokeErr)
+		}
+	}
+	control := func(key string) expletives.ControlSnapshot {
+		t.Helper()
+		for _, current := range scene.App.Snapshot().Controls {
+			if current.Key == key {
+				return current
+			}
+		}
+		t.Fatalf("control %q is absent", key)
+		return expletives.ControlSnapshot{}
+	}
+	checked := func(key string) bool {
+		t.Helper()
+		entry, ok := catalogMenuEntry(
+			catalogMenuDetails(t, scene.App.Snapshot()),
+			key,
+		)
+		if !ok {
+			t.Fatalf("menu entry %q is absent", key)
+		}
+		return entry.Checked
+	}
+	commandChecked := func(id expletives.CommandID) (bool, bool) {
+		t.Helper()
+		for _, definition := range scene.App.Commands() {
+			if definition.ID == id {
+				return definition.Checked, true
+			}
+		}
+		return false, false
+	}
+
+	invoke("open", CommandProgress)
+	if !control("screen.progress").Visible ||
+		!control("progress.action.tick").Focused ||
+		!checked("menu.controls.progress") {
+		t.Fatal("Progress screen did not become visible, focused, and checked")
+	}
+	bar := control("progress.bar.determinate").Details.Progress
+	indeterminate := control("progress.bar.indeterminate").Details.Progress
+	meter := control("progress.meter.horizontal").Details.Progress
+	vertical := control("progress.meter.vertical").Details.Progress
+	spinner := control("progress.spinner").Details.Progress
+	dots := control("progress.activity_dots").Details.Progress
+	reduced := control("progress.spinner.reduced").Details.Progress
+	if bar == nil || bar.Current != 42 || bar.Total != 100 ||
+		bar.Status != expletives.ProgressRunning || bar.Indeterminate ||
+		indeterminate == nil || !indeterminate.Indeterminate ||
+		meter == nil || meter.Value != 65 ||
+		meter.Orientation != expletives.Horizontal ||
+		vertical == nil || vertical.Orientation != expletives.Vertical ||
+		spinner == nil || spinner.FrameIndex != 0 ||
+		dots == nil || dots.FrameIndex != 0 ||
+		reduced == nil || !reduced.ReducedMotion ||
+		reduced.Tick != 0 || reduced.FrameIndex != 0 {
+		t.Fatal("initial Progress typed evidence is incomplete")
+	}
+
+	invoke("tick", CommandProgressTick)
+	bar = control("progress.bar.determinate").Details.Progress
+	indeterminate = control("progress.bar.indeterminate").Details.Progress
+	meter = control("progress.meter.horizontal").Details.Progress
+	spinner = control("progress.spinner").Details.Progress
+	dots = control("progress.activity_dots").Details.Progress
+	if bar.Current != 49 || meter.Value != 70 ||
+		indeterminate.Tick != 1 ||
+		spinner.Tick != 1 || spinner.FrameIndex != 1 ||
+		dots.Tick != 1 || dots.FrameIndex != 1 {
+		t.Fatal("Progress Tick did not advance every live example atomically")
+	}
+
+	invoke("motion", CommandProgressMotion)
+	if !control("progress.spinner").Details.Progress.ReducedMotion ||
+		control("progress.spinner").Details.Progress.Tick != 0 ||
+		!control("progress.activity_dots").Details.Progress.ReducedMotion {
+		t.Fatal("reduced-motion toggle did not canonicalize live animation")
+	}
+	motionChecked, ok := commandChecked(CommandProgressMotion)
+	if !ok || !motionChecked {
+		t.Fatal("reduced-motion command did not publish checked state")
+	}
+
+	for index, test := range []struct {
+		command expletives.CommandID
+		status  expletives.ProgressStatus
+	}{
+		{CommandProgressFail, expletives.ProgressFailed},
+		{CommandProgressCancel, expletives.ProgressCancelled},
+		{CommandProgressComplete, expletives.ProgressCompleted},
+	} {
+		invoke(fmt.Sprintf("terminal-%d", index), test.command)
+		if got := control(
+			"progress.bar.determinate",
+		).Details.Progress.Status; got != test.status {
+			t.Fatalf("%q status = %q, want %q", test.command, got, test.status)
+		}
+	}
+	bar = control("progress.bar.determinate").Details.Progress
+	if bar.Current != bar.Total {
+		t.Fatal("Progress Complete did not set the determinate bar to its total")
+	}
+
+	invoke("reset", CommandProgressReset)
+	bar = control("progress.bar.determinate").Details.Progress
+	spinner = control("progress.spinner").Details.Progress
+	if bar.Current != 42 || bar.Total != 100 ||
+		bar.Status != expletives.ProgressRunning ||
+		spinner.Status != expletives.ProgressRunning ||
+		spinner.Tick != 0 || spinner.ReducedMotion {
+		t.Fatal("Progress Reset did not restore the initial live state")
+	}
+	motionChecked, ok = commandChecked(CommandProgressMotion)
+	if !ok || motionChecked {
+		t.Fatal("Progress Reset did not clear reduced-motion checked state")
 	}
 }
 

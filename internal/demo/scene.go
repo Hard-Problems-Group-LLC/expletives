@@ -44,6 +44,12 @@ const (
 	CommandTextChanged      expletives.CommandID = "text.changed"
 	CommandNumberChanged    expletives.CommandID = "number.changed"
 	CommandProgress         expletives.CommandID = "catalog.controls.progress"
+	CommandProgressTick     expletives.CommandID = "progress.tick"
+	CommandProgressReset    expletives.CommandID = "progress.reset"
+	CommandProgressComplete expletives.CommandID = "progress.complete"
+	CommandProgressFail     expletives.CommandID = "progress.fail"
+	CommandProgressCancel   expletives.CommandID = "progress.cancel"
+	CommandProgressMotion   expletives.CommandID = "progress.reduced_motion"
 	CommandNavigation       expletives.CommandID = "catalog.controls.navigation"
 	CommandScrolling        expletives.CommandID = "catalog.controls.scrolling"
 	CommandCollections      expletives.CommandID = "catalog.controls.collections"
@@ -71,6 +77,7 @@ var catalogScreens = []struct {
 	{CommandViewActions, "Actions"},
 	{CommandSelection, "Selection"},
 	{CommandTextInput, "Text / Numeric Input"},
+	{CommandProgress, "Progress"},
 	{CommandViewMenus, "Menu Bar"},
 	{CommandViewAbout, "About"},
 }
@@ -263,6 +270,12 @@ type Scene struct {
 	inputNumber             *expletives.NumberField
 	inputSpin               *expletives.SpinBox
 	inputArea               *expletives.TextArea
+	progressBar             *expletives.ProgressBar
+	progressIndeterminate   *expletives.ProgressBar
+	progressMeter           *expletives.Meter
+	progressVerticalMeter   *expletives.Meter
+	progressSpinner         *expletives.Spinner
+	progressDots            *expletives.ActivityDots
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -274,6 +287,8 @@ type Scene struct {
 	focusFooterVisible      bool
 	nextHeader              int
 	toggled                 bool
+	progressTick            uint64
+	progressReduced         bool
 }
 
 // New constructs the complete fixture through the public toolkit API.
@@ -363,6 +378,52 @@ func NewWithRootConstraints(
 			ID:         "text_area",
 			Foreground: textFieldStyle.Foreground,
 			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "progress_bar",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "meter",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "spinner",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "activity_dots",
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "progress.fill",
+			Foreground: greenStyle.Foreground,
+			Background: greenStyle.Background,
+		},
+		expletives.Style{
+			ID:         "progress.text",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0x00, 0x00),
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "progress.completed",
+			Foreground: greenStyle.Foreground,
+			Background: greenStyle.Background,
+		},
+		expletives.Style{
+			ID:         "progress.failed",
+			Foreground: redStyle.Foreground,
+			Background: redStyle.Background,
+		},
+		expletives.Style{
+			ID:         "progress.cancelled",
+			Foreground: yellowStyle.Foreground,
+			Background: yellowStyle.Background,
 		},
 	)
 	if err != nil {
@@ -580,6 +641,17 @@ func NewWithRootConstraints(
 		content,
 		expletives.PanelOptions{
 			AutomationKey: "screen.input",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.progress",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
 		},
@@ -1591,6 +1663,249 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
+	progressGroups := make([]expletives.Control, 0, 6)
+	newProgressGroup := func(key, title string) (*expletives.GroupBox, error) {
+		group, groupErr := transaction.NewGroupBox(
+			progressScreen,
+			expletives.GroupBoxOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "progress.group." + key,
+					MinimumSize: expletives.Size{
+						Width: 18, Height: 5,
+					},
+					Style: canvasStyle.ID,
+				},
+				Title:       title,
+				BorderStyle: borderStyle.ID,
+				BorderForm:  expletives.BorderSingle,
+			},
+		)
+		if groupErr == nil {
+			progressGroups = append(progressGroups, group)
+		}
+		return group, groupErr
+	}
+	determinateGroup, err := newProgressGroup(
+		"determinate",
+		"ProgressBar 42%",
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressBar, err := transaction.NewProgressBar(
+		determinateGroup,
+		expletives.ProgressBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.bar.determinate",
+			},
+			State: expletives.ProgressBarState{
+				Current: 42, Total: 100,
+				Status: expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	indeterminateGroup, err := newProgressGroup(
+		"indeterminate",
+		"Indeterminate",
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressIndeterminate, err := transaction.NewProgressBar(
+		indeterminateGroup,
+		expletives.ProgressBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.bar.indeterminate",
+			},
+			State: expletives.ProgressBarState{
+				Indeterminate: true,
+				Status:        expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressSpinner, err := transaction.NewSpinner(
+		indeterminateGroup,
+		expletives.SpinnerOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.spinner",
+			},
+			State: expletives.ActivityState{
+				Status: expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressDots, err := transaction.NewActivityDots(
+		indeterminateGroup,
+		expletives.ActivityDotsOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.activity_dots",
+			},
+			State: expletives.ActivityState{
+				Status: expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	meterGroup, err := newProgressGroup("meters", "Meters")
+	if err != nil {
+		return nil, err
+	}
+	progressMeter, err := transaction.NewMeter(
+		meterGroup,
+		expletives.MeterOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.meter.horizontal",
+			},
+			State: expletives.MeterState{
+				Value: 65, Minimum: 0, Maximum: 100,
+				Status: expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressVerticalMeter, err := transaction.NewMeter(
+		meterGroup,
+		expletives.MeterOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.meter.vertical",
+			},
+			State: expletives.MeterState{
+				Value: 65, Minimum: 0, Maximum: 100,
+				Orientation: expletives.Vertical,
+				Status:      expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	terminalGroup, err := newProgressGroup("terminal", "Terminal States")
+	if err != nil {
+		return nil, err
+	}
+	progressComplete, err := transaction.NewProgressBar(
+		terminalGroup,
+		expletives.ProgressBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.bar.completed",
+			},
+			State: expletives.ProgressBarState{
+				Current: 100, Total: 100,
+				Status: expletives.ProgressCompleted,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressFailed, err := transaction.NewProgressBar(
+		terminalGroup,
+		expletives.ProgressBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.bar.failed",
+			},
+			State: expletives.ProgressBarState{
+				Current: 60, Total: 100,
+				Status: expletives.ProgressFailed,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	progressCancelled, err := transaction.NewProgressBar(
+		terminalGroup,
+		expletives.ProgressBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.bar.cancelled",
+			},
+			State: expletives.ProgressBarState{
+				Current: 25, Total: 100,
+				Status: expletives.ProgressCancelled,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	reducedGroup, err := newProgressGroup("reduced", "Reduced Motion")
+	if err != nil {
+		return nil, err
+	}
+	reducedSpinner, err := transaction.NewSpinner(
+		reducedGroup,
+		expletives.SpinnerOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.spinner.reduced",
+			},
+			State: expletives.ActivityState{
+				Tick: 99, ReducedMotion: true,
+				Status: expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	reducedDots, err := transaction.NewActivityDots(
+		reducedGroup,
+		expletives.ActivityDotsOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.activity_dots.reduced",
+			},
+			State: expletives.ActivityState{
+				Tick: 99, ReducedMotion: true,
+				Status: expletives.ProgressRunning,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	actionGroup, err := newProgressGroup("actions", "Actions")
+	if err != nil {
+		return nil, err
+	}
+	progressButtons := make([]expletives.Control, 0, 3)
+	for _, definition := range []struct {
+		key      string
+		command  expletives.CommandID
+		mnemonic expletives.Key
+	}{
+		{"tick", CommandProgressTick, "t"},
+		{"reset", CommandProgressReset, "e"},
+		{"motion", CommandProgressMotion, "n"},
+	} {
+		button, buttonErr := transaction.NewButton(
+			actionGroup,
+			expletives.ButtonOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "progress.action." + definition.key,
+					Style:         canvasStyle.ID,
+				},
+				Command:  definition.command,
+				Mnemonic: definition.mnemonic,
+			},
+		)
+		if buttonErr != nil {
+			return nil, buttonErr
+		}
+		progressButtons = append(progressButtons, button)
+	}
+
 	hotkeyBar, err := transaction.NewHotkeyBar(
 		recentFooter,
 		expletives.HotkeyBarOptions{
@@ -1652,6 +1967,7 @@ func NewWithRootConstraints(
 		{"actions", actionsScreen},
 		{"selection", selectionScreen},
 		{"input", inputScreen},
+		{"progress", progressScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
 		{"headers_footers", chromeScreen},
@@ -2301,6 +2617,145 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	progressGrid, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
+			AutomationKey: "layout.progress.grid",
+			Columns:       3,
+			HorizontalGap: 1,
+			VerticalGap:   1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, group := range progressGroups {
+		if err := progressGrid.AddPanel(
+			group,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	determinateLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.progress.determinate",
+			Insets: expletives.Insets{
+				Top: 1, Right: 1, Bottom: 1, Left: 1,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := determinateLayout.AddPanel(
+		progressBar,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	indeterminateLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.progress.indeterminate",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, control := range []expletives.Control{
+		progressIndeterminate,
+		progressSpinner,
+		progressDots,
+	} {
+		if err := indeterminateLayout.AddPanel(
+			control,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	meterLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.progress.meters",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := meterLayout.AddPanel(
+		progressMeter,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	if err := meterLayout.AddPanel(
+		progressVerticalMeter,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
+	terminalLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.progress.terminal",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, control := range []expletives.Control{
+		progressComplete,
+		progressFailed,
+		progressCancelled,
+	} {
+		if err := terminalLayout.AddPanel(
+			control,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	reducedLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.progress.reduced",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, control := range []expletives.Control{
+		reducedSpinner,
+		reducedDots,
+	} {
+		if err := reducedLayout.AddPanel(
+			control,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	progressActionLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.progress.actions",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, button := range progressButtons {
+		if err := progressActionLayout.AddPanel(
+			button,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
 	if err := transaction.SetLayout(app.Root(), rootLayout); err != nil {
 		return nil, err
 	}
@@ -2411,6 +2866,24 @@ func NewWithRootConstraints(
 	if err := transaction.SetLayout(inputScreen, inputGrid); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(progressScreen, progressGrid); err != nil {
+		return nil, err
+	}
+	for _, entry := range []struct {
+		group  expletives.Container
+		layout *expletives.BoxLayout
+	}{
+		{determinateGroup, determinateLayout},
+		{indeterminateGroup, indeterminateLayout},
+		{meterGroup, meterLayout},
+		{terminalGroup, terminalLayout},
+		{reducedGroup, reducedLayout},
+		{actionGroup, progressActionLayout},
+	} {
+		if err := transaction.SetLayout(entry.group, entry.layout); err != nil {
+			return nil, err
+		}
+	}
 	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
 		return nil, err
 	}
@@ -2481,6 +2954,12 @@ func NewWithRootConstraints(
 		inputNumber:             inputNumber,
 		inputSpin:               inputSpin,
 		inputArea:               inputArea,
+		progressBar:             progressBar,
+		progressIndeterminate:   progressIndeterminate,
+		progressMeter:           progressMeter,
+		progressVerticalMeter:   progressVerticalMeter,
+		progressSpinner:         progressSpinner,
+		progressDots:            progressDots,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -2506,6 +2985,7 @@ func NewWithRootConstraints(
 			CommandViewActions:     actionsScreen,
 			CommandSelection:       selectionScreen,
 			CommandTextInput:       inputScreen,
+			CommandProgress:        progressScreen,
 			CommandViewMenus:       menusScreen,
 			CommandViewAbout:       aboutScreen,
 		},
@@ -2652,6 +3132,37 @@ func initialCommandDefinitions(
 			Description: "Report a user-originated numeric-field commit or step",
 			Enabled:     true, Automation: true,
 		},
+		{
+			ID: CommandProgressTick, Label: "Tick",
+			Description: "Advance every live Progress animation by one absolute tick",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandProgressReset, Label: "Reset",
+			Description: "Restore the live Progress examples",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandProgressComplete, Label: "Complete",
+			Description: "Move the live Progress examples to completed state",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandProgressFail, Label: "Fail",
+			Description: "Move the live Progress examples to failed state",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandProgressCancel, Label: "Cancel",
+			Description: "Move the live Progress examples to cancelled state",
+			Enabled:     true, Automation: true,
+		},
+		chromeToggleDefinition(
+			CommandProgressMotion,
+			"Motion",
+			"Use reduced-motion presentation for live Progress examples",
+			false,
+		),
 		unavailableCatalogDefinition(
 			CommandPanelScrollbars,
 			"Panel Scroll Bars",
@@ -2661,11 +3172,6 @@ func initialCommandDefinitions(
 			CommandLayoutAbsolute,
 			"Absolute Positioning",
 			"future Layout",
-		),
-		unavailableCatalogDefinition(
-			CommandProgress,
-			"Progress",
-			"Progress",
 		),
 		unavailableCatalogDefinition(
 			CommandNavigation,
@@ -3284,8 +3790,10 @@ func (s *Scene) handleCommand(
 		return s.removeHeaderLocked(false)
 	case CommandScenarioReset:
 		resetSequence := s.App.Snapshot().Sequence
-		changed := s.toggled
+		changed := s.toggled || s.progressTick != 0 || s.progressReduced
 		s.toggled = false
+		s.progressTick = 0
+		s.progressReduced = false
 		transaction := s.App.NewTransaction()
 		for _, control := range s.accentControls {
 			if err := transaction.SetStyle(
@@ -3350,6 +3858,56 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.SetProgressBarState(
+			s.progressBar,
+			expletives.ProgressBarState{
+				Current: 42, Total: 100,
+				Status: expletives.ProgressRunning,
+			},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetProgressBarState(
+			s.progressIndeterminate,
+			expletives.ProgressBarState{
+				Indeterminate: true,
+				Status:        expletives.ProgressRunning,
+			},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		for _, meter := range []*expletives.Meter{
+			s.progressMeter,
+			s.progressVerticalMeter,
+		} {
+			orientation := expletives.Horizontal
+			if meter == s.progressVerticalMeter {
+				orientation = expletives.Vertical
+			}
+			if err := transaction.SetMeterState(
+				meter,
+				expletives.MeterState{
+					Value: 65, Minimum: 0, Maximum: 100,
+					Orientation: orientation,
+					Status:      expletives.ProgressRunning,
+				},
+			); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+		}
+		for _, activity := range []expletives.Control{
+			s.progressSpinner,
+			s.progressDots,
+		} {
+			if err := transaction.SetActivityState(
+				activity,
+				expletives.ActivityState{
+					Status: expletives.ProgressRunning,
+				},
+			); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -3357,6 +3915,14 @@ func (s *Scene) handleCommand(
 		if err := s.App.ReplaceCommand(
 			toggleDefinition(false),
 		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := s.App.ReplaceCommand(chromeToggleDefinition(
+			CommandProgressMotion,
+			"Motion",
+			"Use reduced-motion presentation for live Progress examples",
+			false,
+		)); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 		before := s.App.Snapshot().Sequence
@@ -3373,9 +3939,21 @@ func (s *Scene) handleCommand(
 		return expletives.OutcomeApplied, nil
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
-		CommandViewActions, CommandSelection, CommandTextInput, CommandViewMenus,
-		CommandViewAbout:
+		CommandViewActions, CommandSelection, CommandTextInput, CommandProgress,
+		CommandViewMenus, CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
+	case CommandProgressTick:
+		return s.progressTickLocked()
+	case CommandProgressReset:
+		return s.resetProgressLocked()
+	case CommandProgressComplete:
+		return s.setProgressStatusLocked(expletives.ProgressCompleted)
+	case CommandProgressFail:
+		return s.setProgressStatusLocked(expletives.ProgressFailed)
+	case CommandProgressCancel:
+		return s.setProgressStatusLocked(expletives.ProgressCancelled)
+	case CommandProgressMotion:
+		return s.toggleProgressMotionLocked()
 	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged:
 		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
@@ -3405,6 +3983,251 @@ func (s *Scene) handleCommand(
 	default:
 		return expletives.OutcomeRejected, nil
 	}
+}
+
+func (s *Scene) progressTickLocked() (expletives.Outcome, error) {
+	nextTick := s.progressTick + 1
+	return s.showAndMutateLocked(CommandProgress, func() error {
+		bar := s.progressBar.State()
+		if bar.Current < bar.Total {
+			bar.Current = min(bar.Total, bar.Current+7)
+		}
+		bar.Status = expletives.ProgressRunning
+		bar.ReducedMotion = s.progressReduced
+		indeterminate := expletives.ProgressBarState{
+			Indeterminate: true,
+			Tick:          nextTick,
+			ReducedMotion: s.progressReduced,
+			Status:        expletives.ProgressRunning,
+		}
+		meter := s.progressMeter.State()
+		meter.Value += 5
+		if meter.Value > meter.Maximum {
+			meter.Value = meter.Minimum
+		}
+		meter.Status = expletives.ProgressRunning
+		vertical := s.progressVerticalMeter.State()
+		vertical.Value = meter.Value
+		vertical.Status = expletives.ProgressRunning
+		activity := expletives.ActivityState{
+			Tick:          nextTick,
+			ReducedMotion: s.progressReduced,
+			Status:        expletives.ProgressRunning,
+		}
+		transaction := s.App.NewTransaction()
+		if err := transaction.SetProgressBarState(
+			s.progressBar,
+			bar,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetProgressBarState(
+			s.progressIndeterminate,
+			indeterminate,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetMeterState(
+			s.progressMeter,
+			meter,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetMeterState(
+			s.progressVerticalMeter,
+			vertical,
+		); err != nil {
+			return err
+		}
+		for _, control := range []expletives.Control{
+			s.progressSpinner,
+			s.progressDots,
+		} {
+			if err := transaction.SetActivityState(
+				control,
+				activity,
+			); err != nil {
+				return err
+			}
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
+			return err
+		}
+		s.progressTick = nextTick
+		return nil
+	})
+}
+
+func (s *Scene) resetProgressLocked() (expletives.Outcome, error) {
+	return s.showAndMutateLocked(CommandProgress, func() error {
+		transaction := s.App.NewTransaction()
+		if err := transaction.SetProgressBarState(
+			s.progressBar,
+			expletives.ProgressBarState{
+				Current: 42, Total: 100,
+				Status: expletives.ProgressRunning,
+			},
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetProgressBarState(
+			s.progressIndeterminate,
+			expletives.ProgressBarState{
+				Indeterminate: true,
+				Status:        expletives.ProgressRunning,
+			},
+		); err != nil {
+			return err
+		}
+		for _, entry := range []struct {
+			meter       *expletives.Meter
+			orientation expletives.Orientation
+		}{
+			{s.progressMeter, expletives.Horizontal},
+			{s.progressVerticalMeter, expletives.Vertical},
+		} {
+			if err := transaction.SetMeterState(
+				entry.meter,
+				expletives.MeterState{
+					Value: 65, Minimum: 0, Maximum: 100,
+					Orientation: entry.orientation,
+					Status:      expletives.ProgressRunning,
+				},
+			); err != nil {
+				return err
+			}
+		}
+		for _, control := range []expletives.Control{
+			s.progressSpinner,
+			s.progressDots,
+		} {
+			if err := transaction.SetActivityState(
+				control,
+				expletives.ActivityState{
+					Status: expletives.ProgressRunning,
+				},
+			); err != nil {
+				return err
+			}
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
+			return err
+		}
+		s.progressTick = 0
+		s.progressReduced = false
+		return s.App.ReplaceCommand(chromeToggleDefinition(
+			CommandProgressMotion,
+			"Motion",
+			"Use reduced-motion presentation for live Progress examples",
+			false,
+		))
+	})
+}
+
+func (s *Scene) setProgressStatusLocked(
+	status expletives.ProgressStatus,
+) (expletives.Outcome, error) {
+	return s.showAndMutateLocked(CommandProgress, func() error {
+		bar := s.progressBar.State()
+		if status == expletives.ProgressCompleted {
+			bar.Current = bar.Total
+		}
+		bar.Status = status
+		bar.ReducedMotion = s.progressReduced
+		indeterminate := s.progressIndeterminate.State()
+		indeterminate.Status = status
+		indeterminate.ReducedMotion = s.progressReduced
+		meter := s.progressMeter.State()
+		meter.Status = status
+		vertical := s.progressVerticalMeter.State()
+		vertical.Status = status
+		activity := expletives.ActivityState{
+			Tick:          s.progressTick,
+			ReducedMotion: s.progressReduced,
+			Status:        status,
+		}
+		transaction := s.App.NewTransaction()
+		if err := transaction.SetProgressBarState(
+			s.progressBar,
+			bar,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetProgressBarState(
+			s.progressIndeterminate,
+			indeterminate,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetMeterState(
+			s.progressMeter,
+			meter,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetMeterState(
+			s.progressVerticalMeter,
+			vertical,
+		); err != nil {
+			return err
+		}
+		for _, control := range []expletives.Control{
+			s.progressSpinner,
+			s.progressDots,
+		} {
+			if err := transaction.SetActivityState(
+				control,
+				activity,
+			); err != nil {
+				return err
+			}
+		}
+		return transaction.Commit(context.Background())
+	})
+}
+
+func (s *Scene) toggleProgressMotionLocked() (expletives.Outcome, error) {
+	next := !s.progressReduced
+	return s.showAndMutateLocked(CommandProgress, func() error {
+		indeterminate := s.progressIndeterminate.State()
+		indeterminate.ReducedMotion = next
+		indeterminate.Tick = s.progressTick
+		spinner := s.progressSpinner.State()
+		spinner.ReducedMotion = next
+		spinner.Tick = s.progressTick
+		dots := s.progressDots.State()
+		dots.ReducedMotion = next
+		dots.Tick = s.progressTick
+		transaction := s.App.NewTransaction()
+		if err := transaction.SetProgressBarState(
+			s.progressIndeterminate,
+			indeterminate,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetActivityState(
+			s.progressSpinner,
+			spinner,
+		); err != nil {
+			return err
+		}
+		if err := transaction.SetActivityState(
+			s.progressDots,
+			dots,
+		); err != nil {
+			return err
+		}
+		if err := transaction.Commit(context.Background()); err != nil {
+			return err
+		}
+		s.progressReduced = next
+		return s.App.ReplaceCommand(chromeToggleDefinition(
+			CommandProgressMotion,
+			"Motion",
+			"Use reduced-motion presentation for live Progress examples",
+			next,
+		))
+	})
 }
 
 func (s *Scene) switchScreenLocked(
@@ -3696,6 +4519,7 @@ func SelfCheck() error {
 		"screen.actions",
 		"screen.selection",
 		"screen.input",
+		"screen.progress",
 		"screen.menus",
 		"screen.status",
 		"screen.headers_footers",
@@ -3755,6 +4579,26 @@ func SelfCheck() error {
 		"input.number.ranged",
 		"input.spin.clamped",
 		"input.text_area.multiline",
+		"progress.group.determinate",
+		"progress.group.indeterminate",
+		"progress.group.meters",
+		"progress.group.terminal",
+		"progress.group.reduced",
+		"progress.group.actions",
+		"progress.bar.determinate",
+		"progress.bar.indeterminate",
+		"progress.meter.horizontal",
+		"progress.meter.vertical",
+		"progress.spinner",
+		"progress.activity_dots",
+		"progress.bar.completed",
+		"progress.bar.failed",
+		"progress.bar.cancelled",
+		"progress.spinner.reduced",
+		"progress.activity_dots.reduced",
+		"progress.action.tick",
+		"progress.action.reset",
+		"progress.action.motion",
 		"layer.back",
 		"layer.front",
 	} {
@@ -3787,6 +4631,7 @@ func SelfCheck() error {
 		"menu.layouts.grid":       "Grid Layout",
 		"menu.controls.selection": "Selection",
 		"menu.controls.input":     "Text / Numeric Input",
+		"menu.controls.progress":  "Progress",
 	}
 	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
 	homeChecked := false
@@ -3872,6 +4717,7 @@ func SelfCheck() error {
 		controls["screen.actions"].Visible ||
 		controls["screen.selection"].Visible ||
 		controls["screen.input"].Visible ||
+		controls["screen.progress"].Visible ||
 		controls["screen.menus"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
@@ -4169,6 +5015,65 @@ func SelfCheck() error {
 		areaCommit.Outcome != expletives.OutcomeApplied {
 		return fmt.Errorf("TextArea commit dispatch = %+v, %v", areaCommit, inputErr)
 	}
+	if err := invoke("show-progress", CommandProgress); err != nil {
+		return err
+	}
+	progressBar := controls["progress.bar.determinate"].Details.Progress
+	progressIndeterminate :=
+		controls["progress.bar.indeterminate"].Details.Progress
+	progressMeter := controls["progress.meter.horizontal"].Details.Progress
+	progressVertical := controls["progress.meter.vertical"].Details.Progress
+	progressSpinner := controls["progress.spinner"].Details.Progress
+	progressDots := controls["progress.activity_dots"].Details.Progress
+	progressReduced := controls["progress.spinner.reduced"].Details.Progress
+	if !controls["screen.progress"].Visible ||
+		!controls["progress.action.tick"].Focused ||
+		progressBar == nil || progressBar.Current != 42 ||
+		progressBar.Total != 100 ||
+		progressBar.Status != expletives.ProgressRunning ||
+		progressIndeterminate == nil ||
+		!progressIndeterminate.Indeterminate ||
+		progressMeter == nil || progressMeter.Value != 65 ||
+		progressMeter.Orientation != expletives.Horizontal ||
+		progressVertical == nil ||
+		progressVertical.Orientation != expletives.Vertical ||
+		progressSpinner == nil || progressSpinner.FrameIndex != 0 ||
+		progressDots == nil || progressDots.FrameIndex != 0 ||
+		progressReduced == nil || !progressReduced.ReducedMotion ||
+		progressReduced.Tick != 0 ||
+		len(snapshot.Overflows) != 0 {
+		return errors.New("Progress catalog typed evidence is incomplete")
+	}
+	if err := invoke("progress-tick", CommandProgressTick); err != nil {
+		return err
+	}
+	progressBar = controls["progress.bar.determinate"].Details.Progress
+	progressIndeterminate =
+		controls["progress.bar.indeterminate"].Details.Progress
+	progressSpinner = controls["progress.spinner"].Details.Progress
+	progressDots = controls["progress.activity_dots"].Details.Progress
+	if progressBar.Current != 49 ||
+		progressIndeterminate.Tick != 1 ||
+		progressSpinner.Tick != 1 || progressSpinner.FrameIndex != 1 ||
+		progressDots.Tick != 1 || progressDots.FrameIndex != 1 {
+		return errors.New("Progress absolute Tick did not update atomically")
+	}
+	if err := invoke("progress-motion", CommandProgressMotion); err != nil {
+		return err
+	}
+	if !controls["progress.spinner"].Details.Progress.ReducedMotion ||
+		controls["progress.spinner"].Details.Progress.Tick != 0 ||
+		!controls["progress.activity_dots"].Details.Progress.ReducedMotion {
+		return errors.New("Progress reduced-motion state is not canonical")
+	}
+	if err := invoke("progress-reset", CommandProgressReset); err != nil {
+		return err
+	}
+	if controls["progress.bar.determinate"].Details.Progress.Current != 42 ||
+		controls["progress.spinner"].Details.Progress.Tick != 0 ||
+		controls["progress.spinner"].Details.Progress.ReducedMotion {
+		return errors.New("Progress Reset did not restore initial state")
+	}
 	if err := invoke("hide-status", CommandStatusBar); err != nil {
 		return err
 	}
@@ -4210,6 +5115,7 @@ func SelfCheck() error {
 	if !controls["screen.home"].Visible ||
 		controls["screen.actions"].Visible ||
 		controls["screen.selection"].Visible ||
+		controls["screen.progress"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
 		!controls["header.primary"].Visible ||

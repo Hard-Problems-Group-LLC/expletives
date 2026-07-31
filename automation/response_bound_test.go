@@ -716,6 +716,109 @@ func TestSnapshotRejectsInvalidTextAreaDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidProgressDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func(kind ControlKind) Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = kind
+		control.Bounds = Rect{Width: 8, Height: 1}
+		control.AbsoluteBounds = control.Bounds
+		details := &ProgressDetails{
+			Status: "running", Orientation: 0,
+		}
+		switch kind {
+		case "progress_bar":
+			details.Current = 1
+			details.Total = 2
+			details.TextMode = "percentage"
+		case "meter":
+			details.Value = 50
+			details.Maximum = 100
+		case "spinner":
+			details.Indeterminate = true
+			details.Tick = 3
+			details.TextMode = "none"
+			details.FrameIndex = 3
+		case "activity_dots":
+			details.Indeterminate = true
+			details.Tick = 7
+			details.TextMode = "none"
+			details.FrameIndex = 2
+		}
+		control.Details = ControlDetails{
+			Version:  1,
+			Progress: details,
+		}
+		return completion
+	}
+	for _, kind := range []ControlKind{
+		"progress_bar", "meter", "spinner", "activity_dots",
+	} {
+		if err := validateCompletion(valid(kind), limits); err != nil {
+			t.Fatalf("valid %s fixture rejected: %v", kind, err)
+		}
+	}
+	tests := []struct {
+		name   string
+		kind   ControlKind
+		mutate func(*ProgressDetails)
+	}{
+		{
+			name: "status", kind: "progress_bar",
+			mutate: func(details *ProgressDetails) {
+				details.Status = "almost"
+			},
+		},
+		{
+			name: "bar range", kind: "progress_bar",
+			mutate: func(details *ProgressDetails) {
+				details.Current = 3
+			},
+		},
+		{
+			name: "bar frame", kind: "progress_bar",
+			mutate: func(details *ProgressDetails) {
+				details.FrameIndex = 1
+			},
+		},
+		{
+			name: "meter finite", kind: "meter",
+			mutate: func(details *ProgressDetails) {
+				details.Value = math.NaN()
+			},
+		},
+		{
+			name: "meter range", kind: "meter",
+			mutate: func(details *ProgressDetails) {
+				details.Minimum = 100
+			},
+		},
+		{
+			name: "spinner frame", kind: "spinner",
+			mutate: func(details *ProgressDetails) {
+				details.FrameIndex = 2
+			},
+		},
+		{
+			name: "dots frozen tick", kind: "activity_dots",
+			mutate: func(details *ProgressDetails) {
+				details.ReducedMotion = true
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			completion := valid(test.kind)
+			test.mutate(completion.Snapshot.Controls[0].Details.Progress)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatalf("validateCompletion() accepted invalid %s", test.kind)
+			}
+		})
+	}
+}
+
 func TestSnapshotRejectsInvalidNumberFieldDetails(t *testing.T) {
 	t.Parallel()
 	limits := DefaultLimits()
@@ -1381,6 +1484,24 @@ func maximumCompletionJSONBytes(
 			},
 		},
 	}
+	progressControl := controlValue
+	progressControl.Details = ControlDetails{
+		Version: 1,
+		Progress: &ProgressDetails{
+			Status:        string(controlValue.ID),
+			Current:       ^uint64(0),
+			Total:         ^uint64(0),
+			Value:         math.MaxFloat64,
+			Minimum:       -math.MaxFloat64,
+			Maximum:       math.MaxFloat64,
+			Orientation:   Orientation(255),
+			Indeterminate: true,
+			Tick:          ^uint64(0),
+			ReducedMotion: true,
+			TextMode:      string(controlValue.ID),
+			FrameIndex:    math.MaxInt,
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -1390,6 +1511,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, textFieldControl),
 		mustMarshal(t, numberFieldControl),
 		mustMarshal(t, textAreaControl),
+		mustMarshal(t, progressControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

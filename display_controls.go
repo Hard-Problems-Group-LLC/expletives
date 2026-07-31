@@ -663,6 +663,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case textAreaBehavior:
 		rightValue, ok := right.(textAreaBehavior)
 		return ok && textAreaBehaviorEqual(leftValue, rightValue)
+	case progressBehavior:
+		rightValue, ok := right.(progressBehavior)
+		return ok && progressBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

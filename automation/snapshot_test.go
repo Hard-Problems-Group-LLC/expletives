@@ -632,6 +632,56 @@ func TestSnapshotProjectsAndRedactsTextAreaDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsProgressDetailsAndCopiesState(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 3},
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	if _, err := expletives.NewProgressBar(
+		app.Root(),
+		expletives.ProgressBarOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.bar",
+				Bounds:        expletives.Rect{Width: 10, Height: 1},
+			},
+			State: expletives.ProgressBarState{
+				Indeterminate: true,
+				Tick:          7,
+				Status:        expletives.ProgressRunning,
+			},
+		},
+	); err != nil {
+		t.Fatalf("NewProgressBar() error = %v", err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *ProgressDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "progress.bar" {
+			details = projected.Controls[index].Details.Progress
+			break
+		}
+	}
+	if details == nil || details.Status != "running" ||
+		!details.Indeterminate || details.Tick != 7 ||
+		details.TextMode != "none" || details.FrameIndex != 7 {
+		t.Fatalf("projected ProgressDetails = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	details.Tick = 9
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "progress.bar" &&
+			cloned.Controls[index].Details.Progress.Tick != 7 {
+			t.Fatal("cloned progress state aliases projected storage")
+		}
+	}
+}
+
 func TestExpandFrameRejectsDisagreeingCompactAndExpandedViews(t *testing.T) {
 	t.Parallel()
 

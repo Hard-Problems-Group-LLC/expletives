@@ -284,6 +284,13 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   text and paste are distinct bounded non-key events and must never enter
   command resolution; Ctrl-C remains available to configured interrupt
   policy in every editor.
+- Preserve the deterministic Progress contract in
+  [`docs/specifications/progress-api-v0.md`](docs/specifications/progress-api-v0.md).
+  Progress controls are copied, non-focusable views of application-owned
+  work; they never create a clock, ticker, worker, or terminal dependency.
+  Use absolute caller-supplied ticks, canonical reduced-motion state,
+  synchronous cancellation-aware worker updates, atomic multi-control
+  Transactions, and exact kind-consistent snapshot/automation evidence.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
 - Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and

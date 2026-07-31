@@ -66,6 +66,9 @@ do not use them as retrospective decoration.
 - [`text-and-numeric-input-api-v0.md`](text-and-numeric-input-api-v0.md)
   defines the Phase 12 editing, validator, password, numeric, and multiline
   input contract.
+- [`progress-api-v0.md`](progress-api-v0.md) defines deterministic
+  ProgressBar, Meter, Spinner, and ActivityDots state, rendering,
+  worker-update, and typed evidence.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

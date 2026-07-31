@@ -932,6 +932,10 @@ the root package's local snapshot. The client checks:
 - kind-consistent TextArea details with canonical LF-separated multiline
   text, logical line and element counts, caret/selection, visual caret and
   private viewport positions, wrapping, validation, and password redaction;
+- kind-consistent ProgressBar, Meter, Spinner, and ActivityDots details with
+  recognized status, exact bounded numeric state, finite ordered Meter
+  ranges, canonical absolute ticks, reduced-motion state, text policy,
+  orientation, and geometry-derived frame index;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -1124,7 +1128,7 @@ revalidated on 2026-07-30 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 
