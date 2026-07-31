@@ -143,7 +143,7 @@ func TestNumberFieldEditingCommitInvalidAndTabPolicy(t *testing.T) {
 		t.Fatalf("incomplete numeric details = %#v", details)
 	}
 	cell, _ := app.Snapshot().Frame.Cell(0, 0)
-	if cell.Style != "text_input.invalid" {
+	if cell.Style != "text_input.focused_invalid" {
 		t.Fatalf("incomplete numeric style = %q", cell.Style)
 	}
 	if completion := dispatchTextKey(t, app, "invalid-enter", KeyEnter); completion.Outcome != OutcomeNoOp || !field.Editing() {

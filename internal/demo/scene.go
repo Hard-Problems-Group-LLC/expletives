@@ -215,11 +215,6 @@ var (
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
 		Background: expletives.RGB(0x00, 0x38, 0x78),
 	}
-	inputFormStyle = expletives.Style{
-		ID:         "fixture.input_form",
-		Foreground: expletives.RGB(0x00, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
-	}
 	textFieldStyle = expletives.Style{
 		ID:         "text_field",
 		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
@@ -249,6 +244,31 @@ var (
 		ID:         "text_input.disabled",
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
 		Background: expletives.RGB(0x00, 0x00, 0xAA),
+	}
+	textInputFocusedStyle = expletives.Style{
+		ID:         "text_input.focused",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x00, 0x00, 0x00),
+	}
+	textInputFocusedValidStyle = expletives.Style{
+		ID:         "text_input.focused_valid",
+		Foreground: expletives.RGB(0x00, 0xFF, 0x00),
+		Background: expletives.RGB(0x00, 0x00, 0x00),
+	}
+	textInputFocusedInvalidStyle = expletives.Style{
+		ID:         "text_input.focused_invalid",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0x00),
+		Background: expletives.RGB(0x00, 0x00, 0x00),
+	}
+	textInputFocusedInvalidCharacterStyle = expletives.Style{
+		ID:         "text_input.focused_invalid_character",
+		Foreground: expletives.RGB(0xFF, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0x00, 0x00),
+	}
+	textInputFocusedSelectionStyle = expletives.Style{
+		ID:         "text_input.focused_selection",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
 	}
 )
 
@@ -370,13 +390,17 @@ func NewWithRootConstraints(
 		selectionFocusedStyle,
 		selectionFocusedMnemonicStyle,
 		selectionDisabledStyle,
-		inputFormStyle,
 		textFieldStyle,
 		textInputValidStyle,
 		textInputInvalidStyle,
 		textInputInvalidCharacterStyle,
 		textInputSelectionStyle,
 		textInputDisabledStyle,
+		textInputFocusedStyle,
+		textInputFocusedValidStyle,
+		textInputFocusedInvalidStyle,
+		textInputFocusedInvalidCharacterStyle,
+		textInputFocusedSelectionStyle,
 		expletives.Style{
 			ID:         "number_field",
 			Foreground: textFieldStyle.Foreground,
@@ -445,13 +469,13 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID:         "scrollable_panel",
-			Foreground: inputFormStyle.Foreground,
-			Background: inputFormStyle.Background,
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
 		},
 		expletives.Style{
 			ID:         "scrollable_panel.border",
-			Foreground: inputFormStyle.Foreground,
-			Background: inputFormStyle.Background,
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
 		},
 		expletives.Style{
 			ID:         "scrollbar.page",
@@ -480,8 +504,8 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID:         "scrollbar.corner",
-			Foreground: inputFormStyle.Foreground,
-			Background: inputFormStyle.Background,
+			Foreground: canvasStyle.Foreground,
+			Background: canvasStyle.Background,
 		},
 		expletives.Style{
 			ID:         "tabbed_panel",
@@ -1571,9 +1595,9 @@ func NewWithRootConstraints(
 				PanelOptions: expletives.PanelOptions{
 					AutomationKey: "input.viewport",
 					MinimumSize:   expletives.Size{Width: 1, Height: 1},
-					Style:         inputFormStyle.ID,
+					Style:         canvasStyle.ID,
 				},
-				ContentStyle: inputFormStyle.ID,
+				ContentStyle: canvasStyle.ID,
 				State: expletives.ViewportState{
 					ContentSize: expletives.Size{
 						Width: 55, Height: 9,
@@ -1593,7 +1617,7 @@ func NewWithRootConstraints(
 		expletives.PanelOptions{
 			AutomationKey: "input.form",
 			MinimumSize:   expletives.Size{Width: 55, Height: 9},
-			Style:         inputFormStyle.ID,
+			Style:         canvasStyle.ID,
 		},
 	)
 	if err != nil {
@@ -1622,7 +1646,7 @@ func NewWithRootConstraints(
 					Horizontal: expletives.LayoutSizeStretch,
 					Vertical:   vertical,
 				},
-				Style: inputFormStyle.ID,
+				Style: canvasStyle.ID,
 			},
 		)
 	}
@@ -1641,7 +1665,7 @@ func NewWithRootConstraints(
 					MinimumSize: expletives.Size{
 						Width: 24, Height: 1,
 					},
-					Style: inputFormStyle.ID,
+					Style: canvasStyle.ID,
 				},
 				Text:                text,
 				HorizontalAlignment: expletives.TextAlignStart,

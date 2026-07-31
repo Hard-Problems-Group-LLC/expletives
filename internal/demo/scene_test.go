@@ -637,6 +637,18 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 				label,
 			)
 		}
+		labelCell, ok := scene.App.Snapshot().Frame.Cell(
+			label.AbsoluteBounds.X,
+			label.AbsoluteBounds.Y,
+		)
+		if !ok || labelCell.Background != canvasStyle.Background {
+			t.Fatalf(
+				"%s label cell = %+v, want hosting canvas background %s",
+				key,
+				labelCell,
+				canvasStyle.Background,
+			)
+		}
 	}
 	snapshot := scene.App.Snapshot()
 	blankPoint := expletives.Point{
@@ -646,10 +658,10 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	}
 	blankCell, ok := snapshot.Frame.Cell(blankPoint.X, blankPoint.Y)
 	if !ok || blankCell.Owner != control("input.text.plain").ID ||
-		blankCell.Background != textFieldStyle.Background ||
-		blankCell.Background == inputFormStyle.Background {
+		blankCell.Background != textInputFocusedStyle.Background ||
+		blankCell.Background == canvasStyle.Background {
 		t.Fatalf(
-			"TextField blank-cell treatment = %+v, want distinct field background",
+			"focused TextField blank-cell treatment = %+v",
 			blankCell,
 		)
 	}
@@ -665,6 +677,22 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	dispatch("tab-soft", expletives.KeyTab)
 	if !control("input.text.soft_whitelist").Focused {
 		t.Fatal("Tab did not cross to the Soft Whitelist group")
+	}
+	snapshot = scene.App.Snapshot()
+	plainBlank, _ := snapshot.Frame.Cell(blankPoint.X, blankPoint.Y)
+	soft := control("input.text.soft_whitelist")
+	softBlank, _ := snapshot.Frame.Cell(
+		soft.AbsoluteBounds.X+soft.AbsoluteBounds.Width-1,
+		soft.AbsoluteBounds.Y,
+	)
+	if plainBlank.Background != textFieldStyle.Background ||
+		softBlank.Background != textInputFocusedStyle.Background ||
+		plainBlank.Background == softBlank.Background {
+		t.Fatalf(
+			"Tab focus backgrounds: plain=%+v soft=%+v",
+			plainBlank,
+			softBlank,
+		)
 	}
 	dispatch("soft-edit", expletives.KeyEnter)
 	dispatch("soft-invalid", "x")

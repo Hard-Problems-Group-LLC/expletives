@@ -183,7 +183,7 @@ func TestTextAreaSoftValidationViewportAndCancel(t *testing.T) {
 	for y := 0; y < 2; y++ {
 		for x := 0; x < 3; x++ {
 			cell, _ := snapshot.Frame.Cell(x, y)
-			if cell.Style == "text_input.invalid_character" {
+			if cell.Style == "text_input.focused_invalid_character" {
 				foundInvalid = true
 			}
 		}

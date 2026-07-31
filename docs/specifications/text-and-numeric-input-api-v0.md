@@ -192,10 +192,13 @@ does not draw an implicit control-owned frame; the distinct field background
 across its complete arranged width is the primary visual affordance.
 Applications normally choose a minimum width between 10 and 30 cells and put
 a separate left-aligned bound `Label` in an adjacent form column. The Label
-mnemonic focuses its target field. The classic palette places the white-on-
-blue input line against a light-neutral dialog/form surface so field and
-surrounding canvas remain physically distinct even after terminal palette
-quantization.
+mnemonic focuses its target field. Labels use their hosting Panel's ordinary
+foreground and background; they do not paint a field-like backing rectangle.
+The input line paints a contrasting background across its complete arranged
+width whether focused or not. Focus changes that complete-width background
+again, so Tab and Shift-Tab movement is immediately visible even while the
+field is not in edit mode. Validation and selection foregrounds remain
+legible over both field backgrounds.
 
 These single-line editors default to horizontal stretch and vertical natural
 sizing. Their one-row minimum does not grow merely because a vertical Box has

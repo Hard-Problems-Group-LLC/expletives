@@ -219,6 +219,11 @@ func (b textAreaBehavior) additionalStyles() []StyleID {
 		"text_input.invalid_character",
 		"text_input.selection",
 		"text_input.disabled",
+		"text_input.focused",
+		"text_input.focused_valid",
+		"text_input.focused_invalid",
+		"text_input.focused_invalid_character",
+		"text_input.focused_selection",
 	}
 }
 
@@ -238,6 +243,16 @@ func (b textAreaBehavior) paintDecoration(
 ) {
 	current := b.current()
 	invalid, valid := textAreaValidationMask(current.cells, b.validator)
+	backgroundStyle := state.style
+	if app.focus == state && !b.disabled {
+		backgroundStyle = "text_input.focused"
+	}
+	app.fillStyleLocked(
+		frame,
+		absolute.Intersect(clip),
+		backgroundStyle,
+		state.id,
+	)
 	rows, caretRow, caretColumn, rowOffset, columnOffset :=
 		textAreaViewport(b, absolute.Width, absolute.Height)
 	for screenRow := 0; screenRow < absolute.Height; screenRow++ {
@@ -272,6 +287,9 @@ func (b textAreaBehavior) paintDecoration(
 				style = "text_input.invalid_character"
 			default:
 				style = "text_input.invalid"
+			}
+			if app.focus == state && !b.disabled {
+				style = focusedTextInputStyle(style)
 			}
 			app.setClippedCellLocked(
 				frame,

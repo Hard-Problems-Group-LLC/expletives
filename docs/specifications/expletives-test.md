@@ -226,8 +226,10 @@ The Text / Numeric Input screen is a compact Turbo Vision-style form under
 the public `input.viewport` ScrollablePanel and its `input.form` Content
 child. Separate left-aligned bound Labels occupy one column under
 stable `input.label.*` keys; borderless fields occupy the aligned second
-column with a classic white-on-blue complete-width field background against
-the form's light-neutral Turbo Vision dialog surface. Six
+column. Labels inherit the ordinary blue hosting canvas with no label-specific
+background. Every editable control paints a contrasting complete-width field
+background, and the focused editor paints a second distinct background so
+Tab and Shift-Tab movement is visually unambiguous. Six
 `input.row.*` single-line rows stay exactly one cell high while
 `input.row.multiline` and `input.text_area.multiline` consume the available
 vertical balance through their default stretch hints. At roomy geometry the

@@ -325,6 +325,11 @@ func (b textFieldBehavior) additionalStyles() []StyleID {
 		"text_input.invalid_character",
 		"text_input.selection",
 		"text_input.disabled",
+		"text_input.focused",
+		"text_input.focused_valid",
+		"text_input.focused_invalid",
+		"text_input.focused_invalid_character",
+		"text_input.focused_selection",
 	}
 }
 
@@ -371,6 +376,16 @@ func paintTextEditor(
 	if forceInvalid {
 		valid = false
 	}
+	backgroundStyle := state.style
+	if app.focus == state && !b.disabled {
+		backgroundStyle = "text_input.focused"
+	}
+	app.fillStyleLocked(
+		frame,
+		absolute.Intersect(clip),
+		backgroundStyle,
+		state.id,
+	)
 	offset := textViewOffset(b.viewOffset, b.caret, len(current.cells), absolute.Width)
 	y := absolute.Y + max(0, (absolute.Height-1)/2)
 	for column := 0; column < absolute.Width; column++ {
@@ -396,6 +411,9 @@ func paintTextEditor(
 		default:
 			style = "text_input.invalid"
 		}
+		if app.focus == state && !b.disabled {
+			style = focusedTextInputStyle(style)
+		}
 		app.setClippedCellLocked(
 			frame,
 			clip,
@@ -419,6 +437,21 @@ func paintTextEditor(
 				Y: y,
 			},
 		}
+	}
+}
+
+func focusedTextInputStyle(style StyleID) StyleID {
+	switch style {
+	case "text_input.valid":
+		return "text_input.focused_valid"
+	case "text_input.invalid":
+		return "text_input.focused_invalid"
+	case "text_input.invalid_character":
+		return "text_input.focused_invalid_character"
+	case "text_input.selection":
+		return "text_input.focused_selection"
+	default:
+		return "text_input.focused"
 	}
 }
 

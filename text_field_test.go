@@ -142,7 +142,7 @@ func TestTextFieldSoftValidationPaintingAndEditing(t *testing.T) {
 	snapshot := app.Snapshot()
 	for x := 0; x < 2; x++ {
 		cell, _ := snapshot.Frame.Cell(x, 0)
-		if cell.Style != "text_input.valid" {
+		if cell.Style != "text_input.focused_valid" {
 			t.Fatalf("valid cell %d style = %q", x, cell.Style)
 		}
 	}
@@ -159,9 +159,9 @@ func TestTextFieldSoftValidationPaintingAndEditing(t *testing.T) {
 	}
 	snapshot = app.Snapshot()
 	for x, want := range []StyleID{
-		"text_input.invalid",
-		"text_input.invalid",
-		"text_input.invalid_character",
+		"text_input.focused_invalid",
+		"text_input.focused_invalid",
+		"text_input.focused_invalid_character",
 	} {
 		cell, _ := snapshot.Frame.Cell(x, 0)
 		if cell.Style != want {
@@ -479,7 +479,7 @@ func TestTextFieldSelectionAndBoundedTextInput(t *testing.T) {
 		t.Fatalf("selection details = %#v", details)
 	}
 	if cell, _ := app.Snapshot().Frame.Cell(2, 0); cell.Style !=
-		"text_input.selection" {
+		"text_input.focused_selection" {
 		t.Fatalf("selected cell style = %q", cell.Style)
 	}
 	completion, err := app.DispatchTextInput(

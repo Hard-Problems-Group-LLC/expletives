@@ -187,6 +187,26 @@ func DefaultTheme() Theme {
 			Foreground: RGB(0x80, 0x80, 0x80),
 			Background: inputNormal.Background,
 		},
+		"text_input.focused": {
+			Foreground: white,
+			Background: black,
+		},
+		"text_input.focused_valid": {
+			Foreground: RGB(0x00, 0xAA, 0x00),
+			Background: black,
+		},
+		"text_input.focused_invalid": {
+			Foreground: RGB(0xAA, 0xAA, 0x00),
+			Background: black,
+		},
+		"text_input.focused_invalid_character": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: black,
+		},
+		"text_input.focused_selection": {
+			Foreground: black,
+			Background: RGB(0xC0, 0xC0, 0xC0),
+		},
 		"selection.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
 			Background: resolved.Background,
