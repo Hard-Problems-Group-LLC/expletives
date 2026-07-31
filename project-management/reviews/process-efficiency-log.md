@@ -953,6 +953,29 @@ Improvement applied:
   payload that is not present on the wire, rather than raising the protocol
   limit to accommodate an unnecessarily verbose DTO.
 
+### 31. Reuse Exact Editor Projection And Make Pure Automation Gates Selectable
+
+DropDown and ComboBox needed the same bounded editor projection already used
+by TextField. Keeping that conversion inline would have duplicated validator,
+redaction, and later schema maintenance. Also, the first broad automation
+test run inside the restricted development sandbox predictably failed only at
+Unix-socket setup, even though pure projection and response-bound tests did
+not need that capability.
+
+Improvement applied:
+
+- extract one private TextField-details projection used by TextField and
+  ComboBox while retaining explicit kind-specific validation;
+- keep one shared compact DropDown projection embedded by ComboBox;
+- run the focused projection, validator, deep-copy, and maximum-response gates
+  before spending an unrestricted full-suite pass; and
+- preserve the full ordinary and race suites as the checkpoint gate.
+
+Improvement candidate after Phase 16: give all pure automation-contract tests
+one stable test-name prefix so they can be selected with a short `-run`
+expression instead of maintaining the long documentation regex. This should
+remain a test naming cleanup, not a new runner or orchestration layer.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

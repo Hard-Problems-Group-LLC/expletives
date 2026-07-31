@@ -1578,6 +1578,189 @@ func TestSnapshotRejectsInvalidListBoxDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidPopupCollectionDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	validDropDown := func(open bool) SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 24, Height: 8},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		dropDown, err := expletives.NewDropDown(
+			app.Root(),
+			expletives.DropDownOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "drop",
+					Bounds: expletives.Rect{
+						X: 10, Y: 5, Width: 12, Height: 1,
+					},
+				},
+				Items: []expletives.ListItem{
+					{Key: "one", Label: "One"},
+					{Key: "two", Label: "Two"},
+				},
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if open {
+			if err := dropDown.Open(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	findDropDown := func(snapshot *SnapshotV1) *ControlSnapshot {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "drop" {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatal("fixture has no DropDown details")
+		return nil
+	}
+	if snapshot := validDropDown(false); validateSnapshot(&snapshot, limits) != nil {
+		t.Fatal("valid closed DropDown fixture rejected")
+	}
+	if snapshot := validDropDown(true); validateSnapshot(&snapshot, limits) != nil {
+		t.Fatal("valid open DropDown fixture rejected")
+	}
+	tests := []struct {
+		name   string
+		open   bool
+		mutate func(*ControlSnapshot)
+	}{
+		{"item count", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.ItemCount = expletives.MaxCollectionItems + 1
+		}},
+		{"enabled count", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.EnabledCount = 3
+		}},
+		{"retained bytes", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.RetainedBytes = -1
+		}},
+		{"current index", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.CurrentIndex = 2
+		}},
+		{"required selection", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.Selected = ""
+			control.Details.DropDown.SelectedIndex = -1
+		}},
+		{"popup rows", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.PopupRows = expletives.MaxCollectionPopupRows + 1
+		}},
+		{"closed transient state", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.PopupCurrent = "one"
+		}},
+		{"open bounds", true, func(control *ControlSnapshot) {
+			control.Details.DropDown.PopupBounds.Width = 0
+		}},
+		{"open disabled", true, func(control *ControlSnapshot) {
+			control.Details.DropDown.Enabled = false
+			control.Details.DropDown.DisabledReasonBytes = 1
+		}},
+		{"invalid command", false, func(control *ControlSnapshot) {
+			control.Details.DropDown.ChangeCommand = "bad command"
+		}},
+		{"detail union", false, func(control *ControlSnapshot) {
+			control.Details.ListBox = &ListBoxDetails{}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := validDropDown(test.open)
+			test.mutate(findDropDown(&snapshot))
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid DropDown details")
+			}
+		})
+	}
+
+	validCombo := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 24, Height: 8},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewComboBox(app.Root(), expletives.ComboBoxOptions{
+			DropDownOptions: expletives.DropDownOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "combo",
+					Bounds:        expletives.Rect{Width: 12, Height: 1},
+				},
+				Items: []expletives.ListItem{{Key: "one", Label: "One"}},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	findCombo := func(snapshot *SnapshotV1) *ControlSnapshot {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "combo" {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatal("fixture has no ComboBox details")
+		return nil
+	}
+	comboTests := []struct {
+		name   string
+		mutate func(*ControlSnapshot)
+	}{
+		{"editor enabled mismatch", func(control *ControlSnapshot) {
+			control.Details.ComboBox.Editor.Enabled = false
+			control.Details.ComboBox.Editor.DisabledReason = "disabled"
+		}},
+		{"editor command mismatch", func(control *ControlSnapshot) {
+			control.Details.ComboBox.Editor.ChangeCommand = "different"
+		}},
+		{"password editor", func(control *ControlSnapshot) {
+			control.Details.ComboBox.Editor.Password = true
+			control.Details.ComboBox.Editor.Redacted = true
+			control.Details.ComboBox.Editor.Text = ""
+		}},
+		{"popup union", func(control *ControlSnapshot) {
+			popup := control.Details.ComboBox.Popup
+			control.Details.DropDown = &popup
+		}},
+	}
+	for _, test := range comboTests {
+		t.Run("combo "+test.name, func(t *testing.T) {
+			snapshot := validCombo()
+			if err := validateSnapshot(&snapshot, limits); err != nil {
+				t.Fatalf("valid ComboBox fixture rejected: %v", err)
+			}
+			test.mutate(findCombo(&snapshot))
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid ComboBox details")
+			}
+		})
+	}
+
+	aggregate := validDropDown(false)
+	first := findDropDown(&aggregate)
+	copyControl := *first
+	copyControl.ID = "drop-copy-id"
+	copyControl.Key = "drop-copy"
+	copyControl.AbsoluteBounds.X = 12
+	copyControl.Details.DropDown.RetainedBytes =
+		expletives.MaxCollectionAggregateBytes/2 + 1
+	first.Details.DropDown.RetainedBytes =
+		expletives.MaxCollectionAggregateBytes/2 + 1
+	aggregate.Controls = append(aggregate.Controls, copyControl)
+	root := &aggregate.Controls[0]
+	root.Children = append(root.Children, copyControl.ID)
+	if err := validateSnapshot(&aggregate, limits); err == nil {
+		t.Fatal("validateSnapshot() accepted popup collection aggregate overflow")
+	}
+}
+
 func TestSnapshotRejectsInvalidTabbedPanelDetails(t *testing.T) {
 	t.Parallel()
 	limits := DefaultLimits()
@@ -2585,6 +2768,30 @@ func maximumCompletionJSONBytes(
 			Viewport:            markdownViewport,
 		},
 	}
+	comboBoxControl := controlValue
+	comboBoxControl.Details = ControlDetails{
+		Version: 1,
+		ComboBox: &ComboBoxDetails{
+			Popup: DropDownDetails{
+				ItemCount:           math.MaxInt,
+				EnabledCount:        math.MaxInt,
+				RetainedBytes:       math.MaxInt,
+				Current:             string(controlValue.ID),
+				CurrentIndex:        math.MaxInt,
+				Selected:            string(controlValue.ID),
+				SelectedIndex:       math.MaxInt,
+				PopupRows:           math.MaxInt,
+				PopupBounds:         controlValue.AbsoluteBounds,
+				PopupOffset:         math.MaxInt,
+				PopupCurrent:        string(controlValue.ID),
+				PopupSelection:      string(controlValue.ID),
+				DisabledReasonBytes: math.MaxInt,
+				ChangeCommand:       string(controlValue.ID),
+				ActivateCommand:     string(controlValue.ID),
+			},
+			Editor: *textFieldControl.Details.TextField,
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -2599,6 +2806,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, logControl),
 		mustMarshal(t, streamControl),
 		mustMarshal(t, listBoxControl),
+		mustMarshal(t, comboBoxControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

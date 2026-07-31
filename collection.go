@@ -439,16 +439,19 @@ func copyListItems(items []normalizedListItem) []ListItem {
 
 func cloneListBoxBehavior(behavior listBoxBehavior) listBoxBehavior {
 	cloned := behavior
-	cloned.items = make([]normalizedListItem, len(behavior.items))
-	for index, item := range behavior.items {
-		cloned.items[index] = item
-		cloned.items[index].label.lines = cloneTextRows(item.label.lines)
-		cloned.items[index].description.lines = cloneTextRows(
-			item.description.lines,
-		)
-	}
+	cloned.items = cloneNormalizedListItems(behavior.items)
 	cloned.selected = append([]string(nil), behavior.selected...)
 	cloned.statusMessage.lines = cloneTextRows(behavior.statusMessage.lines)
+	return cloned
+}
+
+func cloneNormalizedListItems(items []normalizedListItem) []normalizedListItem {
+	cloned := make([]normalizedListItem, len(items))
+	for index, item := range items {
+		cloned[index] = item
+		cloned[index].label.lines = cloneTextRows(item.label.lines)
+		cloned[index].description.lines = cloneTextRows(item.description.lines)
+	}
 	return cloned
 }
 

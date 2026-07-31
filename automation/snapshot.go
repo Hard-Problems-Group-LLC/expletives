@@ -202,6 +202,10 @@ type ControlDetails struct {
 	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
 	// ListBox is present for ListBox.
 	ListBox *ListBoxDetails `json:"list_box,omitempty"`
+	// DropDown is present for DropDown.
+	DropDown *DropDownDetails `json:"drop_down,omitempty"`
+	// ComboBox is present for ComboBox.
+	ComboBox *ComboBoxDetails `json:"combo_box,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -618,6 +622,36 @@ type ListBoxDetails struct {
 	ChangeCommand       string                 `json:"change_command,omitempty"`
 	ActivateCommand     string                 `json:"activate_command,omitempty"`
 	Viewport            ContentViewportDetails `json:"viewport"`
+}
+
+// DropDownDetails is a compact stable-identity popup observation that omits
+// the retained item model and exact disabled-reason text.
+type DropDownDetails struct {
+	ItemCount           int    `json:"item_count"`
+	EnabledCount        int    `json:"enabled_count"`
+	RetainedBytes       int    `json:"retained_bytes"`
+	Current             string `json:"current,omitempty"`
+	CurrentIndex        int    `json:"current_index"`
+	Selected            string `json:"selected,omitempty"`
+	SelectedIndex       int    `json:"selected_index"`
+	AllowEmpty          bool   `json:"allow_empty"`
+	PopupRows           int    `json:"popup_rows"`
+	Open                bool   `json:"open"`
+	PopupBounds         Rect   `json:"popup_bounds"`
+	PopupOffset         int    `json:"popup_offset"`
+	PopupCurrent        string `json:"popup_current,omitempty"`
+	PopupSelection      string `json:"popup_selection,omitempty"`
+	Enabled             bool   `json:"enabled"`
+	DisabledReasonBytes int    `json:"disabled_reason_bytes"`
+	ChangeCommand       string `json:"change_command,omitempty"`
+	ActivateCommand     string `json:"activate_command,omitempty"`
+}
+
+// ComboBoxDetails combines compact popup state with its exact bounded editor
+// observation.
+type ComboBoxDetails struct {
+	Popup  DropDownDetails  `json:"popup"`
+	Editor TextFieldDetails `json:"editor"`
 }
 
 // TabDetails describes one copied page descriptor and rendered strip state.
@@ -1046,26 +1080,8 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			}
 		}
 		if details := control.Details.TextField; details != nil {
-			field := &TextFieldDetails{
-				Text: details.Text, Length: details.Length,
-				Caret:          details.Caret,
-				SelectionStart: details.SelectionStart,
-				SelectionEnd:   details.SelectionEnd,
-				ViewOffset:     details.ViewOffset,
-				Editing:        details.Editing, Valid: details.Valid,
-				Password: details.Password, Redacted: details.Redacted,
-				Enabled:        details.Enabled,
-				DisabledReason: details.DisabledReason,
-				ChangeCommand:  string(details.ChangeCommand),
-			}
-			if details.Validator != nil {
-				field.Validator = &TextValidatorDetails{
-					Enforcement: string(details.Validator.Enforcement),
-					Mode:        string(details.Validator.Mode),
-					Characters:  details.Validator.Characters,
-				}
-			}
-			projectedControl.Details.TextField = field
+			field := textFieldDetailsFromCore(details)
+			projectedControl.Details.TextField = &field
 		}
 		if details := control.Details.NumberField; details != nil {
 			projectedControl.Details.NumberField = &NumberFieldDetails{
@@ -1265,6 +1281,16 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				),
 			}
 		}
+		if details := control.Details.DropDown; details != nil {
+			dropDown := dropDownDetailsFromCore(details)
+			projectedControl.Details.DropDown = &dropDown
+		}
+		if details := control.Details.ComboBox; details != nil {
+			projectedControl.Details.ComboBox = &ComboBoxDetails{
+				Popup:  dropDownDetailsFromCore(&details.Popup),
+				Editor: textFieldDetailsFromCore(&details.Editor),
+			}
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -1329,6 +1355,50 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 		}
 	}
 	return projected
+}
+
+func textFieldDetailsFromCore(
+	details *expletives.TextFieldDetails,
+) TextFieldDetails {
+	field := TextFieldDetails{
+		Text: details.Text, Length: details.Length,
+		Caret:          details.Caret,
+		SelectionStart: details.SelectionStart,
+		SelectionEnd:   details.SelectionEnd,
+		ViewOffset:     details.ViewOffset,
+		Editing:        details.Editing, Valid: details.Valid,
+		Password: details.Password, Redacted: details.Redacted,
+		Enabled:        details.Enabled,
+		DisabledReason: details.DisabledReason,
+		ChangeCommand:  string(details.ChangeCommand),
+	}
+	if details.Validator != nil {
+		field.Validator = &TextValidatorDetails{
+			Enforcement: string(details.Validator.Enforcement),
+			Mode:        string(details.Validator.Mode),
+			Characters:  details.Validator.Characters,
+		}
+	}
+	return field
+}
+
+func dropDownDetailsFromCore(
+	details *expletives.DropDownDetails,
+) DropDownDetails {
+	return DropDownDetails{
+		ItemCount: details.ItemCount, EnabledCount: details.EnabledCount,
+		RetainedBytes: details.RetainedBytes,
+		Current:       details.Current, CurrentIndex: details.CurrentIndex,
+		Selected: details.Selected, SelectedIndex: details.SelectedIndex,
+		AllowEmpty: details.AllowEmpty, PopupRows: details.PopupRows,
+		Open: details.Open, PopupBounds: rectFromCore(details.PopupBounds),
+		PopupOffset: details.PopupOffset, PopupCurrent: details.PopupCurrent,
+		PopupSelection:      details.PopupSelection,
+		Enabled:             details.Enabled,
+		DisabledReasonBytes: len(details.DisabledReason),
+		ChangeCommand:       string(details.ChangeCommand),
+		ActivateCommand:     string(details.ActivateCommand),
+	}
 }
 
 func scrollableDetailsFromCore(
@@ -1584,6 +1654,18 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.ListBox != nil {
 			listBox := *snapshot.Controls[index].Details.ListBox
 			cloned.Controls[index].Details.ListBox = &listBox
+		}
+		if snapshot.Controls[index].Details.DropDown != nil {
+			dropDown := *snapshot.Controls[index].Details.DropDown
+			cloned.Controls[index].Details.DropDown = &dropDown
+		}
+		if snapshot.Controls[index].Details.ComboBox != nil {
+			comboBox := *snapshot.Controls[index].Details.ComboBox
+			if comboBox.Editor.Validator != nil {
+				validator := *comboBox.Editor.Validator
+				comboBox.Editor.Validator = &validator
+			}
+			cloned.Controls[index].Details.ComboBox = &comboBox
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

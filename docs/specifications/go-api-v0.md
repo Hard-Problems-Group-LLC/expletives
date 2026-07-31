@@ -106,6 +106,8 @@ The implemented exported limits are:
 | `MaxCollectionCells` | 16,384 | Maximum copied table/grid cells across one App |
 | `MaxCollectionDepth` | 64 | Maximum copied TreeView hierarchy depth |
 | `MaxCollectionAggregateBytes` | 1,048,576 | Maximum copied collection data across one App |
+| `DefaultCollectionPopupRows` | 8 | Default requested DropDown/ComboBox popup content rows |
+| `MaxCollectionPopupRows` | 64 | Maximum requested DropDown/ComboBox popup content rows |
 
 `Rect.Empty`, `Rect.Intersect`, and `IntendedFrame.Cell` operate on these
 checked values. `ControlID`, `ControlKind`, `StyleID`, `Key`, `KeyEventKind`,
@@ -708,6 +710,28 @@ func (l *ListBox) SetSelection([]string) error
 func (l *ListBox) SetStatus(CollectionStatus, string) error
 func (l *ListBox) Focus() error
 func (l *ListBox) Activate(context.Context, string, string) (Completion, error)
+func NewDropDown(Container, DropDownOptions) (*DropDown, error)
+func (d *DropDown) Items() []ListItem
+func (d *DropDown) State() DropDownState
+func (d *DropDown) SetItems([]ListItem) error
+func (d *DropDown) SetSelection(string) error
+func (d *DropDown) Open() error
+func (d *DropDown) Close() error
+func (d *DropDown) Focus() error
+func (d *DropDown) Activate(context.Context, string, string) (Completion, error)
+func NewComboBox(Container, ComboBoxOptions) (*ComboBox, error)
+func (c *ComboBox) Items() []ListItem
+func (c *ComboBox) State() ComboBoxState
+func (c *ComboBox) SetItems([]ListItem) error
+func (c *ComboBox) SetSelection(string) error
+func (c *ComboBox) Text() string
+func (c *ComboBox) SetText(string) error
+func (c *ComboBox) Validator() *TextValidator
+func (c *ComboBox) SetValidator(*TextValidator) error
+func (c *ComboBox) Open() error
+func (c *ComboBox) Close() error
+func (c *ComboBox) Focus() error
+func (c *ComboBox) Activate(context.Context, string, string) (Completion, error)
 ```
 
 Both controls atomically create one toolkit-managed direct Content Panel.
@@ -745,7 +769,7 @@ pauses and End resumes. Both expose compact typed retention, loss, follow,
 and viewport evidence without copying complete off-screen content. Their
 complete surface is defined by the same Phase 15 contract.
 
-`ListBox` is the first Phase 16 collection leaf. It copies a bounded ordered
+`ListBox` is the scrolling Phase 16 collection leaf. It copies a bounded ordered
 `[]ListItem`, identifies current and selected rows by stable keys, keeps
 keyboard current distinct from selection, skips disabled rows, and repairs
 surviving state deterministically after model replacement. It supports
@@ -755,6 +779,15 @@ user-change and activation commands. Its public getters return complete
 copies; snapshots expose compact counts, identities, digests, and viewport
 geometry without duplicating the retained item model. See
 [`collections-api-v0.md`](collections-api-v0.md).
+
+`DropDown` and `ComboBox` share the same private stable-key popup capability
+without a public inheritance relationship. DropDown is selection-only;
+ComboBox embeds an observable TextField-compatible editor and copied optional
+validator. Popups measure bounded items, backset or move above the field to
+remain in the application client area, maintain provisional state until Enter,
+and restore opening state on Escape or focus traversal. ComboBox Enter/F2
+edits while Space/F4/Alt-Down opens choices. Only one collection popup is open
+per App and no nested event loop is introduced.
 
 ## Atomic Transactions
 
@@ -796,6 +829,8 @@ func (t *Transaction) NewMarkdownView(Container, MarkdownViewOptions) (*Markdown
 func (t *Transaction) NewLogView(Container, LogViewOptions) (*LogView, error)
 func (t *Transaction) NewStreamView(Container, StreamViewOptions) (*StreamView, error)
 func (t *Transaction) NewListBox(Container, ListBoxOptions) (*ListBox, error)
+func (t *Transaction) NewDropDown(Container, DropDownOptions) (*DropDown, error)
+func (t *Transaction) NewComboBox(Container, ComboBoxOptions) (*ComboBox, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -833,6 +868,10 @@ func (t *Transaction) ReplaceList(*ListBox, []ListItem, string, []string) error
 func (t *Transaction) SetListCurrent(*ListBox, string) error
 func (t *Transaction) SetListSelection(*ListBox, []string) error
 func (t *Transaction) SetListStatus(*ListBox, CollectionStatus, string) error
+func (t *Transaction) SetDropDownItems(Control, []ListItem) error
+func (t *Transaction) SetDropDownSelection(Control, string) error
+func (t *Transaction) SetComboBoxText(*ComboBox, string) error
+func (t *Transaction) SetComboBoxValidator(*ComboBox, *TextValidator) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error

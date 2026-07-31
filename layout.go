@@ -167,7 +167,8 @@ func defaultControlLayoutHints(
 		return hints(LayoutSizeStretch, LayoutSizeStretch)
 	case ControlMenuBar, ControlStatusBar, ControlHeader, ControlFooter,
 		ControlHotkeyBar, ControlFocusGuideBar, ControlTextField,
-		ControlNumberField, ControlSpinBox, ControlProgressBar:
+		ControlNumberField, ControlSpinBox, ControlProgressBar,
+		ControlDropDown, ControlComboBox:
 		return hints(LayoutSizeStretch, LayoutSizeNatural)
 	case ControlSeparator, ControlRule:
 		if divider, ok := behavior.(dividerBehavior); ok &&

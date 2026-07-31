@@ -970,6 +970,99 @@ func TestSnapshotProjectsListBoxDetailsAndCopiesViewport(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsPopupCollectionDetailsAndCopiesState(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 32, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dropDown, err := expletives.NewDropDown(app.Root(), expletives.DropDownOptions{
+		PanelOptions: expletives.PanelOptions{
+			AutomationKey: "drop",
+			Bounds:        expletives.Rect{X: 20, Y: 7, Width: 12, Height: 1},
+		},
+		Items: []expletives.ListItem{
+			{Key: "one", Label: "One"},
+			{Key: "two", Label: "A long second item"},
+		},
+		AllowEmpty: true, Selected: "one", PopupRows: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dropDown.Open(); err != nil {
+		t.Fatal(err)
+	}
+	_, err = expletives.NewComboBox(app.Root(), expletives.ComboBoxOptions{
+		DropDownOptions: expletives.DropDownOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "combo",
+				Bounds:        expletives.Rect{Width: 14, Height: 1},
+			},
+			Items: []expletives.ListItem{
+				{Key: "alpha", Label: "Alpha"},
+				{Key: "beta", Label: "Beta"},
+			},
+			Selected: "beta",
+		},
+		Validator: &expletives.TextValidator{
+			Enforcement: expletives.TextValidationSoft,
+			Mode:        expletives.TextValidationWhitelist,
+			Characters:  "AlphaBet",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var dropDetails *DropDownDetails
+	var comboDetails *ComboBoxDetails
+	for index := range projected.Controls {
+		switch projected.Controls[index].Key {
+		case "drop":
+			dropDetails = projected.Controls[index].Details.DropDown
+		case "combo":
+			comboDetails = projected.Controls[index].Details.ComboBox
+		}
+	}
+	if dropDetails == nil || !dropDetails.Open ||
+		dropDetails.ItemCount != 2 || dropDetails.EnabledCount != 2 ||
+		dropDetails.Selected != "one" || dropDetails.SelectedIndex != 0 ||
+		dropDetails.PopupCurrent != "one" ||
+		dropDetails.PopupSelection != "one" ||
+		dropDetails.PopupBounds.Width <= 12 || dropDetails.RetainedBytes == 0 {
+		t.Fatalf("projected DropDown details = %#v", dropDetails)
+	}
+	if comboDetails == nil || comboDetails.Popup.Open ||
+		comboDetails.Popup.Selected != "beta" ||
+		comboDetails.Editor.Text != "Beta" ||
+		comboDetails.Editor.Validator == nil ||
+		comboDetails.Editor.Validator.Enforcement != "soft" {
+		t.Fatalf("projected ComboBox details = %#v", comboDetails)
+	}
+
+	cloned := cloneSnapshot(projected)
+	for index := range cloned.Controls {
+		switch cloned.Controls[index].Key {
+		case "drop":
+			cloned.Controls[index].Details.DropDown.Selected = "mutated"
+		case "combo":
+			cloned.Controls[index].Details.ComboBox.Editor.Validator.Characters =
+				"mutated"
+		}
+	}
+	if dropDetails.Selected == "mutated" ||
+		comboDetails.Editor.Validator.Characters == "mutated" {
+		t.Fatal("cloneSnapshot exposed popup collection detail storage")
+	}
+}
+
 func TestSnapshotProjectsLogAndStreamDetailsAndCopiesState(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

@@ -123,6 +123,10 @@ const (
 	MaxCollectionDepth = 64
 	// MaxCollectionAggregateBytes bounds copied collection data across an App.
 	MaxCollectionAggregateBytes = 1 << 20
+	// DefaultCollectionPopupRows is the zero-value popup row request.
+	DefaultCollectionPopupRows = 8
+	// MaxCollectionPopupRows bounds one requested transient popup height.
+	MaxCollectionPopupRows = 64
 )
 
 // Coordinates and Layout arithmetic share the frame allocation scale. This
@@ -357,6 +361,10 @@ const (
 	ControlStreamView ControlKind = "stream_view"
 	// ControlListBox identifies one bounded stable-identity item list.
 	ControlListBox ControlKind = "list_box"
+	// ControlDropDown identifies one selection-only collapsed popup field.
+	ControlDropDown ControlKind = "drop_down"
+	// ControlComboBox identifies one editable collapsed popup field.
+	ControlComboBox ControlKind = "combo_box"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -651,6 +659,10 @@ type ControlDetails struct {
 	StreamView *StreamViewDetails `json:"stream_view,omitempty"`
 	// ListBox is present for ListBox.
 	ListBox *ListBoxDetails `json:"list_box,omitempty"`
+	// DropDown is present for DropDown.
+	DropDown *DropDownDetails `json:"drop_down,omitempty"`
+	// ComboBox is present for ComboBox.
+	ComboBox *ComboBoxDetails `json:"combo_box,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -1044,6 +1056,36 @@ type ListBoxDetails struct {
 	Viewport         ScrollableDetails       `json:"viewport"`
 }
 
+// DropDownDetails describes one collapsed field and its optional transient
+// popup without duplicating the retained item model.
+type DropDownDetails struct {
+	ItemCount       int       `json:"item_count"`
+	EnabledCount    int       `json:"enabled_count"`
+	RetainedBytes   int       `json:"retained_bytes"`
+	Current         string    `json:"current,omitempty"`
+	CurrentIndex    int       `json:"current_index"`
+	Selected        string    `json:"selected,omitempty"`
+	SelectedIndex   int       `json:"selected_index"`
+	AllowEmpty      bool      `json:"allow_empty"`
+	PopupRows       int       `json:"popup_rows"`
+	Open            bool      `json:"open"`
+	PopupBounds     Rect      `json:"popup_bounds"`
+	PopupOffset     int       `json:"popup_offset"`
+	PopupCurrent    string    `json:"popup_current,omitempty"`
+	PopupSelection  string    `json:"popup_selection,omitempty"`
+	Enabled         bool      `json:"enabled"`
+	DisabledReason  string    `json:"disabled_reason,omitempty"`
+	ChangeCommand   CommandID `json:"change_command,omitempty"`
+	ActivateCommand CommandID `json:"activate_command,omitempty"`
+}
+
+// ComboBoxDetails combines popup selection with the exact embedded editor
+// state used for rendering and input.
+type ComboBoxDetails struct {
+	Popup  DropDownDetails  `json:"popup"`
+	Editor TextFieldDetails `json:"editor"`
+}
+
 // TabDetails describes one copied page descriptor and its rendered strip
 // state. Bounds is relative to the owning tab container.
 type TabDetails struct {
@@ -1378,6 +1420,18 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				listBox.Viewport.VerticalBar = &bar
 			}
 			cloned.Controls[index].Details.ListBox = &listBox
+		}
+		if snapshot.Controls[index].Details.DropDown != nil {
+			dropDown := *snapshot.Controls[index].Details.DropDown
+			cloned.Controls[index].Details.DropDown = &dropDown
+		}
+		if snapshot.Controls[index].Details.ComboBox != nil {
+			comboBox := *snapshot.Controls[index].Details.ComboBox
+			if comboBox.Editor.Validator != nil {
+				validator := *comboBox.Editor.Validator
+				comboBox.Editor.Validator = &validator
+			}
+			cloned.Controls[index].Details.ComboBox = &comboBox
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

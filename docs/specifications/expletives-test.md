@@ -350,8 +350,10 @@ roots plus an end-aligned Help root.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
 - Controls links current Text/Display, Actions, Selection, Text / Numeric
-  Input, Progress, Navigation, and Scrolling / Content pages, then uses a
-  separator before the disabled phase-owned Collection page.
+  Input, Progress, Navigation, Scrolling / Content, and Collections pages.
+  Collections currently exercises `collections.list`,
+  `collections.drop-down`, `collections.combo`, and an explicitly disabled
+  DropDown; later Phase 16 controls join that page as delivered.
 - Sections owns the independent Status Bar toggle, the Headers lifecycle
   submenu, and the semantic Footer-role visibility submenu.
 - Menus links the Menu overview and reserves Panel-owned and context-menu

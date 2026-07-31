@@ -511,6 +511,10 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return logCanMove(state, behavior)
 	case listBoxBehavior:
 		return listBoxCanFocus(state, behavior)
+	case dropDownBehavior:
+		return popupCanFocus(state, behavior.popup)
+	case comboBoxBehavior:
+		return popupCanFocus(state, behavior.popup)
 	default:
 		return false
 	}
@@ -559,6 +563,10 @@ func (a *App) focusBehaviorEligibleLocked(
 		return logCanMove(state, behavior)
 	case listBoxBehavior:
 		return listBoxCanFocus(state, behavior)
+	case dropDownBehavior:
+		return popupCanFocus(state, behavior.popup)
+	case comboBoxBehavior:
+		return popupCanFocus(state, behavior.popup)
 	}
 	return false
 }

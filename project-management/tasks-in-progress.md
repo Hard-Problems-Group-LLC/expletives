@@ -18,6 +18,8 @@ owner, known blockers, and brief status notes.
   - Dependencies: completed Phase 15 content viewport and scrolling,
     Selection, Actions, Menus, grouped focus, Layouts, and automation.
   - Blockers: none.
-  - Status: shared contracts are fixed; ListBox core, stable-key repair,
-    keyboard behavior, compact typed automation, concurrency/fuzz coverage,
-    and ordinary/race suites pass. Proceeding to DropDown and ComboBox.
+  - Status: shared contracts are fixed. ListBox, DropDown, and ComboBox now
+    have stable-key repair, keyboard-complete selection/editing, transient
+    popup ownership, compact typed automation, catalog/self-check coverage,
+    and ordinary-suite evidence. Proceeding through final race/build gates for
+    the popup slice, then TreeView.

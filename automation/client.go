@@ -908,6 +908,24 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 			}
 			collectionBytes += retained
 		}
+		if control.Details.DropDown != nil {
+			retained := control.Details.DropDown.RetainedBytes
+			if retained > expletives.MaxCollectionAggregateBytes-collectionBytes {
+				return errors.New(
+					"snapshot collection data exceeds advertised aggregate bound",
+				)
+			}
+			collectionBytes += retained
+		}
+		if control.Details.ComboBox != nil {
+			retained := control.Details.ComboBox.Popup.RetainedBytes
+			if retained > expletives.MaxCollectionAggregateBytes-collectionBytes {
+				return errors.New(
+					"snapshot collection data exceeds advertised aggregate bound",
+				)
+			}
+			collectionBytes += retained
+		}
 		if control.Details.StatusBar != nil {
 			statusBarCount++
 			if statusBarCount > 1 ||
@@ -1141,6 +1159,12 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.ListBox != nil {
+		specialMembers++
+	}
+	if details.DropDown != nil {
+		specialMembers++
+	}
+	if details.ComboBox != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1478,9 +1502,119 @@ func validControlDetails(
 				controlHeight,
 				limits,
 			)
+	case "drop_down":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validDropDownDetails(details.DropDown, limits)
+	case "combo_box":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validComboBoxDetails(details.ComboBox, limits)
 	default:
 		return false
 	}
+}
+
+func validDropDownDetails(
+	details *DropDownDetails,
+	limits Limits,
+) bool {
+	if details == nil ||
+		details.ItemCount < 0 ||
+		details.ItemCount > expletives.MaxCollectionItems ||
+		details.EnabledCount < 0 ||
+		details.EnabledCount > details.ItemCount ||
+		details.RetainedBytes < 0 ||
+		details.RetainedBytes > expletives.MaxCollectionAggregateBytes ||
+		(details.ItemCount > 0 && details.RetainedBytes == 0) ||
+		details.PopupRows < 1 ||
+		details.PopupRows > expletives.MaxCollectionPopupRows ||
+		details.PopupOffset < 0 ||
+		details.PopupOffset > details.ItemCount ||
+		details.DisabledReasonBytes < 0 ||
+		details.DisabledReasonBytes > expletives.MaxCommandDescriptionBytes ||
+		(details.Enabled && details.DisabledReasonBytes != 0) ||
+		(!details.Enabled && details.DisabledReasonBytes == 0) ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) ||
+		(details.ActivateCommand != "" &&
+			!validIdentifier(details.ActivateCommand, limits.IdentifierBytes)) {
+		return false
+	}
+	if details.EnabledCount == 0 {
+		if details.Current != "" || details.CurrentIndex != -1 {
+			return false
+		}
+	} else if !validIdentifier(details.Current, limits.IdentifierBytes) ||
+		details.CurrentIndex < 0 || details.CurrentIndex >= details.ItemCount {
+		return false
+	}
+	if details.Selected == "" {
+		if details.SelectedIndex != -1 ||
+			(!details.AllowEmpty && details.EnabledCount > 0) {
+			return false
+		}
+	} else if !validIdentifier(details.Selected, limits.IdentifierBytes) ||
+		details.SelectedIndex < 0 || details.SelectedIndex >= details.ItemCount {
+		return false
+	}
+	if !details.Open {
+		return details.PopupBounds == (Rect{}) &&
+			details.PopupOffset == 0 && details.PopupCurrent == "" &&
+			details.PopupSelection == ""
+	}
+	if !details.Enabled || details.PopupBounds.X < 0 ||
+		details.PopupBounds.Y < 0 || details.PopupBounds.Width < 1 ||
+		details.PopupBounds.Height < 1 ||
+		details.PopupBounds.Width > limits.FrameWidth ||
+		details.PopupBounds.Height > limits.FrameHeight ||
+		details.PopupBounds.Height > details.PopupRows+2 ||
+		(details.ItemCount == 0 && details.PopupOffset != 0) ||
+		(details.ItemCount > 0 && details.PopupOffset >= details.ItemCount) {
+		return false
+	}
+	if details.EnabledCount == 0 {
+		if details.PopupCurrent != "" {
+			return false
+		}
+	} else if !validIdentifier(details.PopupCurrent, limits.IdentifierBytes) {
+		return false
+	}
+	if details.PopupSelection == "" {
+		return details.AllowEmpty || details.EnabledCount == 0
+	}
+	return validIdentifier(details.PopupSelection, limits.IdentifierBytes)
+}
+
+func validComboBoxDetails(
+	details *ComboBoxDetails,
+	limits Limits,
+) bool {
+	if details == nil ||
+		!validDropDownDetails(&details.Popup, limits) ||
+		!validTextFieldDetails(&details.Editor, limits) ||
+		details.Editor.Password || details.Editor.Redacted ||
+		details.Editor.Enabled != details.Popup.Enabled ||
+		len(details.Editor.DisabledReason) != details.Popup.DisabledReasonBytes ||
+		details.Editor.ChangeCommand != details.Popup.ChangeCommand ||
+		(details.Popup.Open && details.Editor.Editing) {
+		return false
+	}
+	return true
 }
 
 func validListBoxDetails(
@@ -2643,7 +2777,7 @@ func validFocusTargetKind(kind ControlKind) bool {
 		"select_field", "text_field", "number_field", "spin_box",
 		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook",
 		"viewport", "scrollable_panel", "markdown_view", "log_view",
-		"stream_view", "list_box":
+		"stream_view", "list_box", "drop_down", "combo_box":
 		return true
 	default:
 		return false

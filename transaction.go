@@ -65,6 +65,7 @@ const (
 	mutationMarkdownView
 	mutationLogView
 	mutationListBox
+	mutationPopupCollection
 )
 
 type transactionMutation struct {
@@ -426,7 +427,8 @@ func (t *Transaction) SetFocus(control Control) error {
 		ControlNumberField, ControlSpinBox, ControlTextArea,
 		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
 		ControlViewport, ControlScrollablePanel, ControlMarkdownView,
-		ControlLogView, ControlStreamView, ControlListBox:
+		ControlLogView, ControlStreamView, ControlListBox,
+		ControlDropDown, ControlComboBox:
 	default:
 		return ErrNotFocusable
 	}
@@ -755,7 +757,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox:
+			mutationListBox, mutationPopupCollection:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -912,7 +914,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox,
+			mutationListBox, mutationPopupCollection,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -1353,6 +1355,26 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					)
 				}
 			}
+		case dropDownBehavior:
+			collectionBytes += popupCollectionStorageBytes(behavior.popup)
+			if err := validatePopupCollectionCommands(
+				t.app,
+				behavior.popup,
+				requireCommand,
+				"DropDown",
+			); err != nil {
+				return err
+			}
+		case comboBoxBehavior:
+			collectionBytes += comboBoxStorageBytes(behavior)
+			if err := validatePopupCollectionCommands(
+				t.app,
+				behavior.popup,
+				requireCommand,
+				"ComboBox",
+			); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -1582,7 +1604,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox:
+			mutationListBox, mutationPopupCollection:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

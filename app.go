@@ -362,9 +362,11 @@ func (a *App) renderLocked() Snapshot {
 	}
 	a.paintStatusBarChromeLocked(&snapshot.Frame)
 	a.paintMenuBarChromeLocked(&snapshot.Frame)
+	a.paintCollectionPopupOverlayLocked(&snapshot.Frame)
 	a.paintMenuOverlayLocked(&snapshot.Frame)
 	a.paintOverflowWarningLocked(&snapshot.Frame, overflows)
-	if a.menu != nil || defaultOverflowActive(overflows) {
+	if a.menu != nil || a.openPopupCollectionStateLocked() != nil ||
+		defaultOverflowActive(overflows) {
 		snapshot.Cursor = CursorState{}
 	}
 	return snapshot
@@ -500,6 +502,16 @@ func (a *App) paintControlLocked(
 	case listBoxBehavior:
 		listBox := listBoxDetails(bounds, behavior)
 		details.ListBox = &listBox
+	case dropDownBehavior:
+		dropDown := a.popupDetailsLocked(state, behavior.popup)
+		details.DropDown = &dropDown
+	case comboBoxBehavior:
+		comboBox := ComboBoxDetails{
+			Popup:  a.popupDetailsLocked(state, behavior.popup),
+			Editor: a.textFieldDetailsLocked(state, behavior.editor),
+		}
+		comboBox.Popup.RetainedBytes = comboBoxStorageBytes(behavior)
+		details.ComboBox = &comboBox
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

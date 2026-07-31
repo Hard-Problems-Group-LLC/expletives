@@ -812,6 +812,8 @@ func (a *App) editorInputLocked(
 		return a.numberFieldInputLocked(state, behavior, key, held)
 	case textAreaBehavior:
 		return a.textAreaInputLocked(state, behavior, key, held)
+	case comboBoxBehavior:
+		return a.comboBoxEditorInputLocked(state, behavior, key, held)
 	default:
 		return "", "", false, false
 	}
@@ -912,6 +914,8 @@ func (a *App) commitOrCancelEditorStateLocked(state *controlState) bool {
 		return false
 	}
 	switch behavior := state.behavior.(type) {
+	case dropDownBehavior:
+		return a.cancelPopupCollectionLocked(state)
 	case textFieldBehavior:
 		_, _, changed := a.commitTextFieldStateLocked(state)
 		return changed
@@ -946,6 +950,15 @@ func (a *App) commitOrCancelEditorStateLocked(state *controlState) bool {
 		behavior.preferredColumn = -1
 		state.behavior = behavior
 		return true
+	case comboBoxBehavior:
+		if behavior.popup.open {
+			return a.cancelPopupCollectionLocked(state)
+		}
+		_, _, changed := a.commitComboBoxEditorLocked(state, &behavior)
+		if changed {
+			state.behavior = behavior
+		}
+		return changed
 	default:
 		return false
 	}
@@ -961,6 +974,8 @@ func (a *App) commitFocusedEditorLocked() (
 		return "", "", false, true
 	}
 	switch behavior := a.focus.behavior.(type) {
+	case dropDownBehavior:
+		return "", "", a.cancelPopupCollectionLocked(a.focus), true
 	case textFieldBehavior:
 		command, target, changed = a.commitTextFieldStateLocked(a.focus)
 		return command, target, changed, true
@@ -1008,6 +1023,18 @@ func (a *App) commitFocusedEditorLocked() (
 			return behavior.changeCommand, a.focus.id, true, true
 		}
 		return "", "", true, true
+	case comboBoxBehavior:
+		if behavior.popup.open {
+			return "", "", a.cancelPopupCollectionLocked(a.focus), true
+		}
+		command, target, changed = a.commitComboBoxEditorLocked(
+			a.focus,
+			&behavior,
+		)
+		if changed {
+			a.focus.behavior = behavior
+		}
+		return command, target, changed, true
 	default:
 		return "", "", false, true
 	}

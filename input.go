@@ -63,6 +63,10 @@ const (
 	KeyInsert Key = "insert"
 	// KeyDelete is the Delete key.
 	KeyDelete Key = "delete"
+	// KeyF2 is function key F2.
+	KeyF2 Key = "f2"
+	// KeyF4 is function key F4.
+	KeyF4 Key = "f4"
 	// KeyLeftBracket is the unmodified [ key.
 	KeyLeftBracket Key = "["
 	// KeyRightBracket is the unmodified ] key.
@@ -709,7 +713,11 @@ func (a *App) DispatchKey(
 			scrollTarget := ControlID("")
 			scrollHandled := false
 			scrollChanged := false
-			if noHeldModifiers(held) {
+			if noHeldModifiers(held) || held[KeyAlt] {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.popupCollectionKeyLocked(a.focus, event.Key, held, false)
+			}
+			if noHeldModifiers(held) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.listBoxKeyLocked(a.focus, event.Key)
 			}
@@ -901,6 +909,8 @@ func (a *App) applyTextInputLocked(text string) CommandResult {
 		)
 		state.behavior = behavior
 		return CommandResult{Outcome: OutcomeApplied}
+	case comboBoxBehavior:
+		return a.applyComboBoxTextInputLocked(state, behavior, text)
 	case numberFieldBehavior:
 		if !behavior.editor.editing {
 			return CommandResult{Outcome: OutcomeNoOp}

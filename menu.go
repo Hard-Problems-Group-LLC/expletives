@@ -610,6 +610,7 @@ func (a *App) startMenuSessionLocked(
 		rootIndex < 0 || rootIndex >= len(behavior.items) {
 		return false
 	}
+	a.cancelOtherPopupCollectionsLocked(nil)
 	_ = a.commitOrCancelEditorStateLocked(a.focus)
 	prior := a.focus
 	if a.menu != nil {

@@ -33,6 +33,8 @@ const (
     MaxCollectionCells          = 16384
     MaxCollectionDepth          = 64
     MaxCollectionAggregateBytes = 1 << 20
+    DefaultCollectionPopupRows  = 8
+    MaxCollectionPopupRows      = 64
 )
 ```
 
@@ -215,26 +217,105 @@ type ComboBoxOptions struct {
     Text       string
     Validator *TextValidator
 }
+
+type DropDownState struct {
+    Current        string
+    CurrentIndex   int
+    Selected       string
+    SelectedIndex  int
+    Open           bool
+    PopupCurrent   string
+    PopupSelection string
+    PopupOffset    int
+    ItemCount      int
+    EnabledCount   int
+}
+
+type ComboBoxState struct {
+    DropDownState
+    Text    string
+    Editing bool
+    Valid   bool
+}
+
+func NewDropDown(Container, DropDownOptions) (*DropDown, error)
+func (t *Transaction) NewDropDown(
+    Container,
+    DropDownOptions,
+) (*DropDown, error)
+func (d *DropDown) Items() []ListItem
+func (d *DropDown) State() DropDownState
+func (d *DropDown) SetItems([]ListItem) error
+func (d *DropDown) SetSelection(string) error
+func (d *DropDown) Open() error
+func (d *DropDown) Close() error
+func (d *DropDown) Focus() error
+func (d *DropDown) Activate(
+    context.Context,
+    source string,
+    requestID string,
+) (Completion, error)
+
+func NewComboBox(Container, ComboBoxOptions) (*ComboBox, error)
+func (t *Transaction) NewComboBox(
+    Container,
+    ComboBoxOptions,
+) (*ComboBox, error)
+func (c *ComboBox) Items() []ListItem
+func (c *ComboBox) State() ComboBoxState
+func (c *ComboBox) SetItems([]ListItem) error
+func (c *ComboBox) SetSelection(string) error
+func (c *ComboBox) Text() string
+func (c *ComboBox) SetText(string) error
+func (c *ComboBox) Validator() *TextValidator
+func (c *ComboBox) SetValidator(*TextValidator) error
+func (c *ComboBox) Open() error
+func (c *ComboBox) Close() error
+func (c *ComboBox) Focus() error
+func (c *ComboBox) Activate(
+    context.Context,
+    source string,
+    requestID string,
+) (Completion, error)
+
+func (t *Transaction) SetDropDownItems(Control, []ListItem) error
+func (t *Transaction) SetDropDownSelection(Control, string) error
+func (t *Transaction) SetComboBoxText(*ComboBox, string) error
+func (t *Transaction) SetComboBoxValidator(
+    *ComboBox,
+    *TextValidator,
+) error
 ```
 
 DropDown exposes copied `Items`, `State`, `SetItems`, `SetSelection`, `Open`,
 `Close`, `Focus`, and `Activate` operations plus atomic Transaction forms.
-ComboBox additionally exposes the single-line editor's committed text,
-validation, edit-gate, commit, and cancel operations. A selected item copies
-its label into ComboBox text. Committing custom valid text clears selected
-identity unless it exactly matches one enabled label.
+ComboBox additionally exposes the single-line editor's committed text and
+validator. A selected item copies its label into ComboBox text. Committing
+custom text clears selected identity unless it exactly matches one enabled
+label. Hard validators must accept every enabled popup item label as well as
+the committed editor text; a construction or model/policy replacement that
+would break that invariant is rejected atomically. Soft validators preserve
+TextField's valid/invalid rendering and commit behavior.
 
-Space, Enter, F4, or Alt-Down opens a closed popup. The popup is sized to its
-bounded rows and widest visible item, clamped to the application client area,
-and placed below the field when possible or above it otherwise. Horizontal
-backset keeps its right edge onscreen. While open, arrows, Page, Home, End,
-and Space manipulate the provisional popup current/selection; Enter commits
-and closes; Escape cancels and restores the opening state. Alt-X and other
-registered global chords retain the normal global precedence.
+Space, Enter, F4, or Alt-Down opens a closed DropDown. For ComboBox, Space,
+F4, or Alt-Down opens choices while Enter or F2 starts editor mode. The popup
+is sized to its bounded rows and widest item, clamped to the application
+client area, and placed below the field when possible or above it otherwise.
+Horizontal backset keeps its right edge onscreen. While open, arrows, Page,
+Home, End, and Space manipulate provisional popup current/selection; Enter
+commits and closes; Escape cancels and restores the opening state. Tab or a
+focus transfer cancels a still-open popup before applying ordinary focus-group
+navigation. Alt-X and other registered global chords retain normal global
+precedence.
 
 DropDown never starts text editing. ComboBox uses the same explicit Enter/F2
 edit gate and validator semantics as TextField when its popup is closed.
-Popup ownership does not introduce a nested event loop or a public modal.
+An empty enabled ComboBox remains focusable and editable even though its
+empty choices popup has no current item; an empty DropDown is not focusable.
+Only one collection popup may be open per App. Popup ownership does not
+introduce a nested event loop or a public modal. Programmatic setters, Open,
+and Close are silent; user commits route the optional change or activation
+command outside toolkit locks.
 
 ## TreeView
 
@@ -374,7 +455,9 @@ loading, empty, error, sorted, and edited state. Default Theme roles include:
   `collection.selected`, `collection.current_selected`,
   `collection.disabled`, `collection.empty`, `collection.loading`, and
   `collection.error`;
-- `dropdown`, `dropdown.focused`, and `dropdown.popup`;
+- `drop_down`, `drop_down.focused`, `drop_down.disabled`,
+  `drop_down.popup`, `drop_down.popup_border`, `combo_box`,
+  `combo_box.focused`, and `combo_box.disabled`;
 - `tree_view`, `tree.guide`, `tree.branch`, and `tree.expanded`;
 - `table`, `table.border`, `table.header`, `table.header_current`,
   `table.sort`, `table.cell_current`, and `table.row_selected`; and
@@ -387,13 +470,15 @@ is applied later without changing semantic ownership or style identity.
 ## Snapshot And Automation Contract
 
 Core details expose exact bounded status text and disabled reason. Automation
-details expose their byte counts and SHA-256 status digest instead, so a
-maximum collection payload cannot inflate the retained wire response. Both
-detail forms expose status, counts, current key/index, retained canonical byte
-count, selection count, first/last selected key, a deterministic digest of
-the full ordered selection, viewport geometry, commands, enabled state, and
-control-specific expansion/sort/edit state. The intended frame remains the
-source of exact visible labels, cells, markers, and styles.
+details expose compact evidence instead, so a maximum collection payload
+cannot inflate the retained wire response. ListBox uses message byte counts,
+a SHA-256 status digest, selection cardinality/endpoints/digest, and compact
+viewport state. DropDown uses item/enabled/retained counts, exact bounded
+stable current and selected keys/indices, popup rows/open/bounds/offset and
+provisional identities, enabled policy, disabled-reason byte count, and
+commands. ComboBox combines that popup record with its exact bounded
+TextField-compatible editor record. The intended frame remains the source of
+exact visible labels, cells, markers, and styles.
 
 The selection digest is lowercase hexadecimal SHA-256 over the ordered
 sequence of length-prefixed selected keys. It is evidence of the complete

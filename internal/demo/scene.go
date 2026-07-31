@@ -58,6 +58,8 @@ const (
 	CommandContentAppend        expletives.CommandID = "content.append"
 	CommandContentFollow        expletives.CommandID = "content.follow"
 	CommandCollections          expletives.CommandID = "catalog.controls.collections"
+	CommandCollectionChanged    expletives.CommandID = "collection.changed"
+	CommandCollectionActivate   expletives.CommandID = "collection.activate"
 	CommandPanelMenu            expletives.CommandID = "catalog.menus.panel"
 	CommandContextMenu          expletives.CommandID = "catalog.menus.context"
 	CommandDialogMessage        expletives.CommandID = "catalog.dialogs.message"
@@ -122,6 +124,7 @@ var catalogScreens = []struct {
 	{CommandProgress, "Progress"},
 	{CommandNavigation, "Navigation"},
 	{CommandScrolling, "Scrolling / Content"},
+	{CommandCollections, "Collections"},
 	{CommandViewMenus, "Menu Bar"},
 	{CommandViewAbout, "About"},
 }
@@ -356,6 +359,9 @@ type Scene struct {
 	logFollow               *expletives.LogView
 	logScrollback           *expletives.LogView
 	streamView              *expletives.StreamView
+	collectionList          *expletives.ListBox
+	collectionDropDown      *expletives.DropDown
+	collectionCombo         *expletives.ComboBox
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -605,6 +611,93 @@ func NewWithRootConstraints(
 			ID:         "stream_view",
 			Foreground: canvasStyle.Foreground,
 			Background: canvasStyle.Background,
+		},
+		expletives.Style{
+			ID:         "list_box",
+			Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "list_box.border",
+			Foreground: menuBorderStyle.Foreground,
+			Background: menuBorderStyle.Background,
+		},
+		expletives.Style{
+			ID:         "drop_down",
+			Foreground: textFieldStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "combo_box",
+			Foreground: textFieldStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "drop_down.focused",
+			Foreground: menuFocusedStyle.Foreground,
+			Background: menuFocusedStyle.Background,
+		},
+		expletives.Style{
+			ID:         "combo_box.focused",
+			Foreground: menuFocusedStyle.Foreground,
+			Background: menuFocusedStyle.Background,
+		},
+		expletives.Style{
+			ID:         "drop_down.disabled",
+			Foreground: menuDisabledStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "combo_box.disabled",
+			Foreground: menuDisabledStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "drop_down.popup",
+			Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "drop_down.popup_border",
+			Foreground: menuBorderStyle.Foreground,
+			Background: menuBorderStyle.Background,
+		},
+		expletives.Style{
+			ID:         "collection.current",
+			Foreground: menuFocusedStyle.Foreground,
+			Background: menuFocusedStyle.Background,
+		},
+		expletives.Style{
+			ID:         "collection.selected",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0x00, 0xAA),
+		},
+		expletives.Style{
+			ID:         "collection.current_selected",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "collection.disabled",
+			Foreground: menuDisabledStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "collection.empty",
+			Foreground: menuDisabledStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "collection.loading",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0x00),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "collection.error",
+			Foreground: expletives.RGB(0xFF, 0x55, 0x55),
+			Background: menuPopupStyle.Background,
+			Attributes: expletives.StyleBold,
 		},
 		expletives.Style{
 			ID:         "log_view.border",
@@ -994,6 +1087,17 @@ func NewWithRootConstraints(
 		content,
 		expletives.PanelOptions{
 			AutomationKey: "screen.scrolling",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionsScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.collections",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
 		},
@@ -2810,6 +2914,179 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
+	collectionListGroup, err := transaction.NewGroupBox(
+		collectionsScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "collections.group.list",
+				MinimumSize:   expletives.Size{Width: 24, Height: 9},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "ListBox: stable current and selection",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionList, err := transaction.NewListBox(
+		collectionListGroup,
+		expletives.ListBoxOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "collections.list",
+						Style:         "list_box",
+					},
+					ChangeCommand: CommandCollectionChanged,
+				},
+				BorderStyle:   "list_box.border",
+				BorderForm:    expletives.BorderSingle,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Items: []expletives.ListItem{
+				{Key: "alpha", Label: "Alpha", Description: "selected"},
+				{Key: "blocked", Label: "Blocked", Disabled: true,
+					DisabledReason: "Demonstration row is disabled"},
+				{Key: "charlie", Label: "Charlie", Description: "enabled"},
+				{Key: "delta", Label: "Delta", Description: "enabled"},
+				{Key: "echo", Label: "Echo", Description: "enabled"},
+				{Key: "foxtrot", Label: "Foxtrot with a long horizontal label"},
+			},
+			SelectionMode:   expletives.CollectionSelectionMultiple,
+			Selected:        []string{"alpha"},
+			ActivateCommand: CommandCollectionActivate,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionChoiceGroup, err := transaction.NewGroupBox(
+		collectionsScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "collections.group.popup",
+				MinimumSize:   expletives.Size{Width: 24, Height: 9},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Collapsed popup fields",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	newCollectionLabel := func(key, text string) (*expletives.StaticText, error) {
+		return transaction.NewStaticText(
+			collectionChoiceGroup,
+			expletives.StaticTextOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "collections.label." + key,
+					Style:         canvasStyle.ID,
+					LayoutHints: expletives.LayoutHints{
+						Horizontal: expletives.LayoutSizeStretch,
+						Vertical:   expletives.LayoutSizeNatural,
+					},
+				},
+				Text: text,
+			},
+		)
+	}
+	collectionDropLabel, err := newCollectionLabel("drop-down", "DropDown")
+	if err != nil {
+		return nil, err
+	}
+	collectionDropDown, err := transaction.NewDropDown(
+		collectionChoiceGroup,
+		expletives.DropDownOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "collections.drop-down",
+				Style:         "drop_down",
+			},
+			Items: []expletives.ListItem{
+				{Key: "low", Label: "Low"},
+				{Key: "medium", Label: "Medium"},
+				{Key: "high", Label: "High"},
+				{Key: "blocked", Label: "Unavailable", Disabled: true,
+					DisabledReason: "Demonstration choice is disabled"},
+			},
+			Selected: "medium", PopupRows: 4,
+			ChangeCommand: CommandCollectionChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionComboLabel, err := newCollectionLabel("combo", "ComboBox (editable)")
+	if err != nil {
+		return nil, err
+	}
+	collectionCombo, err := transaction.NewComboBox(
+		collectionChoiceGroup,
+		expletives.ComboBoxOptions{
+			DropDownOptions: expletives.DropDownOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "collections.combo",
+					Style:         "combo_box",
+				},
+				Items: []expletives.ListItem{
+					{Key: "alpha", Label: "Alpha"},
+					{Key: "beta", Label: "Beta"},
+					{Key: "custom", Label: "Custom value"},
+				},
+				Selected: "alpha", PopupRows: 3,
+				ChangeCommand: CommandCollectionChanged,
+			},
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationWhitelist,
+				Characters:  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ",
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionDisabledLabel, err := newCollectionLabel(
+		"disabled",
+		"Disabled DropDown",
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionDisabled, err := transaction.NewDropDown(
+		collectionChoiceGroup,
+		expletives.DropDownOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "collections.drop-down.disabled",
+				Style:         "drop_down",
+			},
+			Items:          []expletives.ListItem{{Key: "fixed", Label: "Fixed"}},
+			Disabled:       true,
+			DisabledReason: "Demonstration field is disabled",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, control := range []expletives.Control{
+		collectionList,
+		collectionDropDown,
+		collectionCombo,
+	} {
+		if err := transaction.SetFocusGuidance(
+			control,
+			expletives.FocusGuidance{
+				Mode: expletives.FocusGuidanceAppend,
+				Text: "Collection identities are stable across copied model updates",
+			},
+		); err != nil {
+			return nil, err
+		}
+	}
 
 	hotkeyBar, err := transaction.NewHotkeyBar(
 		recentFooter,
@@ -2875,6 +3152,7 @@ func NewWithRootConstraints(
 		{"progress", progressScreen},
 		{"navigation", navigationScreen},
 		{"scrolling", scrollingScreen},
+		{"collections", collectionsScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
 		{"headers_footers", chromeScreen},
@@ -2973,6 +3251,70 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 		if err := transaction.SetLayout(entry.group, groupLayout); err != nil {
+			return nil, err
+		}
+	}
+	collectionsLayout, err := expletives.NewBoxLayout(
+		expletives.Horizontal,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.collections",
+			Gap:           1,
+			Insets:        expletives.Insets{Right: 2, Left: 2},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := collectionsLayout.AddPanel(
+		collectionListGroup,
+		expletives.LayoutItemOptions{Grow: 2},
+	); err != nil {
+		return nil, err
+	}
+	if err := collectionsLayout.AddPanel(
+		collectionChoiceGroup,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	collectionListLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.collections.list",
+			Insets:        expletives.Insets{Top: 1, Right: 1, Bottom: 1, Left: 1},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := collectionListLayout.AddPanel(
+		collectionList,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	collectionChoiceLayout, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.collections.popup",
+			Insets:        expletives.Insets{Right: 1, Left: 1},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, control := range []expletives.Control{
+		collectionDropLabel,
+		collectionDropDown,
+		collectionComboLabel,
+		collectionCombo,
+		collectionDisabledLabel,
+		collectionDisabled,
+	} {
+		if err := collectionChoiceLayout.AddPanel(
+			control,
+			expletives.LayoutItemOptions{},
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -3958,6 +4300,21 @@ func NewWithRootConstraints(
 	if err := transaction.SetLayout(scrollingScreen, scrollingLayout); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(collectionsScreen, collectionsLayout); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		collectionListGroup,
+		collectionListLayout,
+	); err != nil {
+		return nil, err
+	}
+	if err := transaction.SetLayout(
+		collectionChoiceGroup,
+		collectionChoiceLayout,
+	); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
 		return nil, err
 	}
@@ -4045,6 +4402,9 @@ func NewWithRootConstraints(
 		logFollow:               logFollow,
 		logScrollback:           logScrollback,
 		streamView:              streamView,
+		collectionList:          collectionList,
+		collectionDropDown:      collectionDropDown,
+		collectionCombo:         collectionCombo,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -4073,6 +4433,7 @@ func NewWithRootConstraints(
 			CommandProgress:        progressScreen,
 			CommandNavigation:      navigationScreen,
 			CommandScrolling:       scrollingScreen,
+			CommandCollections:     collectionsScreen,
 			CommandViewMenus:       menusScreen,
 			CommandViewAbout:       aboutScreen,
 		},
@@ -4286,11 +4647,16 @@ func initialCommandDefinitions(
 			"Absolute Positioning",
 			"future Layout",
 		),
-		unavailableCatalogDefinition(
-			CommandCollections,
-			"Collections",
-			"Collections",
-		),
+		{
+			ID: CommandCollectionChanged, Label: "Collection Changed",
+			Description: "Report a user-originated collection selection or edit",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandCollectionActivate, Label: "Activate Collection Item",
+			Description: "Report semantic activation of the current collection item",
+			Enabled:     true, Automation: true,
+		},
 		unavailableCatalogDefinition(
 			CommandPanelMenu,
 			"Panel Menu",
@@ -4964,8 +5330,15 @@ func (s *Scene) handleCommand(
 		return s.removeHeaderLocked(false)
 	case CommandScenarioReset:
 		resetSequence := s.App.Snapshot().Sequence
+		collectionListState := s.collectionList.State()
 		changed := s.toggled || s.progressTick != 0 || s.progressReduced ||
 			s.contentTick != 0 ||
+			collectionListState.Current != "alpha" ||
+			len(collectionListState.Selected) != 1 ||
+			collectionListState.Selected[0] != "alpha" ||
+			s.collectionDropDown.State().Selected != "medium" ||
+			s.collectionCombo.State().Selected != "alpha" ||
+			s.collectionCombo.Text() != "Alpha" ||
 			s.navigationHorizontal.State() != (expletives.ScrollBarState{
 				ContentSize: 100, ViewportSize: 20, Offset: 40,
 			}) ||
@@ -5121,6 +5494,30 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.SetListCurrent(
+			s.collectionList,
+			"alpha",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetListSelection(
+			s.collectionList,
+			[]string{"alpha"},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetDropDownSelection(
+			s.collectionDropDown,
+			"medium",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetDropDownSelection(
+			s.collectionCombo,
+			"alpha",
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.SetMarkdownOffset(
 			s.markdownView,
 			expletives.Point{},
@@ -5203,7 +5600,8 @@ func (s *Scene) handleCommand(
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
 		CommandViewActions, CommandSelection, CommandTextInput, CommandProgress,
-		CommandNavigation, CommandScrolling, CommandViewMenus, CommandViewAbout:
+		CommandNavigation, CommandScrolling, CommandCollections,
+		CommandViewMenus, CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
 	case CommandProgressTick:
 		return s.progressTickLocked()
@@ -5222,7 +5620,8 @@ func (s *Scene) handleCommand(
 	case CommandContentFollow:
 		return s.toggleContentFollowLocked()
 	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged,
-		CommandNavigationChanged, CommandContentChanged:
+		CommandNavigationChanged, CommandContentChanged,
+		CommandCollectionChanged, CommandCollectionActivate:
 		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -5854,6 +6253,7 @@ func SelfCheck() error {
 		"screen.progress",
 		"screen.navigation",
 		"screen.scrolling",
+		"screen.collections",
 		"screen.menus",
 		"screen.status",
 		"screen.headers_footers",
@@ -5968,6 +6368,12 @@ func SelfCheck() error {
 		"content.log-scrollback",
 		"content.group.stream-drops",
 		"content.stream-drops",
+		"collections.group.list",
+		"collections.list",
+		"collections.group.popup",
+		"collections.drop-down",
+		"collections.combo",
+		"collections.drop-down.disabled",
 		"layer.back",
 		"layer.front",
 	} {
@@ -5993,16 +6399,17 @@ func SelfCheck() error {
 	}
 	seenRootMnemonics := make(map[string]bool, len(expectedRootMnemonics))
 	catalogLabels := map[string]string{
-		"menu.file.home":           "Home",
-		"menu.panels.core":         "Core Panels",
-		"menu.panels.styles":       "Visual Styles",
-		"menu.layouts.box":         "Box Layout",
-		"menu.layouts.grid":        "Grid Layout",
-		"menu.controls.selection":  "Selection",
-		"menu.controls.input":      "Text / Numeric Input",
-		"menu.controls.progress":   "Progress",
-		"menu.controls.navigation": "Navigation",
-		"menu.controls.scrolling":  "Scrolling / Content",
+		"menu.file.home":            "Home",
+		"menu.panels.core":          "Core Panels",
+		"menu.panels.styles":        "Visual Styles",
+		"menu.layouts.box":          "Box Layout",
+		"menu.layouts.grid":         "Grid Layout",
+		"menu.controls.selection":   "Selection",
+		"menu.controls.input":       "Text / Numeric Input",
+		"menu.controls.progress":    "Progress",
+		"menu.controls.navigation":  "Navigation",
+		"menu.controls.scrolling":   "Scrolling / Content",
+		"menu.controls.collections": "Collections",
 	}
 	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
 	homeChecked := false
@@ -6090,6 +6497,8 @@ func SelfCheck() error {
 		controls["screen.input"].Visible ||
 		controls["screen.progress"].Visible ||
 		controls["screen.navigation"].Visible ||
+		controls["screen.scrolling"].Visible ||
+		controls["screen.collections"].Visible ||
 		controls["screen.menus"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
@@ -6746,13 +7155,121 @@ func SelfCheck() error {
 	if !controls["content.log-scrollback"].Details.LogView.Follow {
 		return errors.New("content Follow toggle did not resume tail following")
 	}
+	if err := invoke("show-collections", CommandCollections); err != nil {
+		return err
+	}
+	listDetails := controls["collections.list"].Details.ListBox
+	dropDownDetails := controls["collections.drop-down"].Details.DropDown
+	comboDetails := controls["collections.combo"].Details.ComboBox
+	disabledDropDown :=
+		controls["collections.drop-down.disabled"].Details.DropDown
+	if !controls["screen.collections"].Visible ||
+		!controls["collections.list"].Focused ||
+		listDetails == nil || listDetails.ItemCount != 6 ||
+		listDetails.Current != "alpha" || listDetails.SelectedCount != 1 ||
+		dropDownDetails == nil || dropDownDetails.Selected != "medium" ||
+		comboDetails == nil || comboDetails.Popup.Selected != "alpha" ||
+		comboDetails.Editor.Text != "Alpha" ||
+		disabledDropDown == nil || disabledDropDown.Enabled {
+		return errors.New("Collections catalog typed evidence is incomplete")
+	}
+	pressCollectionKey := func(request string, key expletives.Key) (
+		expletives.Completion,
+		error,
+	) {
+		return scene.App.DispatchKey(
+			context.Background(),
+			"self-check",
+			request,
+			expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: key},
+		)
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-list-down",
+		expletives.KeyDown,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != "" {
+		return fmt.Errorf("ListBox Down dispatch = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-list-select",
+		expletives.KeySpace,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionChanged {
+		return fmt.Errorf("ListBox Space dispatch = %+v, %v", completion, inputErr)
+	}
+	if state := scene.collectionList.State(); state.Current != "charlie" ||
+		len(state.Selected) != 2 || state.Selected[1] != "charlie" {
+		return fmt.Errorf("ListBox interactive State = %+v", state)
+	}
+	if err := scene.collectionDropDown.Focus(); err != nil {
+		return fmt.Errorf("DropDown focus: %w", err)
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-drop-open",
+		expletives.KeySpace,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("DropDown open dispatch = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-drop-down",
+		expletives.KeyDown,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("DropDown Down dispatch = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-drop-commit",
+		expletives.KeyEnter,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionChanged {
+		return fmt.Errorf("DropDown commit dispatch = %+v, %v", completion, inputErr)
+	}
+	if state := scene.collectionDropDown.State(); state.Open ||
+		state.Selected != "high" {
+		return fmt.Errorf("DropDown interactive State = %+v", state)
+	}
+	if err := scene.collectionCombo.Focus(); err != nil {
+		return fmt.Errorf("ComboBox focus: %w", err)
+	}
+	for _, input := range []struct {
+		request string
+		key     expletives.Key
+	}{
+		{"collection-combo-edit", expletives.KeyEnter},
+		{"collection-combo-type", "x"},
+	} {
+		if completion, inputErr := pressCollectionKey(input.request, input.key); inputErr != nil || completion.Outcome != expletives.OutcomeApplied {
+			return fmt.Errorf(
+				"ComboBox %s dispatch = %+v, %v",
+				input.request,
+				completion,
+				inputErr,
+			)
+		}
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-combo-commit",
+		expletives.KeyEnter,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionChanged {
+		return fmt.Errorf("ComboBox commit dispatch = %+v, %v", completion, inputErr)
+	}
+	if state := scene.collectionCombo.State(); state.Editing ||
+		state.Selected != "" || state.Text != "Alphax" {
+		return fmt.Errorf("ComboBox interactive State = %+v", state)
+	}
 	if err := invoke("content-reset", CommandScenarioReset); err != nil {
 		return err
 	}
 	if scene.contentTick != 0 ||
 		controls["content.log-follow"].Details.LogView.LastKey != "ready" ||
 		controls["content.log-scrollback"].Details.LogView.Follow ||
-		controls["content.stream-drops"].Details.StreamView.RetainedLines != 1 {
+		controls["content.stream-drops"].Details.StreamView.RetainedLines != 1 ||
+		scene.collectionList.State().Current != "alpha" ||
+		len(scene.collectionList.State().Selected) != 1 ||
+		scene.collectionDropDown.State().Selected != "medium" ||
+		scene.collectionCombo.State().Selected != "alpha" ||
+		scene.collectionCombo.Text() != "Alpha" {
 		return errors.New("content Reset did not restore the bounded fixtures")
 	}
 	if err := invoke("hide-status", CommandStatusBar); err != nil {
@@ -6799,6 +7316,7 @@ func SelfCheck() error {
 		controls["screen.progress"].Visible ||
 		controls["screen.navigation"].Visible ||
 		controls["screen.scrolling"].Visible ||
+		controls["screen.collections"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
 		!controls["header.primary"].Visible ||
