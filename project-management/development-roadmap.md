@@ -411,7 +411,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 12. Text/Numeric Input
 
-- Status: `planned`
+- Status: `in progress`
 - Goal: deliver `TextField`, `NumberField`, `SpinBox`, and `TextArea`.
 - Dependencies: Phase 11 plus approved editing, validation, caret, paste, and
   interrupt contracts.
@@ -422,6 +422,12 @@ ordered backlog and the active-task record; it does not replace either.
   multiline editing, cursor policy, resize, and configurable Ctrl-C behavior.
   `TextArea` uses the internal scroll model later exposed through Phase 15
   controls.
+- Directed validator/password addition:
+  optional validators require soft or hard enforcement, whitelist or
+  blacklist matching, and a nonempty character set. Soft mode retains input
+  with green valid state or yellow/red invalid highlighting. Hard mode ignores
+  disallowed typed input. Password defaults false, paints `*`, still validates
+  the underlying value, and redacts it from snapshot/automation evidence.
 - `expletives-test` scenarios: `input.text-field`, `input.numeric`,
   `input.spin`, `input.text-area`, `input.validation`, and
   `input.interrupt-policy`.

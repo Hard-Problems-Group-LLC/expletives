@@ -390,6 +390,16 @@ configurable commit/cancel behavior, and the project's edit-gate policy.
 `TextArea` may use a private viewport/offset primitive without publishing the
 later `ScrollablePanel` API early.
 
+The directed validator and password contract is
+[`text-and-numeric-input-api-v0.md`](text-and-numeric-input-api-v0.md).
+Every text-entry control supports an optional soft or hard whitelist or
+blacklist validator with a required nonempty matching-character set. Soft
+validation retains invalid input and paints valid/all-valid text green,
+valid text in an invalid value yellow, and invalid characters red. Hard
+validation ignores disallowed typed input. Password mode defaults false,
+paints `*` per retained element, still applies validation, and redacts values
+from snapshots and attached automation.
+
 ### 12. Progress
 
 Required controls:

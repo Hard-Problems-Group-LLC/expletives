@@ -27,6 +27,8 @@ Basic Layout foundation in the root `expletives` package. It covers:
   and overflow delivery;
 - raw key lifecycle events, the command registry, structured command results,
   correlated completions, and Menu popup sessions; and
+- typed Selection controls, focused-control guidance, and bounded TextField
+  editing with validation and password-safe observation; and
 - concurrency, dispatch, callback, and final-state behavior.
 
 The import path is:
@@ -78,6 +80,11 @@ The implemented exported limits are:
 | `MaxDisplayTextBytes` | 256 | Maximum retained UTF-8 bytes for one display-control text |
 | `MaxDisplayTextCells` | 256 | Maximum canonical cells, including line separators, for one display-control text |
 | `MaxFocusGuidanceApplicationBytes` | 128 | Maximum application append/override guidance bytes |
+| `MaxTextInputBytes` | 65,536 | Maximum retained UTF-8 bytes in one editor value |
+| `MaxTextInputCells` | 65,536 | Maximum canonical one-cell elements in one editor value |
+| `MaxTextValidatorBytes` | 4,096 | Maximum copied validator-set UTF-8 bytes |
+| `MaxTextValidatorCells` | 1,024 | Maximum copied validator-set elements |
+| `MaxTextInputAggregateBytes` | 262,144 | Maximum editor values and validators retained by one App |
 | `MaxHotkeyBarItems` | 64 | Maximum entries in one HotkeyBar |
 | `MaxActionItems` | 4,096 | Maximum aggregate HotkeyBar entries in one App |
 | `MaxMenuDepth` | 8 | Maximum immutable popup Menu tree depth |
@@ -505,6 +512,38 @@ notification. Snapshot and automation details are exact typed members, not
 unrestricted maps. The complete contract is
 [`selection-api-v0.md`](selection-api-v0.md).
 
+## TextField
+
+```go
+func NewTextField(Container, TextFieldOptions) (*TextField, error)
+func (f *TextField) Text() string
+func (f *TextField) SetText(string) error
+func (f *TextField) Validator() *TextValidator
+func (f *TextField) SetValidator(*TextValidator) error
+func (f *TextField) SetPassword(bool) error
+func (f *TextField) Focus() error
+func (f *TextField) Activate(
+    context.Context, source string, requestID string,
+) (Completion, error)
+```
+
+TextField is a bounded single-line editor over canonical one-cell elements.
+Enter starts and commits editing; Escape cancels; caret and delete keys operate
+on complete elements. Tab commits before direct-parent focus-group traversal.
+Programmatic focus loss commits silently, while a user Enter/Tab commit may
+route the optional `ChangeCommand` after the value is published.
+
+The optional copied `TextValidator` requires soft or hard enforcement,
+whitelist or blacklist mode, and a nonempty character set. Soft-invalid input
+remains editable and paints the complete valid portion yellow with invalid
+characters red. Hard-invalid input is ignored. Password mode paints `*`,
+retains validation over the actual value, and redacts the value from core and
+automation snapshots.
+
+The exact public, validation, editing, Limited Unicode, snapshot, and
+automation contract is
+[`text-and-numeric-input-api-v0.md`](text-and-numeric-input-api-v0.md).
+
 ## Atomic Transactions
 
 ```go
@@ -528,6 +567,7 @@ func (t *Transaction) NewRadioGroup(Container, RadioGroupOptions) (*RadioGroup, 
 func (t *Transaction) NewRadioButton(*RadioGroup, RadioButtonOptions) (*RadioButton, error)
 func (t *Transaction) NewCycleField(Container, CycleFieldOptions) (*CycleField, error)
 func (t *Transaction) NewSelectField(Container, SelectFieldOptions) (*SelectField, error)
+func (t *Transaction) NewTextField(Container, TextFieldOptions) (*TextField, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
 func (t *Transaction) SetSize(Size) error
 func (t *Transaction) SetRootConstraints(RootConstraints) error
@@ -536,6 +576,8 @@ func (t *Transaction) SetMinimumSize(Control, Size) error
 func (t *Transaction) SetStyle(Control, StyleID) error
 func (t *Transaction) SetVisible(Control, bool) error
 func (t *Transaction) SetText(Control, string) error
+func (t *Transaction) SetTextValidator(*TextField, *TextValidator) error
+func (t *Transaction) SetTextPassword(*TextField, bool) error
 func (t *Transaction) SetStatusSegments(*StatusBar, []StatusSegment) error
 func (t *Transaction) SetFocus(Control) error
 func (t *Transaction) SetFocusGuidance(Control, FocusGuidance) error
@@ -819,6 +861,7 @@ Callers branch with `errors.Is` over:
 | `ErrStyleConflict` | Theme definition or attributes conflict |
 | `ErrStyleMissing` | Theme or referenced semantic style is missing |
 | `ErrTextLimit` | Bounded title, display text, description, or message validation failed |
+| `ErrValidation` | Invalid validator policy or hard-invalid programmatic text |
 
 Context-aware methods reject nil contexts and may return
 `context.Canceled` or `context.DeadlineExceeded`.
@@ -917,9 +960,9 @@ This contract does not yet provide:
 - Layout replacement, detachment, spacers, and control reparenting;
 - reparenting;
 - a public custom-paint or arbitrary control factory;
-- focus, hit testing, selection, activation, mouse input, paste, or editing;
+- hit testing, mouse input, or bounded paste events;
 - mutable titles or border styles;
-- menus, mnemonic scopes, or accelerator scopes;
+- panel-owned/context menus or application-extensible mnemonic scopes;
 - a public cursor mutator;
 - a general UI-owner `Post`/`Call` event loop;
 - synchronization of caller-owned models;

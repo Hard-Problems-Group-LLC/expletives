@@ -9,6 +9,25 @@
 
 ## Observed Opportunities
 
+### 32. Reuse One Bounded Editor Core Across Input Specializations
+
+TextField required normalization, caret/view state, focus-loss commit,
+validation, password redaction, typed snapshot projection, response bounds,
+and catalog evidence. Reimplementing those seams independently for
+NumberField, SpinBox, and TextArea would multiply both code and verification
+cost.
+
+Improvement applied:
+
+- keep canonical one-cell normalization, validation, masking, editing, and
+  typed evidence in a shared internal editor behavior;
+- express NumberField and SpinBox as narrow numeric policies over that core;
+- let TextArea extend the same edit primitives with line and viewport state;
+- retain explicit public control kinds and typed details at trust boundaries;
+  and
+- run the full verification gate at major feature checkpoints rather than
+  after each small edit.
+
 ### 31. Keep Dashboard IDs Out Of Dashboard Titles
 
 Ubersight already renders each phase/slice ID. Repeating `Phase 11` or `11.3`

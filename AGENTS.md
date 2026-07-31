@@ -267,6 +267,14 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   Cycle/Select `[`/`]` changes, serialized user changes, programmatic-setter
   silence, outside-lock ChangeCommand routing, and exact typed
   snapshot/automation evidence.
+- Preserve the directed Text and Numeric Input contract in
+  [`docs/specifications/text-and-numeric-input-api-v0.md`](docs/specifications/text-and-numeric-input-api-v0.md).
+  Optional text validators require soft or hard enforcement, whitelist or
+  blacklist matching, and a nonempty matching-character set. Soft mode
+  accepts input with green valid text or yellow valid/red invalid text when
+  invalid. Hard mode ignores disallowed typed input. Password defaults false,
+  paints `*`, still validates the real value, and never exposes that value in
+  frames, snapshots, automation, diagnostics, or logs.
 - Represent menu accelerators, mnemonics, hotkeys, and bindings as structured
   data. Provide fallback paths when Alt or modified keys are unavailable.
 - Preserve the completed Actions, Menus, Status Bar, Headers/Footers, and

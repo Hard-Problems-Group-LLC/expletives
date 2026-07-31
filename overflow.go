@@ -244,13 +244,7 @@ func (a *App) paintOverflowWarningLocked(
 	frame *IntendedFrame,
 	overflows []OverflowSnapshot,
 ) {
-	active := false
-	for _, overflow := range overflows {
-		if overflow.State == "default_active" {
-			active = true
-			break
-		}
-	}
+	active := defaultOverflowActive(overflows)
 	if !active || frame.Size.Width == 0 || frame.Size.Height == 0 {
 		return
 	}
@@ -277,4 +271,13 @@ func (a *App) paintOverflowWarningLocked(
 			a.root.state.id,
 		)
 	}
+}
+
+func defaultOverflowActive(overflows []OverflowSnapshot) bool {
+	for _, overflow := range overflows {
+		if overflow.State == "default_active" {
+			return true
+		}
+	}
+	return false
 }

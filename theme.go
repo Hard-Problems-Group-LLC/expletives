@@ -87,6 +87,23 @@ func DefaultTheme() Theme {
 		"radio_button":     resolved,
 		"cycle_field":      resolved,
 		"select_field":     resolved,
+		"text_field":       resolved,
+		"text_input.valid": {
+			Foreground: RGB(0x00, 0xAA, 0x00),
+			Background: resolved.Background,
+		},
+		"text_input.invalid": {
+			Foreground: RGB(0xAA, 0xAA, 0x00),
+			Background: resolved.Background,
+		},
+		"text_input.invalid_character": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: resolved.Background,
+		},
+		"text_input.disabled": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: resolved.Background,
+		},
 		"selection.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
 			Background: resolved.Background,

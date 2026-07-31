@@ -9,7 +9,11 @@ import (
 	"io"
 	"net"
 	"strings"
+	"unicode"
 	"unicode/utf8"
+
+	expletives "github.com/Hard-Problems-Group-LLC/expletives"
+	"github.com/rivo/uniseg"
 )
 
 var (
@@ -353,12 +357,6 @@ func validateKeyEvent(event KeyEvent, limits Limits) error {
 }
 
 func validLogicalKey(key string) bool {
-	if len(key) == 1 {
-		return (key[0] >= 'a' && key[0] <= 'z') ||
-			(key[0] >= '0' && key[0] <= '9') ||
-			key == "[" ||
-			key == "]"
-	}
 	switch key {
 	case "control", "alt", "shift", "meta",
 		"space", "enter", "escape", "tab", "backspace",
@@ -368,8 +366,21 @@ func validLogicalKey(key string) bool {
 		"f7", "f8", "f9", "f10", "f11", "f12":
 		return true
 	default:
+	}
+	if key == "" || len(key) > expletives.MaxCellBytes ||
+		!utf8.ValidString(key) {
 		return false
 	}
+	for _, current := range key {
+		if unicode.IsControl(current) {
+			return false
+		}
+	}
+	graphemes := uniseg.NewGraphemes(key)
+	if !graphemes.Next() {
+		return false
+	}
+	return !graphemes.Next()
 }
 
 func invalidRequest(requestID string, err error) *decodeError {

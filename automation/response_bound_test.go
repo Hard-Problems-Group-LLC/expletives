@@ -558,6 +558,79 @@ func TestSnapshotRejectsInvalidFocusGuideBarDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() Completion {
+		completion := maximumValidElementCompletion(limits)
+		control := &completion.Snapshot.Controls[0]
+		control.Kind = "text_field"
+		control.Details = ControlDetails{
+			Version: 1,
+			TextField: &TextFieldDetails{
+				Text: "abc", Length: 3, Caret: 2, ViewOffset: 0,
+				Valid: true, Enabled: true,
+				Validator: &TextValidatorDetails{
+					Enforcement: "soft",
+					Mode:        "whitelist",
+					Characters:  "abc",
+				},
+			},
+		}
+		return completion
+	}
+	if err := validateCompletion(valid(), limits); err != nil {
+		t.Fatalf("valid TextField fixture rejected: %v", err)
+	}
+	tests := map[string]func(*TextFieldDetails){
+		"length mismatch": func(details *TextFieldDetails) {
+			details.Length++
+		},
+		"caret beyond value": func(details *TextFieldDetails) {
+			details.Caret = details.Length + 1
+		},
+		"invalid validity": func(details *TextFieldDetails) {
+			details.Text = "abx"
+			details.Valid = true
+		},
+		"hard invalid": func(details *TextFieldDetails) {
+			details.Text = "abx"
+			details.Valid = false
+			details.Validator.Enforcement = "hard"
+		},
+		"redaction mismatch": func(details *TextFieldDetails) {
+			details.Password = true
+			details.Redacted = true
+		},
+		"duplicate validator": func(details *TextFieldDetails) {
+			details.Validator.Characters = "aabc"
+		},
+		"disabled editing": func(details *TextFieldDetails) {
+			details.Enabled = false
+			details.DisabledReason = "Disabled"
+			details.Editing = true
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			completion := valid()
+			mutate(completion.Snapshot.Controls[0].Details.TextField)
+			if err := validateCompletion(completion, limits); err == nil {
+				t.Fatal("validateCompletion() accepted invalid TextField details")
+			}
+		})
+	}
+
+	password := valid()
+	details := password.Snapshot.Controls[0].Details.TextField
+	details.Text = ""
+	details.Password = true
+	details.Redacted = true
+	if err := validateCompletion(password, limits); err != nil {
+		t.Fatalf("valid redacted TextField fixture rejected: %v", err)
+	}
+}
+
 func TestSnapshotRejectsInvalidMenuBarDetails(t *testing.T) {
 	t.Parallel()
 
@@ -1093,12 +1166,29 @@ func maximumCompletionJSONBytes(
 			Customization: string(controlValue.ID),
 		},
 	}
+	textFieldControl := controlValue
+	textFieldControl.Details = ControlDetails{
+		Version: 1,
+		TextField: &TextFieldDetails{
+			Length: math.MaxInt, Caret: math.MaxInt,
+			ViewOffset: math.MaxInt, Editing: true,
+			Valid: true, Password: true, Redacted: true,
+			Enabled:        false,
+			DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
+			ChangeCommand:  string(controlValue.ID),
+			Validator: &TextValidatorDetails{
+				Enforcement: string(controlValue.ID),
+				Mode:        string(controlValue.ID),
+			},
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
 		mustMarshal(t, actionControl),
 		mustMarshal(t, hotkeyControl),
 		mustMarshal(t, focusGuideControl),
+		mustMarshal(t, textFieldControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate
@@ -1126,8 +1216,9 @@ func maximumCompletionJSONBytes(
 		selectionControlBytes-len(control),
 	)
 	t.Logf(
-		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d status_item=%d status_control_overhead=%d selection_item=%d selection_control_overhead=%d",
+		"bound elements: base=%d run=%d control=%d source=%d overflow=%d layout=%d layout_item=%d menu_item=%d menu_control_overhead=%d status_item=%d status_control_overhead=%d selection_item=%d selection_control_overhead=%d text_input_payload=%d",
 		len(base), len(run), len(control), len(source), len(overflow), len(layout), len(layoutItem), len(menuItem), menuControlOverhead, len(statusItem), statusControlOverhead, selectionItemBytes, selectionControlOverhead,
+		2*expletives.MaxTextInputAggregateBytes,
 	)
 
 	return len(base) +
@@ -1142,7 +1233,8 @@ func maximumCompletionJSONBytes(
 		statusControlOverhead +
 		(expletives.MaxStatusBarSegments-1)*(len(statusItem)+1) +
 		expletives.MaxSelectionItems*(selectionItemBytes+1) +
-		expletives.MaxSelectionItems*selectionControlOverhead
+		expletives.MaxSelectionItems*selectionControlOverhead +
+		2*expletives.MaxTextInputAggregateBytes
 }
 
 func maximumElementCompletion(limits Limits) Completion {

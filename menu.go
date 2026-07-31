@@ -610,6 +610,7 @@ func (a *App) startMenuSessionLocked(
 		rootIndex < 0 || rootIndex >= len(behavior.items) {
 		return false
 	}
+	_, _, _ = a.commitTextFieldStateLocked(a.focus)
 	prior := a.focus
 	if a.menu != nil {
 		if a.menu.bar == state && a.menu.rootIndex == rootIndex &&

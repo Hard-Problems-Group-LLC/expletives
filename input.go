@@ -578,6 +578,9 @@ func (a *App) DispatchKey(
 			}
 		} else if mnemonicKeyEvent(event.Key, held) {
 			control, activate := a.mnemonicControlLocked(event.Key)
+			if control != nil && control != a.focus {
+				_, _, _ = a.commitTextFieldStateLocked(a.focus)
+			}
 			if control != nil && activate {
 				if behavior, ok := control.behavior.(buttonBehavior); ok {
 					command = behavior.command
@@ -612,20 +615,50 @@ func (a *App) DispatchKey(
 			}
 		} else if event.Key == KeyTab && tabModifiers(held) {
 			result.Outcome = OutcomeNoOp
+			var committed bool
+			command, target, committed = a.commitFocusedTextFieldLocked()
+			if committed {
+				result.Outcome = OutcomeApplied
+			}
 			if a.moveFocusLocked(held[KeyShift]) {
 				result.Outcome = OutcomeApplied
 			}
-		} else if noHeldModifiers(held) {
-			if isDirectionalFocusKey(event.Key) {
+			if command != "" {
+				router, result, execute = a.resolveCommandLocked(command)
+			}
+		} else {
+			textHandled := false
+			if textInputModifiers(held) {
+				var textChanged bool
+				command, target, textHandled, textChanged =
+					a.textFieldInputLocked(a.focus, event.Key, held)
+				if textHandled {
+					result.Outcome = OutcomeNoOp
+					if textChanged {
+						result.Outcome = OutcomeApplied
+					}
+					if command != "" {
+						router, result, execute =
+							a.resolveCommandLocked(command)
+					}
+				}
+			}
+			if textHandled {
+				break
+			}
+			if noHeldModifiers(held) && isDirectionalFocusKey(event.Key) {
 				result.Outcome = OutcomeNoOp
 				if a.moveDirectionalFocusLocked(event.Key) {
 					result.Outcome = OutcomeApplied
 				}
-			} else if (event.Key == KeyHome || event.Key == KeyEnd) &&
+			} else if noHeldModifiers(held) &&
+				(event.Key == KeyHome || event.Key == KeyEnd) &&
 				a.moveRadioBoundaryFocusLocked(event.Key) {
 				result.Outcome = OutcomeApplied
-			} else if action, handled :=
-				a.selectionKeyActionLocked(a.focus, event.Key); handled {
+			} else if action, handled := a.selectionKeyActionLocked(
+				a.focus,
+				event.Key,
+			); noHeldModifiers(held) && handled {
 				var changed bool
 				command, target, changed = a.applySelectionLocked(
 					a.focus,
@@ -638,7 +671,8 @@ func (a *App) DispatchKey(
 					router, result, execute =
 						a.resolveCommandLocked(command)
 				}
-			} else if event.Key == KeyEnter || event.Key == KeySpace {
+			} else if noHeldModifiers(held) &&
+				(event.Key == KeyEnter || event.Key == KeySpace) {
 				control := a.focus
 				if !a.buttonEligibleLocked(control) &&
 					event.Key == KeyEnter {
@@ -651,7 +685,7 @@ func (a *App) DispatchKey(
 					router, result, execute =
 						a.resolveCommandLocked(command)
 				}
-			} else if event.Key == KeyEscape {
+			} else if noHeldModifiers(held) && event.Key == KeyEscape {
 				control := a.roleButtonLocked(true)
 				if control != nil {
 					behavior := control.behavior.(buttonBehavior)
@@ -666,11 +700,6 @@ func (a *App) DispatchKey(
 					router, result, execute =
 						a.resolveCommandLocked(command)
 				}
-			}
-		} else {
-			command = a.bindings[chordKey(event.Key, held)]
-			if command != "" {
-				router, result, execute = a.resolveCommandLocked(command)
 			}
 		}
 	}
@@ -1054,12 +1083,8 @@ func isModifier(key Key) bool {
 }
 
 func validKey(key Key) bool {
-	if len(key) == 1 {
-		value := key[0]
-		return (value >= 'a' && value <= 'z') ||
-			(value >= '0' && value <= '9') ||
-			key == KeyLeftBracket ||
-			key == KeyRightBracket
+	if validPrintableKey(key) {
+		return true
 	}
 	switch key {
 	case KeyControl, KeyAlt, KeyShift, KeyMeta,

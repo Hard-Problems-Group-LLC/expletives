@@ -332,9 +332,17 @@ func (d *InputDecoder) finishUTF8(
 		return events
 	}
 
-	_, size := utf8.DecodeRune(d.pending)
+	decoded, size := utf8.DecodeRune(d.pending)
+	alt := d.state == stateAltUTF8
 	remainder := append([]byte(nil), d.pending[size:]...)
 	d.Reset()
+	input := []expletives.KeyEvent{
+		keyPress(expletives.Key(string(decoded))),
+	}
+	if alt {
+		input = appendAlt(nil, input)
+	}
+	events = append(events, input...)
 	for _, value := range remainder {
 		events = d.consume(events, now, value)
 	}
@@ -534,11 +542,7 @@ func appendASCII(
 		value != '\n' &&
 		value != '\r':
 		return appendControl(events, expletives.Key('a'+value-1))
-	case value >= 'A' && value <= 'Z':
-		return append(events, keyPress(expletives.Key(value-'A'+'a')))
-	case value >= 'a' && value <= 'z':
-		return append(events, keyPress(expletives.Key(value)))
-	case value >= '0' && value <= '9':
+	case value >= 0x21 && value <= 0x7e:
 		return append(events, keyPress(expletives.Key(value)))
 	}
 
@@ -547,10 +551,6 @@ func appendASCII(
 		return appendControl(events, expletives.KeySpace)
 	case ' ':
 		return append(events, keyPress(expletives.KeySpace))
-	case '[':
-		return append(events, keyPress(expletives.KeyLeftBracket))
-	case ']':
-		return append(events, keyPress(expletives.KeyRightBracket))
 	case '\r', '\n':
 		return append(events, keyPress(expletives.KeyEnter))
 	case '\t':

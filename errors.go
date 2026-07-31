@@ -56,4 +56,7 @@ var (
 	ErrStyleMissing = errors.New("expletives: semantic style is missing")
 	// ErrTextLimit reports text outside the bounded display contract.
 	ErrTextLimit = errors.New("expletives: displayed text exceeds a bounded limit")
+	// ErrValidation reports an invalid validator or a value rejected by hard
+	// validation.
+	ErrValidation = errors.New("expletives: text validation failed")
 )

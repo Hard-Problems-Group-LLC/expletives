@@ -64,6 +64,17 @@ const (
 	// MaxSelectionItems bounds aggregate RadioButton and copied fixed-option
 	// records across one App and its automation evidence.
 	MaxSelectionItems = 1024
+	// MaxTextInputBytes and MaxTextInputCells bound one editor value. These are
+	// allocation and evidence limits, not conventional terminal geometry caps.
+	MaxTextInputBytes = 64 << 10
+	MaxTextInputCells = 64 << 10
+	// MaxTextValidatorBytes and MaxTextValidatorCells bound one copied
+	// whitelist or blacklist.
+	MaxTextValidatorBytes = 4 << 10
+	MaxTextValidatorCells = 1024
+	// MaxTextInputAggregateBytes bounds values plus validator sets retained
+	// across one App so immutable snapshots and automation remain bounded.
+	MaxTextInputAggregateBytes = 256 << 10
 	// MaxActionItems bounds aggregate HotkeyBar items and StatusBar segments
 	// across one App.
 	MaxActionItems = MaxControls
@@ -284,6 +295,8 @@ const (
 	ControlCycleField ControlKind = "cycle_field"
 	// ControlSelectField is the SelectField naming variant of CycleField.
 	ControlSelectField ControlKind = "select_field"
+	// ControlTextField identifies one focusable single-line editor.
+	ControlTextField ControlKind = "text_field"
 )
 
 // TextAlignment selects placement on one logical control axis. Its empty
@@ -556,6 +569,8 @@ type ControlDetails struct {
 	ChoiceField *ChoiceFieldDetails `json:"choice_field,omitempty"`
 	// FocusGuideBar is present for FocusGuideBar.
 	FocusGuideBar *FocusGuideBarDetails `json:"focus_guide_bar,omitempty"`
+	// TextField is present for TextField.
+	TextField *TextFieldDetails `json:"text_field,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -744,6 +759,30 @@ type FocusGuideBarDetails struct {
 	// Customization reports append or override when application guidance is
 	// registered for Target.
 	Customization FocusGuidanceMode `json:"customization,omitempty"`
+}
+
+// TextValidatorDetails describes one copied TextField character-set policy.
+type TextValidatorDetails struct {
+	Enforcement TextValidationEnforcement `json:"enforcement"`
+	Mode        TextValidationMode        `json:"mode"`
+	Characters  string                    `json:"characters"`
+}
+
+// TextFieldDetails describes current single-line editing and validation state.
+// Text is always empty when Redacted is true.
+type TextFieldDetails struct {
+	Text           string                `json:"text,omitempty"`
+	Length         int                   `json:"length"`
+	Caret          int                   `json:"caret"`
+	ViewOffset     int                   `json:"view_offset"`
+	Editing        bool                  `json:"editing"`
+	Valid          bool                  `json:"valid"`
+	Password       bool                  `json:"password"`
+	Redacted       bool                  `json:"redacted"`
+	Enabled        bool                  `json:"enabled"`
+	DisabledReason string                `json:"disabled_reason,omitempty"`
+	ChangeCommand  CommandID             `json:"change_command,omitempty"`
+	Validator      *TextValidatorDetails `json:"validator,omitempty"`
 }
 
 // InputSourceSnapshot reports held logical keys for one isolated source.
@@ -950,6 +989,14 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		if snapshot.Controls[index].Details.FocusGuideBar != nil {
 			guide := *snapshot.Controls[index].Details.FocusGuideBar
 			cloned.Controls[index].Details.FocusGuideBar = &guide
+		}
+		if snapshot.Controls[index].Details.TextField != nil {
+			field := *snapshot.Controls[index].Details.TextField
+			if field.Validator != nil {
+				validator := *field.Validator
+				field.Validator = &validator
+			}
+			cloned.Controls[index].Details.TextField = &field
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

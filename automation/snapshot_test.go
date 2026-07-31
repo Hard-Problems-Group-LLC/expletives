@@ -450,6 +450,70 @@ func TestSnapshotProjectsFocusGuideBarDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 2},
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	if _, err := expletives.NewTextField(
+		app.Root(),
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.password",
+				Bounds: expletives.Rect{
+					Width: 20, Height: 1,
+				},
+			},
+			Text:     "secret",
+			Password: true,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  " ",
+			},
+		},
+	); err != nil {
+		t.Fatalf("NewTextField() error = %v", err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *TextFieldDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "input.password" {
+			details = projected.Controls[index].Details.TextField
+			break
+		}
+	}
+	if details == nil || details.Text != "" || details.Length != 6 ||
+		!details.Password || !details.Redacted || !details.Valid ||
+		details.Validator == nil ||
+		details.Validator.Enforcement != "soft" ||
+		details.Validator.Mode != "blacklist" {
+		t.Fatalf("projected TextFieldDetails = %#v", details)
+	}
+	encoded, err := json.Marshal(projected)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if bytes.Contains(encoded, []byte("secret")) {
+		t.Fatal("password value leaked into projected JSON")
+	}
+
+	cloned := cloneSnapshot(projected)
+	details.Validator.Characters = "mutated"
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "input.password" &&
+			cloned.Controls[index].Details.TextField.Validator.Characters != " " {
+			t.Fatal("cloned TextField validator aliases projected storage")
+		}
+	}
+}
+
 func TestExpandFrameRejectsDisagreeingCompactAndExpandedViews(t *testing.T) {
 	t.Parallel()
 

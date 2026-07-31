@@ -920,6 +920,10 @@ the root package's local snapshot. The client checks:
   enabled/disabled reasons, exclusive radio selection, selected-index
   consistency, copied option state, at most 256 fixed options per field, and
   at most 1,024 aggregate RadioButton/fixed-option records;
+- kind-consistent TextField details with canonical bounded text, caret and
+  horizontal view position, editing/valid/enabled state, copied validator
+  policy, hard-validator consistency, and password value redaction; aggregate
+  editor values plus validator sets are bounded to 262,144 UTF-8 bytes;
 - at most 4,096 bounded input-source and overflow records, and at most eight
   valid held keys per source;
 - exact equality of snapshot and completion frame sequences;
@@ -942,8 +946,8 @@ cell. Control-detail union members must match the control kind. A nested public
 snapshot-completion message is at most 1,024 UTF-8 bytes without NUL. A
 top-level protocol `error.message` is trimmed to at most 256 valid UTF-8
 bytes. Every encoded response must also fit the 40 MiB response-line limit.
-The conservative legal-maximum completion proof is 40,865,691 JSON bytes;
-three such records total 122,597,073 bytes and remain below the 128 MiB
+The conservative legal-maximum completion proof is 41,389,979 JSON bytes;
+three such records total 124,169,937 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
 
 ## Public Go Client Contract
@@ -1112,12 +1116,12 @@ revalidated on 2026-07-30 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 
-That command passed. The current maximum fixture encoded to 40,865,691 bytes;
-three retained maximum records total 122,597,073 bytes.
+That command passed. The current maximum fixture encoded to 41,389,979 bytes;
+three retained maximum records total 124,169,937 bytes.
 
 The relevant integration assertions are:
 

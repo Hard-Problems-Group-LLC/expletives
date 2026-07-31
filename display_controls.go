@@ -654,6 +654,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 			leftValue.content.text == rightValue.content.text &&
 			leftValue.alignment == rightValue.alignment &&
 			leftValue.mutable == rightValue.mutable
+	case textFieldBehavior:
+		rightValue, ok := right.(textFieldBehavior)
+		return ok && textFieldBehaviorEqual(leftValue, rightValue)
 	default:
 		return selectionBehaviorEqual(left, right)
 	}

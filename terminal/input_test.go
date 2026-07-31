@@ -123,7 +123,7 @@ func TestInputDecoderRecognizesShiftTab(t *testing.T) {
 	}
 }
 
-func TestInputDecoderPreservesSplitUTF8WithoutCreatingKeys(t *testing.T) {
+func TestInputDecoderPreservesSplitUTF8PrintableKeys(t *testing.T) {
 	t.Parallel()
 
 	now := time.Unix(1, 0)
@@ -139,7 +139,10 @@ func TestInputDecoderPreservesSplitUTF8WithoutCreatingKeys(t *testing.T) {
 			}
 			second := append(append([]byte(nil), encoded[split:]...), 'a')
 			got := decoder.Feed(now.Add(time.Millisecond), second)
-			want := []expletives.KeyEvent{keyPress("a")}
+			want := []expletives.KeyEvent{
+				keyPress(expletives.Key(string(encoded))),
+				keyPress("a"),
+			}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("% x split %d completed events = %#v, want %#v",
 					encoded, split, got, want)
@@ -185,7 +188,7 @@ func TestInputDecoderEscapeDeadlineAndAlt(t *testing.T) {
 		got := decoder.Feed(start.Add(time.Millisecond), []byte{'F'})
 		want := []expletives.KeyEvent{
 			{Kind: expletives.KeyEventDown, Key: expletives.KeyAlt},
-			keyPress("f"),
+			keyPress("F"),
 			{Kind: expletives.KeyEventUp, Key: expletives.KeyAlt},
 		}
 		if !reflect.DeepEqual(got, want) {

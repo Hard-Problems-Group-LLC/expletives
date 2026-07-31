@@ -11,14 +11,16 @@ drive-and-observe interface is enabled only with
 to that explicitly enabled endpoint.
 
 Core/Containers, Basic Presentation, Basic Automation, Basic Layouts,
-Text/Display, Actions, Menus, Status Bar, and Headers/Footers are implemented.
+Text/Display, Actions, Menus, Status Bar, Headers/Footers, Selection, and
+TextField are implemented.
 The public Go package includes non-container `Label`, `StaticText`,
 `Separator`, `Rule`, `Button`, `HotkeyBar`, `MenuBar`, and `StatusBar`
-controls; root-owned one-row `Header` and `Footer` containers; immutable
-`Menu` models; Box/Grid and nested Layouts; independent arrangement and
-stacking order; structured overflow; optional root size/aspect constraints;
-independent Frame/Layout borders; immutable semantic snapshots; and the
-CGO-free Linux terminal presenter.
+controls; `Checkbox`, `RadioButton`/`RadioGroup`, `CycleField`, `SelectField`,
+and validated/password-safe `TextField`; root-owned one-row `Header` and
+`Footer` containers; immutable `Menu` models; Box/Grid and nested Layouts;
+independent arrangement and stacking order; structured overflow; optional
+root size/aspect constraints; independent Frame/Layout borders; immutable
+semantic snapshots; and the CGO-free Linux terminal presenter.
 Application surfaces are bounded by aggregate allocated cells rather than a
 conventional 240-column ceiling; 1200 by 1200 is a tested geometry. The
 `toolkit.catalog` `expletives-test` application exercises the delivered
@@ -50,7 +52,8 @@ The fixture includes independent single/double/shade borders on Frames and
 Layouts, including an unbordered Frame whose child Layout supplies the one
 clean outline. It also presents aligned `Label`, word-wrapped `StaticText`,
 double-line `Separator`, titled `Rule`, Action and Menu controls, a persistent
-StatusBar, and one-row Header/Footer Layout examples.
+StatusBar, one-row Header/Footer Layout examples, grouped Selection controls,
+and unrestricted/soft/hard/password TextField examples.
 
 The attached commands `layout.panel.raise`, `layout.panel.lower`,
 `layout.layer.raise`, and `layout.layer.lower` exercise the new stack paths.

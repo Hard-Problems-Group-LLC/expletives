@@ -63,6 +63,9 @@ do not use them as retrospective decoration.
   focused-control guidance and per-instance append/override customization.
 - [`selection-api-v0.md`](selection-api-v0.md) defines Checkbox,
   RadioButton/RadioGroup, and fixed-option CycleField/SelectField behavior.
+- [`text-and-numeric-input-api-v0.md`](text-and-numeric-input-api-v0.md)
+  defines the Phase 12 editing, validator, password, numeric, and multiline
+  input contract.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

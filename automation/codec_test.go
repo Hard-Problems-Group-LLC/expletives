@@ -49,6 +49,12 @@ func TestDecodeRequest(t *testing.T) {
 			requestID: "key-right",
 		},
 		{
+			name:      "unicode text key press",
+			record:    `{"protocol":"expletives.automation","version":1,"type":"inject_input","request_id":"key-unicode","event":{"kind":"key_press","key":"é"}}`,
+			operation: TypeInjectInput,
+			requestID: "key-unicode",
+		},
+		{
 			name:      "command",
 			record:    `{"protocol":"expletives.automation","version":1,"type":"invoke_command","request_id":"command-1","command":"scenario.reset","target_key":"root"}`,
 			operation: TypeInvokeCommand,
@@ -116,7 +122,7 @@ func TestDecodeRequestRejectsInvalidRecords(t *testing.T) {
 		},
 		{
 			name: "unsupported key",
-			line: `{"protocol":"expletives.automation","version":1,"type":"inject_input","request_id":"r1","event":{"kind":"key_press","key":"é"}}`,
+			line: `{"protocol":"expletives.automation","version":1,"type":"inject_input","request_id":"r1","event":{"kind":"key_press","key":"ab"}}`,
 			code: "invalid_request",
 		},
 		{

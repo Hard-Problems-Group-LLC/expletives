@@ -304,6 +304,7 @@ func (a *App) publishLocked(association *Completion) {
 }
 
 func (a *App) renderLocked() Snapshot {
+	a.cursor = CursorState{}
 	cellCount, _ := frameCellCount(a.size)
 	frame := IntendedFrame{
 		Size:  a.size,
@@ -357,6 +358,9 @@ func (a *App) renderLocked() Snapshot {
 	a.paintMenuBarChromeLocked(&snapshot.Frame)
 	a.paintMenuOverlayLocked(&snapshot.Frame)
 	a.paintOverflowWarningLocked(&snapshot.Frame, overflows)
+	if a.menu != nil || defaultOverflowActive(overflows) {
+		snapshot.Cursor = CursorState{}
+	}
 	return snapshot
 }
 
@@ -451,6 +455,9 @@ func (a *App) paintControlLocked(
 	case focusGuideBarBehavior:
 		guide := a.focusGuideBarDetailsLocked()
 		details.FocusGuideBar = &guide
+	case textFieldBehavior:
+		field := a.textFieldDetailsLocked(state, behavior)
+		details.TextField = &field
 	}
 	*controls = append(*controls, ControlSnapshot{
 		ID:             state.id,

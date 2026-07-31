@@ -1,6 +1,6 @@
 # `expletives-test` Interactive and Automation Requirements
 
-Status: Directed, implemented through Selection
+Status: Directed, implemented through TextField
 Authority: Direct operator requests on 2026-07-24
 Related decisions: `EXPL-DEC-001` through `EXPL-DEC-007` in
 [`project-management/decision-log.md`](../../project-management/decision-log.md)
@@ -221,6 +221,17 @@ callback.
 Scenario Reset restores the initial selection values without emitting user
 change callbacks.
 
+The Text / Numeric Input screen begins the input-control catalog with four
+single-line TextFields under stable `input.text.*` keys: an unrestricted
+field, a soft whitelist, a hard filename-character blacklist, and a
+password-masked soft blacklist. Enter starts and commits editing, Escape
+cancels, caret keys edit locally, and Tab crosses the four parent groups.
+Soft-invalid input remains visible with the specified green/yellow/red
+validation presentation. Hard-invalid input is ignored. Password text is
+masked in the frame and redacted from all snapshot and automation payloads.
+Successful user commits route the optional `text.changed` command; Scenario
+Reset restores all four initial committed values silently.
+
 The root-owned `status.main` StatusBar occupies the physical bottom row on
 every catalog screen. It shows the active screen as high-priority static
 context and no shortcut inventory. Sections/Status Bar is an independent
@@ -257,9 +268,9 @@ roots plus an end-aligned Help root.
   nested Stacking menu, and reserves Panel scroll-bar coverage.
 - Layouts links the distinct Box/Grid pages, contains Layout Raise/Lower in a
   nested Stacking menu, and reserves absolute-positioning coverage.
-- Controls links current Text/Display, Actions, and Selection pages, then uses
-  a separator to group disabled phase-owned Input, Progress, Navigation,
-  Scrolling/Content, and Collection pages.
+- Controls links current Text/Display, Actions, Selection, and Text / Numeric
+  Input pages, then uses a separator to group disabled phase-owned Progress,
+  Navigation, Scrolling/Content, and Collection pages.
 - Sections owns the independent Status Bar toggle, the Headers lifecycle
   submenu, and the semantic Footer-role visibility submenu.
 - Menus links the Menu overview and reserves Panel-owned and context-menu

@@ -41,6 +41,7 @@ const (
 	CommandSelection        expletives.CommandID = "catalog.controls.selection"
 	CommandSelectionChanged expletives.CommandID = "selection.changed"
 	CommandTextInput        expletives.CommandID = "catalog.controls.input"
+	CommandTextChanged      expletives.CommandID = "text.changed"
 	CommandProgress         expletives.CommandID = "catalog.controls.progress"
 	CommandNavigation       expletives.CommandID = "catalog.controls.navigation"
 	CommandScrolling        expletives.CommandID = "catalog.controls.scrolling"
@@ -68,6 +69,7 @@ var catalogScreens = []struct {
 	{CommandViewText, "Text / Display"},
 	{CommandViewActions, "Actions"},
 	{CommandSelection, "Selection"},
+	{CommandTextInput, "Text / Numeric Input"},
 	{CommandViewMenus, "Menu Bar"},
 	{CommandViewAbout, "About"},
 }
@@ -203,6 +205,31 @@ var (
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
 		Background: expletives.RGB(0x00, 0x38, 0x78),
 	}
+	textFieldStyle = expletives.Style{
+		ID:         "text_field",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	textInputValidStyle = expletives.Style{
+		ID:         "text_input.valid",
+		Foreground: expletives.RGB(0x00, 0xFF, 0x00),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	textInputInvalidStyle = expletives.Style{
+		ID:         "text_input.invalid",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0x00),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	textInputInvalidCharacterStyle = expletives.Style{
+		ID:         "text_input.invalid_character",
+		Foreground: expletives.RGB(0xFF, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	textInputDisabledStyle = expletives.Style{
+		ID:         "text_input.disabled",
+		Foreground: expletives.RGB(0x80, 0x80, 0x80),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
 )
 
 // Scene owns the catalog controls and its small application controller state.
@@ -223,6 +250,10 @@ type Scene struct {
 	selectionRadioGroup     *expletives.RadioGroup
 	selectionCycleField     *expletives.CycleField
 	selectionSelectField    *expletives.SelectField
+	inputPlain              *expletives.TextField
+	inputSoft               *expletives.TextField
+	inputHard               *expletives.TextField
+	inputPassword           *expletives.TextField
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -303,6 +334,11 @@ func NewWithRootConstraints(
 		selectionFocusedStyle,
 		selectionFocusedMnemonicStyle,
 		selectionDisabledStyle,
+		textFieldStyle,
+		textInputValidStyle,
+		textInputInvalidStyle,
+		textInputInvalidCharacterStyle,
+		textInputDisabledStyle,
 	)
 	if err != nil {
 		return nil, err
@@ -508,6 +544,17 @@ func NewWithRootConstraints(
 		content,
 		expletives.PanelOptions{
 			AutomationKey: "screen.selection",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.input",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
 		},
@@ -1291,6 +1338,151 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
+	plainInputGroup, err := transaction.NewGroupBox(
+		inputScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.group.plain",
+				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Plain TextField",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputPlain, err := transaction.NewTextField(
+		plainInputGroup,
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text.plain",
+			},
+			Text:          "Edit me",
+			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := transaction.SetFocusGuidance(
+		inputPlain,
+		expletives.FocusGuidance{
+			Mode: expletives.FocusGuidanceAppend,
+			Text: "This field accepts any supported one-cell character",
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	softInputGroup, err := transaction.NewGroupBox(
+		inputScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.group.soft",
+				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Soft Whitelist",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputSoft, err := transaction.NewTextField(
+		softInputGroup,
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text.soft_whitelist",
+			},
+			Text: "ABC-123",
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationWhitelist,
+				Characters:  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-",
+			},
+			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	hardInputGroup, err := transaction.NewGroupBox(
+		inputScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.group.hard",
+				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Hard Filename Blacklist",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputHard, err := transaction.NewTextField(
+		hardInputGroup,
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text.hard_blacklist",
+			},
+			Text: "safe-name.txt",
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationHard,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  `/\:*?"<>|`,
+			},
+			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	passwordInputGroup, err := transaction.NewGroupBox(
+		inputScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.group.password",
+				MinimumSize:   expletives.Size{Width: 28, Height: 5},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Password + Soft Blacklist",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	inputPassword, err := transaction.NewTextField(
+		passwordInputGroup,
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "input.text.password",
+			},
+			Text:     "secret",
+			Password: true,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  " ",
+			},
+			ChangeCommand: CommandTextChanged,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	hotkeyBar, err := transaction.NewHotkeyBar(
 		recentFooter,
 		expletives.HotkeyBarOptions{
@@ -1351,6 +1543,7 @@ func NewWithRootConstraints(
 		{"text", textScreen},
 		{"actions", actionsScreen},
 		{"selection", selectionScreen},
+		{"input", inputScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
 		{"headers_footers", chromeScreen},
@@ -1913,6 +2106,62 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
+	inputGrid, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
+			AutomationKey: "layout.input.grid",
+			Columns:       2,
+			HorizontalGap: 1,
+			VerticalGap:   1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, group := range []expletives.Control{
+		plainInputGroup,
+		softInputGroup,
+		hardInputGroup,
+		passwordInputGroup,
+	} {
+		if err := inputGrid.AddPanel(
+			group,
+			expletives.LayoutItemOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+	for _, entry := range []struct {
+		key   string
+		group expletives.Container
+		field expletives.Control
+	}{
+		{"plain", plainInputGroup, inputPlain},
+		{"soft", softInputGroup, inputSoft},
+		{"hard", hardInputGroup, inputHard},
+		{"password", passwordInputGroup, inputPassword},
+	} {
+		layout, layoutErr := expletives.NewBoxLayout(
+			expletives.Vertical,
+			expletives.BoxLayoutOptions{
+				AutomationKey: "layout.input." + entry.key,
+				Insets: expletives.Insets{
+					Top: 1, Right: 1, Bottom: 1, Left: 1,
+				},
+			},
+		)
+		if layoutErr != nil {
+			return nil, layoutErr
+		}
+		if err := layout.AddPanel(
+			entry.field,
+			expletives.LayoutItemOptions{Grow: 1},
+		); err != nil {
+			return nil, err
+		}
+		if err := transaction.SetLayout(entry.group, layout); err != nil {
+			return nil, err
+		}
+	}
 	if err := transaction.SetLayout(app.Root(), rootLayout); err != nil {
 		return nil, err
 	}
@@ -2020,6 +2269,9 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
+	if err := transaction.SetLayout(inputScreen, inputGrid); err != nil {
+		return nil, err
+	}
 	if err := transaction.SetLayout(menusScreen, menusLayout); err != nil {
 		return nil, err
 	}
@@ -2083,6 +2335,10 @@ func NewWithRootConstraints(
 		selectionRadioGroup:     selectionRadioGroup,
 		selectionCycleField:     selectionCycleField,
 		selectionSelectField:    selectionSelectField,
+		inputPlain:              inputPlain,
+		inputSoft:               inputSoft,
+		inputHard:               inputHard,
+		inputPassword:           inputPassword,
 		activeScreen:            CommandViewHome,
 		automationEnabled:       automationEnabled,
 		automationNoticeVisible: automationEnabled,
@@ -2107,6 +2363,7 @@ func NewWithRootConstraints(
 			CommandViewText:        textScreen,
 			CommandViewActions:     actionsScreen,
 			CommandSelection:       selectionScreen,
+			CommandTextInput:       inputScreen,
 			CommandViewMenus:       menusScreen,
 			CommandViewAbout:       aboutScreen,
 		},
@@ -2243,6 +2500,11 @@ func initialCommandDefinitions(
 			Description: "Report a user-originated Selection control change",
 			Enabled:     true, Automation: true,
 		},
+		{
+			ID: CommandTextChanged, Label: "Text Changed",
+			Description: "Report a user-originated TextField commit",
+			Enabled:     true, Automation: true,
+		},
 		unavailableCatalogDefinition(
 			CommandPanelScrollbars,
 			"Panel Scroll Bars",
@@ -2252,11 +2514,6 @@ func initialCommandDefinitions(
 			CommandLayoutAbsolute,
 			"Absolute Positioning",
 			"future Layout",
-		),
-		unavailableCatalogDefinition(
-			CommandTextInput,
-			"Text / Numeric Input",
-			"Text and Numeric Input",
 		),
 		unavailableCatalogDefinition(
 			CommandProgress,
@@ -2921,6 +3178,19 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		for _, input := range []struct {
+			field *expletives.TextField
+			value string
+		}{
+			{s.inputPlain, "Edit me"},
+			{s.inputSoft, "ABC-123"},
+			{s.inputHard, "safe-name.txt"},
+			{s.inputPassword, "secret"},
+		} {
+			if err := transaction.SetText(input.field, input.value); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+		}
 		if err := transaction.Commit(context.Background()); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -2944,10 +3214,10 @@ func (s *Scene) handleCommand(
 		return expletives.OutcomeApplied, nil
 	case CommandViewHome, CommandViewPanelsCore, CommandViewPanelStyles,
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
-		CommandViewActions, CommandSelection, CommandViewMenus,
+		CommandViewActions, CommandSelection, CommandTextInput, CommandViewMenus,
 		CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
-	case CommandSelectionChanged:
+	case CommandSelectionChanged, CommandTextChanged:
 		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -3266,6 +3536,7 @@ func SelfCheck() error {
 		"screen.text",
 		"screen.actions",
 		"screen.selection",
+		"screen.input",
 		"screen.menus",
 		"screen.status",
 		"screen.headers_footers",
@@ -3312,6 +3583,14 @@ func SelfCheck() error {
 		"selection.cycle.wrap",
 		"selection.select.clamp",
 		"selection.cycle.empty",
+		"input.group.plain",
+		"input.group.soft",
+		"input.group.hard",
+		"input.group.password",
+		"input.text.plain",
+		"input.text.soft_whitelist",
+		"input.text.hard_blacklist",
+		"input.text.password",
 		"layer.back",
 		"layer.front",
 	} {
@@ -3343,6 +3622,7 @@ func SelfCheck() error {
 		"menu.layouts.box":        "Box Layout",
 		"menu.layouts.grid":       "Grid Layout",
 		"menu.controls.selection": "Selection",
+		"menu.controls.input":     "Text / Numeric Input",
 	}
 	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
 	homeChecked := false
@@ -3427,6 +3707,7 @@ func SelfCheck() error {
 		controls["screen.text"].Visible ||
 		controls["screen.actions"].Visible ||
 		controls["screen.selection"].Visible ||
+		controls["screen.input"].Visible ||
 		controls["screen.menus"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
@@ -3582,6 +3863,61 @@ func SelfCheck() error {
 	if controls["selection.checkbox.two_state"].Details.Checkbox.State !=
 		expletives.CheckChecked {
 		return errors.New("Selection raw Space did not check the Checkbox")
+	}
+	if err := invoke("show-input", CommandTextInput); err != nil {
+		return err
+	}
+	plainDetails := controls["input.text.plain"].Details.TextField
+	softDetails := controls["input.text.soft_whitelist"].Details.TextField
+	hardDetails := controls["input.text.hard_blacklist"].Details.TextField
+	passwordDetails := controls["input.text.password"].Details.TextField
+	if !controls["screen.input"].Visible ||
+		!controls["input.text.plain"].Focused ||
+		plainDetails == nil || plainDetails.Text != "Edit me" ||
+		softDetails == nil || softDetails.Validator == nil ||
+		softDetails.Validator.Enforcement != expletives.TextValidationSoft ||
+		hardDetails == nil || hardDetails.Validator == nil ||
+		hardDetails.Validator.Enforcement != expletives.TextValidationHard ||
+		passwordDetails == nil || !passwordDetails.Password ||
+		!passwordDetails.Redacted || passwordDetails.Text != "" {
+		return errors.New("TextField catalog typed evidence is incomplete")
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"input-edit",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyEnter,
+		},
+	); inputErr != nil ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextField edit dispatch = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"input-type",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  "!",
+		},
+	); inputErr != nil ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextField printable dispatch = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"input-commit",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyEnter,
+		},
+	); inputErr != nil ||
+		completion.Command != CommandTextChanged ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextField commit dispatch = %+v, %v", completion, inputErr)
 	}
 	if err := invoke("hide-status", CommandStatusBar); err != nil {
 		return err

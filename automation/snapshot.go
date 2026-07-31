@@ -179,6 +179,8 @@ type ControlDetails struct {
 	ChoiceField *ChoiceFieldDetails `json:"choice_field,omitempty"`
 	// FocusGuideBar is present for FocusGuideBar.
 	FocusGuideBar *FocusGuideBarDetails `json:"focus_guide_bar,omitempty"`
+	// TextField is present for TextField.
+	TextField *TextFieldDetails `json:"text_field,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -367,6 +369,29 @@ type FocusGuideBarDetails struct {
 	TargetKind    ControlKind `json:"target_kind,omitempty"`
 	Text          string      `json:"text"`
 	Customization string      `json:"customization,omitempty"`
+}
+
+// TextValidatorDetails describes one copied character-set policy.
+type TextValidatorDetails struct {
+	Enforcement string `json:"enforcement"`
+	Mode        string `json:"mode"`
+	Characters  string `json:"characters"`
+}
+
+// TextFieldDetails describes current single-line editing and validation state.
+type TextFieldDetails struct {
+	Text           string                `json:"text,omitempty"`
+	Length         int                   `json:"length"`
+	Caret          int                   `json:"caret"`
+	ViewOffset     int                   `json:"view_offset"`
+	Editing        bool                  `json:"editing"`
+	Valid          bool                  `json:"valid"`
+	Password       bool                  `json:"password"`
+	Redacted       bool                  `json:"redacted"`
+	Enabled        bool                  `json:"enabled"`
+	DisabledReason string                `json:"disabled_reason,omitempty"`
+	ChangeCommand  string                `json:"change_command,omitempty"`
+	Validator      *TextValidatorDetails `json:"validator,omitempty"`
 }
 
 // InputSourceSnapshot reports held keys for one isolated input source.
@@ -767,6 +792,25 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				Customization: string(details.Customization),
 			}
 		}
+		if details := control.Details.TextField; details != nil {
+			field := &TextFieldDetails{
+				Text: details.Text, Length: details.Length,
+				Caret: details.Caret, ViewOffset: details.ViewOffset,
+				Editing: details.Editing, Valid: details.Valid,
+				Password: details.Password, Redacted: details.Redacted,
+				Enabled:        details.Enabled,
+				DisabledReason: details.DisabledReason,
+				ChangeCommand:  string(details.ChangeCommand),
+			}
+			if details.Validator != nil {
+				field.Validator = &TextValidatorDetails{
+					Enforcement: string(details.Validator.Enforcement),
+					Mode:        string(details.Validator.Mode),
+					Characters:  details.Validator.Characters,
+				}
+			}
+			projectedControl.Details.TextField = field
+		}
 		projected.Controls[index] = projectedControl
 	}
 	for index, layout := range snapshot.Layouts {
@@ -960,6 +1004,14 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.FocusGuideBar != nil {
 			guide := *snapshot.Controls[index].Details.FocusGuideBar
 			cloned.Controls[index].Details.FocusGuideBar = &guide
+		}
+		if snapshot.Controls[index].Details.TextField != nil {
+			field := *snapshot.Controls[index].Details.TextField
+			if field.Validator != nil {
+				validator := *field.Validator
+				field.Validator = &validator
+			}
+			cloned.Controls[index].Details.TextField = &field
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

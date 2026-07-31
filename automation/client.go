@@ -731,6 +731,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	menuBarCount := 0
 	statusBarCount := 0
 	selectionItemCount := 0
+	textInputBytes := 0
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
 			(control.Key != "" && !validIdentifier(control.Key, limits.IdentifierBytes)) ||
@@ -820,6 +821,19 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 			return errors.New(
 				"snapshot Selection item count exceeds advertised bound",
 			)
+		}
+		if control.Details.TextField != nil {
+			textInputBytes += len(control.Details.TextField.Text)
+			if control.Details.TextField.Validator != nil {
+				textInputBytes += len(
+					control.Details.TextField.Validator.Characters,
+				)
+			}
+			if textInputBytes > expletives.MaxTextInputAggregateBytes {
+				return errors.New(
+					"snapshot TextField data exceeds advertised aggregate bound",
+				)
+			}
 		}
 		if control.Details.StatusBar != nil {
 			statusBarCount++
@@ -975,6 +989,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.FocusGuideBar != nil {
+		specialMembers++
+	}
+	if details.TextField != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1143,9 +1160,109 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil &&
 			validFocusGuideBarDetails(details.FocusGuideBar, limits)
+	case "text_field":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			details.Border == nil &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validTextFieldDetails(details.TextField, limits)
 	default:
 		return false
 	}
+}
+
+func validTextFieldDetails(
+	details *TextFieldDetails,
+	limits Limits,
+) bool {
+	if details == nil ||
+		details.Length < 0 ||
+		details.Length > expletives.MaxTextInputCells ||
+		details.Caret < 0 ||
+		details.Caret > details.Length ||
+		details.ViewOffset < 0 ||
+		details.ViewOffset > details.Length ||
+		details.Password != details.Redacted ||
+		(!details.Enabled && details.Editing) ||
+		!validSelectionReason(details.Enabled, details.DisabledReason) ||
+		(details.ChangeCommand != "" &&
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) {
+		return false
+	}
+	if details.Redacted {
+		if details.Text != "" {
+			return false
+		}
+	} else {
+		cells, ok := canonicalInputCells(details.Text)
+		if !ok || len(cells) != details.Length {
+			return false
+		}
+	}
+	if details.Validator == nil {
+		return details.Valid
+	}
+	validatorCells, ok := canonicalInputCells(details.Validator.Characters)
+	if !ok || len(validatorCells) == 0 ||
+		len(details.Validator.Characters) > expletives.MaxTextValidatorBytes ||
+		len(validatorCells) > expletives.MaxTextValidatorCells {
+		return false
+	}
+	switch details.Validator.Enforcement {
+	case "soft", "hard":
+	default:
+		return false
+	}
+	switch details.Validator.Mode {
+	case "whitelist", "blacklist":
+	default:
+		return false
+	}
+	set := make(map[string]bool, len(validatorCells))
+	for _, cell := range validatorCells {
+		if set[cell] {
+			return false
+		}
+		set[cell] = true
+	}
+	if details.Redacted {
+		return details.Validator.Enforcement != "hard" || details.Valid
+	}
+	valueCells, _ := canonicalInputCells(details.Text)
+	valid := true
+	for _, cell := range valueCells {
+		matched := set[cell]
+		allowed := matched
+		if details.Validator.Mode == "blacklist" {
+			allowed = !matched
+		}
+		valid = valid && allowed
+	}
+	return details.Valid == valid &&
+		(details.Validator.Enforcement != "hard" || valid)
+}
+
+func canonicalInputCells(text string) ([]string, bool) {
+	if len(text) > expletives.MaxTextInputBytes ||
+		!utf8.ValidString(text) {
+		return nil, false
+	}
+	for _, current := range text {
+		if current == '\r' || current == '\n' || unicode.IsControl(current) {
+			return nil, false
+		}
+	}
+	cells := display.Normalize(text)
+	if len(cells) > expletives.MaxTextInputCells ||
+		strings.Join(cells, "") != text {
+		return nil, false
+	}
+	return cells, true
 }
 
 func validFocusGuideBarDetails(
@@ -1172,7 +1289,7 @@ func validFocusGuideBarDetails(
 func validFocusTargetKind(kind ControlKind) bool {
 	switch kind {
 	case "button", "checkbox", "radio_button", "cycle_field",
-		"select_field", "menu_bar":
+		"select_field", "text_field", "menu_bar":
 		return true
 	default:
 		return false

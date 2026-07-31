@@ -152,6 +152,8 @@ func genericFocusGuidance(kind ControlKind) string {
 		return "Cycle field: [ previous; ] next; arrows move focus"
 	case ControlSelectField:
 		return "Select field: [ previous; ] next; arrows move focus"
+	case ControlTextField:
+		return "Text field: Enter edits/commits; Esc cancels; arrows move caret"
 	case ControlMenuBar:
 		return "Menu: arrows navigate; Enter activates; Esc closes"
 	default:

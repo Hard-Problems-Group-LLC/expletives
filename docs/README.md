@@ -7,6 +7,9 @@ Keep durable project documentation here.
 - [Limited Unicode Support](Limited-Unicode-Support.md) defines the strict
   one-cell text boundary, `U+FFFD` replacement policy, and conservative
   black-on-yellow ASCII degradation for basic terminals.
+- [Text Input Validation and Passwords](Text-Input-Validation-and-Passwords.md)
+  explains soft/hard whitelist/blacklist validation, edit behavior, password
+  masking, and snapshot redaction for consuming applications.
 - [Terminal Shortcut Compatibility](Terminal-Shortcut-Compatibility.md)
   identifies host-emulator collisions on supported RHEL, Fedora, and Ubuntu
   terminal families and defines the project's safe default-binding policy.
@@ -38,6 +41,9 @@ Keep durable project documentation here.
 - [Selection API v0](specifications/selection-api-v0.md) defines Checkbox,
   RadioButton/RadioGroup, and fixed-option CycleField/SelectField behavior,
   mutation, focus, notification, and typed automation evidence.
+- [Text and Numeric Input API v0](specifications/text-and-numeric-input-api-v0.md)
+  defines editor validation, password masking/redaction, and the Phase 12
+  `TextField`, `NumberField`, `SpinBox`, and `TextArea` boundary.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

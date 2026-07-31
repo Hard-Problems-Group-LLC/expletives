@@ -91,6 +91,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	var accentBounds, frontBounds, rootBounds automation.Rect
 	displayEvidence := make(map[string]bool)
 	actionEvidence := make(map[string]bool)
+	inputEvidence := make(map[string]bool)
 	screenEvidence := make(map[string]bool)
 	chromeEvidence := make(map[string]bool)
 	menuEvidence := false
@@ -128,8 +129,9 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.ResolvedStyle.Background == "#003878"
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
-			"screen.text", "screen.actions", "screen.selection", "screen.menus",
-			"screen.status", "screen.headers_footers", "screen.about":
+			"screen.text", "screen.actions", "screen.selection", "screen.input",
+			"screen.menus", "screen.status", "screen.headers_footers",
+			"screen.about":
 			screenEvidence[control.Key] = !control.Visible
 		case "header.primary", "header.secondary":
 			chromeEvidence[control.Key] =
@@ -237,6 +239,35 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 				control.Kind == "hotkey_bar" &&
 					control.Details.HotkeyBar != nil &&
 					len(control.Details.HotkeyBar.Items) == 2
+		case "input.text.plain":
+			inputEvidence[control.Key] =
+				control.Kind == "text_field" &&
+					control.Details.TextField != nil &&
+					control.Details.TextField.Text == "Edit me" &&
+					control.Details.TextField.Validator == nil &&
+					!control.Details.TextField.Password
+		case "input.text.soft_whitelist":
+			inputEvidence[control.Key] =
+				control.Kind == "text_field" &&
+					control.Details.TextField != nil &&
+					control.Details.TextField.Validator != nil &&
+					control.Details.TextField.Validator.Enforcement == "soft" &&
+					control.Details.TextField.Validator.Mode == "whitelist"
+		case "input.text.hard_blacklist":
+			inputEvidence[control.Key] =
+				control.Kind == "text_field" &&
+					control.Details.TextField != nil &&
+					control.Details.TextField.Validator != nil &&
+					control.Details.TextField.Validator.Enforcement == "hard" &&
+					control.Details.TextField.Validator.Mode == "blacklist"
+		case "input.text.password":
+			inputEvidence[control.Key] =
+				control.Kind == "text_field" &&
+					control.Details.TextField != nil &&
+					control.Details.TextField.Password &&
+					control.Details.TextField.Redacted &&
+					control.Details.TextField.Text == "" &&
+					control.Details.TextField.Length == len("secret")
 		}
 	}
 	if len(observe.Snapshot.Frame.Cells) > 2 {
@@ -256,16 +287,18 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(rootMnemonicEvidence) != len(expectedRootMnemonics) ||
 		len(displayEvidence) != 4 ||
 		len(actionEvidence) != 5 ||
-		len(screenEvidence) != 12 ||
+		len(inputEvidence) != 4 ||
+		len(screenEvidence) != 13 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
-			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v",
+			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v",
 			menuEvidence,
 			statusEvidence,
 			screenEvidence,
 			chromeEvidence,
 			displayEvidence,
 			actionEvidence,
+			inputEvidence,
 		)
 	}
 	for key, valid := range displayEvidence {
@@ -276,6 +309,11 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	for key, valid := range actionEvidence {
 		if !valid {
 			t.Fatalf("Action control %q has invalid typed evidence", key)
+		}
+	}
+	for key, valid := range inputEvidence {
+		if !valid {
+			t.Fatalf("TextField %q has invalid typed evidence", key)
 		}
 	}
 	for key, valid := range rootMnemonicEvidence {

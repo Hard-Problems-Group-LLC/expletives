@@ -31,6 +31,7 @@ var enabledCatalogMenuPaths = []enabledMenuPath{
 	{"menu.controls.text", []expletives.Key{"c", "t"}, CommandViewText, expletives.OutcomeApplied, CommandViewText, nil},
 	{"menu.controls.actions", []expletives.Key{"c", "a"}, CommandViewActions, expletives.OutcomeApplied, CommandViewActions, nil},
 	{"menu.controls.selection", []expletives.Key{"c", "e"}, CommandSelection, expletives.OutcomeApplied, CommandSelection, nil},
+	{"menu.controls.input", []expletives.Key{"c", "n"}, CommandTextInput, expletives.OutcomeApplied, CommandTextInput, nil},
 	{"menu.sections.status", []expletives.Key{"s", "s"}, CommandStatusBar, expletives.OutcomeApplied, "", nil},
 	{"menu.sections.headers.show", []expletives.Key{"s", "h", "s"}, CommandHeadersShow, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
 	{"menu.sections.headers.add", []expletives.Key{"s", "h", "a"}, CommandHeadersAdd, expletives.OutcomeApplied, "", []string{"menu.sections.headers"}},
@@ -53,7 +54,6 @@ var disabledCatalogMenuEntries = []disabledMenuEntry{
 	{"menu.file.automation_notice", "i", 1},
 	{"menu.panels.scrollbars", "n", 3},
 	{"menu.layouts.absolute", "a", 3},
-	{"menu.controls.input", "c", 3},
 	{"menu.controls.progress", "c", 4},
 	{"menu.controls.navigation", "c", 5},
 	{"menu.controls.scrolling", "c", 6},
@@ -490,6 +490,107 @@ func TestSelectionCatalogRawKeyboardAndReset(t *testing.T) {
 		control("selection.cycle.wrap").Details.ChoiceField.Value != "alpha" ||
 		control("selection.select.clamp").Details.ChoiceField.Value != "low" {
 		t.Fatal("Scenario Reset did not restore Selection initial values")
+	}
+}
+
+func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
+	scene, err := New(expletives.Size{Width: 100, Height: 30}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	open, err := scene.App.InvokeCommand(
+		context.Background(),
+		"input-audit",
+		"open-input",
+		CommandTextInput,
+		"",
+	)
+	if err != nil || open.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("open Input = %+v, %v", open, err)
+	}
+	control := func(key string) expletives.ControlSnapshot {
+		t.Helper()
+		for _, current := range scene.App.Snapshot().Controls {
+			if current.Key == key {
+				return current
+			}
+		}
+		t.Fatalf("control %q is absent", key)
+		return expletives.ControlSnapshot{}
+	}
+	dispatch := func(request string, key expletives.Key) expletives.Completion {
+		t.Helper()
+		completion, dispatchErr := scene.App.DispatchKey(
+			context.Background(),
+			"input-audit",
+			request,
+			expletives.KeyEvent{
+				Kind: expletives.KeyEventPress,
+				Key:  key,
+			},
+		)
+		if dispatchErr != nil {
+			t.Fatalf("DispatchKey(%s) error = %v", key, dispatchErr)
+		}
+		return completion
+	}
+	if !control("input.text.plain").Focused {
+		t.Fatal("Input screen did not focus its first TextField")
+	}
+	dispatch("plain-edit", expletives.KeyEnter)
+	dispatch("plain-type", "!")
+	if completion := dispatch("plain-commit", expletives.KeyEnter); completion.Command != CommandTextChanged {
+		t.Fatalf("plain commit = %+v", completion)
+	}
+	if details := control("input.text.plain").Details.TextField; details == nil || details.Text != "Edit me!" || details.Editing {
+		t.Fatalf("plain details after commit = %#v", details)
+	}
+
+	dispatch("tab-soft", expletives.KeyTab)
+	if !control("input.text.soft_whitelist").Focused {
+		t.Fatal("Tab did not cross to the Soft Whitelist group")
+	}
+	dispatch("soft-edit", expletives.KeyEnter)
+	dispatch("soft-invalid", "x")
+	if details := control("input.text.soft_whitelist").Details.TextField; details == nil || details.Valid || details.Text != "ABC-123x" {
+		t.Fatalf("soft-invalid details = %#v", details)
+	}
+	dispatch("soft-commit", expletives.KeyEnter)
+
+	dispatch("tab-hard", expletives.KeyTab)
+	dispatch("hard-edit", expletives.KeyEnter)
+	before := control("input.text.hard_blacklist").Details.TextField
+	if completion := dispatch("hard-reject", ":"); completion.Outcome != expletives.OutcomeNoOp {
+		t.Fatalf("hard-invalid completion = %+v", completion)
+	}
+	after := control("input.text.hard_blacklist").Details.TextField
+	if before == nil || after == nil || before.Length != after.Length {
+		t.Fatalf("hard-invalid changed details from %#v to %#v", before, after)
+	}
+	dispatch("hard-cancel", expletives.KeyEscape)
+
+	dispatch("tab-password", expletives.KeyTab)
+	password := control("input.text.password").Details.TextField
+	if password == nil || !password.Password || !password.Redacted ||
+		password.Text != "" || password.Length != len("secret") {
+		t.Fatalf("password details = %#v", password)
+	}
+
+	reset, err := scene.App.InvokeCommand(
+		context.Background(),
+		"input-audit",
+		"reset-input",
+		CommandScenarioReset,
+		"",
+	)
+	if err != nil || reset.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("Input reset = %+v, %v", reset, err)
+	}
+	if details := control("input.text.plain").Details.TextField; details == nil || details.Text != "Edit me" {
+		t.Fatalf("Scenario Reset left plain details = %#v", details)
+	}
+	if details := control("input.text.soft_whitelist").Details.TextField; details == nil || details.Text != "ABC-123" || !details.Valid {
+		t.Fatalf("Scenario Reset left soft details = %#v", details)
 	}
 }
 

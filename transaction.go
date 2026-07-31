@@ -55,6 +55,7 @@ const (
 	mutationChoiceValue
 	mutationChoiceOptions
 	mutationFocusGuidance
+	mutationTextField
 )
 
 type transactionMutation struct {
@@ -273,12 +274,37 @@ func (t *Transaction) SetMinimumSize(control Control, size Size) error {
 	return nil
 }
 
-// SetText records a canonical text change for a Label, StaticText, or Rule.
-// Unsupported control kinds return ErrInvalidControl.
+// SetText records a canonical text change for a Label, StaticText, Rule, or
+// TextField. A TextField replacement is a silent committed-value change that
+// leaves edit mode.
 func (t *Transaction) SetText(control Control, text string) error {
 	state, err := t.control(control)
 	if err != nil {
 		return err
+	}
+	if state.kind == ControlTextField {
+		value, err := normalizeInputText(text)
+		if err != nil {
+			return err
+		}
+		behavior, ok := t.recordedControlBehavior(state).(textFieldBehavior)
+		if !ok {
+			return ErrInvalidControl
+		}
+		if behavior.validator != nil &&
+			behavior.validator.value.Enforcement == TextValidationHard &&
+			!textCellsValid(value.cells, behavior.validator) {
+			return fmt.Errorf(
+				"%w: TextField value violates hard validation",
+				ErrValidation,
+			)
+		}
+		behavior.committed = value
+		behavior.working = cloneInputText(value)
+		behavior.editing = false
+		behavior.caret = len(value.cells)
+		behavior.viewOffset = 0
+		return t.recordTextFieldBehavior(state, behavior)
 	}
 	multiline := false
 	switch state.kind {
@@ -353,7 +379,7 @@ func (t *Transaction) SetFocus(control Control) error {
 	}
 	switch state.kind {
 	case ControlButton, ControlCheckbox, ControlRadioButton,
-		ControlCycleField, ControlSelectField:
+		ControlCycleField, ControlSelectField, ControlTextField:
 	default:
 		return ErrNotFocusable
 	}
@@ -667,6 +693,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
+		case mutationTextField:
+			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
 			behavior, err := t.selectionMutationBehaviorLocked(
@@ -819,7 +847,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	selectedBehaviors := make(map[*controlState]controlBehavior)
 	for _, mutation := range t.mutations {
 		switch mutation.kind {
-		case mutationStatusSegments, mutationCheckState, mutationRadioValue,
+		case mutationTextField, mutationStatusSegments,
+			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
 			selectedBehaviors[mutation.state] = mutation.behavior
 		}
@@ -896,6 +925,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	activeCount := 0
 	actionItems := 0
 	selectionItems := 0
+	textInputBytes := 0
 	menuBars := 0
 	statusBars := 0
 	mnemonics := make(map[Key]*controlState)
@@ -1078,6 +1108,21 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			if err := validateMnemonic(state, behavior.mnemonic); err != nil {
 				return err
 			}
+		case textFieldBehavior:
+			textInputBytes += len(behavior.committed.text)
+			if behavior.editing {
+				textInputBytes += len(behavior.working.text)
+			}
+			if behavior.validator != nil {
+				textInputBytes += len(behavior.validator.value.Characters)
+			}
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"TextField",
+			); err != nil {
+				return err
+			}
 			if err := validateChangeCommand(
 				behavior.changeCommand,
 				requireCommand,
@@ -1125,6 +1170,13 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	}
 	if selectionItems > MaxSelectionItems {
 		return ErrControlCapacity
+	}
+	if textInputBytes > MaxTextInputAggregateBytes {
+		return fmt.Errorf(
+			"%w: aggregate text input exceeds %d bytes",
+			ErrControlCapacity,
+			MaxTextInputAggregateBytes,
+		)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -1286,6 +1338,19 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				mutation.state.focusGuidance = mutation.focusGuidance
 				changed = true
 			}
+		case mutationTextField:
+			if !controlBehaviorEqual(
+				mutation.state.behavior,
+				mutation.behavior,
+			) {
+				mutation.state.behavior = mutation.behavior
+				if mutation.state.autoMinimum {
+					mutation.state.minimumSize =
+						mutation.behavior.(intrinsicMinimumBehavior).
+							intrinsicMinimum()
+				}
+				changed = true
+			}
 		}
 	}
 	if t.app.repairRadioGroupsLocked() {
@@ -1317,6 +1382,11 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			changed = true
 		}
 		if t.app.focus != t.focus {
+			if _, _, committed := t.app.commitTextFieldStateLocked(
+				t.app.focus,
+			); committed {
+				changed = true
+			}
 			t.app.focus = t.focus
 			t.app.clearInvalidPressesLocked()
 			changed = true

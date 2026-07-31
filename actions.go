@@ -490,6 +490,8 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return a.radioButtonEnabledLocked(state)
 	case choiceFieldBehavior:
 		return a.choiceFieldEnabledLocked(state)
+	case textFieldBehavior:
+		return !behavior.disabled
 	default:
 		return false
 	}
@@ -520,6 +522,8 @@ func (a *App) focusBehaviorEligibleLocked(
 				return true
 			}
 		}
+	case textFieldBehavior:
+		return !behavior.disabled
 	}
 	return false
 }
@@ -605,6 +609,7 @@ func (a *App) ensureFocusLocked() bool {
 		return false
 	}
 	previous := a.focus
+	_, _, committed := a.commitTextFieldStateLocked(previous)
 	a.focus = nil
 	controls := a.focusableControlsLocked()
 	if len(controls) != 0 {
@@ -614,7 +619,7 @@ func (a *App) ensureFocusLocked() bool {
 		a.clearInvalidPressesLocked()
 		return true
 	}
-	return false
+	return committed
 }
 
 func (a *App) moveFocusLocked(reverse bool) bool {
