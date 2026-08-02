@@ -998,7 +998,31 @@ func NewWithRootConstraints(
 			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
 		},
 		expletives.Style{
-			ID: "button", Foreground: menuPopupStyle.Foreground,
+			ID: "button", Foreground: expletives.RGB(0x00, 0x00, 0x00),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID: "button.default", Foreground: expletives.RGB(0x55, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID: "button.focused", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID: "button.pressed", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID: "button.disabled", Foreground: expletives.RGB(0x80, 0x80, 0x80),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "button.mnemonic", Foreground: expletives.RGB(0xFF, 0xFF, 0x55),
+			Background: expletives.RGB(0x00, 0xAA, 0x00),
+		},
+		expletives.Style{
+			ID: "button.shadow", Foreground: expletives.RGB(0x00, 0x00, 0x00),
 			Background: menuPopupStyle.Background,
 		},
 		expletives.Style{
@@ -2548,7 +2572,7 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 
-	progressGroups := make([]expletives.Control, 0, 6)
+	progressGroups := make([]expletives.Control, 0, 5)
 	newProgressGroup := func(key, title string) (*expletives.GroupBox, error) {
 		group, groupErr := transaction.NewGroupBox(
 			progressScreen,
@@ -2556,7 +2580,7 @@ func NewWithRootConstraints(
 				PanelOptions: expletives.PanelOptions{
 					AutomationKey: "progress.group." + key,
 					MinimumSize: expletives.Size{
-						Width: 18, Height: 5,
+						Width: 18, Height: 3,
 					},
 					Style: canvasStyle.ID,
 				},
@@ -2661,8 +2685,26 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	actionGroup, err := transaction.NewGroupBox(
+		progressScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "progress.group.actions",
+				MinimumSize: expletives.Size{
+					Width: 37, Height: 3,
+				},
+				Style: canvasStyle.ID,
+			},
+			Title:       "Actions",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderNone,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
 	progressVerticalMeter, err := transaction.NewMeter(
-		meterGroup,
+		actionGroup,
 		expletives.MeterOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "progress.meter.vertical",
@@ -2679,6 +2721,12 @@ func NewWithRootConstraints(
 	}
 	terminalGroup, err := newProgressGroup("terminal", "Terminal States")
 	if err != nil {
+		return nil, err
+	}
+	if err := transaction.SetMinimumSize(
+		terminalGroup,
+		expletives.Size{Width: 18, Height: 4},
+	); err != nil {
 		return nil, err
 	}
 	progressComplete, err := transaction.NewProgressBar(
@@ -2760,10 +2808,6 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	actionGroup, err := newProgressGroup("actions", "Actions")
-	if err != nil {
-		return nil, err
-	}
 	progressButtons := make([]expletives.Control, 0, 3)
 	for _, definition := range []struct {
 		key      string
@@ -2779,7 +2823,6 @@ func NewWithRootConstraints(
 			expletives.ButtonOptions{
 				PanelOptions: expletives.PanelOptions{
 					AutomationKey: "progress.action." + definition.key,
-					Style:         canvasStyle.ID,
 				},
 				Command:  definition.command,
 				Mnemonic: definition.mnemonic,
@@ -4341,7 +4384,7 @@ func NewWithRootConstraints(
 			AutomationKey: "layout.progress.grid",
 			Columns:       3,
 			HorizontalGap: 1,
-			VerticalGap:   1,
+			VerticalGap:   0,
 		},
 	)
 	if err != nil {
@@ -4355,13 +4398,32 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
+	progressRoot, err := expletives.NewBoxLayout(
+		expletives.Vertical,
+		expletives.BoxLayoutOptions{
+			AutomationKey: "layout.progress.root",
+			Gap:           1,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := progressRoot.AddLayout(
+		progressGrid,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
+	}
+	if err := progressRoot.AddPanel(
+		actionGroup,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
+	}
 	determinateLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
 		expletives.BoxLayoutOptions{
 			AutomationKey: "layout.progress.determinate",
-			Insets: expletives.Insets{
-				Top: 1, Right: 1, Bottom: 1, Left: 1,
-			},
 		},
 	)
 	if err != nil {
@@ -4374,7 +4436,7 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	indeterminateLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
+		expletives.Horizontal,
 		expletives.BoxLayoutOptions{
 			AutomationKey: "layout.progress.indeterminate",
 		},
@@ -4410,16 +4472,10 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
-	if err := meterLayout.AddPanel(
-		progressVerticalMeter,
-		expletives.LayoutItemOptions{},
-	); err != nil {
-		return nil, err
-	}
-	terminalLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
-		expletives.BoxLayoutOptions{
+	terminalLayout, err := expletives.NewGridLayout(
+		expletives.GridLayoutOptions{
 			AutomationKey: "layout.progress.terminal",
+			Columns:       2,
 		},
 	)
 	if err != nil {
@@ -4438,7 +4494,7 @@ func NewWithRootConstraints(
 		}
 	}
 	reducedLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
+		expletives.Horizontal,
 		expletives.BoxLayoutOptions{
 			AutomationKey: "layout.progress.reduced",
 			Gap:           1,
@@ -4459,9 +4515,10 @@ func NewWithRootConstraints(
 		}
 	}
 	progressActionLayout, err := expletives.NewBoxLayout(
-		expletives.Vertical,
+		expletives.Horizontal,
 		expletives.BoxLayoutOptions{
 			AutomationKey: "layout.progress.actions",
+			Gap:           2,
 		},
 	)
 	if err != nil {
@@ -4474,6 +4531,12 @@ func NewWithRootConstraints(
 		); err != nil {
 			return nil, err
 		}
+	}
+	if err := progressActionLayout.AddPanel(
+		progressVerticalMeter,
+		expletives.LayoutItemOptions{},
+	); err != nil {
+		return nil, err
 	}
 	navigationGrid, err := expletives.NewGridLayout(
 		expletives.GridLayoutOptions{
@@ -4659,12 +4722,12 @@ func NewWithRootConstraints(
 	if err := transaction.SetLayout(inputScreen, inputScreenLayout); err != nil {
 		return nil, err
 	}
-	if err := transaction.SetLayout(progressScreen, progressGrid); err != nil {
+	if err := transaction.SetLayout(progressScreen, progressRoot); err != nil {
 		return nil, err
 	}
 	for _, entry := range []struct {
 		group  expletives.Container
-		layout *expletives.BoxLayout
+		layout expletives.Layout
 	}{
 		{determinateGroup, determinateLayout},
 		{indeterminateGroup, indeterminateLayout},

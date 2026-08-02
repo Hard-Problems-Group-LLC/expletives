@@ -9,6 +9,24 @@
 
 ## Observed Opportunities
 
+### 41. Gate Shared Visual Primitives Before Compound Sign-Off
+
+The modal lifecycle and dialog compositions were thoroughly exercised, but
+their shared Button still used the earlier semantic placeholder rendering.
+Outcome-oriented tests could not catch incorrect colors, shape, or the missing
+Button-local shadow.
+
+Improvement applied:
+
+- compare a shared visual primitive directly with the governing look-and-feel
+  reference before declaring its first compound consumers complete;
+- assert a small set of exact semantic cells for normal, default, focused,
+  pressed, disabled, mnemonic, and shadow states;
+- reuse one Button renderer and one palette across every standard dialog; and
+- inspect all affected compounds in a single attached automation session,
+  projecting snapshots to relevant rows and cells instead of retaining full
+  responses.
+
 ### 40. Assert Visual Semantics At A Deliberate Geometry
 
 The first attached StreamView frame assertion expected the truncation marker

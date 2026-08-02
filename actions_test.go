@@ -80,11 +80,11 @@ func TestActionConstructionFocusAndRendering(t *testing.T) {
 	if _, ok := any(open).(Container); ok {
 		t.Fatal("Button unexpectedly implements Container")
 	}
-	if got := open.MinimumSize(); got != (Size{Width: 9, Height: 1}) {
-		t.Fatalf("Open minimum = %+v, want 9x1", got)
+	if got := open.MinimumSize(); got != (Size{Width: 10, Height: 2}) {
+		t.Fatalf("Open minimum = %+v, want 10x2", got)
 	}
-	if got := disabled.MinimumSize(); got != (Size{Width: 13, Height: 1}) {
-		t.Fatalf("Disabled minimum = %+v, want 13x1", got)
+	if got := disabled.MinimumSize(); got != (Size{Width: 12, Height: 2}) {
+		t.Fatalf("Disabled minimum = %+v, want 12x2", got)
 	}
 	if app.Focused() != open {
 		t.Fatalf("initial focus = %#v, want first eligible Button", app.Focused())
@@ -102,11 +102,11 @@ func TestActionConstructionFocusAndRendering(t *testing.T) {
 		disabledState.Details.Action.DisabledReason == "" {
 		t.Fatalf("disabled action snapshot = %#v", disabledState)
 	}
-	if got := rowText(snapshot, 1)[2:11]; got != "<* Open >" {
-		t.Fatalf("focused Button rendering = %q, want %q", got, "<* Open >")
+	if got := rowText(snapshot, 1)[1:13]; got != "    Open    " {
+		t.Fatalf("focused one-row Button override = %q", got)
 	}
-	if got := rowText(snapshot, 1)[15:28]; got != "(  Disabled )" {
-		t.Fatalf("disabled Button rendering = %q", got)
+	if got := rowText(snapshot, 1)[15:29]; got != "   Disabled   " {
+		t.Fatalf("disabled one-row Button override = %q", got)
 	}
 }
 
@@ -178,7 +178,7 @@ func TestActionActivationTraversalPressAndReset(t *testing.T) {
 	first, err := NewButton(app.Root(), ButtonOptions{
 		PanelOptions: PanelOptions{
 			AutomationKey: "button.first",
-			Bounds:        Rect{X: 0, Y: 0, Width: 12, Height: 1},
+			Bounds:        Rect{X: 0, Y: 0, Width: 12, Height: 2},
 		},
 		Command: "action.first",
 	})
@@ -188,7 +188,7 @@ func TestActionActivationTraversalPressAndReset(t *testing.T) {
 	second, err := NewButton(app.Root(), ButtonOptions{
 		PanelOptions: PanelOptions{
 			AutomationKey: "button.second",
-			Bounds:        Rect{X: 13, Y: 0, Width: 13, Height: 1},
+			Bounds:        Rect{X: 13, Y: 0, Width: 13, Height: 2},
 		},
 		Command: "action.second",
 	})
@@ -229,8 +229,29 @@ func TestActionActivationTraversalPressAndReset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SnapshotAt(down) error = %v", err)
 	}
-	if !actionByKey(t, downSnapshot, "button.second").Details.Action.Pressed {
+	downButton := actionByKey(t, downSnapshot, "button.second")
+	if !downButton.Details.Action.Pressed {
 		t.Fatal("Enter KeyDown did not publish pressed state")
+	}
+	downBounds := downButton.AbsoluteBounds
+	left, _ := downSnapshot.Frame.Cell(downBounds.X, downBounds.Y)
+	shiftedBody, _ := downSnapshot.Frame.Cell(downBounds.X+2, downBounds.Y)
+	right, _ := downSnapshot.Frame.Cell(
+		downBounds.X+downBounds.Width-1,
+		downBounds.Y,
+	)
+	bottom, _ := downSnapshot.Frame.Cell(downBounds.X+2, downBounds.Y+1)
+	if left.Style != "button.shadow" ||
+		shiftedBody.Style != "button.pressed" ||
+		right.Grapheme != " " || right.Style != "button.pressed" ||
+		bottom.Grapheme != " " || bottom.Style != "button.shadow" {
+		t.Fatalf(
+			"pressed Button cells = left %+v body %+v right %+v bottom %+v",
+			left,
+			shiftedBody,
+			right,
+			bottom,
+		)
 	}
 	up, err := app.DispatchKey(
 		context.Background(), "keyboard", "enter-up",
@@ -514,8 +535,8 @@ func TestCommandPresentationReplacementUpdatesActionGeometry(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("ReplaceCommand() error = %v", err)
 	}
-	if got := button.MinimumSize(); got != (Size{Width: 15, Height: 1}) {
-		t.Fatalf("renamed Button minimum = %+v, want 15x1", got)
+	if got := button.MinimumSize(); got != (Size{Width: 14, Height: 2}) {
+		t.Fatalf("renamed Button minimum = %+v, want 14x2", got)
 	}
 	state := actionByKey(t, app.Snapshot(), "button.rename")
 	if state.Details.Action.Label != "Go Further" ||

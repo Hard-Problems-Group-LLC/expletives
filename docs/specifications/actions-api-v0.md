@@ -57,12 +57,28 @@ Cancel are mutually exclusive. At most one surviving Button of each role may
 exist under one direct parent.
 
 The effective label and enabled/disabled state come from the referenced
-CommandDefinition. The one-row canonical rendering uses stable ASCII
-brackets and a one-cell role marker so normal, focused, pressed, disabled,
-default, and cancel states remain distinguishable without depending on color.
-The semantic Control style still supplies foreground/background/attributes.
-The automatic minimum is the normalized command-label width plus five cells
-by one row.
+CommandDefinition. The canonical rendering follows the Turbo Vision raised
+button: one body row plus a right/bottom half-block shadow row. The body moves
+one cell right and the shadow disappears while pressed. The automatic minimum
+is ten cells wide, or normalized label width plus four when larger, by two
+rows. An explicit smaller Bounds or Layout override remains usable but is a
+degraded presentation; a one-row override omits the shadow.
+
+The default color contract follows Turbo Vision's gray-dialog palette:
+
+- `button` is black on green;
+- `button.default` is bright cyan on green;
+- `button.focused` and `button.pressed` are white on green;
+- `button.mnemonic` is yellow on green;
+- `button.disabled` is dark gray on light gray; and
+- `button.shadow` is black on light gray and owns the `▄`, `█`, and `▀`
+  shadow cells.
+
+The Button's ordinary semantic Control style remains its normal-body style;
+the named state styles make focused, pressed, default, disabled, mnemonic,
+and shadow cells independently themeable and observable. Focus and state are
+also available semantically, so reduced-color and monochrome themes must keep
+them distinguishable without relying on hue alone.
 
 `Activate` serializes through normal dispatch, supplies the Button ControlID
 as `Command.Target`, performs the ordinary command registry checks, invokes

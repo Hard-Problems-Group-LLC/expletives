@@ -145,7 +145,7 @@ func (t *Transaction) NewMessageBox(
 	if err != nil {
 		return nil, err
 	}
-	prepareStandardDialogSize(t.app, &options.ModalPanelOptions, content, 7)
+	prepareStandardDialogSize(t.app, &options.ModalPanelOptions, content, 10)
 	dialog, err := t.newDialog(parent, options.DialogOptions, ControlMessageBox)
 	if err != nil {
 		return nil, err
@@ -164,8 +164,9 @@ func (t *Transaction) NewMessageBox(
 		PanelOptions: PanelOptions{
 			AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "ok"),
 		},
-		Command: CommandDialogOK,
-		Default: true,
+		Command:  CommandDialogOK,
+		Mnemonic: "k",
+		Default:  true,
 	})
 	if err != nil {
 		return nil, err
@@ -221,9 +222,9 @@ func (t *Transaction) NewConfirmDialog(
 	if err != nil {
 		return nil, err
 	}
-	buttonWidth := 8 + 1 + 7
+	buttonWidth := 10 + 2 + 10
 	if options.ShowCancel {
-		buttonWidth += 1 + 11
+		buttonWidth += 2 + 10
 	}
 	prepareStandardDialogSize(
 		t.app,
@@ -365,8 +366,9 @@ func (t *Transaction) NewInputDialog(
 		PanelOptions: PanelOptions{
 			AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "ok"),
 		},
-		Command: CommandDialogOK,
-		Default: true,
+		Command:  CommandDialogOK,
+		Mnemonic: "k",
+		Default:  true,
 	})
 	if err != nil {
 		return nil, err
@@ -375,8 +377,9 @@ func (t *Transaction) NewInputDialog(
 		PanelOptions: PanelOptions{
 			AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "cancel"),
 		},
-		Command: CommandDialogCancel,
-		Cancel:  true,
+		Command:  CommandDialogCancel,
+		Mnemonic: "c",
+		Cancel:   true,
 	})
 	if err != nil {
 		return nil, err
@@ -438,7 +441,7 @@ func (t *Transaction) NewProgressDialog(
 	autoHeight := options.Bounds.Height == 0
 	buttonWidth := 0
 	if options.Cancellable {
-		buttonWidth = 11
+		buttonWidth = 10
 	}
 	prepareStandardDialogSize(t.app, &options.ModalPanelOptions, status, buttonWidth)
 	if autoHeight {
@@ -833,7 +836,7 @@ func prepareStandardDialogSize(
 		for _, line := range content.lines {
 			rows += max(1, (len(line)+contentWidth-1)/contentWidth)
 		}
-		options.Bounds.Height = rows + 6
+		options.Bounds.Height = rows + 7
 	}
 }
 
@@ -910,7 +913,7 @@ func attachStandardDialogLayout(
 	}
 	row, err := NewBoxLayout(Horizontal, BoxLayoutOptions{
 		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "buttons"),
-		Gap:           1,
+		Gap:           2,
 	})
 	if err != nil {
 		return err
@@ -948,7 +951,7 @@ func attachInputDialogLayout(
 	}
 	row, err := NewBoxLayout(Horizontal, BoxLayoutOptions{
 		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "buttons"),
-		Gap:           1,
+		Gap:           2,
 	})
 	if err != nil {
 		return err

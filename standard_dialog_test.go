@@ -7,6 +7,292 @@ import (
 	"testing"
 )
 
+func TestStandardDialogTurboVisionPaletteAndButtonGeometry(t *testing.T) {
+	app, err := NewApp(AppOptions{
+		Size: Size{Width: 44, Height: 16}, Scenario: "message.visual",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	box, err := NewMessageBox(app.Root(), MessageBoxOptions{
+		DialogOptions: DialogOptions{ModalPanelOptions: ModalPanelOptions{
+			PanelOptions: PanelOptions{AutomationKey: "message.visual"},
+			Title:        "Notice",
+		}},
+		Message: "Ready.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := box.Show(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := app.Snapshot()
+	modal := controlByKey(t, snapshot, "message.visual")
+	message := controlByKey(t, snapshot, "message.visual.message")
+	button := controlByKey(t, snapshot, "message.visual.ok")
+	if button.AbsoluteBounds.Width < buttonMinimumWidth ||
+		button.AbsoluteBounds.Height != 2 ||
+		button.Details.Action == nil || button.Details.Action.Mnemonic != "k" {
+		t.Fatalf("MessageBox OK geometry/details = %+v", button)
+	}
+
+	wantGray := RGB(0xC0, 0xC0, 0xC0)
+	wantGreen := RGB(0x00, 0xAA, 0x00)
+	assertCell := func(
+		x, y int,
+		grapheme string,
+		style StyleID,
+		foreground, background Color,
+	) Cell {
+		t.Helper()
+		cell, found := snapshot.Frame.Cell(x, y)
+		if !found || cell.Grapheme != grapheme || cell.Style != style ||
+			cell.Foreground != foreground || cell.Background != background {
+			t.Fatalf(
+				"cell (%d,%d) = %+v, want %q %q %s/%s",
+				x, y, cell, grapheme, style, foreground, background,
+			)
+		}
+		return cell
+	}
+
+	assertCell(
+		modal.AbsoluteBounds.X,
+		modal.AbsoluteBounds.Y,
+		"╔",
+		"message_box.border",
+		RGB(0xFF, 0xFF, 0xFF),
+		wantGray,
+	)
+	assertCell(
+		modal.AbsoluteBounds.X+2,
+		modal.AbsoluteBounds.Y,
+		"N",
+		"message_box.border",
+		RGB(0xFF, 0xFF, 0xFF),
+		wantGray,
+	)
+	assertCell(
+		message.AbsoluteBounds.X,
+		message.AbsoluteBounds.Y,
+		"R",
+		"message_box",
+		RGB(0x00, 0x00, 0x00),
+		wantGray,
+	)
+
+	buttonX, buttonY := button.AbsoluteBounds.X, button.AbsoluteBounds.Y
+	buttonRight := buttonX + button.AbsoluteBounds.Width - 1
+	buttonBottom := buttonY + button.AbsoluteBounds.Height - 1
+	assertCell(
+		buttonRight, buttonY, "▄", "button.shadow",
+		RGB(0x00, 0x00, 0x00), wantGray,
+	)
+	assertCell(
+		buttonX+2, buttonBottom, "▀", "button.shadow",
+		RGB(0x00, 0x00, 0x00), wantGray,
+	)
+
+	foundO, foundK := false, false
+	for x := buttonX + 1; x < buttonRight; x++ {
+		cell, _ := snapshot.Frame.Cell(x, buttonY)
+		switch cell.Grapheme {
+		case "O":
+			foundO = true
+			if cell.Style != "button.focused" ||
+				cell.Foreground != RGB(0xFF, 0xFF, 0xFF) ||
+				cell.Background != wantGreen {
+				t.Fatalf("focused OK body cell = %+v", cell)
+			}
+		case "K":
+			foundK = true
+			if cell.Style != "button.mnemonic" ||
+				cell.Foreground != RGB(0xFF, 0xFF, 0x55) ||
+				cell.Background != wantGreen {
+				t.Fatalf("OK mnemonic cell = %+v", cell)
+			}
+		}
+	}
+	if !foundO || !foundK {
+		t.Fatalf("OK label cells not found: O=%t K=%t", foundO, foundK)
+	}
+
+	assertCell(
+		modal.AbsoluteBounds.X+modal.AbsoluteBounds.Width,
+		modal.AbsoluteBounds.Y+1,
+		" ",
+		"message_box.shadow",
+		RGB(0x00, 0x00, 0x00),
+		RGB(0x00, 0x00, 0x00),
+	)
+}
+
+func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
+	type dialogFixture struct {
+		buttons map[string]StyleID
+		close   func()
+	}
+	tests := []struct {
+		name  string
+		build func(*testing.T, *App) dialogFixture
+	}{
+		{
+			name: "MessageBox",
+			build: func(t *testing.T, app *App) dialogFixture {
+				box, err := NewMessageBox(app.Root(), MessageBoxOptions{
+					DialogOptions: DialogOptions{ModalPanelOptions: ModalPanelOptions{
+						PanelOptions: PanelOptions{AutomationKey: "message"},
+					}},
+					Message: "Ready.",
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := box.Show(nil); err != nil {
+					t.Fatal(err)
+				}
+				return dialogFixture{
+					buttons: map[string]StyleID{"message.ok": "button.focused"},
+					close: func() {
+						_ = box.Close(ModalResult{Reason: ModalAccepted})
+					},
+				}
+			},
+		},
+		{
+			name: "ConfirmDialog",
+			build: func(t *testing.T, app *App) dialogFixture {
+				dialog, err := NewConfirmDialog(app.Root(), ConfirmDialogOptions{
+					DialogOptions: DialogOptions{ModalPanelOptions: ModalPanelOptions{
+						PanelOptions: PanelOptions{AutomationKey: "confirm"},
+					}},
+					Message: "Continue?", ShowCancel: true,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := dialog.Show(nil); err != nil {
+					t.Fatal(err)
+				}
+				return dialogFixture{
+					buttons: map[string]StyleID{
+						"confirm.yes":    "button",
+						"confirm.no":     "button.focused",
+						"confirm.cancel": "button",
+					},
+					close: func() {
+						_ = dialog.Close(ModalResult{Reason: ModalCancelled})
+					},
+				}
+			},
+		},
+		{
+			name: "InputDialog",
+			build: func(t *testing.T, app *App) dialogFixture {
+				dialog, err := NewInputDialog(app.Root(), InputDialogOptions{
+					DialogOptions: DialogOptions{ModalPanelOptions: ModalPanelOptions{
+						PanelOptions: PanelOptions{AutomationKey: "input"},
+					}},
+					Prompt: "Name:",
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := dialog.Show(nil); err != nil {
+					t.Fatal(err)
+				}
+				return dialogFixture{
+					buttons: map[string]StyleID{
+						"input.ok":     "button.default",
+						"input.cancel": "button",
+					},
+					close: func() {
+						_ = dialog.Close(ModalResult{Reason: ModalCancelled})
+					},
+				}
+			},
+		},
+		{
+			name: "ProgressDialog",
+			build: func(t *testing.T, app *App) dialogFixture {
+				dialog, err := NewProgressDialog(app.Root(), ProgressDialogOptions{
+					DialogOptions: DialogOptions{ModalPanelOptions: ModalPanelOptions{
+						PanelOptions: PanelOptions{AutomationKey: "progress"},
+					}},
+					State: ProgressDialogState{
+						Status: "Working",
+						Progress: ProgressBarState{
+							Current: 1, Total: 2, Status: ProgressRunning,
+						},
+					},
+					Cancellable: true,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := dialog.Show(nil); err != nil {
+					t.Fatal(err)
+				}
+				return dialogFixture{
+					buttons: map[string]StyleID{
+						"progress.cancel": "button.focused",
+					},
+					close: func() {
+						_ = dialog.Complete(ModalResult{Reason: ModalCancelled})
+					},
+				}
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, err := NewApp(AppOptions{
+				Size: Size{Width: 60, Height: 20}, Scenario: "dialog.visuals",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fixture := test.build(t, app)
+			defer fixture.close()
+			snapshot := app.Snapshot()
+			for key, bodyStyle := range fixture.buttons {
+				button := controlByKey(t, snapshot, key)
+				bounds := button.AbsoluteBounds
+				if bounds.Width < buttonMinimumWidth || bounds.Height != 2 {
+					t.Fatalf("%s bounds = %+v", key, bounds)
+				}
+				body, _ := snapshot.Frame.Cell(bounds.X+1, bounds.Y)
+				if body.Style != bodyStyle {
+					t.Fatalf("%s body style = %q, want %q", key, body.Style, bodyStyle)
+				}
+				right, _ := snapshot.Frame.Cell(bounds.X+bounds.Width-1, bounds.Y)
+				bottom, _ := snapshot.Frame.Cell(bounds.X+2, bounds.Y+1)
+				if right.Grapheme != "▄" || right.Style != "button.shadow" ||
+					bottom.Grapheme != "▀" || bottom.Style != "button.shadow" {
+					t.Fatalf("%s shadows = right %+v, bottom %+v", key, right, bottom)
+				}
+				if button.Details.Action == nil || button.Details.Action.Mnemonic == "" {
+					t.Fatalf("%s has no mnemonic: %+v", key, button.Details.Action)
+				}
+				mnemonicFound := false
+				for x := bounds.X + 1; x < bounds.X+bounds.Width-1; x++ {
+					cell, _ := snapshot.Frame.Cell(x, bounds.Y)
+					if cell.Style == "button.mnemonic" {
+						mnemonicFound = true
+						break
+					}
+				}
+				if !mnemonicFound {
+					t.Fatalf("%s did not paint its mnemonic style", key)
+				}
+			}
+		})
+	}
+}
+
 func TestMessageBoxEnterEscapeAndExactCompletionResult(t *testing.T) {
 	for _, key := range []Key{KeyEnter, KeyEscape} {
 		t.Run(string(key), func(t *testing.T) {
@@ -442,13 +728,33 @@ func TestProgressDialogCancellationRequestAndAcknowledgement(t *testing.T) {
 		t.Fatal("operation context remained active after cancellation request")
 	}
 	snapshot := app.Snapshot()
-	cancelDetails := controlByKey(t, snapshot, "progress.cancel").Details.Action
+	cancelView := controlByKey(t, snapshot, "progress.cancel")
+	cancelDetails := cancelView.Details.Action
 	progressDetails := controlByKey(t, snapshot, "progress").Details.ProgressDialog
 	if cancelDetails == nil || cancelDetails.Enabled ||
 		cancelDetails.DisabledReason != "Cancellation requested" ||
 		progressDetails == nil || !progressDetails.CancelRequested ||
 		!progressDetails.Cancellable {
 		t.Fatalf("cancel/progress details = %#v / %#v", cancelDetails, progressDetails)
+	}
+	disabledBody, _ := snapshot.Frame.Cell(
+		cancelView.AbsoluteBounds.X+1,
+		cancelView.AbsoluteBounds.Y,
+	)
+	disabledShadow, _ := snapshot.Frame.Cell(
+		cancelView.AbsoluteBounds.X+cancelView.AbsoluteBounds.Width-1,
+		cancelView.AbsoluteBounds.Y,
+	)
+	if disabledBody.Style != "button.disabled" ||
+		disabledBody.Foreground != RGB(0x80, 0x80, 0x80) ||
+		disabledBody.Background != RGB(0xC0, 0xC0, 0xC0) ||
+		disabledShadow.Style != "button.shadow" ||
+		disabledShadow.Grapheme != "▄" {
+		t.Fatalf(
+			"disabled cancel body/shadow = %+v / %+v",
+			disabledBody,
+			disabledShadow,
+		)
 	}
 
 	repeated, err := app.InvokeCommand(

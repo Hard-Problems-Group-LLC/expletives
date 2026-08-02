@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const buttonMinimumWidth = 10
+
 // ButtonOptions configures one focusable command-activation Button.
 type ButtonOptions struct {
 	PanelOptions
@@ -215,6 +217,17 @@ func (a *App) Focused() Control {
 
 func (b buttonBehavior) clientInset() int { return 0 }
 
+func (b buttonBehavior) additionalStyles() []StyleID {
+	return []StyleID{
+		"button.default",
+		"button.focused",
+		"button.pressed",
+		"button.disabled",
+		"button.mnemonic",
+		"button.shadow",
+	}
+}
+
 func (b buttonBehavior) paintDecoration(
 	app *App,
 	frame *IntendedFrame,
@@ -222,35 +235,103 @@ func (b buttonBehavior) paintDecoration(
 	absolute Rect,
 	clip Rect,
 ) {
-	definition, exists := app.commands[b.command]
+	definition := app.commands[b.command]
 	label := effectiveCommandLabel(definition, b.command)
-	enabled := exists && definition.Enabled
-	left, right := "[", "]"
+	details := app.actionDetailsLocked(state, b)
+	bodyStyle := state.style
+	mnemonicStyle := StyleID("button.mnemonic")
 	switch {
-	case !enabled:
-		left, right = "(", ")"
+	case !details.Enabled:
+		bodyStyle = "button.disabled"
+		mnemonicStyle = bodyStyle
 	case app.pressedAnyLocked(state):
-		left, right = "{", "}"
+		bodyStyle = "button.pressed"
 	case app.focus == state:
-		left, right = "<", ">"
+		bodyStyle = "button.focused"
+	case b.default_:
+		bodyStyle = "button.default"
 	}
-	marker := " "
-	if b.default_ {
-		marker = "*"
-	} else if b.cancel {
-		marker = "/"
+	if absolute.Empty() {
+		return
 	}
-	cells := []string{left, marker, " "}
-	cells = append(cells, label.lines[0]...)
-	cells = append(cells, " ", right)
-	app.paintTextRowsLocked(
-		frame,
-		state,
-		absolute,
-		clip,
-		[][]string{cells},
-		TextAlignCenter,
-		TextAlignCenter,
+
+	paint := func(x, y int, grapheme string, style StyleID) {
+		app.setClippedCellLocked(
+			frame, clip, x, y, grapheme, style, app.styles[style], state.id,
+		)
+	}
+	paintLabel := func(left, right, y int) {
+		if right <= left || y < absolute.Y || y >= absolute.Y+absolute.Height {
+			return
+		}
+		cells := label.lines[0]
+		start := left + max(0, (right-left-len(cells))/2)
+		for index, grapheme := range cells {
+			x := start + index
+			if x >= right {
+				break
+			}
+			style := bodyStyle
+			if details.Enabled && b.mnemonic != "" &&
+				Key(strings.ToLower(grapheme)) == b.mnemonic {
+				style = mnemonicStyle
+			}
+			paint(x, y, grapheme, style)
+		}
+	}
+
+	// A caller may explicitly constrain a Button below its natural two-row
+	// Turbo Vision geometry. Keep that degraded override usable, but do not
+	// pretend that it has room for the raised-control shadow.
+	if absolute.Height < 2 || absolute.Width < 3 {
+		for y := absolute.Y; y < absolute.Y+absolute.Height; y++ {
+			for x := absolute.X; x < absolute.X+absolute.Width; x++ {
+				paint(x, y, " ", bodyStyle)
+			}
+		}
+		paintLabel(
+			absolute.X,
+			absolute.X+absolute.Width,
+			absolute.Y+(absolute.Height-1)/2,
+		)
+		return
+	}
+
+	pressed := app.pressedAnyLocked(state)
+	left := absolute.X
+	right := absolute.X + absolute.Width - 1
+	bottom := absolute.Y + absolute.Height - 1
+	bodyLeft, bodyRight := left+1, right
+	if pressed {
+		bodyLeft, bodyRight = left+2, right+1
+	}
+	for y := absolute.Y; y < bottom; y++ {
+		for x := left; x <= right; x++ {
+			paint(x, y, " ", bodyStyle)
+		}
+		paint(left, y, " ", "button.shadow")
+		if pressed {
+			paint(left+1, y, " ", "button.shadow")
+		} else {
+			shadow := "█"
+			if y == absolute.Y {
+				shadow = "▄"
+			}
+			paint(right, y, shadow, "button.shadow")
+		}
+	}
+	for x := left; x <= right; x++ {
+		paint(x, bottom, " ", "button.shadow")
+	}
+	if !pressed {
+		for x := left + 2; x <= right; x++ {
+			paint(x, bottom, "▀", "button.shadow")
+		}
+	}
+	paintLabel(
+		bodyLeft,
+		bodyRight,
+		absolute.Y+absolute.Height/2-1,
 	)
 }
 
@@ -269,7 +350,14 @@ func (b buttonBehavior) details() ControlDetails {
 func (b buttonBehavior) intrinsicMinimum() Size {
 	// Command labels are App-owned and may change independently. Commit
 	// replaces this conservative value with the current effective label.
-	return Size{Width: 5, Height: 1}
+	return Size{Width: buttonMinimumWidth, Height: 2}
+}
+
+func buttonMinimumForLabel(label normalizedDisplayText) Size {
+	return Size{
+		Width:  max(buttonMinimumWidth, len(label.lines[0])+4),
+		Height: 2,
+	}
 }
 
 func (b hotkeyBarBehavior) clientInset() int { return 0 }
@@ -961,13 +1049,10 @@ func (a *App) refreshActionPresentationLocked() {
 		if !ok || !state.autoMinimum || state.destroyed {
 			continue
 		}
-		minimum := Size{
-			Width: len(effectiveCommandLabel(
-				a.commands[behavior.command],
-				behavior.command,
-			).lines[0]) + 5,
-			Height: 1,
-		}
+		minimum := buttonMinimumForLabel(effectiveCommandLabel(
+			a.commands[behavior.command],
+			behavior.command,
+		))
 		if state.minimumSize != minimum {
 			state.minimumSize = minimum
 			minimumChanged = true

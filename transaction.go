@@ -822,13 +822,9 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			continue
 		}
 		if definition, exists := t.app.commands[behavior.command]; exists {
-			state.minimumSize = Size{
-				Width: len(effectiveCommandLabel(
-					definition,
-					behavior.command,
-				).lines[0]) + 5,
-				Height: 1,
-			}
+			state.minimumSize = buttonMinimumForLabel(
+				effectiveCommandLabel(definition, behavior.command),
+			)
 		}
 	}
 
@@ -1658,13 +1654,12 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		}
 		if behavior, ok := state.behavior.(buttonBehavior); ok &&
 			state.autoMinimum {
-			state.minimumSize = Size{
-				Width: len(effectiveCommandLabel(
+			state.minimumSize = buttonMinimumForLabel(
+				effectiveCommandLabel(
 					t.app.commands[behavior.command],
 					behavior.command,
-				).lines[0]) + 5,
-				Height: 1,
-			}
+				),
+			)
 		}
 		changed = true
 	}

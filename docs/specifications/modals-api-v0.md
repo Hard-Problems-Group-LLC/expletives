@@ -255,6 +255,26 @@ or a different inactive modal.
 Potentially destructive actions do not become the default implicitly. Client
 commands decide application policy and close a generic Dialog explicitly.
 
+### Turbo Vision Appearance
+
+The default gray-dialog presentation follows the original Turbo Vision color
+palette and drawing roles rather than reusing the Menu palette by accident:
+active double-line border characters and title are white on light gray, body
+and static message text are black on light gray, and the outer modal shadow
+remains black. Standard-dialog Buttons use the two-row raised Button contract
+from [`actions-api-v0.md`](actions-api-v0.md): green body, state-specific text,
+yellow mnemonic, and a black right/bottom half-block shadow over the dialog's
+light-gray body. Button shadows are part of each Button's Bounds and are
+independent of the already-separate outer modal shadow.
+
+Standard MessageBox and InputDialog OK Buttons use K as their mnemonic, while
+Yes, No, and Cancel use Y, N, and C where present. Buttons in a horizontal
+standard-dialog row retain two cells between their bounded shadow rectangles.
+The source-level compatibility references are Turbo Vision's
+[`TDialog` palette map](https://github.com/magiblot/tvision/blob/master/include/tvision/dialogs.h),
+[`TButton` renderer](https://github.com/magiblot/tvision/blob/master/source/tvision/tbutton.cpp),
+and [`MessageBox` composition](https://github.com/magiblot/tvision/blob/master/source/tvision/msgbox.cpp).
+
 ## Standard Dialogs
 
 The standard dialog constructors compose ordinary public controls and Layouts
@@ -267,7 +287,8 @@ overlays.
 MessageBox displays bounded wrapped StaticText and an OK Button. OK is both the
 default and cancel-safe terminal action. Enter and Escape therefore return an
 accepted `dialog.ok` action rather than pretending an informational message
-was rejected. Long messages use a ScrollablePanel when required.
+was rejected. Its visible accelerator is K, matching Turbo Vision's `O~K~`
+label. Long messages use a ScrollablePanel when required.
 
 ```go
 const CommandDialogOK CommandID = "dialog.ok"

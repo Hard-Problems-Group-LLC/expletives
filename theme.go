@@ -71,6 +71,10 @@ func DefaultTheme() Theme {
 		Foreground: white,
 		Background: RGB(0x00, 0x78, 0x78),
 	}
+	buttonNormal := ResolvedStyle{
+		Foreground: black,
+		Background: RGB(0x00, 0xAA, 0x00),
+	}
 	styles := map[StyleID]ResolvedStyle{
 		"application.root": resolved,
 		"panel":            resolved,
@@ -121,17 +125,41 @@ func DefaultTheme() Theme {
 		"static_text":            resolved,
 		"separator":              resolved,
 		"rule":                   resolved,
-		"button":                 resolved,
-		"hotkey_bar":             resolved,
-		"focus_guide_bar":        menuNormal,
-		"checkbox":               resolved,
-		"radio_group":            resolved,
-		"radio_button":           resolved,
-		"cycle_field":            resolved,
-		"select_field":           resolved,
-		"text_field":             inputNormal,
-		"number_field":           inputNormal,
-		"spin_box":               inputNormal,
+		"button":                 buttonNormal,
+		"button.default": {
+			Foreground: RGB(0x55, 0xFF, 0xFF),
+			Background: buttonNormal.Background,
+		},
+		"button.focused": {
+			Foreground: white,
+			Background: buttonNormal.Background,
+		},
+		"button.pressed": {
+			Foreground: white,
+			Background: buttonNormal.Background,
+		},
+		"button.disabled": {
+			Foreground: RGB(0x80, 0x80, 0x80),
+			Background: menuNormal.Background,
+		},
+		"button.mnemonic": {
+			Foreground: RGB(0xFF, 0xFF, 0x55),
+			Background: buttonNormal.Background,
+		},
+		"button.shadow": {
+			Foreground: black,
+			Background: menuNormal.Background,
+		},
+		"hotkey_bar":      resolved,
+		"focus_guide_bar": menuNormal,
+		"checkbox":        resolved,
+		"radio_group":     resolved,
+		"radio_button":    resolved,
+		"cycle_field":     resolved,
+		"select_field":    resolved,
+		"text_field":      inputNormal,
+		"number_field":    inputNormal,
+		"spin_box":        inputNormal,
 		"spin_box.button": {
 			Foreground: black,
 			Background: RGB(0xC0, 0xC0, 0xC0),
