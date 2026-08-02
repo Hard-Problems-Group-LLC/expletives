@@ -15,8 +15,13 @@ owner, known blockers, and brief status notes.
     evidence across the declared terminal matrix.
   - Dependencies: completed Phase 18 interaction/control-state matrix.
   - Blockers: none.
-  - Status: slices 19.0 through 19.2 fixed the compatibility matrix, bounded
-    compiled-terminfo corroboration, and verified `SIGTSTP`/`SIGCONT` terminal
-    ownership. Slice 19.3 now has cleanup-debt recovery tests, bounded renderer
-    workloads through 1200 by 1200, and an allocation-reduced coalesced-input
-    path; the full verification gate is active.
+  - Status: slices 19.0 through 19.3 fixed the compatibility matrix, bounded
+    compiled-terminfo corroboration, verified `SIGTSTP`/`SIGCONT` terminal
+    ownership, cleanup-debt recovery, profiling workloads through 1200 by
+    1200, allocation-reduced coalesced input, and 512-frame concurrent
+    Presenter serialization under the race detector. Slice 19.4 physical
+    terminal-matrix acquisition is active: native XTerm 366 UTF-8, XTerm plus
+    tmux 3.2a (`TERM=screen`), and conservative XTerm `C`-locale visual rows
+    pass. Actual-operator keyboard/paste/job-control confirmation, GNU Screen,
+    and one real remote-transport row remain under `EXPL-REQ-004` before the
+    phase-completion ACP.

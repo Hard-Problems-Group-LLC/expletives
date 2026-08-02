@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -373,6 +374,69 @@ func TestPresentFailureStillAllowsCloseRestoration(t *testing.T) {
 	}
 }
 
+func TestPresenterSustainedConcurrentCallsRemainSerialized(t *testing.T) {
+	input, output, system := newFakeSession()
+	output.maxWrite = 97
+	presenter, err := openWith(input, output, ProfileXTerm, system)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const (
+		workers         = 8
+		framesPerWorker = 64
+	)
+	cells := make([]expletives.Cell, 80*24)
+	for index := range cells {
+		cells[index] = expletives.Cell{Grapheme: "x"}
+	}
+	snapshot := expletives.Snapshot{Frame: expletives.IntendedFrame{
+		Size:  expletives.Size{Width: 80, Height: 24},
+		Cells: cells,
+	}}
+
+	errorsSeen := make(chan error, workers)
+	var wait sync.WaitGroup
+	for worker := 0; worker < workers; worker++ {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			for range framesPerWorker {
+				if err := presenter.Present(snapshot); err != nil {
+					errorsSeen <- err
+					return
+				}
+				if geometry, err := presenter.Size(); err != nil {
+					errorsSeen <- err
+					return
+				} else if geometry != system.geometryValue {
+					errorsSeen <- fmt.Errorf("geometry = %+v", geometry)
+					return
+				}
+				if profile := presenter.Profile(); profile != ProfileXTerm {
+					errorsSeen <- fmt.Errorf("profile = %q", profile)
+					return
+				}
+			}
+		}()
+	}
+	wait.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		t.Fatalf("concurrent Presenter operation: %v", err)
+	}
+
+	if err := presenter.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if output.writeCall <= workers*framesPerWorker {
+		t.Fatalf("partial-write calls = %d, want more than frame count", output.writeCall)
+	}
+	if got := system.setCalls[len(system.setCalls)-1]; !reflect.DeepEqual(got, system.original) {
+		t.Fatal("sustained presentation did not restore original termios")
+	}
+}
+
 func TestResumeWriteFailureRollsBackToOriginalState(t *testing.T) {
 	input, output, system := newFakeSession()
 	presenter, err := openWith(input, output, ProfileTMux, system)
@@ -511,6 +575,27 @@ func TestLinuxPTYLifecycleRestoresExactTermios(t *testing.T) {
 	}
 	if !reflect.DeepEqual(after, before) {
 		t.Errorf("PTY termios was not restored exactly:\n got: %#v\nwant: %#v", after, before)
+	}
+}
+
+func TestLinuxPTYReadWaitHonorsTimeout(t *testing.T) {
+	master, slave := openTestPTY(t, Geometry{Width: 80, Height: 24})
+	t.Cleanup(func() {
+		_ = master.Close()
+		_ = slave.Close()
+	})
+
+	started := time.Now()
+	ready, err := (linuxSystem{}).waitReadable(slave.Fd(), 40*time.Millisecond)
+	if err != nil {
+		t.Fatalf("waitReadable() error = %v", err)
+	}
+	if ready {
+		t.Fatal("idle PTY reported readable")
+	}
+	if elapsed := time.Since(started); elapsed < 20*time.Millisecond ||
+		elapsed > 250*time.Millisecond {
+		t.Fatalf("waitReadable() elapsed = %s, want a bounded 40ms wait", elapsed)
 	}
 }
 

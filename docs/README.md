@@ -79,6 +79,9 @@ Keep durable project documentation here.
 - [Terminal Compatibility v0](specifications/terminal-compatibility-v0.md)
   fixes the Phase 19 supported profile/locale matrix, job-control lifecycle,
   explicit non-claims, and required physical verification evidence.
+- [Terminal Compatibility Verification](Terminal-Compatibility-Verification.md)
+  records acquired physical rows, the privacy-safe operator checklist, and
+  the exact remaining Phase 19 evidence.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

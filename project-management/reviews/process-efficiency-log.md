@@ -1161,6 +1161,29 @@ microseconds with two allocations. These figures are directional development
 evidence, not portable performance guarantees; the durable win is the bounded
 allocation shape and reproducible workload.
 
+### 40. Capture The Owned X11 Window, Not A Stale Compositor Copy
+
+The first physical xterm observations appeared to contradict semantic frames
+and PTY writes. The desktop window-screenshot utility repeatedly returned an
+old compositor pixmap even after the process had emitted later complete
+frames. Debugger, select, and write tracing proved the application was current;
+direct capture by the exact owned X11 window ID then showed the expected frame.
+
+Improvement applied:
+
+- add a controlling-PTY regression that requires an automation-only mutation
+  to emit a later physical frame without terminal input;
+- inspect semantic style/control evidence and physical output independently
+  before treating a screenshot mismatch as a renderer defect;
+- resolve a uniquely titled owned window and capture that exact window rather
+  than the desktop or an ambiguous active-window cache; and
+- allow one short bounded settle interval because correctness-first frames are
+  full writes but are not an emulator-level atomic update transaction.
+
+This avoids debugger and tracing escalation for future ordinary visual checks
+while preserving the new process-boundary regression for the real repaint
+contract.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

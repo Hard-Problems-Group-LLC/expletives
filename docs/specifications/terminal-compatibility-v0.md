@@ -123,6 +123,13 @@ byte-fragmented navigation sequences. The workloads report time, throughput,
 bytes, and allocations without imposing host-specific timing thresholds on
 ordinary verification.
 
+The ordinary and race suites also drive 512 complete 80-by-24 frames through
+one Presenter from eight concurrent callers. The output fake accepts only
+bounded partial writes, while geometry and profile reads contend for the same
+owner lock; completion and exact termios restoration are required. This is a
+deterministic serialization/resource test, not a claim that applications
+should paint from multiple threads.
+
 The coalesced ASCII path uses one caller-owned backing key array and one event
 array. Escape, control-chord, UTF-8, and bracketed-paste input continues
 through the bounded incremental state machine. This optimization does not
@@ -157,6 +164,7 @@ operator/environment identifiers must not be recorded.
 
 ## Related Contracts
 
+- [`Terminal Compatibility Verification`](../Terminal-Compatibility-Verification.md)
 - [`Limited Unicode Support`](../Limited-Unicode-Support.md)
 - [`Terminal Shortcut Compatibility`](../Terminal-Shortcut-Compatibility.md)
 - [`Implementation Baseline v0`](implementation-baseline-v0.md)

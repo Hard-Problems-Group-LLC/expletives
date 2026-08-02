@@ -18,6 +18,9 @@ import (
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/Hard-Problems-Group-LLC/expletives/automation"
+	"github.com/Hard-Problems-Group-LLC/expletives/internal/demo"
 )
 
 const (
@@ -32,6 +35,62 @@ const (
 
 func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 	binary := debugExpletivesTestBinary(t)
+
+	t.Run("automation mutation repaints without terminal input", func(t *testing.T) {
+		socketPath := filepath.Join(t.TempDir(), "automation.sock")
+		process := startDebugPTYProcess(
+			t,
+			binary,
+			"--automation",
+			socketPath,
+		)
+		defer process.close()
+
+		ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+		defer cancel()
+		waitForInitialFrame(t, ctx, process)
+		assertInteractiveTermios(t, process)
+
+		client := dialPTYAutomation(t, ctx, socketPath)
+		defer client.Close()
+		outputStart := process.output.mark()
+		completion, err := client.InvokeCommand(
+			ctx,
+			"physical-repaint",
+			string(demo.CommandViewText),
+			"",
+		)
+		if err != nil {
+			t.Fatalf("invoke Text/Display screen: %v", err)
+		}
+		if completion.Outcome != automation.OutcomeApplied {
+			t.Fatalf("Text/Display outcome = %q, want applied", completion.Outcome)
+		}
+		if err := process.output.waitContains(
+			ctx,
+			outputStart,
+			[]byte("StaticText wraps words"),
+		); err != nil {
+			t.Fatalf("wait for automation-driven physical repaint: %v", err)
+		}
+
+		completion, err = client.InvokeCommand(
+			ctx,
+			"physical-quit",
+			string(demo.CommandAppQuit),
+			"",
+		)
+		if err != nil {
+			t.Fatalf("invoke application quit: %v", err)
+		}
+		if completion.Outcome != automation.OutcomeExited {
+			t.Fatalf("quit outcome = %q, want exited", completion.Outcome)
+		}
+		if err := process.wait(ctx); err != nil {
+			t.Fatalf("wait for automation quit: %v", err)
+		}
+		assertExactTermiosRestoration(t, process)
+	})
 
 	t.Run("fragmented input resize and clean quit", func(t *testing.T) {
 		process := startDebugPTYProcess(t, binary)
@@ -395,7 +454,11 @@ type debugPTYProcess struct {
 	waitErr  error
 }
 
-func startDebugPTYProcess(t *testing.T, binary string) *debugPTYProcess {
+func startDebugPTYProcess(
+	t *testing.T,
+	binary string,
+	args ...string,
+) *debugPTYProcess {
 	t.Helper()
 
 	pair, err := openProcessPTY(processPTYWidth, processPTYHeight)
@@ -419,7 +482,7 @@ func startDebugPTYProcess(t *testing.T, binary string) *debugPTYProcess {
 		t.Fatalf("read configured initial PTY termios: %v", err)
 	}
 
-	command := exec.Command(binary)
+	command := exec.Command(binary, args...)
 	command.Env = append(os.Environ(), "TERM=xterm-256color")
 	command.Stdin = pair.slave
 	command.Stdout = pair.slave
@@ -449,6 +512,27 @@ func startDebugPTYProcess(t *testing.T, binary string) *debugPTYProcess {
 		close(process.done)
 	}()
 	return process
+}
+
+func dialPTYAutomation(
+	t *testing.T,
+	ctx context.Context,
+	socketPath string,
+) *automation.Client {
+	t.Helper()
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		client, err := automation.Dial(ctx, socketPath)
+		if err == nil {
+			return client
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("dial PTY automation endpoint: %v", err)
+		case <-ticker.C:
+		}
+	}
 }
 
 func (p *debugPTYProcess) wait(ctx context.Context) error {

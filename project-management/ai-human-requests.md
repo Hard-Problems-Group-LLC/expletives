@@ -7,7 +7,26 @@ Record each request with concise context, owner or requestor details, and ISO
 
 ## Pending Requests
 
-No pending requests.
+- 2026-08-02 — `EXPL-REQ-004` — Complete the remaining Phase 19 physical
+  terminal rows.
+  - Requestor: Codex
+  - Owner: project operator
+  - Created: 2026-08-02T03:15:00-07:00
+  - Request: run the bounded actual-keyboard/paste/resize/job-control checklist
+    on the native xterm-family and tmux profiles; add a GNU Screen row when an
+    appropriate environment is available; and add one real supported remote-
+    transport row.
+  - Current evidence: XTerm 366 native UTF-8, XTerm 366 plus tmux 3.2a with
+    pane `$TERM=screen`, and XTerm 366 under the conservative `C` locale have
+    visual evidence; the full controlling-PTY, automation-to-physical repaint,
+    race, fuzz, failure, and teardown suites pass.
+  - Safety/privacy: do not record secrets, addresses, hostnames, usernames,
+    Wi-Fi names, unrelated screenshots, or private environment identifiers.
+    Automation remains opt-in and unauthenticated.
+  - Completion guide:
+    [`Terminal Compatibility Verification`](../docs/Terminal-Compatibility-Verification.md).
+  - Blocking impact: blocks only the final Phase 19 physical-support claim and
+    Phase 20 release-readiness gate.
 
 ## Active Requests
 
