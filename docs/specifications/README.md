@@ -80,6 +80,10 @@ do not use them as retrospective decoration.
 - [`modals-api-v0.md`](modals-api-v0.md) defines the Phase 17 modal stack,
   one-shot result lifecycle, focus and command capture, resize/shadow behavior,
   standard dialogs, progress cancellation, and automation evidence.
+- [`file-pickers-api-v0.md`](file-pickers-api-v0.md) defines the Phase 18
+  bounded provider boundary, typed single/multiple/directory results,
+  filtering, sorting, Turbo Vision interaction, concurrency, automation, and
+  opt-in local-filesystem adapter.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

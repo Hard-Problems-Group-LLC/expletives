@@ -157,10 +157,14 @@ func NewApp(options AppOptions) (*App, error) {
 		ModalPolicy: CommandModalAllowed,
 	}
 	for command, label := range map[CommandID]string{
-		CommandDialogOK:     "OK",
-		CommandDialogYes:    "Yes",
-		CommandDialogNo:     "No",
-		CommandDialogCancel: "Cancel",
+		CommandDialogOK:          "OK",
+		CommandDialogYes:         "Yes",
+		CommandDialogNo:          "No",
+		CommandDialogCancel:      "Cancel",
+		CommandFilePickerOpen:    "Open",
+		CommandFilePickerSelect:  "Select",
+		CommandFilePickerUp:      "Up",
+		CommandFilePickerRefresh: "Refresh",
 	} {
 		app.commands[command] = CommandDefinition{
 			ID: command, Label: label, Enabled: true,

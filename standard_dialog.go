@@ -1068,6 +1068,11 @@ func (a *App) applyStandardDialogCommandLocked(
 			a.ensureFocusLocked()
 			return result
 		}
+	case ControlFilePickerDialog, ControlMultiFilePickerDialog,
+		ControlDirectoryPickerDialog:
+		if command == CommandDialogCancel {
+			reason = ModalCancelled
+		}
 	}
 	if !valid {
 		return publicResult(
@@ -1099,6 +1104,9 @@ func standardDialogCommandValidForKind(
 	case ControlInputDialog:
 		return command == CommandDialogOK || command == CommandDialogCancel
 	case ControlProgressDialog:
+		return command == CommandDialogCancel
+	case ControlFilePickerDialog, ControlMultiFilePickerDialog,
+		ControlDirectoryPickerDialog:
 		return command == CommandDialogCancel
 	default:
 		return false

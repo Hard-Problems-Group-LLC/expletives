@@ -267,6 +267,12 @@ yellow mnemonic, and a black right/bottom half-block shadow over the dialog's
 light-gray body. Button shadows are part of each Button's Bounds and are
 independent of the already-separate outer modal shadow.
 
+The default true-color equivalent of that classic BIOS/xterm light-gray slot
+is `#AAAAAA`, consistent with the toolkit's `0x00/0x55/0xAA/0xFF` classic
+intensity scale. Dialog bodies, borders, disabled buttons, and raised-button
+shadow backgrounds use the same gray surface unless a Theme overrides their
+semantic styles.
+
 Standard MessageBox and InputDialog OK Buttons use K as their mnemonic, while
 Yes, No, and Cancel use Y, N, and C where present. Buttons in a horizontal
 standard-dialog row retain two cells between their bounded shadow rectangles.

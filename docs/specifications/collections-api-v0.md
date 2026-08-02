@@ -76,6 +76,12 @@ type ListItem struct {
 }
 ```
 
+`ListBoxOptions.SelectionMarks` may explicitly hide the normal `[ ]`/`[X]`
+marks for list presentations, such as a classic file list, where current and
+selection remain visible through semantic row styles. Its zero value shows
+the markers for compatibility. This presentation choice does not alter
+current, selection, keyboard, result, or automation semantics.
+
 The empty status and selection-mode values normalize to `ready` and `single`.
 An error status requires a nonempty canonical message. A loading status uses
 the supplied message or the toolkit default `Loading...`. Ready with no items

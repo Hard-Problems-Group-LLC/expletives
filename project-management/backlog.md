@@ -8,30 +8,51 @@ specifications, and ISO 8601 timestamps.
 
 ## Current Queue
 
-- 2026-07-31 — `EXPL-TASK-031` — Deliver file and directory picker dialogs.
+- 2026-08-02 — `EXPL-TASK-035` — Build a maintainable developer crash course
+  and toolkit reference manual.
   - Requestor: project operator
   - Owner: unassigned
-  - Created: 2026-07-31T05:15:30-07:00
-  - Context: consuming applications need a reusable Turbo Vision-style file
-    picker after collection and modal primitives exist, including explicit
-    multiple-file and directory-only variants.
+  - Created: 2026-08-02T02:15:00-07:00
+  - Context: consuming developers, maintainers, and AI collaborators need a
+    concise path from first application to advanced toolkit work, plus a
+    dependable reference that can evolve with the public API without becoming
+    a second stale specification set.
   - Acceptance criteria:
-    - implement roadmap Phase 18 `FilePickerDialog`,
-      `MultiFilePickerDialog`, and `DirectoryPickerDialog`;
-    - keep enumeration and filesystem access behind a bounded
-      application-supplied provider, with an explicit local-filesystem
-      adapter;
-    - preserve distinct single, multiple, and directory typed results plus
-      honest error, cancel, interrupt, and final-snapshot outcomes;
-    - follow Turbo Vision appearance, accelerator, focus, and keyboard
-      conventions where reasonable; and
-    - add ordinary Go, deterministic-provider, public-consumer, headless, and
-      attached-automation coverage.
-  - Dependencies: Phase 16 Collections and Phase 17 Modals.
-  - Blockers: those phases are not yet complete.
-  - Related:
-    - [`development-roadmap.md`](development-roadmap.md)
-    - [`docs/specifications/control-catalog.md`](../docs/specifications/control-catalog.md)
+    - provide a task-oriented crash course covering application startup,
+      control ownership, Layouts, actions/events, focus and keyboard behavior,
+      styling, modal workflows, concurrency, testing, and automation;
+    - provide a public reference organized by package, control family, and
+      cross-cutting contract, with runnable examples where practical;
+    - define a low-overhead maintenance workflow for both humans and AI,
+      including mechanically generated or checked API inventories and links to
+      authoritative `docs/specifications/` contracts instead of duplicated
+      normative prose;
+    - add documentation verification to normal project checks where practical;
+      and
+    - document how API changes must update examples, reference indexes, and
+      compatibility notes.
+  - Dependencies: public API and control catalog should be substantially stable
+    before the first complete edition; incremental scaffolding may begin sooner.
+  - Blockers: none; scheduled behind active Phase 18 picker delivery.
+
+- 2026-08-02 — `EXPL-TASK-034` — Present Help/About as a standard dialog.
+  - Requestor: project operator
+  - Owner: unassigned
+  - Created: 2026-08-02T01:35:00-07:00
+  - Context: the catalog About screen predates completed standard-dialog
+    support and should now use the same modal look, focus, keyboard, and
+    automation behavior as other informational messages.
+  - Acceptance criteria:
+    - keep `Help` / `About` and its existing command as the public route;
+    - replace the dedicated About content screen with a `MessageBox` or
+      equivalent informational standard Dialog;
+    - preserve Turbo Vision palette, default OK, Escape, focus restoration,
+      repeatability, and attached-automation evidence; and
+    - update the catalog self-check and menu tests.
+  - Dependencies: completed Phase 17 standard dialogs and dialog visual
+    correction at `d0a36e4`.
+  - Blockers: none; defer until active Phase 18 picker work reaches a suitable
+    checkpoint.
 
 - 2026-07-30 — `EXPL-TASK-018` — Render a root-level undersized-geometry
   diagnostic.

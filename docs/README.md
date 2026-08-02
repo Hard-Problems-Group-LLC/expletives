@@ -70,6 +70,12 @@ Keep durable project documentation here.
   MessageBox, ConfirmDialog, and privacy-preserving InputDialog controls and
   their exact result barriers, plus ProgressDialog's non-closing cancellation
   handshake.
+- [File And Directory Pickers](File-Pickers.md) explains the bounded provider
+  boundary, opt-in local adapter, typed single/multiple/directory results, and
+  application authorization responsibility for Phase 18 compounds.
+- [File And Directory Pickers API v0](specifications/file-pickers-api-v0.md)
+  defines the directed Phase 18 provider, filter, sort, interaction,
+  concurrency, result, automation, and local-adapter contract.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

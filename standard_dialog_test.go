@@ -38,7 +38,7 @@ func TestStandardDialogTurboVisionPaletteAndButtonGeometry(t *testing.T) {
 		t.Fatalf("MessageBox OK geometry/details = %+v", button)
 	}
 
-	wantGray := RGB(0xC0, 0xC0, 0xC0)
+	wantGray := RGB(0xAA, 0xAA, 0xAA)
 	wantGreen := RGB(0x00, 0xAA, 0x00)
 	assertCell := func(
 		x, y int,
@@ -747,7 +747,7 @@ func TestProgressDialogCancellationRequestAndAcknowledgement(t *testing.T) {
 	)
 	if disabledBody.Style != "button.disabled" ||
 		disabledBody.Foreground != RGB(0x80, 0x80, 0x80) ||
-		disabledBody.Background != RGB(0xC0, 0xC0, 0xC0) ||
+		disabledBody.Background != RGB(0xAA, 0xAA, 0xAA) ||
 		disabledShadow.Style != "button.shadow" ||
 		disabledShadow.Grapheme != "▄" {
 		t.Fatalf(

@@ -560,7 +560,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 18. File And Directory Pickers
 
-- Status: `planned`
+- Status: `in progress`
 - Goal: deliver a general-purpose Turbo Vision-style `FilePickerDialog` plus
   `MultiFilePickerDialog` and `DirectoryPickerDialog` specializations.
 - Dependencies: Phase 16 collection controls and Phase 17 modal/dialog
@@ -583,6 +583,8 @@ ordered backlog and the active-task record; it does not replace either.
   every close path publishes an explicit typed result and final snapshot; the
   same dialog behavior works against deterministic test providers and an
   explicitly selected local-filesystem adapter.
+- Contract:
+  [`file-pickers-api-v0.md`](../docs/specifications/file-pickers-api-v0.md).
 
 ### 19. Terminal Compatibility And Operational Hardening
 

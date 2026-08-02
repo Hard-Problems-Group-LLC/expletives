@@ -1477,7 +1477,8 @@ func validControlDetails(
 			details.HotkeyBar == nil &&
 			details.MenuBar == nil &&
 			details.StatusBar == nil
-	case "modal_panel", "dialog", "message_box", "confirm_dialog", "input_dialog":
+	case "modal_panel", "dialog", "message_box", "confirm_dialog", "input_dialog",
+		"file_picker_dialog", "multi_file_picker_dialog", "directory_picker_dialog":
 		return specialMembers == 1 &&
 			details.Container != nil &&
 			validBorderDetails(details.Border, limits) &&

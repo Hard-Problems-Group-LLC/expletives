@@ -63,14 +63,18 @@ func TestCommandRegistryIsInspectableAndControlsRouting(t *testing.T) {
 		t.Fatalf("duplicate RegisterCommand() error = %v", err)
 	}
 	definitions := app.Commands()
-	if len(definitions) != 7 ||
+	if len(definitions) != 11 ||
 		definitions[0].ID != "a.first" ||
 		definitions[1].ID != CommandDialogCancel ||
 		definitions[2].ID != CommandDialogNo ||
 		definitions[3].ID != CommandDialogOK ||
 		definitions[4].ID != CommandDialogYes ||
-		definitions[5].ID != CommandOverflowDismiss ||
-		definitions[6].ID != "z.last" {
+		definitions[5].ID != CommandFilePickerOpen ||
+		definitions[6].ID != CommandFilePickerRefresh ||
+		definitions[7].ID != CommandFilePickerSelect ||
+		definitions[8].ID != CommandFilePickerUp ||
+		definitions[9].ID != CommandOverflowDismiss ||
+		definitions[10].ID != "z.last" {
 		t.Fatalf("Commands() = %#v, want sorted inventory", definitions)
 	}
 	if err := app.RemoveCommand(CommandOverflowDismiss); !errors.Is(

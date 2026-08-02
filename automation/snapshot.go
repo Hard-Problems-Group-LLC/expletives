@@ -670,6 +670,7 @@ type ListBoxDetails struct {
 	Current             string                 `json:"current,omitempty"`
 	CurrentIndex        int                    `json:"current_index"`
 	SelectionMode       string                 `json:"selection_mode"`
+	SelectionMarks      bool                   `json:"selection_marks"`
 	RequireSelection    bool                   `json:"require_selection"`
 	SelectedCount       int                    `json:"selected_count"`
 	FirstSelected       string                 `json:"first_selected,omitempty"`
@@ -1432,6 +1433,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				Current:             details.Current,
 				CurrentIndex:        details.CurrentIndex,
 				SelectionMode:       string(details.SelectionMode),
+				SelectionMarks:      details.SelectionMarks,
 				RequireSelection:    details.RequireSelection,
 				SelectedCount:       details.SelectedCount,
 				FirstSelected:       details.FirstSelected,

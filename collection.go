@@ -26,6 +26,16 @@ const (
 	CollectionSelectionMultiple CollectionSelectionMode = "multiple"
 )
 
+// CollectionSelectionMarks controls whether a collection paints explicit
+// `[ ]`/`[X]` marks. The zero value preserves the visible-marker default.
+type CollectionSelectionMarks string
+
+const (
+	CollectionSelectionMarksDefault CollectionSelectionMarks = ""
+	CollectionSelectionMarksShow    CollectionSelectionMarks = "show"
+	CollectionSelectionMarksHide    CollectionSelectionMarks = "hide"
+)
+
 // ListItem is one copied stable-identity ListBox row.
 type ListItem struct {
 	Key            string
@@ -46,6 +56,7 @@ type ListBoxOptions struct {
 	Current          string
 	Selected         []string
 	SelectionMode    CollectionSelectionMode
+	SelectionMarks   CollectionSelectionMarks
 	RequireSelection bool
 	Status           CollectionStatus
 	StatusMessage    string
@@ -54,14 +65,15 @@ type ListBoxOptions struct {
 
 // ListBoxState is one complete copied semantic and viewport state.
 type ListBoxState struct {
-	Status        CollectionStatus
-	StatusMessage string
-	Current       string
-	CurrentIndex  int
-	Selected      []string
-	Offset        Point
-	ItemCount     int
-	EnabledCount  int
+	Status         CollectionStatus
+	StatusMessage  string
+	Current        string
+	CurrentIndex   int
+	Selected       []string
+	SelectionMarks bool
+	Offset         Point
+	ItemCount      int
+	EnabledCount   int
 }
 
 // ListBox is a copy-safe focusable stable-identity collection leaf.
@@ -79,6 +91,7 @@ type listBoxBehavior struct {
 	current          string
 	selected         []string
 	selectionMode    CollectionSelectionMode
+	selectionMarks   bool
 	requireSelection bool
 	status           CollectionStatus
 	statusMessage    normalizedDisplayText
@@ -187,6 +200,10 @@ func newListBoxBehavior(options ListBoxOptions) (listBoxBehavior, error) {
 	if err != nil {
 		return listBoxBehavior{}, err
 	}
+	marks, err := normalizeCollectionSelectionMarks(options.SelectionMarks)
+	if err != nil {
+		return listBoxBehavior{}, err
+	}
 	status, message, err := normalizeCollectionStatus(
 		options.Status,
 		options.StatusMessage,
@@ -202,6 +219,7 @@ func newListBoxBehavior(options ListBoxOptions) (listBoxBehavior, error) {
 		scroll:           scroll,
 		items:            items,
 		selectionMode:    mode,
+		selectionMarks:   marks,
 		requireSelection: options.RequireSelection,
 		status:           status,
 		statusMessage:    message,
@@ -216,6 +234,19 @@ func newListBoxBehavior(options ListBoxOptions) (listBoxBehavior, error) {
 		return listBoxBehavior{}, err
 	}
 	return behavior, nil
+}
+
+func normalizeCollectionSelectionMarks(
+	marks CollectionSelectionMarks,
+) (bool, error) {
+	switch marks {
+	case CollectionSelectionMarksDefault, CollectionSelectionMarksShow:
+		return true, nil
+	case CollectionSelectionMarksHide:
+		return false, nil
+	default:
+		return false, fmt.Errorf("%w: invalid collection selection marks", ErrValidation)
+	}
 }
 
 func normalizeCollectionSelectionMode(
@@ -467,6 +498,7 @@ func listBoxBehaviorEqual(left, right listBoxBehavior) bool {
 	if !scrollViewBehaviorEqual(left.scroll, right.scroll) ||
 		left.current != right.current ||
 		left.selectionMode != right.selectionMode ||
+		left.selectionMarks != right.selectionMarks ||
 		left.requireSelection != right.requireSelection ||
 		left.status != right.status ||
 		left.statusMessage.text != right.statusMessage.text ||
@@ -602,7 +634,10 @@ func (b listBoxBehavior) displayRow(
 	if selected {
 		selectedMarker = "X"
 	}
-	cells := []string{marker, " ", "[", selectedMarker, "]", " "}
+	cells := []string{marker, " "}
+	if b.selectionMarks {
+		cells = append(cells, "[", selectedMarker, "]", " ")
+	}
 	cells = append(cells, item.label.lines[0]...)
 	if item.description.cells > 0 {
 		cells = append(cells, " ", " ")
@@ -720,6 +755,7 @@ func listBoxDetails(bounds Rect, behavior listBoxBehavior) ListBoxDetails {
 		Current:          behavior.current,
 		CurrentIndex:     listItemIndex(behavior.items, behavior.current),
 		SelectionMode:    behavior.selectionMode,
+		SelectionMarks:   behavior.selectionMarks,
 		RequireSelection: behavior.requireSelection,
 		SelectedCount:    len(behavior.selected),
 		FirstSelected:    firstSelected,
@@ -759,14 +795,15 @@ func (l *ListBox) State() ListBoxState {
 		return ListBoxState{CurrentIndex: -1}
 	}
 	return ListBoxState{
-		Status:        behavior.status,
-		StatusMessage: behavior.statusMessage.text,
-		Current:       behavior.current,
-		CurrentIndex:  listItemIndex(behavior.items, behavior.current),
-		Selected:      append([]string(nil), behavior.selected...),
-		Offset:        behavior.scroll.state.Offset,
-		ItemCount:     len(behavior.items),
-		EnabledCount:  enabledListCount(behavior.items),
+		Status:         behavior.status,
+		StatusMessage:  behavior.statusMessage.text,
+		Current:        behavior.current,
+		CurrentIndex:   listItemIndex(behavior.items, behavior.current),
+		Selected:       append([]string(nil), behavior.selected...),
+		SelectionMarks: behavior.selectionMarks,
+		Offset:         behavior.scroll.state.Offset,
+		ItemCount:      len(behavior.items),
+		EnabledCount:   enabledListCount(behavior.items),
 	}
 }
 

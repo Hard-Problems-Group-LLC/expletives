@@ -198,7 +198,8 @@ func (t *Transaction) newModalPanel(
 func isModalKind(kind ControlKind) bool {
 	switch kind {
 	case ControlModalPanel, ControlDialog, ControlMessageBox, ControlConfirmDialog,
-		ControlInputDialog, ControlProgressDialog:
+		ControlInputDialog, ControlProgressDialog, ControlFilePickerDialog,
+		ControlMultiFilePickerDialog, ControlDirectoryPickerDialog:
 		return true
 	default:
 		return false

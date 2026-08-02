@@ -306,6 +306,12 @@ const (
 	ControlInputDialog ControlKind = "input_dialog"
 	// ControlProgressDialog identifies one cancellable progress standard Dialog.
 	ControlProgressDialog ControlKind = "progress_dialog"
+	// ControlFilePickerDialog identifies one single-file picker Dialog.
+	ControlFilePickerDialog ControlKind = "file_picker_dialog"
+	// ControlMultiFilePickerDialog identifies one explicit multi-file picker.
+	ControlMultiFilePickerDialog ControlKind = "multi_file_picker_dialog"
+	// ControlDirectoryPickerDialog identifies one directory-only picker.
+	ControlDirectoryPickerDialog ControlKind = "directory_picker_dialog"
 	// ControlLabel identifies a single-line non-container Label.
 	ControlLabel ControlKind = "label"
 	// ControlStaticText identifies multiline optionally wrapped display text.
@@ -1140,6 +1146,7 @@ type ListBoxDetails struct {
 	Current          string                  `json:"current,omitempty"`
 	CurrentIndex     int                     `json:"current_index"`
 	SelectionMode    CollectionSelectionMode `json:"selection_mode"`
+	SelectionMarks   bool                    `json:"selection_marks"`
 	RequireSelection bool                    `json:"require_selection"`
 	SelectedCount    int                     `json:"selected_count"`
 	FirstSelected    string                  `json:"first_selected,omitempty"`

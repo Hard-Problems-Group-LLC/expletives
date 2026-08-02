@@ -230,22 +230,22 @@ var (
 	menuStyle = expletives.Style{
 		ID:         "menu_bar",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	menuPopupStyle = expletives.Style{
 		ID:         "menu.popup",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	menuBorderStyle = expletives.Style{
 		ID:         "menu.border",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	menuMnemonicStyle = expletives.Style{
 		ID:         "menu.mnemonic",
 		Foreground: expletives.RGB(0xAA, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	menuFocusedStyle = expletives.Style{
 		ID:         "menu.focused",
@@ -260,7 +260,7 @@ var (
 	menuDisabledStyle = expletives.Style{
 		ID:         "menu.disabled",
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	menuFocusedDisabledStyle = expletives.Style{
 		ID:         "menu.focused_disabled",
@@ -275,17 +275,17 @@ var (
 	statusStyle = expletives.Style{
 		ID:         "status_bar",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	statusShortcutStyle = expletives.Style{
 		ID:         "status.shortcut",
 		Foreground: expletives.RGB(0xAA, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	statusDisabledStyle = expletives.Style{
 		ID:         "status.disabled",
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 	headerStyle = expletives.Style{
 		ID:         "header",
@@ -375,7 +375,7 @@ var (
 	textInputFocusedSelectionStyle = expletives.Style{
 		ID:         "text_input.focused_selection",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
-		Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
 )
 
@@ -535,7 +535,7 @@ func NewWithRootConstraints(
 		expletives.Style{
 			ID:         "spin_box.button",
 			Foreground: expletives.RGB(0x00, 0x00, 0x00),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID:         "spin_box.button_focused",
@@ -545,7 +545,7 @@ func NewWithRootConstraints(
 		expletives.Style{
 			ID:         "spin_box.button_disabled",
 			Foreground: expletives.RGB(0x80, 0x80, 0x80),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID:         "text_area",
@@ -654,7 +654,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID:         "markdown.quote",
-			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Foreground: expletives.RGB(0xAA, 0xAA, 0xAA),
 			Background: canvasStyle.Background,
 			Attributes: expletives.StyleItalic,
 		},
@@ -665,7 +665,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID:         "markdown.rule",
-			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Foreground: expletives.RGB(0xAA, 0xAA, 0xAA),
 			Background: canvasStyle.Background,
 		},
 		expletives.Style{
@@ -870,7 +870,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID:         "log.timestamp",
-			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Foreground: expletives.RGB(0xAA, 0xAA, 0xAA),
 			Background: canvasStyle.Background,
 		},
 		expletives.Style{
@@ -919,7 +919,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID:         "scrollbar.thumb",
-			Foreground: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Foreground: expletives.RGB(0xAA, 0xAA, 0xAA),
 			Background: canvasStyle.Background,
 		},
 		expletives.Style{
@@ -960,22 +960,22 @@ func NewWithRootConstraints(
 		expletives.Style{
 			ID:         "tab.normal",
 			Foreground: expletives.RGB(0x00, 0x00, 0x00),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID:         "tab.mnemonic",
 			Foreground: expletives.RGB(0xAA, 0x00, 0x00),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID:         "tab.selected",
 			Foreground: expletives.RGB(0x00, 0x00, 0x00),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID:         "tab.selected_mnemonic",
 			Foreground: expletives.RGB(0xAA, 0x00, 0x00),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID:         "tab.focused",
@@ -990,12 +990,12 @@ func NewWithRootConstraints(
 		expletives.Style{
 			ID:         "tab.disabled",
 			Foreground: expletives.RGB(0x80, 0x80, 0x80),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID:         "tab.continuation",
 			Foreground: expletives.RGB(0x00, 0x00, 0x00),
-			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
+			Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 		},
 		expletives.Style{
 			ID: "button", Foreground: expletives.RGB(0x00, 0x00, 0x00),

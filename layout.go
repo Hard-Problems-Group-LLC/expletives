@@ -160,7 +160,8 @@ func defaultControlLayoutHints(
 	switch kind {
 	case ControlRoot, ControlPanel, ControlFrame, ControlGroupBox,
 		ControlModalPanel, ControlDialog, ControlMessageBox, ControlConfirmDialog,
-		ControlInputDialog, ControlProgressDialog,
+		ControlInputDialog, ControlProgressDialog, ControlFilePickerDialog,
+		ControlMultiFilePickerDialog, ControlDirectoryPickerDialog,
 		ControlRadioGroup, ControlStaticText, ControlTextArea,
 		ControlTabbedPanel, ControlNotebook, ControlViewport,
 		ControlScrollablePanel, ControlMarkdownView:

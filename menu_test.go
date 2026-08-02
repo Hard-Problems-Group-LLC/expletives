@@ -336,11 +336,11 @@ func TestDefaultThemeUsesTurboVisionMenuPaletteRoles(t *testing.T) {
 	cases := map[StyleID]ResolvedStyle{
 		"menu_bar": {
 			Foreground: RGB(0x00, 0x00, 0x00),
-			Background: RGB(0xC0, 0xC0, 0xC0),
+			Background: RGB(0xAA, 0xAA, 0xAA),
 		},
 		"menu.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
-			Background: RGB(0xC0, 0xC0, 0xC0),
+			Background: RGB(0xAA, 0xAA, 0xAA),
 		},
 		"menu.focused": {
 			Foreground: RGB(0x00, 0x00, 0x00),

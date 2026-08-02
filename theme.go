@@ -61,7 +61,7 @@ func DefaultTheme() Theme {
 	}
 	menuNormal := ResolvedStyle{
 		Foreground: black,
-		Background: RGB(0xC0, 0xC0, 0xC0),
+		Background: RGB(0xAA, 0xAA, 0xAA),
 	}
 	menuSelected := ResolvedStyle{
 		Foreground: black,
@@ -120,12 +120,27 @@ func DefaultTheme() Theme {
 			Foreground: white, Background: menuNormal.Background,
 		},
 		"progress_dialog.shadow": {Foreground: black, Background: black},
-		"layout.border":          resolved,
-		"label":                  resolved,
-		"static_text":            resolved,
-		"separator":              resolved,
-		"rule":                   resolved,
-		"button":                 buttonNormal,
+		"file_picker_dialog":     menuNormal,
+		"file_picker_dialog.border": {
+			Foreground: white, Background: menuNormal.Background,
+		},
+		"file_picker_dialog.shadow": {Foreground: black, Background: black},
+		"multi_file_picker_dialog":  menuNormal,
+		"multi_file_picker_dialog.border": {
+			Foreground: white, Background: menuNormal.Background,
+		},
+		"multi_file_picker_dialog.shadow": {Foreground: black, Background: black},
+		"directory_picker_dialog":         menuNormal,
+		"directory_picker_dialog.border": {
+			Foreground: white, Background: menuNormal.Background,
+		},
+		"directory_picker_dialog.shadow": {Foreground: black, Background: black},
+		"layout.border":                  resolved,
+		"label":                          resolved,
+		"static_text":                    resolved,
+		"separator":                      resolved,
+		"rule":                           resolved,
+		"button":                         buttonNormal,
 		"button.default": {
 			Foreground: RGB(0x55, 0xFF, 0xFF),
 			Background: buttonNormal.Background,
@@ -162,7 +177,7 @@ func DefaultTheme() Theme {
 		"spin_box":        inputNormal,
 		"spin_box.button": {
 			Foreground: black,
-			Background: RGB(0xC0, 0xC0, 0xC0),
+			Background: RGB(0xAA, 0xAA, 0xAA),
 		},
 		"spin_box.button_focused": {
 			Foreground: black,
@@ -170,7 +185,7 @@ func DefaultTheme() Theme {
 		},
 		"spin_box.button_disabled": {
 			Foreground: RGB(0x80, 0x80, 0x80),
-			Background: RGB(0xC0, 0xC0, 0xC0),
+			Background: RGB(0xAA, 0xAA, 0xAA),
 		},
 		"text_area":         inputNormal,
 		"progress_bar":      resolved,
@@ -298,7 +313,7 @@ func DefaultTheme() Theme {
 			Attributes: StyleUnderline,
 		},
 		"markdown.quote": {
-			Foreground: RGB(0xC0, 0xC0, 0xC0),
+			Foreground: RGB(0xAA, 0xAA, 0xAA),
 			Background: resolved.Background,
 			Attributes: StyleItalic,
 		},
@@ -307,11 +322,11 @@ func DefaultTheme() Theme {
 			Background: resolved.Background,
 		},
 		"markdown.rule": {
-			Foreground: RGB(0xC0, 0xC0, 0xC0),
+			Foreground: RGB(0xAA, 0xAA, 0xAA),
 			Background: resolved.Background,
 		},
 		"log.timestamp": {
-			Foreground: RGB(0xC0, 0xC0, 0xC0),
+			Foreground: RGB(0xAA, 0xAA, 0xAA),
 			Background: resolved.Background,
 		},
 		"log.debug": {
@@ -367,7 +382,7 @@ func DefaultTheme() Theme {
 		},
 		"scrollbar.thumb": {
 			Foreground: black,
-			Background: RGB(0xC0, 0xC0, 0xC0),
+			Background: RGB(0xAA, 0xAA, 0xAA),
 		},
 		"scrollbar.focused": {
 			Foreground: black,
@@ -436,7 +451,7 @@ func DefaultTheme() Theme {
 		},
 		"text_input.focused_selection": {
 			Foreground: black,
-			Background: RGB(0xC0, 0xC0, 0xC0),
+			Background: RGB(0xAA, 0xAA, 0xAA),
 		},
 		"selection.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),

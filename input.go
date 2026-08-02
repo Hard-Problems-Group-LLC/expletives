@@ -1318,6 +1318,9 @@ func (a *App) resolveCommandLocked(
 	if isStandardDialogCommand(command) {
 		return nil, CommandResult{Outcome: OutcomeApplied}, false
 	}
+	if isFilePickerCommand(command) {
+		return a.routeFilePickerCommand, CommandResult{}, true
+	}
 	if a.commandRouter == nil {
 		return nil, publicResult(
 			OutcomeRejected,
@@ -1330,7 +1333,8 @@ func (a *App) resolveCommandLocked(
 }
 
 func isBuiltInCommand(command CommandID) bool {
-	return command == CommandOverflowDismiss || isStandardDialogCommand(command)
+	return command == CommandOverflowDismiss || isStandardDialogCommand(command) ||
+		isFilePickerCommand(command)
 }
 
 func isStandardDialogCommand(command CommandID) bool {
