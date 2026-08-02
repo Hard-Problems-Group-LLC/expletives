@@ -69,6 +69,9 @@ const (
 	CommandDialogConfirm        expletives.CommandID = "catalog.dialogs.confirm"
 	CommandDialogInput          expletives.CommandID = "catalog.dialogs.input"
 	CommandDialogProgress       expletives.CommandID = "catalog.dialogs.progress"
+	CommandDialogFilePicker     expletives.CommandID = "catalog.dialogs.file_picker"
+	CommandDialogMultiPicker    expletives.CommandID = "catalog.dialogs.file_picker_multiple"
+	CommandDialogDirectory      expletives.CommandID = "catalog.dialogs.directory_picker"
 	CommandUnavailable          expletives.CommandID = "fixture.unavailable"
 	CommandAppQuit              expletives.CommandID = "app.quit"
 	CommandAppInterrupt         expletives.CommandID = "app.interrupt"
@@ -109,6 +112,69 @@ var logCatalogRecords = []expletives.LogRecord{
 	{Key: "warning", Timestamp: "12:00:02", Level: expletives.LogWarning, Text: "scrollback preserves this logical record"},
 	{Key: "failure", Timestamp: "12:00:03", Level: expletives.LogError, Text: "example failure; no terminal control is executed"},
 	{Key: "ready", Timestamp: "12:00:04", Level: expletives.LogInfo, Text: "FOLLOW LogView: press G to append records"},
+}
+
+// catalogPickerProvider keeps the picker demonstrations deterministic and
+// side-effect free. The public LocalFilePickerProvider is covered separately;
+// the catalog should never expose an operator's real filesystem by accident.
+type catalogPickerProvider struct{}
+
+func (catalogPickerProvider) List(
+	ctx context.Context,
+	directory string,
+) (expletives.FilePickerListing, error) {
+	if err := ctx.Err(); err != nil {
+		return expletives.FilePickerListing{}, err
+	}
+	modified := time.Date(2026, 8, 2, 9, 30, 0, 0, time.UTC)
+	switch directory {
+	case "root":
+		return expletives.FilePickerListing{
+			Directory: "root", DisplayPath: "/demo",
+			Entries: []expletives.FilePickerEntry{
+				{Name: "docs", Location: "docs", Kind: expletives.FilePickerDirectory, Modified: modified},
+				{Name: "README.md", Location: "root/readme", Kind: expletives.FilePickerFile, Size: 4096, Modified: modified},
+				{Name: "demo.go", Location: "root/demo", Kind: expletives.FilePickerFile, Size: 8192, Modified: modified},
+			},
+		}, nil
+	case "docs":
+		return expletives.FilePickerListing{
+			Directory: "docs", DisplayPath: "/demo/docs", Parent: "root",
+			Entries: []expletives.FilePickerEntry{
+				{Name: "specifications", Location: "specifications", Kind: expletives.FilePickerDirectory, Modified: modified},
+				{Name: "File-Pickers.md", Location: "docs/file-pickers", Kind: expletives.FilePickerFile, Size: 6144, Modified: modified},
+			},
+		}, nil
+	case "specifications":
+		return expletives.FilePickerListing{
+			Directory: "specifications", DisplayPath: "/demo/docs/specifications", Parent: "docs",
+			Entries: []expletives.FilePickerEntry{
+				{Name: "file-pickers-api-v0.md", Location: "specifications/file-pickers", Kind: expletives.FilePickerFile, Size: 12288, Modified: modified},
+			},
+		}, nil
+	default:
+		return expletives.FilePickerListing{}, errors.New("demo location is unavailable")
+	}
+}
+
+func (catalogPickerProvider) Resolve(
+	ctx context.Context,
+	directory string,
+	input string,
+) (expletives.FilePickerEntry, error) {
+	if err := ctx.Err(); err != nil {
+		return expletives.FilePickerEntry{}, err
+	}
+	listing, err := (catalogPickerProvider{}).List(ctx, directory)
+	if err != nil {
+		return expletives.FilePickerEntry{}, err
+	}
+	for _, entry := range listing.Entries {
+		if entry.Name == input || (entry.Kind == expletives.FilePickerDirectory && entry.Name+"/" == input) {
+			return entry, nil
+		}
+	}
+	return expletives.FilePickerEntry{}, errors.New("demo entry was not found")
 }
 
 func collectionTreeFixture() []expletives.TreeNode {
@@ -237,7 +303,8 @@ var (
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
-	menuBorderStyle = expletives.Style{
+	dialogBackground = expletives.RGB(0x80, 0x80, 0x80)
+	menuBorderStyle  = expletives.Style{
 		ID:         "menu.border",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
@@ -428,6 +495,9 @@ type Scene struct {
 	collectionDropDown      *expletives.DropDown
 	collectionCombo         *expletives.ComboBox
 	lastProgressDialog      *expletives.ProgressDialog
+	lastFilePickerDialog    *expletives.FilePickerDialog
+	lastMultiPickerDialog   *expletives.MultiFilePickerDialog
+	lastDirectoryDialog     *expletives.DirectoryPickerDialog
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -1015,7 +1085,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID: "button.disabled", Foreground: expletives.RGB(0x80, 0x80, 0x80),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "button.mnemonic", Foreground: expletives.RGB(0xFF, 0xFF, 0x55),
@@ -1023,7 +1093,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID: "button.shadow", Foreground: expletives.RGB(0x00, 0x00, 0x00),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "static_text", Foreground: menuPopupStyle.Foreground,
@@ -1031,58 +1101,85 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{
 			ID: "modal_panel", Foreground: menuPopupStyle.Foreground,
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "modal_panel.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{ID: "modal_panel.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
 			ID: "dialog", Foreground: menuPopupStyle.Foreground,
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{ID: "dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
 			ID: "message_box", Foreground: menuPopupStyle.Foreground,
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "message_box.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{ID: "message_box.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
 			ID: "confirm_dialog", Foreground: menuPopupStyle.Foreground,
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "confirm_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{ID: "confirm_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
 			ID: "input_dialog", Foreground: menuPopupStyle.Foreground,
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "input_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{ID: "input_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
 			ID: "progress_dialog", Foreground: menuPopupStyle.Foreground,
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{
 			ID: "progress_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
-			Background: menuPopupStyle.Background,
+			Background: dialogBackground,
 		},
 		expletives.Style{ID: "progress_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "file_picker_dialog", Foreground: menuPopupStyle.Foreground,
+			Background: dialogBackground,
+		},
+		expletives.Style{
+			ID: "file_picker_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: dialogBackground,
+		},
+		expletives.Style{ID: "file_picker_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "multi_file_picker_dialog", Foreground: menuPopupStyle.Foreground,
+			Background: dialogBackground,
+		},
+		expletives.Style{
+			ID: "multi_file_picker_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: dialogBackground,
+		},
+		expletives.Style{ID: "multi_file_picker_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "directory_picker_dialog", Foreground: menuPopupStyle.Foreground,
+			Background: dialogBackground,
+		},
+		expletives.Style{
+			ID: "directory_picker_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: dialogBackground,
+		},
+		expletives.Style{ID: "directory_picker_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 	)
 	if err != nil {
 		return nil, err
@@ -5145,6 +5242,9 @@ func initialCommandDefinitions(
 		catalogActionDefinition(CommandDialogConfirm, "Confirm Dialog"),
 		catalogActionDefinition(CommandDialogInput, "Input Dialog"),
 		catalogActionDefinition(CommandDialogProgress, "Progress Dialog"),
+		catalogActionDefinition(CommandDialogFilePicker, "File Picker"),
+		catalogActionDefinition(CommandDialogMultiPicker, "Multiple File Picker"),
+		catalogActionDefinition(CommandDialogDirectory, "Directory Picker"),
 		{
 			ID: CommandAppQuit, Label: "Quit",
 			Description: "Exit the demonstration application",
@@ -5559,6 +5659,19 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 			{
 				Key: "menu.dialogs.progress", Kind: expletives.MenuItemCommand,
 				Command: CommandDialogProgress, Mnemonic: "p",
+			},
+			{Key: "menu.dialogs.separator.pickers", Kind: expletives.MenuItemSeparator},
+			{
+				Key: "menu.dialogs.file_picker", Kind: expletives.MenuItemCommand,
+				Command: CommandDialogFilePicker, Mnemonic: "f",
+			},
+			{
+				Key: "menu.dialogs.file_picker_multiple", Kind: expletives.MenuItemCommand,
+				Command: CommandDialogMultiPicker, Mnemonic: "u",
+			},
+			{
+				Key: "menu.dialogs.directory_picker", Kind: expletives.MenuItemCommand,
+				Command: CommandDialogDirectory, Mnemonic: "d",
 			},
 		},
 	})
@@ -6177,6 +6290,12 @@ func (s *Scene) handleCommand(
 		return s.showInputDialogLocked()
 	case CommandDialogProgress:
 		return s.showProgressDialogLocked()
+	case CommandDialogFilePicker:
+		return s.showFilePickerDialogLocked()
+	case CommandDialogMultiPicker:
+		return s.showMultiFilePickerDialogLocked()
+	case CommandDialogDirectory:
+		return s.showDirectoryPickerDialogLocked()
 	case CommandAppQuit:
 		return expletives.OutcomeExited, nil
 	case CommandAppInterrupt:
@@ -6337,6 +6456,98 @@ func (s *Scene) showProgressDialogLocked() (expletives.Outcome, error) {
 		s.mu.Lock()
 		if s.lastProgressDialog == dialog {
 			s.lastProgressDialog = nil
+		}
+		s.mu.Unlock()
+	}()
+	return expletives.OutcomeApplied, nil
+}
+
+func catalogPickerOptions(key string, title string) expletives.FilePickerDialogOptions {
+	return expletives.FilePickerDialogOptions{
+		DialogOptions: expletives.DialogOptions{
+			ModalPanelOptions: expletives.ModalPanelOptions{
+				PanelOptions: expletives.PanelOptions{AutomationKey: key},
+				Title:        title,
+			},
+		},
+		Provider: catalogPickerProvider{}, InitialDirectory: "root",
+		Filters: []expletives.FilePickerFilter{
+			{Key: "documents", Label: "Documents", Patterns: []string{"*.md", "*.txt"}},
+			{Key: "all", Label: "All files", Patterns: []string{"*"}},
+		},
+		Filter: "all",
+	}
+}
+
+func (s *Scene) showFilePickerDialogLocked() (expletives.Outcome, error) {
+	dialog, err := expletives.NewFilePickerDialog(
+		context.Background(), s.App.Root(),
+		catalogPickerOptions("dialog.file-picker", "Open File"),
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := dialog.Show(nil); err != nil {
+		_ = dialog.Destroy()
+		return expletives.OutcomeFailed, err
+	}
+	s.lastFilePickerDialog = dialog
+	go func() {
+		<-dialog.Done()
+		_ = dialog.Destroy()
+		s.mu.Lock()
+		if s.lastFilePickerDialog == dialog {
+			s.lastFilePickerDialog = nil
+		}
+		s.mu.Unlock()
+	}()
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) showMultiFilePickerDialogLocked() (expletives.Outcome, error) {
+	dialog, err := expletives.NewMultiFilePickerDialog(
+		context.Background(), s.App.Root(),
+		catalogPickerOptions("dialog.file-picker-multiple", "Open Files"),
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := dialog.Show(nil); err != nil {
+		_ = dialog.Destroy()
+		return expletives.OutcomeFailed, err
+	}
+	s.lastMultiPickerDialog = dialog
+	go func() {
+		<-dialog.Done()
+		_ = dialog.Destroy()
+		s.mu.Lock()
+		if s.lastMultiPickerDialog == dialog {
+			s.lastMultiPickerDialog = nil
+		}
+		s.mu.Unlock()
+	}()
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) showDirectoryPickerDialogLocked() (expletives.Outcome, error) {
+	dialog, err := expletives.NewDirectoryPickerDialog(
+		context.Background(), s.App.Root(),
+		catalogPickerOptions("dialog.directory-picker", "Select Directory"),
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := dialog.Show(nil); err != nil {
+		_ = dialog.Destroy()
+		return expletives.OutcomeFailed, err
+	}
+	s.lastDirectoryDialog = dialog
+	go func() {
+		<-dialog.Done()
+		_ = dialog.Destroy()
+		s.mu.Lock()
+		if s.lastDirectoryDialog == dialog {
+			s.lastDirectoryDialog = nil
 		}
 		s.mu.Unlock()
 	}()
@@ -7080,7 +7291,7 @@ func SelfCheck() error {
 		}
 	}
 	menu := controls["menu.main"].Details.MenuBar
-	if menu == nil || len(menu.Entries) != 58 ||
+	if menu == nil || len(menu.Entries) != 62 ||
 		len(menu.OpenPath) != 0 {
 		return errors.New("MenuBar typed evidence is incomplete")
 	}
@@ -7097,17 +7308,20 @@ func SelfCheck() error {
 	}
 	seenRootMnemonics := make(map[string]bool, len(expectedRootMnemonics))
 	catalogLabels := map[string]string{
-		"menu.file.home":            "Home",
-		"menu.panels.core":          "Core Panels",
-		"menu.panels.styles":        "Visual Styles",
-		"menu.layouts.box":          "Box Layout",
-		"menu.layouts.grid":         "Grid Layout",
-		"menu.controls.selection":   "Selection",
-		"menu.controls.input":       "Text / Numeric Input",
-		"menu.controls.progress":    "Progress",
-		"menu.controls.navigation":  "Navigation",
-		"menu.controls.scrolling":   "Scrolling / Content",
-		"menu.controls.collections": "Collections",
+		"menu.file.home":                    "Home",
+		"menu.panels.core":                  "Core Panels",
+		"menu.panels.styles":                "Visual Styles",
+		"menu.layouts.box":                  "Box Layout",
+		"menu.layouts.grid":                 "Grid Layout",
+		"menu.controls.selection":           "Selection",
+		"menu.controls.input":               "Text / Numeric Input",
+		"menu.controls.progress":            "Progress",
+		"menu.controls.navigation":          "Navigation",
+		"menu.controls.scrolling":           "Scrolling / Content",
+		"menu.controls.collections":         "Collections",
+		"menu.dialogs.file_picker":          "File Picker",
+		"menu.dialogs.file_picker_multiple": "Multiple File Picker",
+		"menu.dialogs.directory_picker":     "Directory Picker",
 	}
 	seenCatalogLabels := make(map[string]bool, len(catalogLabels))
 	homeChecked := false
@@ -8277,6 +8491,122 @@ func SelfCheck() error {
 	if result, ready := progressDialog.Result(); !ready ||
 		result.Reason != expletives.ModalCancelled {
 		return fmt.Errorf("ProgressDialog acknowledged result = %+v, %t", result, ready)
+	}
+	pickerListKey := func(list *expletives.ListBox, label string) (string, error) {
+		for _, item := range list.Items() {
+			if item.Label == label {
+				return item.Key, nil
+			}
+		}
+		return "", fmt.Errorf("picker item %q is absent", label)
+	}
+
+	if err := invoke("dialog-file-picker", CommandDialogFilePicker); err != nil {
+		return err
+	}
+	scene.mu.Lock()
+	filePicker := scene.lastFilePickerDialog
+	scene.mu.Unlock()
+	fileModal := controls["dialog.file-picker"]
+	if filePicker == nil || fileModal.Kind != expletives.ControlFilePickerDialog ||
+		fileModal.Details.FilePicker == nil ||
+		fileModal.Details.FilePicker.Mode != "single" ||
+		fileModal.Details.ModalPanel == nil ||
+		!fileModal.Details.ModalPanel.Active ||
+		!controls["dialog.file-picker.list"].Focused {
+		return errors.New("FilePickerDialog catalog command did not open its compound")
+	}
+	fileKey, err := pickerListKey(filePicker.List(), "demo.go")
+	if err != nil {
+		return err
+	}
+	if err := filePicker.List().SetCurrent(fileKey); err != nil {
+		return err
+	}
+	fileClose, err := filePicker.List().Activate(
+		context.Background(), "self-check", "dialog-file-picker-open",
+	)
+	if err != nil || fileClose.Outcome != expletives.OutcomeApplied ||
+		fileClose.Command != expletives.CommandFilePickerOpen {
+		return fmt.Errorf("FilePickerDialog Open = %+v, %v", fileClose, err)
+	}
+	fileSelection, accepted := filePicker.Selection()
+	if !accepted || fileSelection.Location != "root/demo" ||
+		fileSelection.Kind != expletives.FilePickerFile {
+		return fmt.Errorf("FilePickerDialog Selection = %+v, %t", fileSelection, accepted)
+	}
+
+	if err := invoke("dialog-multi-picker", CommandDialogMultiPicker); err != nil {
+		return err
+	}
+	scene.mu.Lock()
+	multiPicker := scene.lastMultiPickerDialog
+	scene.mu.Unlock()
+	multiModal := controls["dialog.file-picker-multiple"]
+	if multiPicker == nil || multiModal.Kind != expletives.ControlMultiFilePickerDialog ||
+		multiModal.Details.FilePicker == nil ||
+		multiModal.Details.FilePicker.Mode != "multiple" ||
+		multiModal.Details.ModalPanel == nil ||
+		!multiModal.Details.ModalPanel.Active {
+		return errors.New("MultiFilePickerDialog catalog command did not open its compound")
+	}
+	multiKeys := make([]string, 0, 2)
+	for _, label := range []string{"demo.go", "README.md"} {
+		key, keyErr := pickerListKey(multiPicker.List(), label)
+		if keyErr != nil {
+			return keyErr
+		}
+		multiKeys = append(multiKeys, key)
+	}
+	if err := multiPicker.List().SetSelection(multiKeys); err != nil {
+		return err
+	}
+	multiClose, err := multiPicker.OpenButton().Activate(
+		context.Background(), "self-check", "dialog-multi-picker-open",
+	)
+	if err != nil || multiClose.Outcome != expletives.OutcomeApplied ||
+		multiClose.Command != expletives.CommandFilePickerOpen {
+		return fmt.Errorf("MultiFilePickerDialog Open = %+v, %v", multiClose, err)
+	}
+	multiSelections, accepted := multiPicker.Selections()
+	if !accepted || len(multiSelections) != 2 ||
+		multiSelections[0].Location != "root/demo" ||
+		multiSelections[1].Location != "root/readme" {
+		return fmt.Errorf("MultiFilePickerDialog Selections = %+v, %t", multiSelections, accepted)
+	}
+
+	if err := invoke("dialog-directory-picker", CommandDialogDirectory); err != nil {
+		return err
+	}
+	scene.mu.Lock()
+	directoryPicker := scene.lastDirectoryDialog
+	scene.mu.Unlock()
+	directoryModal := controls["dialog.directory-picker"]
+	if directoryPicker == nil || directoryModal.Kind != expletives.ControlDirectoryPickerDialog ||
+		directoryModal.Details.FilePicker == nil ||
+		directoryModal.Details.FilePicker.Mode != "directory" ||
+		directoryModal.Details.ModalPanel == nil ||
+		!directoryModal.Details.ModalPanel.Active {
+		return errors.New("DirectoryPickerDialog catalog command did not open its compound")
+	}
+	directoryNavigate, err := directoryPicker.List().Activate(
+		context.Background(), "self-check", "dialog-directory-picker-enter",
+	)
+	if err != nil || directoryNavigate.Outcome != expletives.OutcomeApplied ||
+		directoryNavigate.Command != expletives.CommandFilePickerOpen {
+		return fmt.Errorf("DirectoryPickerDialog navigation = %+v, %v", directoryNavigate, err)
+	}
+	directoryClose, err := directoryPicker.SelectButton().Activate(
+		context.Background(), "self-check", "dialog-directory-picker-select",
+	)
+	if err != nil || directoryClose.Outcome != expletives.OutcomeApplied ||
+		directoryClose.Command != expletives.CommandFilePickerSelect {
+		return fmt.Errorf("DirectoryPickerDialog Select = %+v, %v", directoryClose, err)
+	}
+	directorySelection, accepted := directoryPicker.Selection()
+	if !accepted || directorySelection.Location != "docs" ||
+		directorySelection.Kind != expletives.FilePickerDirectory {
+		return fmt.Errorf("DirectoryPickerDialog Selection = %+v, %t", directorySelection, accepted)
 	}
 	if err := invoke("show-home", CommandViewHome); err != nil {
 		return err

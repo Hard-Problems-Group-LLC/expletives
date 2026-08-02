@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -1742,6 +1743,82 @@ func TestProgressDialogSnapshotTracksCancellationRequest(t *testing.T) {
 		if cloned.Controls[index].Key == "progress" &&
 			!cloned.Controls[index].Details.ProgressDialog.Cancellable {
 			t.Fatal("cloneSnapshot exposed ProgressDialogDetails storage")
+		}
+	}
+}
+
+func TestFilePickerSnapshotCompactsDisplayStringsAndValidatesKind(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.WriteFile(root+"/example.txt", []byte("example"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(root+"/nested", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	provider, err := expletives.NewLocalFilePickerProvider(
+		expletives.LocalFilePickerProviderOptions{Root: root},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 80, Height: 25},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	picker, err := expletives.NewFilePickerDialog(
+		context.Background(), app.Root(), expletives.FilePickerDialogOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{AutomationKey: "picker"},
+				},
+			},
+			Provider: provider, InitialDirectory: provider.Root(),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := picker.Show(nil); err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot(file picker) error = %v", err)
+	}
+	var details *FilePickerDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "picker" {
+			control := projected.Controls[index]
+			if control.Kind != "file_picker_dialog" ||
+				control.Details.ModalPanel == nil ||
+				!control.Details.ModalPanel.Active {
+				t.Fatalf("projected picker root = %#v", control)
+			}
+			details = control.Details.FilePicker
+			break
+		}
+	}
+	if details == nil || details.Mode != "single" || details.Status != "ready" ||
+		details.DisplayPathBytes != len(root) ||
+		!validLowerSHA256(details.DisplayPathDigest) ||
+		details.EntryCount != 2 || details.FileCount != 1 ||
+		details.DirectoryCount != 1 || details.Filter != "all" ||
+		details.SortField != "name" || details.SortDirection != "ascending" ||
+		details.ErrorBytes != 0 || details.ErrorDigest != "" {
+		t.Fatalf("projected FilePickerDetails = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	details.Mode = "directory"
+	if err := validateSnapshot(&projected, DefaultLimits()); err == nil {
+		t.Fatal("validateSnapshot accepted FilePickerDetails kind/mode mismatch")
+	}
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "picker" &&
+			cloned.Controls[index].Details.FilePicker.Mode != "single" {
+			t.Fatal("cloneSnapshot exposed FilePickerDetails storage")
 		}
 	}
 }

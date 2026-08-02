@@ -216,6 +216,8 @@ type ControlDetails struct {
 	ModalPanel *ModalPanelDetails `json:"modal_panel,omitempty"`
 	// ProgressDialog is present only for ProgressDialog.
 	ProgressDialog *ProgressDialogDetails `json:"progress_dialog,omitempty"`
+	// FilePicker is present for each file-picker Dialog specialization.
+	FilePicker *FilePickerDetails `json:"file_picker,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
@@ -269,6 +271,28 @@ type ProgressDialogDetails struct {
 	Progress        ProgressDialogProgressDetails `json:"progress"`
 	Cancellable     bool                          `json:"cancellable"`
 	CancelRequested bool                          `json:"cancel_requested"`
+}
+
+// FilePickerDetails is privacy-compacted picker state. Display strings are
+// represented by byte counts and SHA-256 evidence; provider tokens and
+// accepted results are never projected.
+type FilePickerDetails struct {
+	Mode              string `json:"mode"`
+	Status            string `json:"status"`
+	DisplayPathBytes  int    `json:"display_path_bytes"`
+	DisplayPathDigest string `json:"display_path_digest,omitempty"`
+	EntryCount        int    `json:"entry_count"`
+	FileCount         int    `json:"file_count"`
+	DirectoryCount    int    `json:"directory_count"`
+	CurrentNameBytes  int    `json:"current_name_bytes"`
+	CurrentNameDigest string `json:"current_name_digest,omitempty"`
+	CurrentKind       string `json:"current_kind,omitempty"`
+	SelectedCount     int    `json:"selected_count"`
+	Filter            string `json:"filter"`
+	SortField         string `json:"sort_field"`
+	SortDirection     string `json:"sort_direction"`
+	ErrorBytes        int    `json:"error_bytes"`
+	ErrorDigest       string `json:"error_digest,omitempty"`
 }
 
 // BorderDetails describes one bordered container.
@@ -679,6 +703,7 @@ type ListBoxDetails struct {
 	Enabled             bool                   `json:"enabled"`
 	DisabledReasonBytes int                    `json:"disabled_reason_bytes"`
 	ChangeCommand       string                 `json:"change_command,omitempty"`
+	CurrentCommand      string                 `json:"current_command,omitempty"`
 	ActivateCommand     string                 `json:"activate_command,omitempty"`
 	Viewport            ContentViewportDetails `json:"viewport"`
 }
@@ -1442,6 +1467,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				Enabled:             details.Enabled,
 				DisabledReasonBytes: len(details.DisabledReason),
 				ChangeCommand:       string(details.ChangeCommand),
+				CurrentCommand:      string(details.CurrentCommand),
 				ActivateCommand:     string(details.ActivateCommand),
 				Viewport: contentViewportDetailsFromCore(
 					&details.Viewport,
@@ -1622,6 +1648,23 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				},
 				Cancellable:     details.Cancellable,
 				CancelRequested: details.CancelRequested,
+			}
+		}
+		if details := control.Details.FilePicker; details != nil {
+			pathBytes, pathDigest := compactTextEvidence(details.DisplayPath)
+			nameBytes, nameDigest := compactTextEvidence(details.CurrentName)
+			errorBytes, errorDigest := compactTextEvidence(details.Error)
+			projectedControl.Details.FilePicker = &FilePickerDetails{
+				Mode: details.Mode, Status: string(details.Status),
+				DisplayPathBytes: pathBytes, DisplayPathDigest: pathDigest,
+				EntryCount: details.EntryCount, FileCount: details.FileCount,
+				DirectoryCount:   details.DirectoryCount,
+				CurrentNameBytes: nameBytes, CurrentNameDigest: nameDigest,
+				CurrentKind:   string(details.CurrentKind),
+				SelectedCount: details.SelectedCount, Filter: details.Filter,
+				SortField:     string(details.SortField),
+				SortDirection: string(details.SortDirection),
+				ErrorBytes:    errorBytes, ErrorDigest: errorDigest,
 			}
 		}
 		projected.Controls[index] = projectedControl
@@ -2031,6 +2074,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.ProgressDialog != nil {
 			progress := *snapshot.Controls[index].Details.ProgressDialog
 			cloned.Controls[index].Details.ProgressDialog = &progress
+		}
+		if snapshot.Controls[index].Details.FilePicker != nil {
+			picker := *snapshot.Controls[index].Details.FilePicker
+			cloned.Controls[index].Details.FilePicker = &picker
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

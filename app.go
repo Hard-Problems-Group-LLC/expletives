@@ -165,6 +165,7 @@ func NewApp(options AppOptions) (*App, error) {
 		CommandFilePickerSelect:  "Select",
 		CommandFilePickerUp:      "Up",
 		CommandFilePickerRefresh: "Refresh",
+		CommandFilePickerCurrent: "Current",
 	} {
 		app.commands[command] = CommandDefinition{
 			ID: command, Label: label, Enabled: true,

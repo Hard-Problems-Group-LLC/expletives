@@ -131,9 +131,11 @@ type ListBoxOptions struct {
     Current           string
     Selected          []string
     SelectionMode     CollectionSelectionMode
+    SelectionMarks    CollectionSelectionMarks
     RequireSelection  bool
     Status            CollectionStatus
     StatusMessage     string
+    CurrentCommand    CommandID
     ActivateCommand   CommandID
 }
 
@@ -186,9 +188,12 @@ func (t *Transaction) SetListStatus(
 ```
 
 The inherited `ScrollablePanelOptions.ChangeCommand` is routed only after a
-real user selection change. `ActivateCommand` is routed on Enter or public
-`Activate`; if it is empty and activation changed selection, the change
-command is used. Programmatic setters never route commands.
+real user selection change. `CurrentCommand` is routed after keyboard
+navigation changes current without also selecting or activating it; this is
+useful for inspector panes and previews. `ActivateCommand` is routed on Enter
+or public `Activate`; activation has precedence over selection, and selection
+has precedence over a coincident current change. Programmatic setters never
+route commands.
 
 One displayed item occupies one row. Up and Down move current by one enabled
 item. Page Up and Page Down move by the current viewport height while landing

@@ -1212,6 +1212,11 @@ go test ./automation \
 That command passed. The current maximum fixture encoded to 41,391,622 bytes;
 three retained maximum records total 124,174,866 bytes.
 
+Phase 18 picker projection, kind/detail cross-validation, privacy compaction,
+deep-copy behavior, current-item command evidence, and aggregate response
+accounting were revalidated on 2026-08-02 by the complete `make verify` gate.
+The maximum and retained-total figures above remained unchanged.
+
 The relevant integration assertions are:
 
 - `automation/server_integration_test.go`:

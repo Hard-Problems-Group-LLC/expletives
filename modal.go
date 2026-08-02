@@ -73,6 +73,7 @@ type modalPanelBehavior struct {
 	progressStatus  *controlState
 	progressBar     *controlState
 	progressCancel  *controlState
+	picker          *filePickerCore
 	life            *modalLifecycleState
 }
 
@@ -453,6 +454,10 @@ func (b modalPanelBehavior) details() ControlDetails {
 			}
 		}
 		borderDetails.ProgressDialog = progressDetails
+	}
+	if b.picker != nil {
+		pickerDetails := b.picker.detailsLocked()
+		borderDetails.FilePicker = &pickerDetails
 	}
 	return borderDetails
 }

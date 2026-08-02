@@ -160,7 +160,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			menuEvidence =
 				control.Kind == "menu_bar" &&
 					control.Details.MenuBar != nil &&
-					len(control.Details.MenuBar.Entries) == 58 &&
+					len(control.Details.MenuBar.Entries) == 62 &&
 					len(control.Details.MenuBar.OpenPath) == 0 &&
 					control.Bounds == (automation.Rect{
 						Width:  observe.Snapshot.Frame.Size.Width,

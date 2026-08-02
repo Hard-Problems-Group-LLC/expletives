@@ -107,8 +107,9 @@ Filter keys are stable bounded identifiers. Labels and patterns are copied
 and bounded. Patterns use Go `path.Match` syntax against the complete entry
 `Name`, never against the opaque location. Directories remain visible so the
 user can navigate. An empty filter list supplies one implicit `*` filter.
-Typing a pattern in the path field applies that transient pattern without a
-provider call.
+Applications change the active copied filter explicitly with `SetFilter`.
+The path field remains a provider-resolved name or path, not an implicit
+second filtering language.
 
 Directories sort before non-directories. The requested name, size, or
 modified-time field then determines stable ascending or descending order;
@@ -203,17 +204,18 @@ renderer.
 - Space toggles a file in the multiple picker and only changes current in the
   other variants.
 - Enter activates the current list row. It navigates into directories,
-  accepts a file in the single picker, and toggles a file without accepting
-  in the multiple picker.
+  accepts a file in the single picker, and adds an unselected file without
+  accepting in the multiple picker. Space is the explicit toggle in the
+  multiple picker.
 - The multiple picker closes successfully only through its explicit Open
   action with a nonempty selection.
 - The directory picker Enter action navigates; its Select action accepts the
   directory currently being viewed.
 - Enter commits path editing; a subsequent Enter resolves the committed
-  path, navigates a directory, applies a wildcard, or accepts an eligible
-  single file.
+  path, navigates a directory, or accepts an eligible single file. Multiple
+  selection remains an explicit list-and-Open workflow.
 - Alt-O activates Open, Alt-U activates Up, Alt-C cancels, and Escape cancels.
-- F5 refreshes the current listing without changing modal meaning.
+- Alt-R refreshes the current listing without changing modal meaning.
 - Ctrl-C remains the App's configured interrupt, never picker Cancel.
 
 Provider failures remain within the same dialog as bounded error state. They
@@ -223,12 +225,13 @@ at the next provider publication and can never be returned after it is absent.
 
 ## Automation And Privacy
 
-Each specialization has its own control kind. Its typed semantic details
+Each specialization has its own control kind. Its core typed semantic details
 contain mode, provider status, display path, entry/file/directory counts,
 current entry kind and display name, selected count, active filter and sort,
-and recoverable error state. Opaque locations and accepted result tokens are
-not projected through attached automation. Ordinary child controls remain
-individually discoverable by derived automation keys.
+and recoverable error state. Attached automation projects display path,
+current name, and error text as bounded byte counts and SHA-256 evidence.
+Opaque locations and accepted result tokens are never projected. Ordinary
+child controls remain individually discoverable by derived automation keys.
 
 Automation drives the exact raw logical key path used by a human, including
 KeyDown/KeyUp/KeyPress modifier chords. Direct semantic picker commands use

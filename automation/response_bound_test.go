@@ -3212,6 +3212,7 @@ func maximumCompletionJSONBytes(
 			SelectionDigest:     strings.Repeat("f", sha256HexBytes),
 			DisabledReasonBytes: math.MaxInt,
 			ChangeCommand:       string(controlValue.ID),
+			CurrentCommand:      string(controlValue.ID),
 			ActivateCommand:     string(controlValue.ID),
 			Viewport:            markdownViewport,
 		},
@@ -3360,6 +3361,21 @@ func maximumCompletionJSONBytes(
 			},
 		},
 	}
+	pickerControl := modalControl
+	pickerControl.Kind = "file_picker_dialog"
+	pickerControl.Details.FilePicker = &FilePickerDetails{
+		Mode: "single", Status: "error",
+		DisplayPathBytes:  math.MaxInt,
+		DisplayPathDigest: strings.Repeat("f", sha256HexBytes),
+		EntryCount:        math.MaxInt, FileCount: math.MaxInt,
+		DirectoryCount:    math.MaxInt,
+		CurrentNameBytes:  math.MaxInt,
+		CurrentNameDigest: strings.Repeat("f", sha256HexBytes),
+		CurrentKind:       "directory", SelectedCount: math.MaxInt,
+		Filter: string(controlValue.ID), SortField: "modified",
+		SortDirection: "descending", ErrorBytes: math.MaxInt,
+		ErrorDigest: strings.Repeat("f", sha256HexBytes),
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -3379,6 +3395,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, dataGridControl),
 		mustMarshal(t, comboBoxControl),
 		mustMarshal(t, modalControl),
+		mustMarshal(t, pickerControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

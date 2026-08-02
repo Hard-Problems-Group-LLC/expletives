@@ -1371,6 +1371,66 @@ func validProgressDialogDetails(details *ProgressDialogDetails) bool {
 		progress.Tick == 0
 }
 
+func validFilePickerDetails(kind ControlKind, details *FilePickerDetails, limits Limits) bool {
+	if details == nil || details.EntryCount < 0 ||
+		details.EntryCount > expletives.MaxCollectionItems ||
+		details.FileCount < 0 || details.DirectoryCount < 0 ||
+		details.FileCount+details.DirectoryCount > details.EntryCount ||
+		details.SelectedCount < 0 || details.SelectedCount > details.FileCount ||
+		details.DisplayPathBytes < 1 ||
+		details.DisplayPathBytes > expletives.MaxTextInputBytes ||
+		!validLowerSHA256(details.DisplayPathDigest) ||
+		details.CurrentNameBytes < 0 ||
+		details.CurrentNameBytes > expletives.MaxDisplayTextBytes ||
+		details.ErrorBytes < 0 || details.ErrorBytes > expletives.MaxDisplayTextBytes ||
+		!validIdentifier(details.Filter, limits.IdentifierBytes) {
+		return false
+	}
+	if (details.CurrentNameBytes == 0) != (details.CurrentNameDigest == "") ||
+		(details.CurrentNameBytes > 0 && !validLowerSHA256(details.CurrentNameDigest)) ||
+		(details.CurrentNameBytes == 0) != (details.CurrentKind == "") {
+		return false
+	}
+	if details.CurrentKind != "" && details.CurrentKind != "file" &&
+		details.CurrentKind != "directory" {
+		return false
+	}
+	if (details.ErrorBytes == 0) != (details.ErrorDigest == "") ||
+		(details.ErrorBytes > 0 && !validLowerSHA256(details.ErrorDigest)) {
+		return false
+	}
+	switch details.Status {
+	case "ready", "loading":
+		if details.ErrorBytes != 0 {
+			return false
+		}
+	case "error":
+		if details.ErrorBytes == 0 {
+			return false
+		}
+	default:
+		return false
+	}
+	if details.SortField != "name" && details.SortField != "size" &&
+		details.SortField != "modified" {
+		return false
+	}
+	if details.SortDirection != "ascending" && details.SortDirection != "descending" {
+		return false
+	}
+	switch kind {
+	case "file_picker_dialog":
+		return details.Mode == "single"
+	case "multi_file_picker_dialog":
+		return details.Mode == "multiple"
+	case "directory_picker_dialog":
+		return details.Mode == "directory" && details.SelectedCount == 0 &&
+			(details.CurrentKind == "" || details.CurrentKind == "directory")
+	default:
+		return false
+	}
+}
+
 func validControlDetails(
 	kind ControlKind,
 	details ControlDetails,
@@ -1410,6 +1470,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.ProgressDialog != nil {
+		specialMembers++
+	}
+	if details.FilePicker != nil {
 		specialMembers++
 	}
 	if details.ScrollBar != nil {
@@ -1477,8 +1540,7 @@ func validControlDetails(
 			details.HotkeyBar == nil &&
 			details.MenuBar == nil &&
 			details.StatusBar == nil
-	case "modal_panel", "dialog", "message_box", "confirm_dialog", "input_dialog",
-		"file_picker_dialog", "multi_file_picker_dialog", "directory_picker_dialog":
+	case "modal_panel", "dialog", "message_box", "confirm_dialog", "input_dialog":
 		return specialMembers == 1 &&
 			details.Container != nil &&
 			validBorderDetails(details.Border, limits) &&
@@ -1498,6 +1560,23 @@ func validControlDetails(
 				controlHeight,
 				limits,
 			)
+	case "file_picker_dialog", "multi_file_picker_dialog", "directory_picker_dialog":
+		return specialMembers == 2 &&
+			details.Container != nil &&
+			validBorderDetails(details.Border, limits) &&
+			((details.Border.Form == "none" &&
+				details.Container.ClientInset == 0) ||
+				(details.Border.Form != "none" &&
+					details.Container.ClientInset == 1)) &&
+			details.Text == nil && details.Divider == nil &&
+			details.Action == nil && details.HotkeyBar == nil &&
+			details.MenuBar == nil && details.StatusBar == nil &&
+			validModalPanelDetails(
+				details.ModalPanel,
+				controlWidth,
+				controlHeight,
+				limits,
+			) && validFilePickerDetails(kind, details.FilePicker, limits)
 	case "progress_dialog":
 		return specialMembers == 2 &&
 			details.Container != nil &&
@@ -2017,6 +2096,8 @@ func validListBoxDetails(
 		(!details.Enabled && details.DisabledReasonBytes == 0) ||
 		(details.ChangeCommand != "" &&
 			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) ||
+		(details.CurrentCommand != "" &&
+			!validIdentifier(details.CurrentCommand, limits.IdentifierBytes)) ||
 		(details.ActivateCommand != "" &&
 			!validIdentifier(details.ActivateCommand, limits.IdentifierBytes)) ||
 		!validContentViewportDetails(

@@ -1095,6 +1095,28 @@ Improvement applied:
 - make `Complete` a named alias for the existing explicit modal close result,
   avoiding another completion lifecycle.
 
+### 37. Keep Closed-Loop Inspection Output Proportional To The Question
+
+Every successful automation mutation intentionally carries a complete
+snapshot, which is the correct protocol evidence but produces very large
+terminal output when `expletivesctl` is used only to inspect a few cells or
+control fields. Truncating that output is noisy and obscures the evidence the
+operator actually requested.
+
+Immediate practice:
+
+- filter snapshots at the command boundary with `jq` and report only the
+  selected semantic cells or typed details;
+- keep full responses out of durable logs unless they are the evidence under
+  investigation; and
+- reuse one attached fixture for related observations, then shut it down and
+  remove only its owned temporary directory.
+
+Opportunity recorded: add a local `expletivesctl` summary/selection output
+mode that still validates the full received snapshot but emits only requested
+fields. This is a client-output optimization, not a reason to weaken the
+protocol's exact completion/snapshot contract.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

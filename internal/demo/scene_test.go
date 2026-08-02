@@ -49,6 +49,9 @@ var enabledCatalogMenuPaths = []enabledMenuPath{
 	{"menu.dialogs.confirm", []expletives.Key{"d", "c"}, CommandDialogConfirm, expletives.OutcomeApplied, "", nil},
 	{"menu.dialogs.input", []expletives.Key{"d", "i"}, CommandDialogInput, expletives.OutcomeApplied, "", nil},
 	{"menu.dialogs.progress", []expletives.Key{"d", "p"}, CommandDialogProgress, expletives.OutcomeApplied, "", nil},
+	{"menu.dialogs.file_picker", []expletives.Key{"d", "f"}, CommandDialogFilePicker, expletives.OutcomeApplied, "", nil},
+	{"menu.dialogs.file_picker_multiple", []expletives.Key{"d", "u"}, CommandDialogMultiPicker, expletives.OutcomeApplied, "", nil},
+	{"menu.dialogs.directory_picker", []expletives.Key{"d", "d"}, CommandDialogDirectory, expletives.OutcomeApplied, "", nil},
 	{"menu.help.about", []expletives.Key{"p", "a"}, CommandViewAbout, expletives.OutcomeApplied, CommandViewAbout, nil},
 }
 
@@ -176,8 +179,8 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 	details := catalogMenuDetails(t, scene.App.Snapshot())
-	if got := len(details.Entries); got != 58 {
-		t.Fatalf("menu entries = %d, want 58", got)
+	if got := len(details.Entries); got != 62 {
+		t.Fatalf("menu entries = %d, want 62", got)
 	}
 
 	coveredCommands := make(map[string]bool)
@@ -210,7 +213,7 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 			t.Errorf("entry %q has unknown kind %q", entry.Key, entry.Kind)
 		}
 	}
-	if len(coveredCommands) != 37 || len(separatorKeys) != 9 ||
+	if len(coveredCommands) != 40 || len(separatorKeys) != 10 ||
 		len(submenuKeys) != 12 {
 		t.Fatalf(
 			"coverage commands=%d separators=%d submenus=%d",
@@ -231,7 +234,7 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		{"controls", "c", []string{"menu.controls.text", "menu.controls.actions", "menu.controls.selection", "menu.controls.input", "menu.controls.progress", "menu.controls.navigation", "menu.controls.scrolling", "menu.controls.collections"}},
 		{"sections", "s", []string{"menu.sections.status", "menu.sections.headers", "menu.sections.footers"}},
 		{"menus", "m", []string{"menu.menus.overview", "menu.menus.panel", "menu.menus.context"}},
-		{"dialogs", "d", []string{"menu.dialogs.message", "menu.dialogs.confirm", "menu.dialogs.input", "menu.dialogs.progress"}},
+		{"dialogs", "d", []string{"menu.dialogs.message", "menu.dialogs.confirm", "menu.dialogs.input", "menu.dialogs.progress", "menu.dialogs.file_picker", "menu.dialogs.file_picker_multiple", "menu.dialogs.directory_picker"}},
 	}
 	for _, traversal := range traversals {
 		t.Run(traversal.name, func(t *testing.T) {

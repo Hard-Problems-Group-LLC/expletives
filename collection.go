@@ -60,6 +60,7 @@ type ListBoxOptions struct {
 	RequireSelection bool
 	Status           CollectionStatus
 	StatusMessage    string
+	CurrentCommand   CommandID
 	ActivateCommand  CommandID
 }
 
@@ -96,6 +97,7 @@ type listBoxBehavior struct {
 	status           CollectionStatus
 	statusMessage    normalizedDisplayText
 	changeCommand    CommandID
+	currentCommand   CommandID
 	activateCommand  CommandID
 }
 
@@ -169,6 +171,9 @@ func newListBoxBehavior(options ListBoxOptions) (listBoxBehavior, error) {
 	if err := validateOptionalCommand(options.ActivateCommand); err != nil {
 		return listBoxBehavior{}, err
 	}
+	if err := validateOptionalCommand(options.CurrentCommand); err != nil {
+		return listBoxBehavior{}, err
+	}
 	scrollOptions.State.Offset = Point{}
 	scroll, err := normalizeScrollViewBehavior(scrollViewBehavior{
 		state:            scrollOptions.State,
@@ -224,6 +229,7 @@ func newListBoxBehavior(options ListBoxOptions) (listBoxBehavior, error) {
 		status:           status,
 		statusMessage:    message,
 		changeCommand:    changeCommand,
+		currentCommand:   options.CurrentCommand,
 		activateCommand:  options.ActivateCommand,
 	}
 	if err := setExactListIdentity(
@@ -503,6 +509,7 @@ func listBoxBehaviorEqual(left, right listBoxBehavior) bool {
 		left.status != right.status ||
 		left.statusMessage.text != right.statusMessage.text ||
 		left.changeCommand != right.changeCommand ||
+		left.currentCommand != right.currentCommand ||
 		left.activateCommand != right.activateCommand ||
 		len(left.items) != len(right.items) ||
 		len(left.selected) != len(right.selected) {
@@ -764,6 +771,7 @@ func listBoxDetails(bounds Rect, behavior listBoxBehavior) ListBoxDetails {
 		Enabled:          !behavior.scroll.disabled,
 		DisabledReason:   behavior.scroll.disabledReason,
 		ChangeCommand:    behavior.changeCommand,
+		CurrentCommand:   behavior.currentCommand,
 		ActivateCommand:  behavior.activateCommand,
 		Viewport:         viewport,
 	}
@@ -998,11 +1006,14 @@ func (a *App) listBoxKeyLocked(
 	if changed {
 		state.behavior = behavior
 	}
+	currentChanged := before.current != behavior.current
 	command := CommandID("")
 	if activate && behavior.activateCommand != "" {
 		command = behavior.activateCommand
 	} else if selectionChanged {
 		command = behavior.changeCommand
+	} else if currentChanged {
+		command = behavior.currentCommand
 	}
 	return command, state.id, true, changed
 }

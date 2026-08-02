@@ -112,6 +112,7 @@ func TestListBoxNavigationSelectionActivationAndCommands(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 24, Height: 8})
 	registerActionCommand(t, app, "list.changed", "List changed", true)
+	registerActionCommand(t, app, "list.current", "List current", true)
 	registerActionCommand(t, app, "list.activate", "Activate item", true)
 	list, err := NewListBox(app.Root(), ListBoxOptions{
 		ScrollablePanelOptions: ScrollablePanelOptions{
@@ -133,6 +134,7 @@ func TestListBoxNavigationSelectionActivationAndCommands(t *testing.T) {
 		},
 		SelectionMode:    CollectionSelectionMultiple,
 		RequireSelection: true,
+		CurrentCommand:   "list.current",
 		ActivateCommand:  "list.activate",
 	})
 	if err != nil {
@@ -156,7 +158,7 @@ func TestListBoxNavigationSelectionActivationAndCommands(t *testing.T) {
 	down := dispatchListBoxKey(t, app, "list-down", KeyDown)
 	if state := list.State(); state.Current != "three" ||
 		len(state.Selected) != 1 || state.Selected[0] != "one" ||
-		down.Command != "" {
+		down.Command != "list.current" {
 		t.Fatalf("Down state=%#v completion=%#v", state, down)
 	}
 	space := dispatchListBoxKey(t, app, "list-space", KeySpace)
@@ -184,9 +186,9 @@ func TestListBoxNavigationSelectionActivationAndCommands(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if len(routed) != 3 || routed[0].ID != "list.changed" ||
-		routed[1].ID != "list.activate" ||
-		routed[2].ID != "list.activate" {
+	if len(routed) != 5 || routed[0].ID != "list.current" ||
+		routed[1].ID != "list.changed" || routed[2].ID != "list.current" ||
+		routed[3].ID != "list.activate" || routed[4].ID != "list.activate" {
 		t.Fatalf("routed commands = %#v", routed)
 	}
 }

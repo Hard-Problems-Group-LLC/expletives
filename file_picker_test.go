@@ -3,6 +3,7 @@ package expletives
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -135,11 +136,37 @@ func TestFilePickerDialogFiltersSortsNavigatesAndAccepts(t *testing.T) {
 		state.Filter != "text" || state.Sort.Field != FilePickerSortName {
 		t.Fatalf("initial picker State() = %#v", state)
 	}
+	details := controlByKey(t, app.Snapshot(), "picker.single").Details.FilePicker
+	if details == nil || details.Mode != "single" || details.Status != CollectionReady ||
+		details.DisplayPath != "/fixture" || details.EntryCount != 3 ||
+		details.FileCount != 2 || details.DirectoryCount != 1 ||
+		details.Filter != "text" || details.SortField != FilePickerSortName ||
+		details.SortDirection != SortAscending || details.Error != "" {
+		t.Fatalf("initial FilePickerDetails = %#v", details)
+	}
+	if text := picker.Information().Text(); !strings.Contains(text, "Directory: nested") {
+		t.Fatalf("initial current information = %q", text)
+	}
 	if err := picker.Show(nil); err != nil {
 		t.Fatal(err)
 	}
 	if !controlByKey(t, app.Snapshot(), "picker.single.list").Focused {
 		t.Fatal("picker did not initially focus its ready list")
+	}
+	if _, err := app.DispatchKey(
+		context.Background(), "test", "picker-next-information",
+		KeyEvent{Kind: KeyEventPress, Key: KeyDown},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if text := picker.Information().Text(); !strings.Contains(text, "alpha.txt") {
+		t.Fatalf("current information after Down = %q", text)
+	}
+	if _, err := app.DispatchKey(
+		context.Background(), "test", "picker-previous-information",
+		KeyEvent{Kind: KeyEventPress, Key: KeyUp},
+	); err != nil {
+		t.Fatal(err)
 	}
 	completion, err := picker.List().Activate(context.Background(), "test", "open-directory")
 	if err != nil || completion.Outcome != OutcomeApplied || !picker.Active() {

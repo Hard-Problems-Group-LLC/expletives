@@ -697,6 +697,8 @@ type ControlDetails struct {
 	ModalPanel *ModalPanelDetails `json:"modal_panel,omitempty"`
 	// ProgressDialog is present only for ProgressDialog.
 	ProgressDialog *ProgressDialogDetails `json:"progress_dialog,omitempty"`
+	// FilePicker is present for each file-picker Dialog specialization.
+	FilePicker *FilePickerDetails `json:"file_picker,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -786,6 +788,24 @@ type ProgressDialogDetails struct {
 	Progress        ProgressBarState `json:"progress"`
 	Cancellable     bool             `json:"cancellable"`
 	CancelRequested bool             `json:"cancel_requested"`
+}
+
+// FilePickerDetails describes one picker compound without exposing provider
+// location tokens or accepted result values.
+type FilePickerDetails struct {
+	Mode           string              `json:"mode"`
+	Status         CollectionStatus    `json:"status"`
+	DisplayPath    string              `json:"display_path"`
+	EntryCount     int                 `json:"entry_count"`
+	FileCount      int                 `json:"file_count"`
+	DirectoryCount int                 `json:"directory_count"`
+	CurrentName    string              `json:"current_name,omitempty"`
+	CurrentKind    FilePickerEntryKind `json:"current_kind,omitempty"`
+	SelectedCount  int                 `json:"selected_count"`
+	Filter         string              `json:"filter"`
+	SortField      FilePickerSortField `json:"sort_field"`
+	SortDirection  SortDirection       `json:"sort_direction"`
+	Error          string              `json:"error,omitempty"`
 }
 
 // TextDetails describes one canonical Label or StaticText value.
@@ -1155,6 +1175,7 @@ type ListBoxDetails struct {
 	Enabled          bool                    `json:"enabled"`
 	DisabledReason   string                  `json:"disabled_reason,omitempty"`
 	ChangeCommand    CommandID               `json:"change_command,omitempty"`
+	CurrentCommand   CommandID               `json:"current_command,omitempty"`
 	ActivateCommand  CommandID               `json:"activate_command,omitempty"`
 	Viewport         ScrollableDetails       `json:"viewport"`
 }
@@ -1670,6 +1691,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		if snapshot.Controls[index].Details.ProgressDialog != nil {
 			progress := *snapshot.Controls[index].Details.ProgressDialog
 			cloned.Controls[index].Details.ProgressDialog = &progress
+		}
+		if snapshot.Controls[index].Details.FilePicker != nil {
+			picker := *snapshot.Controls[index].Details.FilePicker
+			cloned.Controls[index].Details.FilePicker = &picker
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

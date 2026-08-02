@@ -97,7 +97,7 @@ vet:
 	$(GO) vet -mod=readonly ./...
 
 smoke: all
-	@for mode in debug release profiling; do \
+	@set -e; for mode in debug release profiling; do \
 		"$(BUILD_ROOT)/$$mode/expletives-test" --version >/dev/null; \
 		"$(BUILD_ROOT)/$$mode/expletives-test" --self-check >/dev/null; \
 		"$(BUILD_ROOT)/$$mode/expletivesctl" --version >/dev/null; \

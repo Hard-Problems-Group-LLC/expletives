@@ -515,7 +515,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 16. Collections
 
-- Status: `implementation complete; ACP pending explicit Git identity`
+- Status: `complete`
 - Goal: deliver `ListBox`, `ComboBox`, `DropDown`, `TreeView`, `Table`,
   `DataGrid`, `ListItem`, `TreeNode`, and `Column`.
 - Dependencies: Phase 15 viewport, scrolling, selection, popup, and editing
@@ -536,7 +536,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 17. Modals
 
-- Status: `implementation active — controls complete; catalog/evidence active`
+- Status: `complete`
 - Goal: deliver `ModalPanel`, `Dialog`, `MessageBox`, `ConfirmDialog`,
   `InputDialog`, and `ProgressDialog`.
 - Dependencies: Phase 16 plus approved modal-stack, result, and nested-modal
@@ -560,7 +560,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 18. File And Directory Pickers
 
-- Status: `in progress`
+- Status: `complete`
 - Goal: deliver a general-purpose Turbo Vision-style `FilePickerDialog` plus
   `MultiFilePickerDialog` and `DirectoryPickerDialog` specializations.
 - Dependencies: Phase 16 collection controls and Phase 17 modal/dialog
@@ -585,10 +585,12 @@ ordered backlog and the active-task record; it does not replace either.
   explicitly selected local-filesystem adapter.
 - Contract:
   [`file-pickers-api-v0.md`](../docs/specifications/file-pickers-api-v0.md).
+- Completion evidence:
+  [`EXPL-TASK-033`](completed-tasks.md).
 
 ### 19. Terminal Compatibility And Operational Hardening
 
-- Status: `planned`
+- Status: `in progress`
 - Goal: validate terminal capabilities, terminfo integration, input parsing,
   resize, signals, suspension/resume, remote transports, physical rendering,
   bounded concurrency, profiling, and failure recovery.

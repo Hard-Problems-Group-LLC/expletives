@@ -258,20 +258,23 @@ commands decide application policy and close a generic Dialog explicitly.
 ### Turbo Vision Appearance
 
 The default gray-dialog presentation follows the original Turbo Vision color
-palette and drawing roles rather than reusing the Menu palette by accident:
-active double-line border characters and title are white on light gray, body
-and static message text are black on light gray, and the outer modal shadow
-remains black. Standard-dialog Buttons use the two-row raised Button contract
+roles while deliberately keeping the dialog surface distinct from the lighter
+Menu palette: active double-line border characters and title are white on
+medium gray, body and static message text are black on medium gray, and the
+outer modal shadow remains black. Standard-dialog Buttons use the two-row
+raised Button contract
 from [`actions-api-v0.md`](actions-api-v0.md): green body, state-specific text,
 yellow mnemonic, and a black right/bottom half-block shadow over the dialog's
-light-gray body. Button shadows are part of each Button's Bounds and are
+medium-gray body. Button shadows are part of each Button's Bounds and are
 independent of the already-separate outer modal shadow.
 
-The default true-color equivalent of that classic BIOS/xterm light-gray slot
-is `#AAAAAA`, consistent with the toolkit's `0x00/0x55/0xAA/0xFF` classic
-intensity scale. Dialog bodies, borders, disabled buttons, and raised-button
-shadow backgrounds use the same gray surface unless a Theme overrides their
-semantic styles.
+The project-selected default true-color dialog surface is `#808080`; the Menu
+surface remains `#AAAAAA`. This darker dialog gray is an authorized permanent
+palette choice made to preserve practical contrast in terminal renderers. The
+dialog body, border background, disabled buttons, and raised-button shadow
+background use the same gray surface unless a Theme overrides their semantic
+styles. Border and title foreground remains white because the darker gray is
+rendered distinctly; the dark-blue fallback variance is therefore not used.
 
 Standard MessageBox and InputDialog OK Buttons use K as their mnemonic, while
 Yes, No, and Cancel use Y, N, and C where present. Buttons in a horizontal

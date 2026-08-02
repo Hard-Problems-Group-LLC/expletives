@@ -22,6 +22,8 @@ const (
 	CommandFilePickerUp CommandID = "file_picker.up"
 	// CommandFilePickerRefresh reloads the current directory.
 	CommandFilePickerRefresh CommandID = "file_picker.refresh"
+	// CommandFilePickerCurrent refreshes current-entry presentation without I/O.
+	CommandFilePickerCurrent CommandID = "file_picker.current"
 )
 
 type filePickerMode string
@@ -237,7 +239,7 @@ func newFilePickerCompound(
 		options.Bounds.Width = 49
 	}
 	if options.Bounds.Height == 0 {
-		options.Bounds.Height = 19
+		options.Bounds.Height = 20
 	}
 	kind, defaultTitle := filePickerKindAndTitle(mode)
 	if options.Title == "" {
@@ -261,6 +263,12 @@ func newFilePickerCompound(
 	if err := core.build(transaction); err != nil {
 		return nil, err
 	}
+	behavior, ok := dialog.state.behavior.(modalPanelBehavior)
+	if !ok {
+		return nil, ErrInvalidControl
+	}
+	behavior.picker = core
+	dialog.state.behavior = behavior
 	attach(core)
 	if err := transaction.Commit(ctx); err != nil {
 		return nil, err
@@ -284,7 +292,7 @@ func (p *filePickerCore) build(transaction *Transaction) error {
 	view := p.deriveView(nil, nil)
 	pathPanel, err := transaction.NewPanel(p.dialog, PanelOptions{
 		AutomationKey: derivedCompoundKey(p.dialog.AutomationKey(), "path-group"),
-		Style:         style,
+		Style:         style, MinimumSize: Size{Width: 9, Height: 2},
 	})
 	if err != nil {
 		return err
@@ -314,12 +322,14 @@ func (p *filePickerCore) build(transaction *Transaction) error {
 	}
 	mainPanel, err := transaction.NewPanel(p.dialog, PanelOptions{
 		AutomationKey: derivedCompoundKey(p.dialog.AutomationKey(), "main"), Style: style,
+		MinimumSize: Size{Width: 32, Height: 11},
 	})
 	if err != nil {
 		return err
 	}
 	listPanel, err := transaction.NewPanel(mainPanel, PanelOptions{
 		AutomationKey: derivedCompoundKey(p.dialog.AutomationKey(), "list-group"), Style: style,
+		MinimumSize: Size{Width: 20, Height: 4},
 	})
 	if err != nil {
 		return err
@@ -337,6 +347,7 @@ func (p *filePickerCore) build(transaction *Transaction) error {
 		SelectionMode:  CollectionSelectionSingle,
 		SelectionMarks: CollectionSelectionMarksHide,
 		Status:         p.status, StatusMessage: p.errText,
+		CurrentCommand:  CommandFilePickerCurrent,
 		ActivateCommand: CommandFilePickerOpen,
 	}
 	if p.mode == filePickerMultiple {
@@ -362,6 +373,7 @@ func (p *filePickerCore) build(transaction *Transaction) error {
 	}
 	buttonPanel, err := transaction.NewPanel(mainPanel, PanelOptions{
 		AutomationKey: derivedCompoundKey(p.dialog.AutomationKey(), "buttons"), Style: style,
+		MinimumSize: Size{Width: 11, Height: 11},
 	})
 	if err != nil {
 		return err
@@ -548,6 +560,14 @@ func (p *filePickerCore) deriveView(
 		}
 		if selectedSet[entry.entry.Location] && !disabled && entry.entry.Kind == FilePickerFile {
 			view.selected = append(view.selected, key)
+		}
+	}
+	if view.current == "" {
+		for _, item := range view.items {
+			if !item.Disabled {
+				view.current = item.Key
+				break
+			}
 		}
 	}
 	return view
@@ -828,6 +848,8 @@ func (p *filePickerCore) handle(
 		return publicResult(OutcomeRejected, "picker_inactive", "file picker is not active", ErrModalState)
 	}
 	switch command.ID {
+	case CommandFilePickerCurrent:
+		return p.updateCurrentInformation(ctx)
 	case CommandFilePickerUp:
 		p.mu.RLock()
 		parent := p.listing.listing.Parent
@@ -867,6 +889,30 @@ func (p *filePickerCore) handle(
 	default:
 		return publicResult(OutcomeRejected, "picker_command", "unknown file-picker command", ErrInvalidRequest)
 	}
+}
+
+func (p *filePickerCore) updateCurrentInformation(ctx context.Context) CommandResult {
+	state := p.list.State()
+	p.mu.RLock()
+	entry, found := p.entriesByKey[state.Current]
+	errorText := p.errText
+	p.mu.RUnlock()
+	text := errorText
+	if text == "" {
+		if found {
+			text = filePickerEntryInformation(entry)
+		} else {
+			text = "No matching entries"
+		}
+	}
+	transaction := p.dialog.state.app.NewTransaction()
+	if err := transaction.SetText(p.information, text); err != nil {
+		return publicResult(OutcomeFailed, "picker_information", "file information could not update", err)
+	}
+	if err := transaction.Commit(ctx); err != nil {
+		return contextCommandResult(err)
+	}
+	return CommandResult{Outcome: OutcomeApplied}
 }
 
 func (p *filePickerCore) handleOpen(
@@ -1004,6 +1050,40 @@ func (p *filePickerCore) state() FilePickerState {
 		state.CurrentName, state.CurrentKind = entry.Name, entry.Kind
 	}
 	return state
+}
+
+// detailsLocked is called while the App lock already protects retained child
+// behavior. It must not reacquire that lock.
+func (p *filePickerCore) detailsLocked() FilePickerDetails {
+	if p == nil || p.list == nil || p.list.state == nil {
+		return FilePickerDetails{}
+	}
+	listCurrent := ""
+	listSelected := 0
+	if behavior, ok := p.list.state.behavior.(listBoxBehavior); ok {
+		listCurrent = behavior.current
+		listSelected = len(behavior.selected)
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	details := FilePickerDetails{
+		Mode: string(p.mode), Status: p.status, DisplayPath: p.listing.path.text,
+		EntryCount: len(p.listing.entries), SelectedCount: listSelected,
+		Filter: p.filter, SortField: p.sort.Field,
+		SortDirection: p.sort.Direction, Error: p.errText,
+	}
+	for _, entry := range p.listing.entries {
+		switch entry.entry.Kind {
+		case FilePickerDirectory:
+			details.DirectoryCount++
+		case FilePickerFile:
+			details.FileCount++
+		}
+	}
+	if entry, found := p.entriesByKey[listCurrent]; found {
+		details.CurrentName, details.CurrentKind = entry.Name, entry.Kind
+	}
+	return details
 }
 
 func (p *filePickerCore) refresh(ctx context.Context) error {
@@ -1222,24 +1302,29 @@ func singleFilePickerSelection(core *filePickerCore) (FilePickerEntry, bool) {
 }
 
 // Canonical child accessors support ordinary composition and tests.
-func (d *FilePickerDialog) PathField() *TextField       { return d.core.pathField }
-func (d *MultiFilePickerDialog) PathField() *TextField  { return d.core.pathField }
-func (d *DirectoryPickerDialog) PathField() *TextField  { return d.core.pathField }
-func (d *FilePickerDialog) List() *ListBox              { return d.core.list }
-func (d *MultiFilePickerDialog) List() *ListBox         { return d.core.list }
-func (d *DirectoryPickerDialog) List() *ListBox         { return d.core.list }
-func (d *FilePickerDialog) OpenButton() *Button         { return d.core.open }
-func (d *MultiFilePickerDialog) OpenButton() *Button    { return d.core.open }
-func (d *DirectoryPickerDialog) SelectButton() *Button  { return d.core.open }
-func (d *FilePickerDialog) UpButton() *Button           { return d.core.up }
-func (d *MultiFilePickerDialog) UpButton() *Button      { return d.core.up }
-func (d *DirectoryPickerDialog) UpButton() *Button      { return d.core.up }
-func (d *FilePickerDialog) RefreshButton() *Button      { return d.core.refreshButton }
-func (d *MultiFilePickerDialog) RefreshButton() *Button { return d.core.refreshButton }
-func (d *DirectoryPickerDialog) RefreshButton() *Button { return d.core.refreshButton }
-func (d *FilePickerDialog) CancelButton() *Button       { return d.core.cancel }
-func (d *MultiFilePickerDialog) CancelButton() *Button  { return d.core.cancel }
-func (d *DirectoryPickerDialog) CancelButton() *Button  { return d.core.cancel }
+func (d *FilePickerDialog) PathField() *TextField      { return d.core.pathField }
+func (d *MultiFilePickerDialog) PathField() *TextField { return d.core.pathField }
+func (d *DirectoryPickerDialog) PathField() *TextField { return d.core.pathField }
+func (d *FilePickerDialog) List() *ListBox             { return d.core.list }
+func (d *MultiFilePickerDialog) List() *ListBox        { return d.core.list }
+func (d *DirectoryPickerDialog) List() *ListBox        { return d.core.list }
+func (d *FilePickerDialog) Information() *StaticText   { return d.core.information }
+func (d *MultiFilePickerDialog) Information() *StaticText {
+	return d.core.information
+}
+func (d *DirectoryPickerDialog) Information() *StaticText { return d.core.information }
+func (d *FilePickerDialog) OpenButton() *Button           { return d.core.open }
+func (d *MultiFilePickerDialog) OpenButton() *Button      { return d.core.open }
+func (d *DirectoryPickerDialog) SelectButton() *Button    { return d.core.open }
+func (d *FilePickerDialog) UpButton() *Button             { return d.core.up }
+func (d *MultiFilePickerDialog) UpButton() *Button        { return d.core.up }
+func (d *DirectoryPickerDialog) UpButton() *Button        { return d.core.up }
+func (d *FilePickerDialog) RefreshButton() *Button        { return d.core.refreshButton }
+func (d *MultiFilePickerDialog) RefreshButton() *Button   { return d.core.refreshButton }
+func (d *DirectoryPickerDialog) RefreshButton() *Button   { return d.core.refreshButton }
+func (d *FilePickerDialog) CancelButton() *Button         { return d.core.cancel }
+func (d *MultiFilePickerDialog) CancelButton() *Button    { return d.core.cancel }
+func (d *DirectoryPickerDialog) CancelButton() *Button    { return d.core.cancel }
 
 func (a *App) routeFilePickerCommand(ctx context.Context, command Command) CommandResult {
 	a.mu.RLock()
@@ -1264,7 +1349,7 @@ func (a *App) routeFilePickerCommand(ctx context.Context, command Command) Comma
 func isFilePickerCommand(command CommandID) bool {
 	switch command {
 	case CommandFilePickerOpen, CommandFilePickerSelect, CommandFilePickerUp,
-		CommandFilePickerRefresh:
+		CommandFilePickerRefresh, CommandFilePickerCurrent:
 		return true
 	default:
 		return false

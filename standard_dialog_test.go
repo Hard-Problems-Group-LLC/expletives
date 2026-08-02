@@ -38,7 +38,7 @@ func TestStandardDialogTurboVisionPaletteAndButtonGeometry(t *testing.T) {
 		t.Fatalf("MessageBox OK geometry/details = %+v", button)
 	}
 
-	wantGray := RGB(0xAA, 0xAA, 0xAA)
+	wantGray := RGB(0x80, 0x80, 0x80)
 	wantGreen := RGB(0x00, 0xAA, 0x00)
 	assertCell := func(
 		x, y int,
@@ -127,6 +127,41 @@ func TestStandardDialogTurboVisionPaletteAndButtonGeometry(t *testing.T) {
 		RGB(0x00, 0x00, 0x00),
 		RGB(0x00, 0x00, 0x00),
 	)
+}
+
+func TestDefaultThemeKeepsMenusLightAndEveryDialogSurfaceDark(t *testing.T) {
+	theme := DefaultTheme()
+	menuGray := RGB(0xAA, 0xAA, 0xAA)
+	dialogGray := RGB(0x80, 0x80, 0x80)
+	for _, id := range []StyleID{"menu_bar", "menu.popup", "menu.border"} {
+		resolved, found := theme.Resolve(id)
+		if !found || resolved.Background != menuGray {
+			t.Errorf("DefaultTheme().Resolve(%q) = %+v, %t; want background %s", id, resolved, found, menuGray)
+		}
+	}
+	for _, id := range []StyleID{
+		"modal_panel", "dialog", "message_box", "confirm_dialog",
+		"input_dialog", "progress_dialog", "file_picker_dialog",
+		"multi_file_picker_dialog", "directory_picker_dialog",
+		"button.disabled", "button.shadow",
+	} {
+		resolved, found := theme.Resolve(id)
+		if !found || resolved.Background != dialogGray {
+			t.Errorf("DefaultTheme().Resolve(%q) = %+v, %t; want background %s", id, resolved, found, dialogGray)
+		}
+	}
+	for _, id := range []StyleID{
+		"modal_panel.border", "dialog.border", "message_box.border",
+		"confirm_dialog.border", "input_dialog.border",
+		"progress_dialog.border", "file_picker_dialog.border",
+		"multi_file_picker_dialog.border", "directory_picker_dialog.border",
+	} {
+		resolved, found := theme.Resolve(id)
+		if !found || resolved.Foreground != RGB(0xFF, 0xFF, 0xFF) ||
+			resolved.Background != dialogGray {
+			t.Errorf("DefaultTheme().Resolve(%q) = %+v, %t; want white on %s", id, resolved, found, dialogGray)
+		}
+	}
 }
 
 func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
@@ -747,7 +782,7 @@ func TestProgressDialogCancellationRequestAndAcknowledgement(t *testing.T) {
 	)
 	if disabledBody.Style != "button.disabled" ||
 		disabledBody.Foreground != RGB(0x80, 0x80, 0x80) ||
-		disabledBody.Background != RGB(0xAA, 0xAA, 0xAA) ||
+		disabledBody.Background != RGB(0x80, 0x80, 0x80) ||
 		disabledShadow.Style != "button.shadow" ||
 		disabledShadow.Grapheme != "▄" {
 		t.Fatalf(

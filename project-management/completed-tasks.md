@@ -4,6 +4,50 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-08-02 — `EXPL-TASK-033` — Deliver Phase 18 file and directory pickers.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-08-02T00:55:00-07:00
+  - Completed: 2026-08-02T02:08:22-07:00
+  - Outcome:
+    - added bounded application-supplied provider contracts and a confined
+      local-filesystem adapter with copied entries, sorting, filtering,
+      navigation, refresh, validation, and explicit error state;
+    - delivered Turbo Vision-style `FilePickerDialog`,
+      `MultiFilePickerDialog`, and `DirectoryPickerDialog` compounds with
+      typed results, explicit close outcomes, small-screen minima, focus and
+      keyboard behavior, and no control-owned filesystem goroutines;
+    - added all three deterministic Dialogs-menu demonstrations, typed core
+      and privacy-compacted automation evidence, live current-item updates,
+      direct public activation seams, and complete self-check coverage; and
+    - separated the dialog surface from menu gray: dialogs now render on the
+      operator-selected darker `#808080` surface while menus remain
+      `#AAAAAA`, with white dialog borders/titles and matching button-shadow
+      backing.
+  - Verification:
+    - `make verify` passed format, vet, unit and integration tests, the full
+      race suite, debug/release/profiling builds, and each mode's fail-fast
+      smoke/self-check;
+    - live attached automation at 100x30 verified all three picker variants,
+      zero Layout overflow, keyboard-driven information changes, exact typed
+      details, and clean shutdown;
+    - exact frame cells proved Menu `#AAAAAA`, dialog body/border/button-shadow
+      backgrounds `#808080`, black body text, and white border/title text; and
+    - the conservative maximum completion remains 41,391,622 bytes, with
+      three retained maxima totaling 124,174,866 bytes below the 128 MiB
+      aggregate evidence budget.
+  - Contracts:
+    - [`File And Directory Pickers API v0`](../docs/specifications/file-pickers-api-v0.md)
+    - [`File And Directory Pickers`](../docs/File-Pickers.md)
+    - [`Modals API v0`](../docs/specifications/modals-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Process:
+    - completed without convening the Panel; and
+    - made `make smoke` fail fast so an early build mode cannot be masked by a
+      later successful command.
+  - Follow-up:
+    - Phase 19 Terminal Compatibility and Operational Hardening is active.
+
 - 2026-07-31 — `EXPL-TASK-030` — Deliver Phase 15 Scrolling and Content.
   - Requestor: project operator
   - Owner: Codex

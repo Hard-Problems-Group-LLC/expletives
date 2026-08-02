@@ -63,6 +63,10 @@ func DefaultTheme() Theme {
 		Foreground: black,
 		Background: RGB(0xAA, 0xAA, 0xAA),
 	}
+	dialogNormal := ResolvedStyle{
+		Foreground: black,
+		Background: RGB(0x80, 0x80, 0x80),
+	}
 	menuSelected := ResolvedStyle{
 		Foreground: black,
 		Background: RGB(0x00, 0xAA, 0x00),
@@ -82,57 +86,57 @@ func DefaultTheme() Theme {
 		"frame.border":     resolved,
 		"group_box":        resolved,
 		"group_box.border": resolved,
-		"modal_panel":      menuNormal,
+		"modal_panel":      dialogNormal,
 		"modal_panel.border": {
 			Foreground: white,
-			Background: menuNormal.Background,
+			Background: dialogNormal.Background,
 		},
 		"modal_panel.shadow": {
 			Foreground: black,
 			Background: black,
 		},
-		"dialog": menuNormal,
+		"dialog": dialogNormal,
 		"dialog.border": {
 			Foreground: white,
-			Background: menuNormal.Background,
+			Background: dialogNormal.Background,
 		},
 		"dialog.shadow": {
 			Foreground: black,
 			Background: black,
 		},
-		"message_box": menuNormal,
+		"message_box": dialogNormal,
 		"message_box.border": {
-			Foreground: white, Background: menuNormal.Background,
+			Foreground: white, Background: dialogNormal.Background,
 		},
 		"message_box.shadow": {Foreground: black, Background: black},
-		"confirm_dialog":     menuNormal,
+		"confirm_dialog":     dialogNormal,
 		"confirm_dialog.border": {
-			Foreground: white, Background: menuNormal.Background,
+			Foreground: white, Background: dialogNormal.Background,
 		},
 		"confirm_dialog.shadow": {Foreground: black, Background: black},
-		"input_dialog":          menuNormal,
+		"input_dialog":          dialogNormal,
 		"input_dialog.border": {
-			Foreground: white, Background: menuNormal.Background,
+			Foreground: white, Background: dialogNormal.Background,
 		},
 		"input_dialog.shadow": {Foreground: black, Background: black},
-		"progress_dialog":     menuNormal,
+		"progress_dialog":     dialogNormal,
 		"progress_dialog.border": {
-			Foreground: white, Background: menuNormal.Background,
+			Foreground: white, Background: dialogNormal.Background,
 		},
 		"progress_dialog.shadow": {Foreground: black, Background: black},
-		"file_picker_dialog":     menuNormal,
+		"file_picker_dialog":     dialogNormal,
 		"file_picker_dialog.border": {
-			Foreground: white, Background: menuNormal.Background,
+			Foreground: white, Background: dialogNormal.Background,
 		},
 		"file_picker_dialog.shadow": {Foreground: black, Background: black},
-		"multi_file_picker_dialog":  menuNormal,
+		"multi_file_picker_dialog":  dialogNormal,
 		"multi_file_picker_dialog.border": {
-			Foreground: white, Background: menuNormal.Background,
+			Foreground: white, Background: dialogNormal.Background,
 		},
 		"multi_file_picker_dialog.shadow": {Foreground: black, Background: black},
-		"directory_picker_dialog":         menuNormal,
+		"directory_picker_dialog":         dialogNormal,
 		"directory_picker_dialog.border": {
-			Foreground: white, Background: menuNormal.Background,
+			Foreground: white, Background: dialogNormal.Background,
 		},
 		"directory_picker_dialog.shadow": {Foreground: black, Background: black},
 		"layout.border":                  resolved,
@@ -155,7 +159,7 @@ func DefaultTheme() Theme {
 		},
 		"button.disabled": {
 			Foreground: RGB(0x80, 0x80, 0x80),
-			Background: menuNormal.Background,
+			Background: dialogNormal.Background,
 		},
 		"button.mnemonic": {
 			Foreground: RGB(0xFF, 0xFF, 0x55),
@@ -163,7 +167,7 @@ func DefaultTheme() Theme {
 		},
 		"button.shadow": {
 			Foreground: black,
-			Background: menuNormal.Background,
+			Background: dialogNormal.Background,
 		},
 		"hotkey_bar":      resolved,
 		"focus_guide_bar": menuNormal,

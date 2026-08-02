@@ -18,8 +18,10 @@ picker, err := expletives.NewFilePickerDialog(
     expletives.FilePickerDialogOptions{
         DialogOptions: expletives.DialogOptions{
             ModalPanelOptions: expletives.ModalPanelOptions{
-                AutomationKey: "open.source",
-                Title:         "Open Source File",
+                PanelOptions: expletives.PanelOptions{
+                    AutomationKey: "open.source",
+                },
+                Title: "Open Source File",
             },
         },
         Provider:         provider,
@@ -64,6 +66,11 @@ The local adapter is convenient, not a sandbox. Give it the narrowest useful
 root and apply application authorization again before opening a returned
 location. For deterministic tests, use an in-memory provider and assert both
 the typed result and the associated semantic frame.
+
+`expletives-test` exposes File Picker, Multiple File Picker, and Directory
+Picker entries under the Dialogs menu. They use an in-memory demonstration
+provider, so exploring them never exposes or changes the operator's actual
+filesystem.
 
 See [File And Directory Pickers API v0](specifications/file-pickers-api-v0.md)
 for exact provider validation, keyboard behavior, result, concurrency,
