@@ -1117,6 +1117,25 @@ mode that still validates the full received snapshot but emits only requested
 fields. This is a client-output optimization, not a reason to weaken the
 protocol's exact completion/snapshot contract.
 
+### 38. Make Job-Control Tests Supervisor-Aware
+
+The controlling-PTY runner used during development automatically continues
+stopped descendants. A test that assumed the process would remain stopped
+misdiagnosed a valid leave, stop, continue, reacquire, and repaint sequence as
+a terminal-restoration failure and invited repeated low-value reruns.
+
+Improvement applied:
+
+- require the terminal leave transition before accepting either outcome;
+- when the process remains stopped, require exact original termios before the
+  test sends `SIGCONT`;
+- when a supervisor continues it automatically, require terminal re-entry and
+  a complete repaint after the leave transition; and
+- always require exact final termios restoration on process exit.
+
+This preserves the strong assertion on ordinary shells and CI while making
+the same test deterministic under a supervising development runner.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

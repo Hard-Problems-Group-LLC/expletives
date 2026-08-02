@@ -90,13 +90,20 @@ func run(args []string, stdin, stdout, stderr *os.File) int {
 	defer cancel()
 
 	signals := make(chan os.Signal, 8)
-	signal.Notify(
-		signals,
+	managedSignals := []os.Signal{
 		syscall.SIGINT,
 		syscall.SIGTERM,
 		syscall.SIGHUP,
 		syscall.SIGWINCH,
-	)
+	}
+	if !configuration.headless {
+		managedSignals = append(
+			managedSignals,
+			syscall.SIGTSTP,
+			syscall.SIGCONT,
+		)
+	}
+	signal.Notify(signals, managedSignals...)
 	defer signal.Stop(signals)
 
 	var presenter *terminal.Presenter
@@ -295,8 +302,19 @@ func runInteractive(
 		for {
 			select {
 			case received := <-signals:
-				if err := handleSignal(ctx, scene, presenter, received, counter); err != nil {
+				repaint, err := handleInteractiveSignal(
+					ctx,
+					scene,
+					presenter,
+					decoder,
+					received,
+					counter,
+				)
+				if err != nil {
 					return err
+				}
+				if repaint {
+					presented = 0
 				}
 			default:
 				goto input
@@ -346,6 +364,82 @@ func runInteractive(
 			}
 		}
 	}
+}
+
+func handleInteractiveSignal(
+	ctx context.Context,
+	scene *demo.Scene,
+	presenter *terminal.Presenter,
+	decoder *terminal.InputDecoder,
+	received os.Signal,
+	counter *requestCounter,
+) (bool, error) {
+	switch received {
+	case syscall.SIGTSTP:
+		decoder.Reset()
+		resetContext, cancel := context.WithTimeout(
+			ctx,
+			signalCommandTimeout,
+		)
+		defer cancel()
+		_, err := scene.App.ResetInput(
+			resetContext,
+			"terminal",
+			counter.id("signal-suspend-reset"),
+		)
+		if errors.Is(err, expletives.ErrClosed) {
+			return false, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("reset terminal input for suspension: %w", err)
+		}
+		if err := presenter.Suspend(); err != nil {
+			return false, fmt.Errorf("suspend terminal presentation: %w", err)
+		}
+
+		// The notification handler has consumed the catchable SIGTSTP. Use an
+		// uncatchable self-stop only after restoring the terminal; unlike a
+		// re-raised SIGTSTP, SIGSTOP remains effective for orphaned process
+		// groups such as a directly launched controlling-PTY session.
+		stopErr := syscall.Kill(syscall.Getpid(), syscall.SIGSTOP)
+		if stopErr != nil {
+			resumeErr := presenter.Resume()
+			return false, errors.Join(
+				fmt.Errorf("stop process for suspension: %w", stopErr),
+				resumeErr,
+			)
+		}
+		// Execution resumes here only after SIGCONT. Reacquire immediately;
+		// the queued SIGCONT notification is an idempotent safety net.
+		if err := resumeInteractive(scene, presenter); err != nil {
+			return false, err
+		}
+		return true, nil
+	case syscall.SIGCONT:
+		if err := resumeInteractive(scene, presenter); err != nil {
+			return false, err
+		}
+		return true, nil
+	default:
+		return false, handleSignal(ctx, scene, presenter, received, counter)
+	}
+}
+
+func resumeInteractive(
+	scene *demo.Scene,
+	presenter *terminal.Presenter,
+) error {
+	if err := presenter.Resume(); err != nil {
+		return fmt.Errorf("resume terminal presentation: %w", err)
+	}
+	geometry, err := presenter.Size()
+	if err != nil {
+		return fmt.Errorf("query resumed terminal size: %w", err)
+	}
+	if err := scene.Resize(boundedSize(geometry.ToSize())); err != nil {
+		return fmt.Errorf("resize resumed application: %w", err)
+	}
+	return nil
 }
 
 func runHeadless(

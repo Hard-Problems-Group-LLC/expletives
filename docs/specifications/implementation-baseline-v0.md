@@ -183,8 +183,11 @@ black-on-yellow `?`, without changing the canonical snapshot.
 `SIGWINCH` produces a resize transition. `SIGINT`, `SIGTERM`, and `SIGHUP`
 produce orderly semantic shutdown paths and final snapshot publication.
 The demo's default Ctrl-C policy is interrupt-and-exit; injected Ctrl-C uses
-the same command policy. Stop/continue hardening and broader terminal
-portability remain follow-up terminal work.
+the same command policy. Interactive `SIGTSTP` restores terminal and input
+state before a guaranteed self-stop; `SIGCONT` reacquires modes and geometry
+and forces a complete repaint. Broader terminal portability remains Phase 19
+work governed by
+[`terminal-compatibility-v0.md`](terminal-compatibility-v0.md).
 
 Headless and self-check modes initialize no terminal and exist for normal Go
 and process integration tests.

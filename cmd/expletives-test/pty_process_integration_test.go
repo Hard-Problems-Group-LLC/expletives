@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -26,6 +27,7 @@ const (
 
 	// Presenter.Close must emit this mode restoration before the process exits.
 	processLeaveTerminal = "\x1b[0m\x1b[?25h\x1b[>4m\x1b[<u\x1b[?2004l\x1b[?1049l"
+	processEnterTerminal = "\x1b[?1049h\x1b[?2004h\x1b[>1u\x1b[>4;2m\x1b[?25l"
 )
 
 func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
@@ -164,6 +166,122 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		}
 		assertExactTermiosRestoration(t, process)
 	})
+
+	t.Run("suspend and continue restore and reacquire terminal", func(t *testing.T) {
+		process := startDebugPTYProcess(t, binary)
+		defer process.close()
+
+		ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+		defer cancel()
+
+		waitForInitialFrame(t, ctx, process)
+		assertInteractiveTermios(t, process)
+
+		suspendStart := process.output.mark()
+		if err := process.command.Process.Signal(syscall.SIGTSTP); err != nil {
+			t.Fatalf("send SIGTSTP: %v", err)
+		}
+		if err := process.output.waitContains(
+			ctx,
+			suspendStart,
+			[]byte(processLeaveTerminal),
+		); err != nil {
+			t.Fatalf("wait for suspension terminal leave sequence: %v", err)
+		}
+		stopped, err := waitForSafeSuspension(ctx, process, suspendStart)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Some process supervisors automatically continue stopped descendants.
+		// An extra SIGCONT is harmless and is required when the process remains
+		// stopped under an ordinary shell or CI runner.
+		if err := process.command.Process.Signal(syscall.SIGCONT); err != nil {
+			t.Fatalf("send SIGCONT: %v", err)
+		}
+		if err := process.output.waitContains(
+			ctx,
+			suspendStart,
+			[]byte(processEnterTerminal),
+		); err != nil {
+			t.Fatalf("wait for resumed terminal entry: %v", err)
+		}
+		if err := process.output.waitContains(
+			ctx,
+			suspendStart,
+			[]byte("expletives Toolkit Catalog"),
+		); err != nil {
+			t.Fatalf("wait for full repaint after resume: %v", err)
+		}
+		if stopped {
+			t.Log("PTY runner preserved the process stop until explicit SIGCONT")
+		} else {
+			t.Log("PTY runner automatically continued the safely suspended process")
+		}
+		assertInteractiveTermios(t, process)
+
+		quitStart := process.output.mark()
+		writePTY(t, process.pair.master, []byte{0x1b, 'x'})
+		if err := process.wait(ctx); err != nil {
+			t.Fatalf("quit after SIGCONT: %v", err)
+		}
+		if err := process.output.waitContains(
+			ctx,
+			quitStart,
+			[]byte(processLeaveTerminal),
+		); err != nil {
+			t.Fatalf("wait for final terminal restoration: %v", err)
+		}
+		assertExactTermiosRestoration(t, process)
+	})
+}
+
+func waitForSafeSuspension(
+	ctx context.Context,
+	process *debugPTYProcess,
+	outputStart int,
+) (bool, error) {
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if process.output.containsFrom(
+			outputStart,
+			[]byte(processEnterTerminal),
+		) {
+			return false, nil
+		}
+		status, err := os.ReadFile(fmt.Sprintf(
+			"/proc/%d/status",
+			process.command.Process.Pid,
+		))
+		if err != nil {
+			return false, fmt.Errorf("read suspended process status: %w", err)
+		}
+		for _, line := range strings.Split(string(status), "\n") {
+			if strings.HasPrefix(line, "State:") &&
+				(strings.Contains(line, "T (stopped)") ||
+					strings.Contains(line, "t (tracing stop)")) {
+				current, termiosErr := process.pair.termios()
+				if termiosErr != nil {
+					return false, fmt.Errorf(
+						"read suspended PTY termios: %w",
+						termiosErr,
+					)
+				}
+				if reflect.DeepEqual(current, process.original) {
+					return true, nil
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return false, fmt.Errorf(
+				"wait for safe terminal suspension: %w",
+				ctx.Err(),
+			)
+		case <-ticker.C:
+		}
+	}
 }
 
 func debugExpletivesTestBinary(t *testing.T) string {
@@ -595,6 +713,12 @@ func (o *boundedPTYOutput) mark() int {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return len(o.data)
+}
+
+func (o *boundedPTYOutput) containsFrom(start int, needle []byte) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return start >= 0 && start <= len(o.data) && bytes.Contains(o.data[start:], needle)
 }
 
 func (o *boundedPTYOutput) waitContains(

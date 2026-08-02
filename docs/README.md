@@ -76,6 +76,9 @@ Keep durable project documentation here.
 - [File And Directory Pickers API v0](specifications/file-pickers-api-v0.md)
   defines the directed Phase 18 provider, filter, sort, interaction,
   concurrency, result, automation, and local-adapter contract.
+- [Terminal Compatibility v0](specifications/terminal-compatibility-v0.md)
+  fixes the Phase 19 supported profile/locale matrix, job-control lifecycle,
+  explicit non-claims, and required physical verification evidence.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.
