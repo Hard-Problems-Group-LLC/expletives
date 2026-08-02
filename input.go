@@ -123,6 +123,14 @@ const (
 	// CommandOverflowDismiss acknowledges the active toolkit overflow
 	// fallback without claiming the underlying geometry recovered.
 	CommandOverflowDismiss CommandID = "overflow.dismiss"
+	// CommandDialogOK accepts an informational or input standard dialog.
+	CommandDialogOK CommandID = "dialog.ok"
+	// CommandDialogYes accepts the affirmative ConfirmDialog choice.
+	CommandDialogYes CommandID = "dialog.yes"
+	// CommandDialogNo accepts the negative ConfirmDialog choice.
+	CommandDialogNo CommandID = "dialog.no"
+	// CommandDialogCancel cancels a standard dialog without accepting data.
+	CommandDialogCancel CommandID = "dialog.cancel"
 )
 
 // Command is one resolved application action.
@@ -151,7 +159,20 @@ type CommandDefinition struct {
 	Checked bool `json:"checked,omitempty"`
 	// Automation marks the command for attached-automation discovery.
 	Automation bool `json:"automation"`
+	// ModalPolicy controls un-targeted global use while a modal is active.
+	// The zero value is blocked; commands originating from an eligible control
+	// in the top modal remain local regardless of this policy.
+	ModalPolicy CommandModalPolicy `json:"modal_policy,omitempty"`
 }
+
+// CommandModalPolicy controls an un-targeted command while a modal is active.
+type CommandModalPolicy string
+
+const (
+	CommandModalDefault CommandModalPolicy = ""
+	CommandModalBlocked CommandModalPolicy = "blocked"
+	CommandModalAllowed CommandModalPolicy = "allowed"
+)
 
 // CommandResult is the structured local result returned by a CommandRouter.
 // Code is a bounded identifier, Message is bounded public text, and Cause is
@@ -307,7 +328,7 @@ func (a *App) ReplaceCommand(definition CommandDefinition) error {
 	if err != nil {
 		return err
 	}
-	if normalized.ID == CommandOverflowDismiss {
+	if isBuiltInCommand(normalized.ID) {
 		return fmt.Errorf("%w: built-in command is immutable", ErrInvalidRequest)
 	}
 	a.mu.Lock()
@@ -329,7 +350,7 @@ func (a *App) RemoveCommand(command CommandID) error {
 	if !validBoundedIdentifier(string(command)) {
 		return ErrInvalidRequest
 	}
-	if command == CommandOverflowDismiss {
+	if isBuiltInCommand(command) {
 		return fmt.Errorf("%w: built-in command is immutable", ErrInvalidRequest)
 	}
 	a.mu.Lock()
@@ -488,6 +509,14 @@ func normalizeCommandDefinition(
 		}
 		definition.Label = label.text
 	}
+	switch definition.ModalPolicy {
+	case CommandModalDefault, CommandModalBlocked, CommandModalAllowed:
+	default:
+		return CommandDefinition{}, fmt.Errorf(
+			"%w: invalid command modal policy",
+			ErrInvalidRequest,
+		)
+	}
 	return definition, nil
 }
 
@@ -587,7 +616,7 @@ func (a *App) DispatchKey(
 			behavior := press.control.behavior.(buttonBehavior)
 			command = behavior.command
 			target = press.control.id
-			router, result, execute = a.resolveCommandLocked(command)
+			router, result, execute = a.resolveCommandLocked(command, true)
 		}
 	case KeyEventPress:
 		if (event.Key == KeyEnter || event.Key == KeyEscape) &&
@@ -604,7 +633,10 @@ func (a *App) DispatchKey(
 				router, result, execute = a.resolveCommandLocked(command)
 			}
 		} else if mnemonicKeyEvent(event.Key, held) &&
-			a.bindings[chordKey(event.Key, held)] != "" {
+			a.bindings[chordKey(event.Key, held)] != "" &&
+			a.globalCommandMayResolveLocked(
+				a.bindings[chordKey(event.Key, held)],
+			) {
 			// A displayed application accelerator is global. MenuBar
 			// mnemonics retain first refusal above, but a local control or
 			// tab mnemonic must not shadow a registered Alt chord such as
@@ -621,7 +653,7 @@ func (a *App) DispatchKey(
 					result.Outcome = OutcomeApplied
 				}
 				if command != "" {
-					router, result, execute = a.resolveCommandLocked(command)
+					router, result, execute = a.resolveCommandLocked(command, true)
 				}
 			} else {
 				control, activate := a.mnemonicControlLocked(event.Key)
@@ -633,7 +665,7 @@ func (a *App) DispatchKey(
 						command = behavior.command
 						target = control.id
 						router, result, execute =
-							a.resolveCommandLocked(command)
+							a.resolveCommandLocked(command, true)
 					} else {
 						var changed bool
 						command, target, changed = a.applySelectionLocked(
@@ -645,7 +677,7 @@ func (a *App) DispatchKey(
 						}
 						if command != "" {
 							router, result, execute =
-								a.resolveCommandLocked(command)
+								a.resolveCommandLocked(command, true)
 						}
 					}
 				} else if control != nil {
@@ -664,7 +696,8 @@ func (a *App) DispatchKey(
 		} else if event.Key == KeyTab && tabModifiers(held) {
 			result.Outcome = OutcomeNoOp
 			var committed, move bool
-			command, target, committed, move = a.commitFocusedEditorLocked()
+			command, target, committed, move =
+				a.commitFocusedEditorLocked(held[KeyShift])
 			if committed {
 				result.Outcome = OutcomeApplied
 			}
@@ -672,7 +705,7 @@ func (a *App) DispatchKey(
 				result.Outcome = OutcomeApplied
 			}
 			if command != "" {
-				router, result, execute = a.resolveCommandLocked(command)
+				router, result, execute = a.resolveCommandLocked(command, true)
 			}
 		} else {
 			textHandled := false
@@ -687,11 +720,21 @@ func (a *App) DispatchKey(
 					}
 					if command != "" {
 						router, result, execute =
-							a.resolveCommandLocked(command)
+							a.resolveCommandLocked(command, true)
 					}
 				}
 			}
 			if textHandled {
+				if command == "" {
+					command, target = a.standardDialogEditorCommandLocked(
+						event.Key,
+						held,
+					)
+					if command != "" {
+						router, result, execute =
+							a.resolveCommandLocked(command, true)
+					}
+				}
 				break
 			}
 			tabCommand := CommandID("")
@@ -711,7 +754,7 @@ func (a *App) DispatchKey(
 				}
 				if command != "" {
 					router, result, execute =
-						a.resolveCommandLocked(command)
+						a.resolveCommandLocked(command, true)
 				}
 				break
 			}
@@ -736,6 +779,10 @@ func (a *App) DispatchKey(
 			if (noHeldModifiers(held) || controlOnly) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.tableKeyLocked(a.focus, event.Key, controlOnly)
+			}
+			if (noHeldModifiers(held) || controlOnly) && !scrollHandled {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.dataGridKeyLocked(a.focus, event.Key, controlOnly)
 			}
 			if noHeldModifiers(held) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
@@ -762,7 +809,7 @@ func (a *App) DispatchKey(
 				}
 				if command != "" {
 					router, result, execute =
-						a.resolveCommandLocked(command)
+						a.resolveCommandLocked(command, true)
 				}
 			} else if noHeldModifiers(held) &&
 				isDirectionalFocusKey(event.Key) {
@@ -788,7 +835,7 @@ func (a *App) DispatchKey(
 				}
 				if command != "" {
 					router, result, execute =
-						a.resolveCommandLocked(command)
+						a.resolveCommandLocked(command, true)
 				}
 			} else if noHeldModifiers(held) &&
 				(event.Key == KeyEnter || event.Key == KeySpace) {
@@ -802,7 +849,7 @@ func (a *App) DispatchKey(
 					command = behavior.command
 					target = control.id
 					router, result, execute =
-						a.resolveCommandLocked(command)
+						a.resolveCommandLocked(command, true)
 				}
 			} else if noHeldModifiers(held) && event.Key == KeyEscape {
 				control := a.roleButtonLocked(true)
@@ -811,7 +858,15 @@ func (a *App) DispatchKey(
 					command = behavior.command
 					target = control.id
 					router, result, execute =
-						a.resolveCommandLocked(command)
+						a.resolveCommandLocked(command, true)
+				} else if modal := a.topModalLocked(); modal != nil {
+					behavior, _ := modal.behavior.(modalPanelBehavior)
+					if behavior.escapeCommand != "" {
+						command = behavior.escapeCommand
+						target = modal.id
+						router, result, execute =
+							a.resolveCommandLocked(command, true)
+					}
 				}
 			} else {
 				command = a.bindings[chordKey(event.Key, held)]
@@ -841,6 +896,7 @@ func (a *App) DispatchKey(
 	if a.final {
 		return Completion{}, ErrClosed
 	}
+	result = a.applyStandardDialogCommandLocked(command, target, result)
 	return a.associateLocked(requestID, result, command), nil
 }
 
@@ -927,6 +983,8 @@ func (a *App) applyTextInputLocked(text string) CommandResult {
 		return CommandResult{Outcome: OutcomeApplied}
 	case comboBoxBehavior:
 		return a.applyComboBoxTextInputLocked(state, behavior, text)
+	case dataGridBehavior:
+		return a.applyDataGridTextInputLocked(state, behavior, text)
 	case numberFieldBehavior:
 		if !behavior.editor.editing {
 			return CommandResult{Outcome: OutcomeNoOp}
@@ -1099,6 +1157,7 @@ func (a *App) InvokeCommand(
 		a.mu.Unlock()
 		return Completion{}, ErrClosed
 	}
+	modalLocal := false
 	if target != "" {
 		state, exists := a.controlsByID[target]
 		if !exists || state.destroyed {
@@ -1109,8 +1168,23 @@ func (a *App) InvokeCommand(
 				target,
 			)
 		}
+		if top := a.topModalLocked(); top != nil && !controlWithin(state, top) {
+			completion := a.associateLocked(
+				requestID,
+				publicResult(
+					OutcomeRejected,
+					"modal_scope",
+					"command target is outside the active modal",
+					nil,
+				),
+				command,
+			)
+			a.mu.Unlock()
+			return completion, nil
+		}
+		modalLocal = true
 	}
-	router, result, execute := a.resolveCommandLocked(command)
+	router, result, execute := a.resolveCommandLocked(command, modalLocal)
 	a.mu.Unlock()
 	if execute {
 		result = a.callRouter(ctx, router, Command{
@@ -1125,6 +1199,7 @@ func (a *App) InvokeCommand(
 	if a.final {
 		return Completion{}, ErrClosed
 	}
+	result = a.applyStandardDialogCommandLocked(command, target, result)
 	return a.associateLocked(requestID, result, command), nil
 }
 
@@ -1202,6 +1277,7 @@ func mnemonicKeyEvent(key Key, held map[Key]bool) bool {
 
 func (a *App) resolveCommandLocked(
 	command CommandID,
+	modalLocal ...bool,
 ) (CommandRouter, CommandResult, bool) {
 	definition, registered := a.commands[command]
 	if command == CommandOverflowDismiss && registered {
@@ -1229,6 +1305,19 @@ func (a *App) resolveCommandLocked(
 			), false
 		}
 	}
+	local := len(modalLocal) != 0 && modalLocal[0]
+	if a.topModalLocked() != nil && !local &&
+		definition.ModalPolicy != CommandModalAllowed {
+		return nil, publicResult(
+			OutcomeRejected,
+			"modal_scope",
+			"command is blocked while a modal is active",
+			nil,
+		), false
+	}
+	if isStandardDialogCommand(command) {
+		return nil, CommandResult{Outcome: OutcomeApplied}, false
+	}
 	if a.commandRouter == nil {
 		return nil, publicResult(
 			OutcomeRejected,
@@ -1238,6 +1327,27 @@ func (a *App) resolveCommandLocked(
 		), false
 	}
 	return a.commandRouter, CommandResult{}, true
+}
+
+func isBuiltInCommand(command CommandID) bool {
+	return command == CommandOverflowDismiss || isStandardDialogCommand(command)
+}
+
+func isStandardDialogCommand(command CommandID) bool {
+	switch command {
+	case CommandDialogOK, CommandDialogYes, CommandDialogNo, CommandDialogCancel:
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *App) globalCommandMayResolveLocked(command CommandID) bool {
+	if a.topModalLocked() == nil {
+		return true
+	}
+	definition, registered := a.commands[command]
+	return registered && definition.ModalPolicy == CommandModalAllowed
 }
 
 func (a *App) callRouter(

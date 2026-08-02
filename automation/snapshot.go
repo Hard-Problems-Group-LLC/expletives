@@ -206,16 +206,69 @@ type ControlDetails struct {
 	TreeView *TreeViewDetails `json:"tree_view,omitempty"`
 	// Table is present for Table.
 	Table *TableDetails `json:"table,omitempty"`
+	// DataGrid is present for DataGrid.
+	DataGrid *DataGridDetails `json:"data_grid,omitempty"`
 	// DropDown is present for DropDown.
 	DropDown *DropDownDetails `json:"drop_down,omitempty"`
 	// ComboBox is present for ComboBox.
 	ComboBox *ComboBoxDetails `json:"combo_box,omitempty"`
+	// ModalPanel is present for ModalPanel and Dialog.
+	ModalPanel *ModalPanelDetails `json:"modal_panel,omitempty"`
+	// ProgressDialog is present only for ProgressDialog.
+	ProgressDialog *ProgressDialogDetails `json:"progress_dialog,omitempty"`
 }
 
 // ContainerDetails describes a container's client area.
 type ContainerDetails struct {
 	// ClientInset is the number of cells reserved on every edge.
 	ClientInset int `json:"client_inset"`
+}
+
+// ModalResultDetails is the bounded terminal result of one modal lifecycle.
+type ModalResultDetails struct {
+	Reason string `json:"reason"`
+	Action string `json:"action,omitempty"`
+}
+
+// ModalPanelDetails is the compact modal lifecycle, stack, and geometry
+// observation. It contains no retained child-control values.
+type ModalPanelDetails struct {
+	Lifecycle       string              `json:"lifecycle"`
+	Active          bool                `json:"active"`
+	Top             bool                `json:"top"`
+	StackIndex      int                 `json:"stack_index"`
+	StackDepth      int                 `json:"stack_depth"`
+	NestedOwner     ControlID           `json:"nested_owner,omitempty"`
+	SavedFocus      ControlID           `json:"saved_focus,omitempty"`
+	InitialFocus    ControlID           `json:"initial_focus,omitempty"`
+	RequestedSize   Size                `json:"requested_size"`
+	ResolvedBounds  Rect                `json:"resolved_bounds"`
+	RequiredMinimum Size                `json:"required_minimum"`
+	Degraded        bool                `json:"degraded"`
+	Shadow          string              `json:"shadow"`
+	ShadowStyle     StyleID             `json:"shadow_style,omitempty"`
+	Result          *ModalResultDetails `json:"result,omitempty"`
+}
+
+// ProgressDialogProgressDetails is the compound-level copied ProgressBar
+// state without renderer-derived frame geometry.
+type ProgressDialogProgressDetails struct {
+	Status        string `json:"status"`
+	Current       uint64 `json:"current,omitempty"`
+	Total         uint64 `json:"total,omitempty"`
+	Indeterminate bool   `json:"indeterminate"`
+	Tick          uint64 `json:"tick,omitempty"`
+	ReducedMotion bool   `json:"reduced_motion"`
+	TextMode      string `json:"text_mode"`
+}
+
+// ProgressDialogDetails describes status and the one-shot cancellation
+// handshake. Exact status text remains on the ordinary StaticText child.
+type ProgressDialogDetails struct {
+	StatusLength    int                           `json:"status_length"`
+	Progress        ProgressDialogProgressDetails `json:"progress"`
+	Cancellable     bool                          `json:"cancellable"`
+	CancelRequested bool                          `json:"cancel_requested"`
 }
 
 // BorderDetails describes one bordered container.
@@ -401,9 +454,10 @@ type FocusGuideBarDetails struct {
 
 // TextValidatorDetails describes one copied character-set policy.
 type TextValidatorDetails struct {
-	Enforcement string `json:"enforcement"`
-	Mode        string `json:"mode"`
-	Characters  string `json:"characters"`
+	Enforcement        string `json:"enforcement"`
+	Mode               string `json:"mode"`
+	Characters         string `json:"characters"`
+	CharactersRedacted bool   `json:"characters_redacted,omitempty"`
 }
 
 // TextFieldDetails describes current single-line editing and validation state.
@@ -693,6 +747,21 @@ type TableDetails struct {
 	Viewport            ContentViewportDetails `json:"viewport"`
 }
 
+// DataGridDetails is a compact editable-table observation. It omits retained
+// model text, active editor text, and validator character sets.
+type DataGridDetails struct {
+	Table                 TableDetails `json:"table"`
+	Editing               bool         `json:"editing"`
+	EditRow               string       `json:"edit_row,omitempty"`
+	EditColumn            string       `json:"edit_column,omitempty"`
+	EditLength            int          `json:"edit_length"`
+	EditCaret             int          `json:"edit_caret"`
+	EditViewOffset        int          `json:"edit_view_offset"`
+	EditValid             bool         `json:"edit_valid"`
+	ValidationEnforcement string       `json:"validation_enforcement,omitempty"`
+	ValidationMode        string       `json:"validation_mode,omitempty"`
+}
+
 // DropDownDetails is a compact stable-identity popup observation that omits
 // the retained item model and exact disabled-reason text.
 type DropDownDetails struct {
@@ -843,6 +912,29 @@ type SnapshotV1 struct {
 }
 
 func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
+	controlsByID := make(map[expletives.ControlID]expletives.ControlSnapshot,
+		len(snapshot.Controls))
+	for _, control := range snapshot.Controls {
+		controlsByID[control.ID] = control
+	}
+	sensitiveInput := make(map[expletives.ControlID]bool)
+	for _, control := range snapshot.Controls {
+		ancestor := control
+		for depth := 0; depth <= len(snapshot.Controls); depth++ {
+			if ancestor.Kind == expletives.ControlInputDialog {
+				sensitiveInput[control.ID] = true
+				break
+			}
+			if ancestor.Parent == "" {
+				break
+			}
+			parent, ok := controlsByID[ancestor.Parent]
+			if !ok {
+				break
+			}
+			ancestor = parent
+		}
+	}
 	projected := SnapshotV1{
 		Version:  snapshot.Version,
 		Sequence: snapshot.Sequence,
@@ -1150,6 +1242,14 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 		}
 		if details := control.Details.TextField; details != nil {
 			field := textFieldDetailsFromCore(details)
+			if sensitiveInput[control.ID] {
+				field.Text = ""
+				field.Redacted = true
+				if field.Validator != nil {
+					field.Validator.Characters = ""
+					field.Validator.CharactersRedacted = true
+				}
+			}
 			projectedControl.Details.TextField = &field
 		}
 		if details := control.Details.NumberField; details != nil {
@@ -1415,6 +1515,62 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				),
 			}
 		}
+		if details := control.Details.DataGrid; details != nil {
+			table := details.Table
+			statusBytes, statusDigest := compactTextEvidence(table.StatusMessage)
+			projected := &DataGridDetails{
+				Table: TableDetails{
+					Status:              string(table.Status),
+					StatusMessageBytes:  statusBytes,
+					StatusMessageDigest: statusDigest,
+					RowCount:            table.RowCount,
+					EnabledCount:        table.EnabledCount,
+					ColumnCount:         table.ColumnCount,
+					CellCount:           table.CellCount,
+					RetainedBytes:       table.RetainedBytes,
+					CurrentRow:          table.CurrentRow,
+					CurrentRowIndex:     table.CurrentRowIndex,
+					CurrentColumn:       table.CurrentColumn,
+					CurrentColumnIndex:  table.CurrentColumnIndex,
+					FocusMode:           string(table.FocusMode),
+					SelectionMode:       string(table.SelectionMode),
+					RequireSelection:    table.RequireSelection,
+					SelectedCount:       table.SelectedCount,
+					FirstSelected:       table.FirstSelected,
+					LastSelected:        table.LastSelected,
+					SelectionDigest:     table.SelectionDigest,
+					SortColumn:          table.SortColumn,
+					SortDirection:       string(table.SortDirection),
+					FirstColumn:         table.FirstColumn,
+					LastColumn:          table.LastColumn,
+					ColumnWidthsDigest:  table.ColumnWidthsDigest,
+					Enabled:             table.Enabled,
+					DisabledReasonBytes: len(table.DisabledReason),
+					ChangeCommand:       string(table.ChangeCommand),
+					ActivateCommand:     string(table.ActivateCommand),
+					SortCommand:         string(table.SortCommand),
+					Viewport: contentViewportDetailsFromCore(
+						&table.Viewport,
+					),
+				},
+				Editing:    details.Editing,
+				EditRow:    details.EditRow,
+				EditColumn: details.EditColumn,
+			}
+			if details.Editor != nil {
+				projected.EditLength = details.Editor.Length
+				projected.EditCaret = details.Editor.Caret
+				projected.EditViewOffset = details.Editor.ViewOffset
+				projected.EditValid = details.Editor.Valid
+				if details.Editor.Validator != nil {
+					projected.ValidationEnforcement = string(
+						details.Editor.Validator.Enforcement,
+					)
+					projected.ValidationMode = string(details.Editor.Validator.Mode)
+				}
+			}
+			projectedControl.Details.DataGrid = projected
+		}
 		if details := control.Details.DropDown; details != nil {
 			dropDown := dropDownDetailsFromCore(details)
 			projectedControl.Details.DropDown = &dropDown
@@ -1423,6 +1579,47 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			projectedControl.Details.ComboBox = &ComboBoxDetails{
 				Popup:  dropDownDetailsFromCore(&details.Popup),
 				Editor: textFieldDetailsFromCore(&details.Editor),
+			}
+		}
+		if details := control.Details.ModalPanel; details != nil {
+			projected := &ModalPanelDetails{
+				Lifecycle:       string(details.Lifecycle),
+				Active:          details.Active,
+				Top:             details.Top,
+				StackIndex:      details.StackIndex,
+				StackDepth:      details.StackDepth,
+				NestedOwner:     ControlID(details.NestedOwner),
+				SavedFocus:      ControlID(details.SavedFocus),
+				InitialFocus:    ControlID(details.InitialFocus),
+				RequestedSize:   sizeFromCore(details.RequestedSize),
+				ResolvedBounds:  rectFromCore(details.ResolvedBounds),
+				RequiredMinimum: sizeFromCore(details.RequiredMinimum),
+				Degraded:        details.Degraded,
+				Shadow:          string(details.Shadow),
+				ShadowStyle:     StyleID(details.ShadowStyle),
+			}
+			if details.Result != nil {
+				projected.Result = &ModalResultDetails{
+					Reason: string(details.Result.Reason),
+					Action: string(details.Result.Action),
+				}
+			}
+			projectedControl.Details.ModalPanel = projected
+		}
+		if details := control.Details.ProgressDialog; details != nil {
+			projectedControl.Details.ProgressDialog = &ProgressDialogDetails{
+				StatusLength: details.StatusLength,
+				Progress: ProgressDialogProgressDetails{
+					Status:        string(details.Progress.Status),
+					Current:       details.Progress.Current,
+					Total:         details.Progress.Total,
+					Indeterminate: details.Progress.Indeterminate,
+					Tick:          details.Progress.Tick,
+					ReducedMotion: details.Progress.ReducedMotion,
+					TextMode:      string(details.Progress.TextMode),
+				},
+				Cancellable:     details.Cancellable,
+				CancelRequested: details.CancelRequested,
 			}
 		}
 		projected.Controls[index] = projectedControl
@@ -1805,6 +2002,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 			table := *snapshot.Controls[index].Details.Table
 			cloned.Controls[index].Details.Table = &table
 		}
+		if snapshot.Controls[index].Details.DataGrid != nil {
+			dataGrid := *snapshot.Controls[index].Details.DataGrid
+			cloned.Controls[index].Details.DataGrid = &dataGrid
+		}
 		if snapshot.Controls[index].Details.DropDown != nil {
 			dropDown := *snapshot.Controls[index].Details.DropDown
 			cloned.Controls[index].Details.DropDown = &dropDown
@@ -1816,6 +2017,18 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 				comboBox.Editor.Validator = &validator
 			}
 			cloned.Controls[index].Details.ComboBox = &comboBox
+		}
+		if snapshot.Controls[index].Details.ModalPanel != nil {
+			modal := *snapshot.Controls[index].Details.ModalPanel
+			if modal.Result != nil {
+				result := *modal.Result
+				modal.Result = &result
+			}
+			cloned.Controls[index].Details.ModalPanel = &modal
+		}
+		if snapshot.Controls[index].Details.ProgressDialog != nil {
+			progress := *snapshot.Controls[index].Details.ProgressDialog
+			cloned.Controls[index].Details.ProgressDialog = &progress
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

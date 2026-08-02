@@ -605,6 +605,9 @@ func (a *App) startMenuSessionLocked(
 	rootIndex int,
 	openPopup bool,
 ) bool {
+	if a.topModalLocked() != nil {
+		return false
+	}
 	behavior, ok := state.behavior.(menuBarBehavior)
 	if !ok || !a.effectivelyVisibleLocked(state) ||
 		rootIndex < 0 || rootIndex >= len(behavior.items) {
@@ -837,6 +840,16 @@ func (a *App) dispatchMenuKeyLocked(
 			!held[KeyAlt] &&
 			!held[KeyMeta] &&
 			!held[KeyShift])
+	if a.topModalLocked() != nil {
+		changed := false
+		if a.menu != nil {
+			changed = a.closeMenuLocked()
+		}
+		if toggle {
+			return "", true, changed
+		}
+		return "", false, changed
+	}
 	if toggle {
 		if a.menu != nil {
 			return "", true, a.closeMenuLocked()

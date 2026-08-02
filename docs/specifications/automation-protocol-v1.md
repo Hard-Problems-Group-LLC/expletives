@@ -926,6 +926,9 @@ the root package's local snapshot. The client checks:
   copied validator policy, hard-validator consistency, and password value
   redaction; aggregate editor values plus validator sets are bounded to
   262,144 UTF-8 bytes;
+- every TextField inside an `input_dialog` compound redacts its value and
+  validator character set regardless of Password mode, while preserving
+  length, caret, validity, validator enforcement, and whitelist/blacklist mode;
 - kind-consistent NumberField/SpinBox details with finite committed values,
   canonical current text, fixed precision, ordered copied bounds,
   validity/reason consistency, zero NumberField step, and positive SpinBox
@@ -937,6 +940,14 @@ the root package's local snapshot. The client checks:
   recognized status, exact bounded numeric state, finite ordered Meter
   ranges, canonical absolute ticks, reduced-motion state, text policy,
   orientation, and geometry-derived frame index;
+- `modal_panel`, `dialog`, `message_box`, `confirm_dialog`, `input_dialog`,
+  and `progress_dialog` carry a validated bounded LIFO lifecycle; each active
+  modal is a direct root child with contiguous stack indices, explicit nesting,
+  exact focus/geometry/result evidence, and visibility equal to active state;
+- `progress_dialog` additionally carries bounded status length, copied
+  ProgressBar state, cancellation availability, and the one-shot request flag;
+  these must agree with its direct StaticText, ProgressBar, and optional Cancel
+  Button children, including the Button becoming disabled after a request;
 - kind-consistent ScrollBar details with bounded viewport state, exact maximum
   offset, positive arrow/page steps, enabled/disabled policy, optional change
   command, orientation, and control-size-derived track/thumb geometry;
@@ -983,6 +994,11 @@ the root package's local snapshot. The client checks:
   row/cell focus mode, single-column sort state, column endpoints and derived
   width digest, enabled and command policy, and compact sticky-header viewport
   geometry without retained columns, rows, cells, validators, or status text;
+- kind-consistent DataGrid details with the same compact Table evidence,
+  mandatory cell focus, exact active edit row/column and bounded
+  length/caret/view-offset/validity, and optional validation enforcement/mode
+  without retained model text, active edit text, validator character sets, or
+  status text;
 - kind-consistent DropDown details with bounded item/enabled/retained counts,
   stable current and selected identities/indices, collapsed or exact open
   popup geometry, provisional current/selection, row cap, enabled policy,
@@ -992,7 +1008,7 @@ the root package's local snapshot. The client checks:
   valid exact TextField-compatible editor record, matching enabled/disabled
   and change-command policy, no password mode, and no simultaneous popup-open
   and editor-editing state;
-- aggregate ListBox, TreeView, Table, DropDown, and ComboBox retained bytes within
+- aggregate ListBox, TreeView, Table, DataGrid, DropDown, and ComboBox retained bytes within
   `MaxCollectionAggregateBytes`;
 - aggregate Table cell counts within `MaxCollectionCells`;
 - aggregate retained Markdown, LogView, and StreamView content, including
@@ -1189,7 +1205,7 @@ separately revalidated on 2026-07-31 with:
 
 ```text
 go test ./automation \
-  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks|TestSnapshotRejectsInvalidMarkdownDetails|TestSnapshotProjectsLogAndStreamDetailsAndCopiesState|TestSnapshotRejectsInvalidLogAndStreamDetails|TestSnapshotProjectsListBoxDetailsAndCopiesViewport|TestSnapshotProjectsTreeViewDetailsAndCopiesViewport|TestSnapshotProjectsTableDetailsAndCopiesState|TestSnapshotProjectsPopupCollectionDetailsAndCopiesState|TestSnapshotRejectsInvalidListBoxDetails|TestSnapshotRejectsInvalidTreeViewDetails|TestSnapshotRejectsInvalidTableDetails|TestSnapshotRejectsInvalidPopupCollectionDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
+  -run '^(TestMaximumBoundedCompletionFitsResponseLine|TestSnapshotRejectsBorderTitleBeyondBound|TestSnapshotRejectsInvalidCanonicalText|TestSnapshotRejectsInvalidDisplayControlDetails|TestSnapshotRejectsInvalidMenuBarDetails|TestSnapshotRejectsInvalidStatusBarDetails|TestSelectionSnapshotProjectionValidationAndDeepCopy|TestSnapshotProjectsFocusGuideBarDetails|TestSnapshotRejectsInvalidFocusGuideBarDetails|TestSnapshotProjectsAndRedactsTextFieldDetails|TestSnapshotRejectsInvalidTextFieldDetails|TestSnapshotProjectsNumericFieldDetailsAndCopiesBounds|TestSnapshotRejectsInvalidNumberFieldDetails|TestSnapshotProjectsAndRedactsTextAreaDetails|TestSnapshotRejectsInvalidTextAreaDetails|TestSnapshotProjectsProgressDetailsAndCopiesState|TestSnapshotRejectsInvalidProgressDetails|TestSnapshotProjectsMarkdownDetailsAndCopiesBlocks|TestSnapshotRejectsInvalidMarkdownDetails|TestSnapshotProjectsLogAndStreamDetailsAndCopiesState|TestSnapshotRejectsInvalidLogAndStreamDetails|TestSnapshotProjectsListBoxDetailsAndCopiesViewport|TestSnapshotProjectsTreeViewDetailsAndCopiesViewport|TestSnapshotProjectsTableDetailsAndCopiesState|TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet|TestSnapshotProjectsPopupCollectionDetailsAndCopiesState|TestSnapshotRejectsInvalidListBoxDetails|TestSnapshotRejectsInvalidTreeViewDetails|TestSnapshotRejectsInvalidTableDetails|TestSnapshotRejectsInvalidDataGridDetails|TestSnapshotRejectsInvalidPopupCollectionDetails|TestSnapshotRejectsAggregateChildReferencesBeyondBound)$' \
   -count=1
 ```
 

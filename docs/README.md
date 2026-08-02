@@ -61,8 +61,15 @@ Keep durable project documentation here.
   stable-identity, selection, viewport, popup, tree, table, grid, MVC, and
   automation contracts for Phase 16.
 - [Collections](Collections.md) shows how consuming applications construct,
-  replace, drive, theme, and inspect ListBox, TreeView, Table, DropDown, and
-  ComboBox.
+  replace, drive, theme, and inspect ListBox, TreeView, Table, DataGrid,
+  DropDown, and ComboBox.
+- [Modals API v0](specifications/modals-api-v0.md) defines the Phase 17
+  ModalPanel/Dialog stack, explicit close results, scoped focus and commands,
+  standard dialogs, progress cancellation, and observable lifecycle.
+- [Modals](Modals.md) shows how to use the implemented ModalPanel, Dialog,
+  MessageBox, ConfirmDialog, and privacy-preserving InputDialog controls and
+  their exact result barriers, plus ProgressDialog's non-closing cancellation
+  handshake.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

@@ -616,6 +616,96 @@ evidence.
 
 ## DataGrid
 
+```go
+type DataGridOptions struct {
+    ScrollablePanelOptions
+    Columns          []Column
+    Rows             []TableRow
+    CurrentRow       string
+    CurrentColumn    string
+    Selected         []string
+    SelectionMode    CollectionSelectionMode
+    RequireSelection bool
+    SortColumn       string
+    SortDirection    SortDirection
+    Status           CollectionStatus
+    StatusMessage    string
+    ActivateCommand  CommandID
+    SortCommand      CommandID
+}
+
+type DataGridState struct {
+    TableState
+    Editing    bool
+    EditRow    string
+    EditColumn string
+    EditText   string
+    EditCaret  int
+    EditValid  bool
+}
+
+type DataGrid struct { /* copy-safe Panel-derived leaf */ }
+
+func NewDataGrid(Container, DataGridOptions) (*DataGrid, error)
+func (t *Transaction) NewDataGrid(
+    Container,
+    DataGridOptions,
+) (*DataGrid, error)
+func (g *DataGrid) Columns() []Column
+func (g *DataGrid) Rows() []TableRow
+func (g *DataGrid) State() DataGridState
+func (g *DataGrid) SetRows([]TableRow) error
+func (g *DataGrid) SetModel([]Column, []TableRow) error
+func (g *DataGrid) Replace(
+    []Column,
+    []TableRow,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
+func (g *DataGrid) SetCurrent(string, string) error
+func (g *DataGrid) SetSelection([]string) error
+func (g *DataGrid) SetSort(string, SortDirection) error
+func (g *DataGrid) SetStatus(CollectionStatus, string) error
+func (g *DataGrid) Focus() error
+func (g *DataGrid) Activate(
+    context.Context,
+    source string,
+    requestID string,
+) (Completion, error)
+
+func (t *Transaction) SetDataGridRows(*DataGrid, []TableRow) error
+func (t *Transaction) SetDataGridModel(
+    *DataGrid,
+    []Column,
+    []TableRow,
+) error
+func (t *Transaction) ReplaceDataGrid(
+    *DataGrid,
+    []Column,
+    []TableRow,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
+func (t *Transaction) SetDataGridCurrent(*DataGrid, string, string) error
+func (t *Transaction) SetDataGridSelection(*DataGrid, []string) error
+func (t *Transaction) SetDataGridSort(
+    *DataGrid,
+    string,
+    SortDirection,
+) error
+func (t *Transaction) SetDataGridStatus(
+    *DataGrid,
+    CollectionStatus,
+    string,
+) error
+```
+
 DataGrid is the editable tabular control and shares Table's copied column,
 row, sort, selection, and viewport semantics privately. It always uses cell
 focus. A column is editable only when `Editable` is true. V0 cells are
@@ -630,8 +720,20 @@ disallowed input; soft validation permits it but rejects commit until valid.
 Programmatic model replacement cancels an active edit before applying stable
 identity repair.
 
+Tab and Shift-Tab keep edit traversal inside the DataGrid while a following or
+preceding editable cell exists, commit the current valid value, move stable
+current to that cell, and begin its editor. At the forward or reverse boundary
+they commit and leave the DataGrid focus group. A soft-invalid value blocks
+both Enter and Tab commit and retains the visible editor. Generic focus loss,
+menu entry, and every programmatic DataGrid mutation cancel an active edit;
+they never publish a partially edited value. Enter on a read-only current cell
+uses Table activation behavior.
+
 Committed user edits update the DataGrid's copied row model atomically and
-route its optional change command with the grid as target. Workers and
+rederive sorted display and selection order without changing stable current.
+The `ScrollablePanelOptions.ScrollViewOptions.ChangeCommand` is the optional
+user-change notification for both row-selection changes and committed cell
+edits; the grid is the target in either case. Workers and
 application models remain responsible for accepting, persisting, rejecting,
 or replacing that value through ordinary MVC/MVVM command handling; no
 callback runs while the App lock is held.

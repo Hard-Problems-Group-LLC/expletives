@@ -49,6 +49,7 @@ type App struct {
 	focus           *controlState
 	pressed         map[string]pressedAction
 	menu            *menuSession
+	modals          []*controlState
 	bindings        map[string]CommandID
 	commandRouter   CommandRouter
 	legacyRouter    bool
@@ -153,6 +154,17 @@ func NewApp(options AppOptions) (*App, error) {
 		Description: "Acknowledge the active Layout overflow warning",
 		Enabled:     true,
 		Automation:  true,
+		ModalPolicy: CommandModalAllowed,
+	}
+	for command, label := range map[CommandID]string{
+		CommandDialogOK:     "OK",
+		CommandDialogYes:    "Yes",
+		CommandDialogNo:     "No",
+		CommandDialogCancel: "Cancel",
+	} {
+		app.commands[command] = CommandDefinition{
+			ID: command, Label: label, Enabled: true,
+		}
 	}
 	app.controlsByID[rootState.id] = rootState
 	app.controlsByKey[rootState.automationKey] = rootState
@@ -508,6 +520,9 @@ func (a *App) paintControlLocked(
 	case tableBehavior:
 		table := tableDetails(bounds, behavior)
 		details.Table = &table
+	case dataGridBehavior:
+		dataGrid := a.dataGridDetailsLocked(state, behavior)
+		details.DataGrid = &dataGrid
 	case dropDownBehavior:
 		dropDown := a.popupDetailsLocked(state, behavior.popup)
 		details.DropDown = &dropDown
@@ -554,6 +569,9 @@ func (a *App) paintControlLocked(
 	childOrigin := Point{X: clientRect.X, Y: clientRect.Y}
 	if len(state.layoutRoots) == 0 {
 		for _, child := range state.children {
+			if state.root && a.modalOnStackLocked(child) {
+				continue
+			}
 			a.paintControlLocked(
 				child,
 				childOrigin,
@@ -562,6 +580,18 @@ func (a *App) paintControlLocked(
 				frame,
 				controls,
 			)
+		}
+		if state.root {
+			for _, modal := range a.modals {
+				a.paintControlLocked(
+					modal,
+					childOrigin,
+					childClip,
+					visible,
+					frame,
+					controls,
+				)
+			}
 		}
 		return
 	}
@@ -578,7 +608,7 @@ func (a *App) paintControlLocked(
 		)
 	}
 	for _, child := range state.children {
-		if managed[child] {
+		if managed[child] || (state.root && a.modalOnStackLocked(child)) {
 			continue
 		}
 		a.paintControlLocked(
@@ -590,6 +620,27 @@ func (a *App) paintControlLocked(
 			controls,
 		)
 	}
+	if state.root {
+		for _, modal := range a.modals {
+			a.paintControlLocked(
+				modal,
+				childOrigin,
+				childClip,
+				visible,
+				frame,
+				controls,
+			)
+		}
+	}
+}
+
+func (a *App) modalOnStackLocked(state *controlState) bool {
+	for _, modal := range a.modals {
+		if modal == state {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) applicationContentRectLocked() Rect {
@@ -840,6 +891,16 @@ func (a *App) associateLocked(
 	result = normalizeCommandResult(result)
 	if result.Outcome == OutcomeExited ||
 		result.Outcome == OutcomeInterrupted {
+		if len(a.modals) != 0 {
+			reason := ModalQuit
+			if result.Outcome == OutcomeInterrupted {
+				reason = ModalInterrupted
+			}
+			a.closeModalRangeLocked(0, ModalResult{
+				Reason: reason,
+				Action: command,
+			})
+		}
 		a.final = true
 		clear(a.held)
 		clear(a.pressed)

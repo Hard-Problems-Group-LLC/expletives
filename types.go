@@ -294,6 +294,18 @@ const (
 	ControlFrame ControlKind = "frame"
 	// ControlGroupBox identifies a titled bordered GroupBox.
 	ControlGroupBox ControlKind = "group_box"
+	// ControlModalPanel identifies one application-modal overlay container.
+	ControlModalPanel ControlKind = "modal_panel"
+	// ControlDialog identifies one ModalPanel-derived dialog container.
+	ControlDialog ControlKind = "dialog"
+	// ControlMessageBox identifies one informational standard Dialog.
+	ControlMessageBox ControlKind = "message_box"
+	// ControlConfirmDialog identifies one explicit-choice standard Dialog.
+	ControlConfirmDialog ControlKind = "confirm_dialog"
+	// ControlInputDialog identifies one validated text-entry standard Dialog.
+	ControlInputDialog ControlKind = "input_dialog"
+	// ControlProgressDialog identifies one cancellable progress standard Dialog.
+	ControlProgressDialog ControlKind = "progress_dialog"
 	// ControlLabel identifies a single-line non-container Label.
 	ControlLabel ControlKind = "label"
 	// ControlStaticText identifies multiline optionally wrapped display text.
@@ -365,6 +377,8 @@ const (
 	ControlTreeView ControlKind = "tree_view"
 	// ControlTable identifies one bounded stable-identity read-only table.
 	ControlTable ControlKind = "table"
+	// ControlDataGrid identifies one bounded stable-identity editable table.
+	ControlDataGrid ControlKind = "data_grid"
 	// ControlDropDown identifies one selection-only collapsed popup field.
 	ControlDropDown ControlKind = "drop_down"
 	// ControlComboBox identifies one editable collapsed popup field.
@@ -667,10 +681,16 @@ type ControlDetails struct {
 	TreeView *TreeViewDetails `json:"tree_view,omitempty"`
 	// Table is present for Table.
 	Table *TableDetails `json:"table,omitempty"`
+	// DataGrid is present for DataGrid.
+	DataGrid *DataGridDetails `json:"data_grid,omitempty"`
 	// DropDown is present for DropDown.
 	DropDown *DropDownDetails `json:"drop_down,omitempty"`
 	// ComboBox is present for ComboBox.
 	ComboBox *ComboBoxDetails `json:"combo_box,omitempty"`
+	// ModalPanel is present for ModalPanel and Dialog.
+	ModalPanel *ModalPanelDetails `json:"modal_panel,omitempty"`
+	// ProgressDialog is present only for ProgressDialog.
+	ProgressDialog *ProgressDialogDetails `json:"progress_dialog,omitempty"`
 }
 
 // ContainerDetails describes the client-area behavior of a container.
@@ -692,6 +712,74 @@ type BorderDetails struct {
 	// replaced that component of the Theme-resolved border style.
 	ForegroundOverride *Color `json:"foreground_override,omitempty"`
 	BackgroundOverride *Color `json:"background_override,omitempty"`
+}
+
+// ModalLifecycle identifies the one-shot presentation state of a ModalPanel.
+type ModalLifecycle string
+
+const (
+	ModalLifecycleInactive ModalLifecycle = "inactive"
+	ModalLifecycleActive   ModalLifecycle = "active"
+	ModalLifecycleClosed   ModalLifecycle = "closed"
+)
+
+// ModalCloseReason identifies why one modal lifecycle ended.
+type ModalCloseReason string
+
+const (
+	ModalAccepted    ModalCloseReason = "accepted"
+	ModalCancelled   ModalCloseReason = "cancelled"
+	ModalBack        ModalCloseReason = "back"
+	ModalInterrupted ModalCloseReason = "interrupted"
+	ModalQuit        ModalCloseReason = "quit"
+	ModalFailed      ModalCloseReason = "failed"
+	ModalDismissed   ModalCloseReason = "dismissed"
+	ModalDestroyed   ModalCloseReason = "destroyed"
+)
+
+// ModalResult is the copied terminal result of one Modal lifecycle.
+type ModalResult struct {
+	Reason ModalCloseReason `json:"reason"`
+	Action CommandID        `json:"action,omitempty"`
+}
+
+// ModalShadowPolicy selects ModalPanel shadow decoration. The empty value
+// selects the Turbo Vision-compatible right-and-bottom shadow.
+type ModalShadowPolicy string
+
+const (
+	ModalShadowDefault ModalShadowPolicy = ""
+	ModalShadowNone    ModalShadowPolicy = "none"
+	ModalShadowTurbo   ModalShadowPolicy = "turbo"
+)
+
+// ModalPanelDetails describes bounded modal-stack, geometry, and result state.
+type ModalPanelDetails struct {
+	Lifecycle       ModalLifecycle    `json:"lifecycle"`
+	Active          bool              `json:"active"`
+	Top             bool              `json:"top"`
+	StackIndex      int               `json:"stack_index"`
+	StackDepth      int               `json:"stack_depth"`
+	NestedOwner     ControlID         `json:"nested_owner,omitempty"`
+	SavedFocus      ControlID         `json:"saved_focus,omitempty"`
+	InitialFocus    ControlID         `json:"initial_focus,omitempty"`
+	RequestedSize   Size              `json:"requested_size"`
+	ResolvedBounds  Rect              `json:"resolved_bounds"`
+	RequiredMinimum Size              `json:"required_minimum"`
+	Degraded        bool              `json:"degraded"`
+	Shadow          ModalShadowPolicy `json:"shadow"`
+	ShadowStyle     StyleID           `json:"shadow_style,omitempty"`
+	Result          *ModalResult      `json:"result,omitempty"`
+}
+
+// ProgressDialogDetails describes the compound's current status and
+// cancellation handshake. Exact progress and status text remain observable on
+// its ordinary ProgressBar and StaticText children.
+type ProgressDialogDetails struct {
+	StatusLength    int              `json:"status_length"`
+	Progress        ProgressBarState `json:"progress"`
+	Cancellable     bool             `json:"cancellable"`
+	CancelRequested bool             `json:"cancel_requested"`
 }
 
 // TextDetails describes one canonical Label or StaticText value.
@@ -1128,6 +1216,16 @@ type TableDetails struct {
 	Viewport           ScrollableDetails       `json:"viewport"`
 }
 
+// DataGridDetails describes one editable Table-compatible collection and its
+// optional active single-line cell editor.
+type DataGridDetails struct {
+	Table      TableDetails      `json:"table"`
+	Editing    bool              `json:"editing"`
+	EditRow    string            `json:"edit_row,omitempty"`
+	EditColumn string            `json:"edit_column,omitempty"`
+	Editor     *TextFieldDetails `json:"editor,omitempty"`
+}
+
 // DropDownDetails describes one collapsed field and its optional transient
 // popup without duplicating the retained item model.
 type DropDownDetails struct {
@@ -1518,6 +1616,30 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 			}
 			cloned.Controls[index].Details.Table = &table
 		}
+		if snapshot.Controls[index].Details.DataGrid != nil {
+			dataGrid := *snapshot.Controls[index].Details.DataGrid
+			dataGrid.Table.ColumnWidths = append(
+				[]int(nil),
+				dataGrid.Table.ColumnWidths...,
+			)
+			if dataGrid.Table.Viewport.HorizontalBar != nil {
+				bar := *dataGrid.Table.Viewport.HorizontalBar
+				dataGrid.Table.Viewport.HorizontalBar = &bar
+			}
+			if dataGrid.Table.Viewport.VerticalBar != nil {
+				bar := *dataGrid.Table.Viewport.VerticalBar
+				dataGrid.Table.Viewport.VerticalBar = &bar
+			}
+			if dataGrid.Editor != nil {
+				editor := *dataGrid.Editor
+				if editor.Validator != nil {
+					validator := *editor.Validator
+					editor.Validator = &validator
+				}
+				dataGrid.Editor = &editor
+			}
+			cloned.Controls[index].Details.DataGrid = &dataGrid
+		}
 		if snapshot.Controls[index].Details.DropDown != nil {
 			dropDown := *snapshot.Controls[index].Details.DropDown
 			cloned.Controls[index].Details.DropDown = &dropDown
@@ -1529,6 +1651,18 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				comboBox.Editor.Validator = &validator
 			}
 			cloned.Controls[index].Details.ComboBox = &comboBox
+		}
+		if snapshot.Controls[index].Details.ModalPanel != nil {
+			modal := *snapshot.Controls[index].Details.ModalPanel
+			if modal.Result != nil {
+				result := *modal.Result
+				modal.Result = &result
+			}
+			cloned.Controls[index].Details.ModalPanel = &modal
+		}
+		if snapshot.Controls[index].Details.ProgressDialog != nil {
+			progress := *snapshot.Controls[index].Details.ProgressDialog
+			cloned.Controls[index].Details.ProgressDialog = &progress
 		}
 	}
 	cloned.Layouts = append([]LayoutSnapshot{}, snapshot.Layouts...)

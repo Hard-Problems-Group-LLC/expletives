@@ -934,6 +934,22 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 			}
 			collectionCells += control.Details.Table.CellCount
 		}
+		if control.Details.DataGrid != nil {
+			retained := control.Details.DataGrid.Table.RetainedBytes
+			if retained > expletives.MaxCollectionAggregateBytes-collectionBytes {
+				return errors.New(
+					"snapshot collection data exceeds advertised aggregate bound",
+				)
+			}
+			collectionBytes += retained
+			if control.Details.DataGrid.Table.CellCount >
+				expletives.MaxCollectionCells-collectionCells {
+				return errors.New(
+					"snapshot table cells exceed advertised aggregate bound",
+				)
+			}
+			collectionCells += control.Details.DataGrid.Table.CellCount
+		}
 		if control.Details.DropDown != nil {
 			retained := control.Details.DropDown.RetainedBytes
 			if retained > expletives.MaxCollectionAggregateBytes-collectionBytes {
@@ -964,6 +980,22 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 			actionItemCount += len(control.Details.StatusBar.Segments)
+		}
+		if details := control.Details.ModalPanel; details != nil &&
+			control.Visible != details.Active {
+			return errors.New(
+				"snapshot ModalPanel visibility does not match its lifecycle",
+			)
+		}
+	}
+	if err := validModalStack(snapshot.Controls, controlsByID); err != nil {
+		return err
+	}
+	for index := range snapshot.Controls {
+		control := &snapshot.Controls[index]
+		if control.Details.ProgressDialog != nil &&
+			!validProgressDialogCompound(control, controlsByID) {
+			return errors.New("snapshot ProgressDialog compound is inconsistent")
 		}
 	}
 	for _, control := range snapshot.Controls {
@@ -1105,6 +1137,62 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	return nil
 }
 
+func validProgressDialogCompound(
+	root *ControlSnapshot,
+	controlsByID map[ControlID]*ControlSnapshot,
+) bool {
+	if root == nil || root.Kind != "progress_dialog" ||
+		root.Details.ProgressDialog == nil {
+		return false
+	}
+	details := root.Details.ProgressDialog
+	var status *TextDetails
+	var progress *ProgressDetails
+	var cancel *ActionDetails
+	for _, childID := range root.Children {
+		child := controlsByID[childID]
+		if child == nil || child.Parent != root.ID {
+			return false
+		}
+		switch child.Kind {
+		case "static_text":
+			if status != nil {
+				return false
+			}
+			status = child.Details.Text
+		case "progress_bar":
+			if progress != nil {
+				return false
+			}
+			progress = child.Details.Progress
+		case "button":
+			if cancel != nil {
+				return false
+			}
+			cancel = child.Details.Action
+		default:
+			return false
+		}
+	}
+	if status == nil || progress == nil ||
+		len(display.Normalize(status.Text)) != details.StatusLength ||
+		(cancel != nil) != details.Cancellable {
+		return false
+	}
+	if cancel != nil && (cancel.Command != "dialog.cancel" || !cancel.Cancel ||
+		cancel.Default || cancel.Enabled == details.CancelRequested) {
+		return false
+	}
+	compoundProgress := details.Progress
+	return progress.Status == compoundProgress.Status &&
+		progress.Current == compoundProgress.Current &&
+		progress.Total == compoundProgress.Total &&
+		progress.Indeterminate == compoundProgress.Indeterminate &&
+		progress.Tick == compoundProgress.Tick &&
+		progress.ReducedMotion == compoundProgress.ReducedMotion &&
+		progress.TextMode == compoundProgress.TextMode
+}
+
 func validBorderForm(form string) bool {
 	switch form {
 	case "none", "single", "double", "shade_light", "shade_medium",
@@ -1126,6 +1214,161 @@ func validBorderDetails(border *BorderDetails, limits Limits) bool {
 			validColor(*border.ForegroundOverride)) &&
 		(border.BackgroundOverride == nil ||
 			validColor(*border.BackgroundOverride))
+}
+
+func validModalStack(
+	controls []ControlSnapshot,
+	controlsByID map[ControlID]*ControlSnapshot,
+) error {
+	active := make(map[int]*ControlSnapshot, expletives.MaxModalDepth)
+	activeCount := 0
+	topCount := 0
+	for index := range controls {
+		control := &controls[index]
+		details := control.Details.ModalPanel
+		if details == nil {
+			continue
+		}
+		parent := controlsByID[control.Parent]
+		if parent == nil || parent.Kind != "root" {
+			return errors.New("snapshot ModalPanel is not a direct root child")
+		}
+		if !details.Active {
+			continue
+		}
+		activeCount++
+		if activeCount > expletives.MaxModalDepth ||
+			active[details.StackIndex] != nil {
+			return errors.New("snapshot modal stack exceeds or duplicates its bound")
+		}
+		active[details.StackIndex] = control
+		if details.Top {
+			topCount++
+		}
+	}
+	if activeCount == 0 {
+		if topCount != 0 {
+			return errors.New("snapshot inactive modal stack has a top entry")
+		}
+		return nil
+	}
+	if topCount != 1 {
+		return errors.New("snapshot modal stack must have exactly one top entry")
+	}
+	for index := 0; index < activeCount; index++ {
+		control := active[index]
+		if control == nil {
+			return errors.New("snapshot modal stack indices are not contiguous")
+		}
+		details := control.Details.ModalPanel
+		if details.StackDepth != activeCount {
+			return errors.New("snapshot modal stack depth is inconsistent")
+		}
+		if index == 0 {
+			if details.NestedOwner != "" {
+				return errors.New("snapshot base modal has a nested owner")
+			}
+		} else if details.NestedOwner != active[index-1].ID {
+			return errors.New("snapshot nested modal owner is not the prior modal")
+		}
+	}
+	return nil
+}
+
+func validModalPanelDetails(
+	details *ModalPanelDetails,
+	controlWidth int,
+	controlHeight int,
+	limits Limits,
+) bool {
+	if details == nil ||
+		details.RequestedSize.Width < 0 ||
+		details.RequestedSize.Height < 0 ||
+		details.RequestedSize.Width > expletives.MaxFrameCells ||
+		details.RequestedSize.Height > expletives.MaxFrameCells ||
+		details.ResolvedBounds.Width < 0 ||
+		details.ResolvedBounds.Height < 0 ||
+		details.ResolvedBounds.Width > expletives.MaxFrameCells ||
+		details.ResolvedBounds.Height > expletives.MaxFrameCells ||
+		details.RequiredMinimum.Width < 0 ||
+		details.RequiredMinimum.Height < 0 ||
+		details.RequiredMinimum.Width > expletives.MaxFrameCells ||
+		details.RequiredMinimum.Height > expletives.MaxFrameCells ||
+		(details.NestedOwner != "" &&
+			!validIdentifier(string(details.NestedOwner), limits.IdentifierBytes)) ||
+		(details.SavedFocus != "" &&
+			!validIdentifier(string(details.SavedFocus), limits.IdentifierBytes)) ||
+		(details.InitialFocus != "" &&
+			!validIdentifier(string(details.InitialFocus), limits.IdentifierBytes)) ||
+		!validIdentifier(string(details.ShadowStyle), limits.IdentifierBytes) ||
+		(details.Shadow != "none" && details.Shadow != "turbo") {
+		return false
+	}
+	if details.Result != nil &&
+		(!validModalCloseReason(details.Result.Reason) ||
+			(details.Result.Action != "" &&
+				!validIdentifier(details.Result.Action, limits.IdentifierBytes))) {
+		return false
+	}
+	switch details.Lifecycle {
+	case "inactive":
+		return !details.Active && !details.Top && details.StackIndex == -1 &&
+			details.StackDepth == 0 && details.Result == nil
+	case "active":
+		return details.Active && details.StackIndex >= 0 &&
+			details.StackIndex < details.StackDepth &&
+			details.StackDepth <= expletives.MaxModalDepth &&
+			details.Top == (details.StackIndex == details.StackDepth-1) &&
+			details.Result == nil &&
+			details.ResolvedBounds.Width == controlWidth &&
+			details.ResolvedBounds.Height == controlHeight &&
+			details.RequiredMinimum.Width >= 4 &&
+			details.RequiredMinimum.Height >= 3
+	case "closed":
+		return !details.Active && !details.Top && details.StackIndex == -1 &&
+			details.StackDepth == 0 && details.Result != nil
+	default:
+		return false
+	}
+}
+
+func validModalCloseReason(reason string) bool {
+	switch reason {
+	case "accepted", "cancelled", "back", "interrupted", "quit",
+		"failed", "dismissed", "destroyed":
+		return true
+	default:
+		return false
+	}
+}
+
+func validProgressDialogDetails(details *ProgressDialogDetails) bool {
+	if details == nil || details.StatusLength < 0 ||
+		details.StatusLength > expletives.MaxDisplayTextCells ||
+		(details.CancelRequested && !details.Cancellable) {
+		return false
+	}
+	progress := details.Progress
+	switch progress.Status {
+	case "idle", "running", "completed", "failed", "cancelled":
+	default:
+		return false
+	}
+	if progress.TextMode != "none" && progress.TextMode != "percentage" {
+		return false
+	}
+	if progress.Indeterminate {
+		if progress.Current != 0 || progress.Total != 0 ||
+			progress.TextMode != "none" {
+			return false
+		}
+	} else if progress.Current > progress.Total ||
+		(progress.Status == "completed" && progress.Current != progress.Total) ||
+		progress.Tick != 0 {
+		return false
+	}
+	return (!progress.ReducedMotion && progress.Status == "running") ||
+		progress.Tick == 0
 }
 
 func validControlDetails(
@@ -1166,6 +1409,9 @@ func validControlDetails(
 	if details.Progress != nil {
 		specialMembers++
 	}
+	if details.ProgressDialog != nil {
+		specialMembers++
+	}
 	if details.ScrollBar != nil {
 		specialMembers++
 	}
@@ -1193,10 +1439,16 @@ func validControlDetails(
 	if details.Table != nil {
 		specialMembers++
 	}
+	if details.DataGrid != nil {
+		specialMembers++
+	}
 	if details.DropDown != nil {
 		specialMembers++
 	}
 	if details.ComboBox != nil {
+		specialMembers++
+	}
+	if details.ModalPanel != nil {
 		specialMembers++
 	}
 	switch kind {
@@ -1225,6 +1477,46 @@ func validControlDetails(
 			details.HotkeyBar == nil &&
 			details.MenuBar == nil &&
 			details.StatusBar == nil
+	case "modal_panel", "dialog", "message_box", "confirm_dialog", "input_dialog":
+		return specialMembers == 1 &&
+			details.Container != nil &&
+			validBorderDetails(details.Border, limits) &&
+			((details.Border.Form == "none" &&
+				details.Container.ClientInset == 0) ||
+				(details.Border.Form != "none" &&
+					details.Container.ClientInset == 1)) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validModalPanelDetails(
+				details.ModalPanel,
+				controlWidth,
+				controlHeight,
+				limits,
+			)
+	case "progress_dialog":
+		return specialMembers == 2 &&
+			details.Container != nil &&
+			validBorderDetails(details.Border, limits) &&
+			((details.Border.Form == "none" &&
+				details.Container.ClientInset == 0) ||
+				(details.Border.Form != "none" &&
+					details.Container.ClientInset == 1)) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validModalPanelDetails(
+				details.ModalPanel,
+				controlWidth,
+				controlHeight,
+				limits,
+			) && validProgressDialogDetails(details.ProgressDialog)
 	case "label":
 		return specialMembers == 0 &&
 			details.Container == nil &&
@@ -1563,6 +1855,23 @@ func validControlDetails(
 			details.StatusBar == nil &&
 			validTableDetails(
 				details.Table,
+				details.Border,
+				controlWidth,
+				controlHeight,
+				limits,
+			)
+	case "data_grid":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validDataGridDetails(
+				details.DataGrid,
 				details.Border,
 				controlWidth,
 				controlHeight,
@@ -1991,6 +2300,55 @@ func validTableDetails(
 	}
 	return details.Viewport.State.ContentSize.Width >= 1 &&
 		details.Viewport.State.ContentSize.Width <= expletives.MaxFrameCells
+}
+
+func validDataGridDetails(
+	details *DataGridDetails,
+	border *BorderDetails,
+	controlWidth int,
+	controlHeight int,
+	limits Limits,
+) bool {
+	if details == nil ||
+		!validTableDetails(
+			&details.Table,
+			border,
+			controlWidth,
+			controlHeight,
+			limits,
+		) || details.Table.FocusMode != "cell" {
+		return false
+	}
+	if !details.Editing {
+		return details.EditRow == "" && details.EditColumn == "" &&
+			details.EditLength == 0 && details.EditCaret == 0 &&
+			details.EditViewOffset == 0 && !details.EditValid &&
+			details.ValidationEnforcement == "" && details.ValidationMode == ""
+	}
+	if details.Table.Status != "ready" || !details.Table.Enabled ||
+		details.EditRow != details.Table.CurrentRow ||
+		details.EditColumn != details.Table.CurrentColumn ||
+		!validIdentifier(details.EditRow, limits.IdentifierBytes) ||
+		!validIdentifier(details.EditColumn, limits.IdentifierBytes) ||
+		details.EditLength < 0 || details.EditLength > expletives.MaxTextInputCells ||
+		details.EditCaret < 0 || details.EditCaret > details.EditLength ||
+		details.EditViewOffset < 0 || details.EditViewOffset > details.EditLength {
+		return false
+	}
+	if details.ValidationEnforcement == "" || details.ValidationMode == "" {
+		return details.ValidationEnforcement == "" && details.ValidationMode == ""
+	}
+	if details.ValidationMode != "whitelist" && details.ValidationMode != "blacklist" {
+		return false
+	}
+	switch details.ValidationEnforcement {
+	case "soft":
+		return true
+	case "hard":
+		return details.EditValid
+	default:
+		return false
+	}
 }
 
 func validCompactKeyRange(
@@ -2830,7 +3188,7 @@ func validTextFieldDetails(
 		) ||
 		details.ViewOffset < 0 ||
 		details.ViewOffset > details.Length ||
-		details.Password != details.Redacted ||
+		(details.Password && !details.Redacted) ||
 		(!details.Enabled && details.Editing) ||
 		!validSelectionReason(details.Enabled, details.DisabledReason) ||
 		(details.ChangeCommand != "" &&
@@ -2850,12 +3208,6 @@ func validTextFieldDetails(
 	if details.Validator == nil {
 		return details.Valid
 	}
-	validatorCells, ok := canonicalInputCells(details.Validator.Characters)
-	if !ok || len(validatorCells) == 0 ||
-		len(details.Validator.Characters) > expletives.MaxTextValidatorBytes ||
-		len(validatorCells) > expletives.MaxTextValidatorCells {
-		return false
-	}
 	switch details.Validator.Enforcement {
 	case "soft", "hard":
 	default:
@@ -2864,6 +3216,16 @@ func validTextFieldDetails(
 	switch details.Validator.Mode {
 	case "whitelist", "blacklist":
 	default:
+		return false
+	}
+	if details.Validator.CharactersRedacted {
+		return details.Redacted && details.Validator.Characters == "" &&
+			(details.Validator.Enforcement != "hard" || details.Valid)
+	}
+	validatorCells, ok := canonicalInputCells(details.Validator.Characters)
+	if !ok || len(validatorCells) == 0 ||
+		len(details.Validator.Characters) > expletives.MaxTextValidatorBytes ||
+		len(validatorCells) > expletives.MaxTextValidatorCells {
 		return false
 	}
 	set := make(map[string]bool, len(validatorCells))
@@ -3071,7 +3433,8 @@ func validFocusTargetKind(kind ControlKind) bool {
 		"select_field", "text_field", "number_field", "spin_box",
 		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook",
 		"viewport", "scrollable_panel", "markdown_view", "log_view",
-		"stream_view", "list_box", "tree_view", "table", "drop_down", "combo_box":
+		"stream_view", "list_box", "tree_view", "table", "data_grid",
+		"drop_down", "combo_box":
 		return true
 	default:
 		return false

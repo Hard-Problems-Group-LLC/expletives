@@ -724,6 +724,7 @@ func (s *controlState) mutableLocked() error {
 }
 
 func (a *App) destroyStateLocked(state *controlState) {
+	a.destroyModalStateLocked(state)
 	if a.menu != nil && a.menu.bar == state {
 		a.closeMenuLocked()
 	}

@@ -1271,7 +1271,8 @@ func (a *App) activateTable(
 		return Completion{}, ErrInvalidControl
 	}
 	behavior, ok := state.behavior.(tableBehavior)
-	if !ok || !tableCanFocus(state, behavior) {
+	if !ok || !tableCanFocus(state, behavior) ||
+		!a.inActiveModalScopeLocked(state) {
 		a.mu.Unlock()
 		return Completion{}, ErrNotFocusable
 	}
@@ -1283,7 +1284,7 @@ func (a *App) activateTable(
 		result.Outcome = OutcomeApplied
 	}
 	if command != "" {
-		router, result, execute = a.resolveCommandLocked(command)
+		router, result, execute = a.resolveCommandLocked(command, true)
 	}
 	a.mu.Unlock()
 	if execute {

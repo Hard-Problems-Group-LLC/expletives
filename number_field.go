@@ -814,6 +814,8 @@ func (a *App) editorInputLocked(
 		return a.textAreaInputLocked(state, behavior, key, held)
 	case comboBoxBehavior:
 		return a.comboBoxEditorInputLocked(state, behavior, key, held)
+	case dataGridBehavior:
+		return a.dataGridEditorInputLocked(state, behavior, key, held)
 	default:
 		return "", "", false, false
 	}
@@ -959,12 +961,19 @@ func (a *App) commitOrCancelEditorStateLocked(state *controlState) bool {
 			state.behavior = behavior
 		}
 		return changed
+	case dataGridBehavior:
+		if !behavior.editor.editing {
+			return false
+		}
+		cancelDataGridEditBehavior(&behavior)
+		state.behavior = behavior
+		return true
 	default:
 		return false
 	}
 }
 
-func (a *App) commitFocusedEditorLocked() (
+func (a *App) commitFocusedEditorLocked(reverse bool) (
 	command CommandID,
 	target ControlID,
 	changed bool,
@@ -1035,6 +1044,27 @@ func (a *App) commitFocusedEditorLocked() (
 			a.focus.behavior = behavior
 		}
 		return command, target, changed, true
+	case dataGridBehavior:
+		if !behavior.editor.editing {
+			return "", "", false, true
+		}
+		command, changed, valid := a.commitDataGridEditLocked(a.focus, &behavior)
+		if !valid {
+			return "", "", false, false
+		}
+		if row, column, found := nextEditableDataGridCell(behavior, reverse); found {
+			behavior.table.currentRow = row
+			behavior.table.currentColumn = column
+			if !beginDataGridEditBehavior(&behavior) ||
+				!a.dataGridWithinBudgetLocked(a.focus, behavior) {
+				cancelDataGridEditBehavior(&behavior)
+			}
+			behavior = reflowDataGrid(behavior, a.focus.bounds.Size())
+			a.focus.behavior = behavior
+			return command, a.focus.id, true, false
+		}
+		a.focus.behavior = behavior
+		return command, a.focus.id, changed, true
 	default:
 		return "", "", false, true
 	}

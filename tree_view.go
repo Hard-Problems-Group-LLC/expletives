@@ -1036,7 +1036,8 @@ func (a *App) activateTreeView(
 		return Completion{}, ErrInvalidControl
 	}
 	behavior, ok := state.behavior.(treeViewBehavior)
-	if !ok || !treeViewCanFocus(state, behavior) {
+	if !ok || !treeViewCanFocus(state, behavior) ||
+		!a.inActiveModalScopeLocked(state) {
 		a.mu.Unlock()
 		return Completion{}, ErrNotFocusable
 	}
@@ -1048,7 +1049,7 @@ func (a *App) activateTreeView(
 		result.Outcome = OutcomeApplied
 	}
 	if command != "" {
-		router, result, execute = a.resolveCommandLocked(command)
+		router, result, execute = a.resolveCommandLocked(command, true)
 	}
 	a.mu.Unlock()
 

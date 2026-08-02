@@ -3,6 +3,7 @@ package automation
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math"
 	"runtime"
 	"strings"
@@ -10,6 +11,75 @@ import (
 
 	expletives "github.com/Hard-Problems-Group-LLC/expletives"
 )
+
+func TestMaximumModalStackIsValidAndFitsResponseLine(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 80, Height: 24}, Scenario: "modal.maximum",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var owner expletives.Modal
+	for index := 0; index < expletives.MaxModalDepth; index++ {
+		modal, modalErr := expletives.NewModalPanel(
+			app.Root(),
+			expletives.ModalPanelOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "modal." + string(rune('0'+index)),
+					Bounds:        expletives.Rect{Width: 20 + index, Height: 6 + index},
+				},
+				NestedOwner: owner,
+			},
+		)
+		if modalErr != nil {
+			t.Fatalf("NewModalPanel(%d) error = %v", index, modalErr)
+		}
+		if modalErr := modal.Show(nil); modalErr != nil {
+			t.Fatalf("Show(%d) error = %v", index, modalErr)
+		}
+		owner = modal
+	}
+	overflow, err := expletives.NewModalPanel(
+		app.Root(),
+		expletives.ModalPanelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "modal.overflow",
+				Bounds:        expletives.Rect{Width: 20, Height: 6},
+			},
+			NestedOwner: owner,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := overflow.Show(nil); !errors.Is(err, expletives.ErrModalCapacity) {
+		t.Fatalf("ninth Show() error = %v", err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	limits := DefaultLimits()
+	if err := validateSnapshot(&projected, limits); err != nil {
+		t.Fatalf("maximum modal snapshot rejected: %v", err)
+	}
+	wire := cloneSnapshot(projected)
+	compactFrame(&wire.Frame, false)
+	completion := Completion{
+		Header:        newHeader(TypeCompletion),
+		RequestID:     "maximum-modal",
+		Operation:     TypeObserve,
+		Outcome:       OutcomeNoOp,
+		FrameSequence: wire.Sequence,
+		Snapshot:      &wire,
+	}
+	if err := validateCompletion(completion, limits); err != nil {
+		t.Fatalf("maximum modal completion rejected: %v", err)
+	}
+	line, err := encodeLine(completion, limits.ResponseLineBytes)
+	if err != nil {
+		t.Fatalf("maximum modal completion exceeds response line: %v", err)
+	}
+	t.Logf("maximum modal completion bytes: %d", len(line))
+}
 
 func TestMaximumBoundedCompletionFitsResponseLine(t *testing.T) {
 	t.Parallel()
@@ -624,6 +694,15 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 			details.Password = true
 			details.Redacted = true
 		},
+		"validator redacted without field": func(details *TextFieldDetails) {
+			details.Validator.Characters = ""
+			details.Validator.CharactersRedacted = true
+		},
+		"redacted validator retains characters": func(details *TextFieldDetails) {
+			details.Text = ""
+			details.Redacted = true
+			details.Validator.CharactersRedacted = true
+		},
 		"duplicate validator": func(details *TextFieldDetails) {
 			details.Validator.Characters = "aabc"
 		},
@@ -650,6 +729,16 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 	details.Redacted = true
 	if err := validateCompletion(password, limits); err != nil {
 		t.Fatalf("valid redacted TextField fixture rejected: %v", err)
+	}
+
+	compoundSensitive := valid()
+	details = compoundSensitive.Snapshot.Controls[0].Details.TextField
+	details.Text = ""
+	details.Redacted = true
+	details.Validator.Characters = ""
+	details.Validator.CharactersRedacted = true
+	if err := validateCompletion(compoundSensitive, limits); err != nil {
+		t.Fatalf("valid compound-sensitive TextField fixture rejected: %v", err)
 	}
 }
 
@@ -1755,6 +1844,183 @@ func TestSnapshotRejectsInvalidTableDetails(t *testing.T) {
 			test.mutate(find(&snapshot))
 			if err := validateSnapshot(&snapshot, limits); err == nil {
 				t.Fatal("validateSnapshot() accepted invalid Table details")
+			}
+		})
+	}
+}
+
+func TestSnapshotRejectsInvalidDataGridDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 36, Height: 10},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewDataGrid(app.Root(), expletives.DataGridOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+					AutomationKey: "data-grid", Bounds: expletives.Rect{Width: 28, Height: 6},
+				}},
+				BorderForm: expletives.BorderSingle,
+			},
+			Columns: []expletives.Column{{Key: "value", Header: "Value", Editable: true}},
+			Rows: []expletives.TableRow{{
+				Key: "row", Cells: []expletives.TableCell{{Column: "value", Text: "One"}},
+			}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(snapshot *SnapshotV1) *ControlSnapshot {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "data-grid" {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatal("fixture has no DataGrid details")
+		return nil
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid DataGrid fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ControlSnapshot)
+	}{
+		{"focus mode", func(control *ControlSnapshot) {
+			control.Details.DataGrid.Table.FocusMode = "row"
+		}},
+		{"idle edit row", func(control *ControlSnapshot) {
+			control.Details.DataGrid.EditRow = "row"
+		}},
+		{"editor without editing", func(control *ControlSnapshot) {
+			control.Details.DataGrid.EditLength = 1
+		}},
+		{"detail union", func(control *ControlSnapshot) {
+			control.Details.Table = &TableDetails{}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			test.mutate(find(&snapshot))
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid DataGrid details")
+			}
+		})
+	}
+}
+
+func TestSnapshotRejectsInvalidModalPanelDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 36, Height: 12},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		outside, err := expletives.NewTextField(
+			app.Root(),
+			expletives.TextFieldOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "outside", Bounds: expletives.Rect{Width: 10, Height: 1},
+			}},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := outside.Focus(); err != nil {
+			t.Fatal(err)
+		}
+		modal, err := expletives.NewModalPanel(
+			app.Root(),
+			expletives.ModalPanelOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "modal", Bounds: expletives.Rect{Width: 20, Height: 7},
+				},
+				Title: "Modal",
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inside, err := expletives.NewTextField(
+			modal,
+			expletives.TextFieldOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "inside",
+				Bounds:        expletives.Rect{X: 1, Y: 1, Width: 10, Height: 1},
+			}},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := modal.Show(inside); err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(snapshot *SnapshotV1) *ControlSnapshot {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "modal" {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatal("fixture has no ModalPanel details")
+		return nil
+	}
+	snapshot := valid()
+	modal := find(&snapshot)
+	if modal.Details.ModalPanel == nil ||
+		modal.Details.ModalPanel.SavedFocus == "" ||
+		modal.Details.ModalPanel.InitialFocus == "" {
+		t.Fatalf("projected ModalPanel details = %+v", modal.Details.ModalPanel)
+	}
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid ModalPanel fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ControlSnapshot)
+	}{
+		{"lifecycle", func(control *ControlSnapshot) {
+			control.Details.ModalPanel.Lifecycle = "unknown"
+		}},
+		{"visibility", func(control *ControlSnapshot) { control.Visible = false }},
+		{"stack index", func(control *ControlSnapshot) {
+			control.Details.ModalPanel.StackIndex = 1
+		}},
+		{"stack depth", func(control *ControlSnapshot) {
+			control.Details.ModalPanel.StackDepth = 2
+		}},
+		{"base owner", func(control *ControlSnapshot) {
+			control.Details.ModalPanel.NestedOwner = "control-1"
+		}},
+		{"shadow", func(control *ControlSnapshot) {
+			control.Details.ModalPanel.Shadow = "unknown"
+		}},
+		{"active result", func(control *ControlSnapshot) {
+			control.Details.ModalPanel.Result = &ModalResultDetails{Reason: "accepted"}
+		}},
+		{"resolved geometry", func(control *ControlSnapshot) {
+			control.Details.ModalPanel.ResolvedBounds.Width++
+		}},
+		{"detail union", func(control *ControlSnapshot) {
+			control.Details.DataGrid = &DataGridDetails{}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			test.mutate(find(&snapshot))
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid ModalPanel details")
 			}
 		})
 	}
@@ -3025,6 +3291,23 @@ func maximumCompletionJSONBytes(
 			Viewport:            markdownViewport,
 		},
 	}
+	dataGridControl := controlValue
+	dataGridControl.Details = ControlDetails{
+		Version: 1,
+		Border:  tableControl.Details.Border,
+		DataGrid: &DataGridDetails{
+			Table:                 *tableControl.Details.Table,
+			Editing:               true,
+			EditRow:               string(controlValue.ID),
+			EditColumn:            string(controlValue.ID),
+			EditLength:            math.MaxInt,
+			EditCaret:             math.MaxInt,
+			EditViewOffset:        math.MaxInt,
+			EditValid:             true,
+			ValidationEnforcement: "hard",
+			ValidationMode:        "blacklist",
+		},
+	}
 	comboBoxControl := controlValue
 	comboBoxControl.Details = ControlDetails{
 		Version: 1,
@@ -3049,6 +3332,34 @@ func maximumCompletionJSONBytes(
 			Editor: *textFieldControl.Details.TextField,
 		},
 	}
+	modalControl := controlValue
+	modalControl.Details = ControlDetails{
+		Version:   1,
+		Container: &ContainerDetails{ClientInset: math.MaxInt},
+		Border: &BorderDetails{
+			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
+			Form:          "double",
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		ModalPanel: &ModalPanelDetails{
+			Lifecycle:       "closed",
+			StackIndex:      math.MaxInt,
+			StackDepth:      math.MaxInt,
+			NestedOwner:     controlValue.ID,
+			SavedFocus:      controlValue.ID,
+			InitialFocus:    controlValue.ID,
+			RequestedSize:   Size{Width: math.MaxInt, Height: math.MaxInt},
+			ResolvedBounds:  controlValue.Bounds,
+			RequiredMinimum: Size{Width: math.MaxInt, Height: math.MaxInt},
+			Degraded:        true,
+			Shadow:          "turbo",
+			ShadowStyle:     StyleID(controlValue.ID),
+			Result: &ModalResultDetails{
+				Reason: string(controlValue.ID), Action: string(controlValue.ID),
+			},
+		},
+	}
 	for _, candidate := range [][]byte{
 		mustMarshal(t, borderControl),
 		mustMarshal(t, dividerControl),
@@ -3065,7 +3376,9 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, listBoxControl),
 		mustMarshal(t, treeViewControl),
 		mustMarshal(t, tableControl),
+		mustMarshal(t, dataGridControl),
 		mustMarshal(t, comboBoxControl),
+		mustMarshal(t, modalControl),
 	} {
 		if len(candidate) > len(control) {
 			control = candidate

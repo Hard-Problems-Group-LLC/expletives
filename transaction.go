@@ -67,6 +67,7 @@ const (
 	mutationListBox
 	mutationTreeView
 	mutationTable
+	mutationDataGrid
 	mutationPopupCollection
 )
 
@@ -249,6 +250,9 @@ func (t *Transaction) SetBounds(control Control, bounds Rect) error {
 			"expletives: application chrome bounds follow the application surface",
 		)
 	}
+	if isModalKind(state.kind) {
+		return fmt.Errorf("%w: ModalPanel bounds are lifecycle-owned", ErrModalState)
+	}
 	if state.managedBy != nil {
 		return errors.New("expletives: managed scroll Content bounds are derived")
 	}
@@ -277,6 +281,10 @@ func (t *Transaction) SetMinimumSize(control Control, size Size) error {
 	}
 	if isApplicationChrome(state.kind) {
 		return errors.New("expletives: application chrome minimum is intrinsic")
+	}
+	if isModalKind(state.kind) &&
+		(size.Width < modalMinimumWidth || size.Height < modalMinimumHeight) {
+		return fmt.Errorf("%w: ModalPanel minimum is below border geometry", ErrInvalidGeometry)
 	}
 	if state.managedBy != nil {
 		return errors.New("expletives: managed scroll Content minimum is derived")
@@ -405,6 +413,9 @@ func (t *Transaction) SetVisible(control Control, visible bool) error {
 	if state.root && !visible {
 		return errors.New("expletives: root cannot be hidden")
 	}
+	if isModalKind(state.kind) {
+		return fmt.Errorf("%w: ModalPanel visibility is lifecycle-owned", ErrModalState)
+	}
 	if err := t.reserveOperation(); err != nil {
 		return err
 	}
@@ -430,7 +441,7 @@ func (t *Transaction) SetFocus(control Control) error {
 		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
 		ControlViewport, ControlScrollablePanel, ControlMarkdownView,
 		ControlLogView, ControlStreamView, ControlListBox,
-		ControlTreeView, ControlTable,
+		ControlTreeView, ControlTable, ControlDataGrid,
 		ControlDropDown, ControlComboBox:
 	default:
 		return ErrNotFocusable
@@ -703,6 +714,10 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if destroyed[t.focus] {
 			return ErrDestroyed
 		}
+		if t.app.topModalLocked() != nil &&
+			!t.app.inActiveModalScopeLocked(t.focus) {
+			return ErrNotFocusable
+		}
 		if !t.app.focusBehaviorEligibleLocked(
 			t.focus,
 			t.focus.behavior,
@@ -734,6 +749,12 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if destroyed[mutation.state] {
 			return fmt.Errorf("%w: transaction mutates a destroyed control", ErrDestroyed)
 		}
+		if modal := modalAncestorState(mutation.state); modal != nil {
+			behavior, ok := modal.behavior.(modalPanelBehavior)
+			if ok && behavior.lifecycle == ModalLifecycleClosed {
+				return fmt.Errorf("%w: transaction mutates a closed modal", ErrModalState)
+			}
+		}
 	}
 	stagedMutationBehaviors := make(map[*controlState]controlBehavior)
 	for index := range t.mutations {
@@ -760,7 +781,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationTreeView, mutationTable, mutationPopupCollection:
+			mutationListBox, mutationTreeView, mutationTable, mutationDataGrid,
+			mutationPopupCollection:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -917,7 +939,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationTreeView, mutationTable, mutationPopupCollection,
+			mutationListBox, mutationTreeView, mutationTable, mutationDataGrid,
+			mutationPopupCollection,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -1003,7 +1026,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	collectionCells := 0
 	menuBars := 0
 	statusBars := 0
-	mnemonics := make(map[Key]*controlState)
+	mnemonics := make(map[*controlState]map[Key]*controlState)
 	defaults := make(map[*controlState]*controlState)
 	cancels := make(map[*controlState]*controlState)
 	radioValues := make(map[*controlState]map[string]*controlState)
@@ -1030,14 +1053,21 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if mnemonic == "" {
 			return nil
 		}
-		if existing := mnemonics[mnemonic]; existing != nil {
+		scope := modalAncestorState(state)
+		if scope == nil {
+			scope = t.app.root.state
+		}
+		if mnemonics[scope] == nil {
+			mnemonics[scope] = make(map[Key]*controlState)
+		}
+		if existing := mnemonics[scope][mnemonic]; existing != nil {
 			return fmt.Errorf(
-				"%w: duplicate Action mnemonic %q",
+				"%w: duplicate Action mnemonic %q in one input scope",
 				ErrInvalidControl,
 				mnemonic,
 			)
 		}
-		mnemonics[mnemonic] = state
+		mnemonics[scope][mnemonic] = state
 		return nil
 	}
 	validateAction := func(
@@ -1047,6 +1077,19 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	) error {
 		switch behavior := behavior.(type) {
 		case buttonBehavior:
+			roleOwner := state.parent
+			modal := modalAncestorState(state)
+			if modal != nil {
+				roleOwner = modal
+			}
+			if isStandardDialogCommand(behavior.command) &&
+				(modal == nil ||
+					!standardDialogCommandValidForKind(modal.kind, behavior.command)) {
+				return fmt.Errorf(
+					"%w: standard dialog command is invalid in this control scope",
+					ErrInvalidControl,
+				)
+			}
 			if requireCommand {
 				if _, exists := t.app.commands[behavior.command]; !exists {
 					return fmt.Errorf(
@@ -1060,22 +1103,22 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				return err
 			}
 			if behavior.default_ {
-				if defaults[state.parent] != nil {
+				if defaults[roleOwner] != nil {
 					return fmt.Errorf(
-						"%w: duplicate default Button under one parent",
+						"%w: duplicate default Button in one role scope",
 						ErrInvalidControl,
 					)
 				}
-				defaults[state.parent] = state
+				defaults[roleOwner] = state
 			}
 			if behavior.cancel {
-				if cancels[state.parent] != nil {
+				if cancels[roleOwner] != nil {
 					return fmt.Errorf(
-						"%w: duplicate cancel Button under one parent",
+						"%w: duplicate cancel Button in one role scope",
 						ErrInvalidControl,
 					)
 				}
-				cancels[state.parent] = state
+				cancels[roleOwner] = state
 			}
 		case hotkeyBarBehavior:
 			actionItems += len(behavior.items)
@@ -1414,6 +1457,34 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					}
 				}
 			}
+		case dataGridBehavior:
+			collectionBytes += dataGridStorageBytes(behavior)
+			collectionCells += tableCellCount(behavior.table.rows)
+			if err := validateChangeCommand(
+				behavior.table.changeCommand,
+				requireCommand,
+				"DataGrid",
+			); err != nil {
+				return err
+			}
+			for _, command := range []struct {
+				id   CommandID
+				role string
+			}{
+				{id: behavior.table.activateCommand, role: "activation"},
+				{id: behavior.table.sortCommand, role: "sort"},
+			} {
+				if command.id != "" && requireCommand {
+					if _, exists := t.app.commands[command.id]; !exists {
+						return fmt.Errorf(
+							"%w: DataGrid %s command %q is not registered",
+							ErrInvalidControl,
+							command.role,
+							command.id,
+						)
+					}
+				}
+			}
 		case dropDownBehavior:
 			collectionBytes += popupCollectionStorageBytes(behavior.popup)
 			if err := validatePopupCollectionCommands(
@@ -1433,6 +1504,27 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				"ComboBox",
 			); err != nil {
 				return err
+			}
+		case modalPanelBehavior:
+			if state.parent != t.app.root.state {
+				return fmt.Errorf(
+					"%w: ModalPanel must be a direct root child",
+					ErrInvalidParent,
+				)
+			}
+			if behavior.nestedOwner != nil {
+				if err := t.validateTargetLocked(
+					behavior.nestedOwner,
+					provisional,
+				); err != nil {
+					return fmt.Errorf("%w: invalid nested modal owner", err)
+				}
+				if _, ok := behavior.nestedOwner.behavior.(modalPanelBehavior); !ok {
+					return fmt.Errorf(
+						"%w: nested owner is not a modal",
+						ErrInvalidControl,
+					)
+				}
 			}
 		}
 		return nil
@@ -1670,7 +1762,8 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationTreeView, mutationTable, mutationPopupCollection:
+			mutationListBox, mutationTreeView, mutationTable, mutationDataGrid,
+			mutationPopupCollection:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,
@@ -1835,9 +1928,9 @@ func (t *Transaction) validateLayoutTreeLocked(
 					ErrInvalidLayout,
 				)
 			}
-			if isApplicationChrome(panel.kind) {
+			if isApplicationChrome(panel.kind) || isModalKind(panel.kind) {
 				return 0, 0, fmt.Errorf(
-					"%w: application chrome cannot be a Layout item",
+					"%w: application chrome and modals cannot be Layout items",
 					ErrInvalidLayout,
 				)
 			}
@@ -1954,6 +2047,7 @@ func (t *Transaction) abortProvisional() {
 		if !state.provisional {
 			continue
 		}
+		abortModalLifecycleLocked(state)
 		state.provisional = false
 		state.aborted = true
 	}

@@ -328,6 +328,18 @@ Vision, and other toolkits are design evidence, not compatibility targets.
   the public control set grows, rather than crowding every demonstration onto
   one surface.
 
+## Git Identity And ACP
+
+- Every project commit must use `Matt Heck <mheck@hardproblemsgroup.com>` as
+  both its author and committer identity. Do not accept Git's synthesized
+  operating-system/FQDN identity or infer another identity from history.
+- Before the first ACP operation in a checkout, verify both identities with
+  `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT`. Configure this
+  repository with `user.useConfigOnly=true` so a missing identity fails closed.
+- ACP means add the intended project-owned changes, commit them with that
+  verified identity, and push them. Preserve deliberately scoped checkpoints
+  without turning routine feature delivery into a review ceremony.
+
 ## Testing And Builds
 
 - Add normal Go unit and integration tests wherever practical. Specialized

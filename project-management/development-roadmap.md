@@ -515,7 +515,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 16. Collections
 
-- Status: `active`
+- Status: `implementation complete; ACP pending explicit Git identity`
 - Goal: deliver `ListBox`, `ComboBox`, `DropDown`, `TreeView`, `Table`,
   `DataGrid`, `ListItem`, `TreeNode`, and `Column`.
 - Dependencies: Phase 15 viewport, scrolling, selection, popup, and editing
@@ -536,7 +536,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 17. Modals
 
-- Status: `planned`
+- Status: `implementation active — controls complete; catalog/evidence active`
 - Goal: deliver `ModalPanel`, `Dialog`, `MessageBox`, `ConfirmDialog`,
   `InputDialog`, and `ProgressDialog`.
 - Dependencies: Phase 16 plus approved modal-stack, result, and nested-modal
@@ -555,6 +555,8 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: every modal close path yields an explicit result and
   associated snapshot; focus restoration is exact; Ctrl-C remains distinct
   from cancel, back, and quit.
+- Contract:
+  [`modals-api-v0.md`](../docs/specifications/modals-api-v0.md).
 
 ### 18. File And Directory Pickers
 

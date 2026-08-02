@@ -867,7 +867,8 @@ func (a *App) activateListBox(
 		return Completion{}, ErrInvalidControl
 	}
 	behavior, ok := state.behavior.(listBoxBehavior)
-	if !ok || !listBoxCanFocus(state, behavior) {
+	if !ok || !listBoxCanFocus(state, behavior) ||
+		!a.inActiveModalScopeLocked(state) {
 		a.mu.Unlock()
 		return Completion{}, ErrNotFocusable
 	}
@@ -879,7 +880,7 @@ func (a *App) activateListBox(
 		result.Outcome = OutcomeApplied
 	}
 	if command != "" {
-		router, result, execute = a.resolveCommandLocked(command)
+		router, result, execute = a.resolveCommandLocked(command, true)
 	}
 	a.mu.Unlock()
 

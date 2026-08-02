@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	expletives "github.com/Hard-Problems-Group-LLC/expletives"
 )
@@ -143,6 +144,29 @@ func collectionTableRows() []expletives.TableRow {
 		{Key: "terminal", Cells: []expletives.TableCell{{Column: "name", Text: "Terminal"}, {Column: "state", Text: "Active"}, {Column: "tests", Text: "62"}}},
 		{Key: "legacy", Disabled: true, DisabledReason: "Legacy adapter is unavailable", Cells: []expletives.TableCell{{Column: "name", Text: "Legacy"}, {Column: "state", Text: "Offline"}}},
 		{Key: "automation", Cells: []expletives.TableCell{{Column: "name", Text: "Automation"}, {Column: "state", Text: "Ready"}, {Column: "tests", Text: "91"}}},
+	}
+}
+
+func collectionDataGridColumns() []expletives.Column {
+	return []expletives.Column{
+		{
+			Key: "name", Header: "Name", MinimumWidth: 8, Grow: 2,
+			Sortable: true, Editable: true,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationWhitelist,
+				Characters:  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ",
+			},
+		},
+		{
+			Key: "state", Header: "State", Width: 8, Sortable: true, Editable: true,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationHard,
+				Mode:        expletives.TextValidationBlacklist,
+				Characters:  "!@#$%^&*",
+			},
+		},
+		{Key: "tests", Header: "Tests", Width: 5, Alignment: expletives.TextAlignEnd, Sortable: true},
 	}
 }
 
@@ -400,8 +424,10 @@ type Scene struct {
 	collectionList          *expletives.ListBox
 	collectionTree          *expletives.TreeView
 	collectionTable         *expletives.Table
+	collectionDataGrid      *expletives.DataGrid
 	collectionDropDown      *expletives.DropDown
 	collectionCombo         *expletives.ComboBox
+	lastProgressDialog      *expletives.ProgressDialog
 	screens                 map[expletives.CommandID]*expletives.Panel
 	activeScreen            expletives.CommandID
 	automationEnabled       bool
@@ -726,6 +752,36 @@ func NewWithRootConstraints(
 			Background: expletives.RGB(0x00, 0x00, 0xAA),
 		},
 		expletives.Style{
+			ID:         "data_grid",
+			Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "data_grid.border",
+			Foreground: menuBorderStyle.Foreground,
+			Background: menuBorderStyle.Background,
+		},
+		expletives.Style{
+			ID:         "data_grid.edit",
+			Foreground: textFieldStyle.Foreground,
+			Background: textFieldStyle.Background,
+		},
+		expletives.Style{
+			ID:         "data_grid.edit_focused",
+			Foreground: textInputFocusedStyle.Foreground,
+			Background: textInputFocusedStyle.Background,
+		},
+		expletives.Style{
+			ID:         "data_grid.edit_invalid",
+			Foreground: textInputFocusedInvalidStyle.Foreground,
+			Background: textInputFocusedInvalidStyle.Background,
+		},
+		expletives.Style{
+			ID:         "data_grid.edit_invalid_character",
+			Foreground: textInputFocusedInvalidCharacterStyle.Foreground,
+			Background: textInputFocusedInvalidCharacterStyle.Background,
+		},
+		expletives.Style{
 			ID:         "drop_down",
 			Foreground: textFieldStyle.Foreground,
 			Background: textFieldStyle.Background,
@@ -941,6 +997,68 @@ func NewWithRootConstraints(
 			Foreground: expletives.RGB(0x00, 0x00, 0x00),
 			Background: expletives.RGB(0xC0, 0xC0, 0xC0),
 		},
+		expletives.Style{
+			ID: "button", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "static_text", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "modal_panel", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "modal_panel.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{ID: "modal_panel.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "dialog", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{ID: "dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "message_box", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "message_box.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{ID: "message_box.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "confirm_dialog", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "confirm_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{ID: "confirm_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "input_dialog", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "input_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{ID: "input_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
+		expletives.Style{
+			ID: "progress_dialog", Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID: "progress_dialog.border", Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{ID: "progress_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 	)
 	if err != nil {
 		return nil, err
@@ -3025,7 +3143,7 @@ func NewWithRootConstraints(
 				MinimumSize:   expletives.Size{Width: 24, Height: 12},
 				Style:         canvasStyle.ID,
 			},
-			Title:       "Stable lists, trees, and tables",
+			Title:       "Stable lists, trees, tables, and grids",
 			BorderStyle: borderStyle.ID,
 			BorderForm:  expletives.BorderSingle,
 		},
@@ -3058,6 +3176,22 @@ func NewWithRootConstraints(
 		expletives.PanelOptions{
 			AutomationKey: "collections.panel.table",
 			Style:         canvasStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionChoiceGroup, err := transaction.NewGroupBox(
+		collectionsScreen,
+		expletives.GroupBoxOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "collections.group.popup",
+				MinimumSize:   expletives.Size{Width: 24, Height: 9},
+				Style:         canvasStyle.ID,
+			},
+			Title:       "Popup fields and editable grid",
+			BorderStyle: borderStyle.ID,
+			BorderForm:  expletives.BorderSingle,
 		},
 	)
 	if err != nil {
@@ -3148,22 +3282,6 @@ func NewWithRootConstraints(
 			FocusMode:        expletives.TableFocusCell,
 			ActivateCommand:  CommandCollectionActivate,
 			SortCommand:      CommandCollectionSort,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	collectionChoiceGroup, err := transaction.NewGroupBox(
-		collectionsScreen,
-		expletives.GroupBoxOptions{
-			PanelOptions: expletives.PanelOptions{
-				AutomationKey: "collections.group.popup",
-				MinimumSize:   expletives.Size{Width: 24, Height: 9},
-				Style:         canvasStyle.ID,
-			},
-			Title:       "Collapsed popup fields",
-			BorderStyle: borderStyle.ID,
-			BorderForm:  expletives.BorderSingle,
 		},
 	)
 	if err != nil {
@@ -3262,10 +3380,51 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	collectionDataGridPanel, err := transaction.NewPanel(
+		collectionChoiceGroup,
+		expletives.PanelOptions{
+			AutomationKey: "collections.panel.data-grid",
+			Style:         canvasStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionDataGrid, err := transaction.NewDataGrid(
+		collectionDataGridPanel,
+		expletives.DataGridOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "collections.data-grid",
+						Style:         "data_grid",
+					},
+					ChangeCommand: CommandCollectionChanged,
+				},
+				BorderStyle:   "data_grid.border",
+				BorderForm:    expletives.BorderNone,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Columns:          collectionDataGridColumns(),
+			Rows:             collectionTableRows(),
+			CurrentRow:       "core",
+			CurrentColumn:    "name",
+			Selected:         []string{"core"},
+			SelectionMode:    expletives.CollectionSelectionMultiple,
+			RequireSelection: true,
+			ActivateCommand:  CommandCollectionActivate,
+			SortCommand:      CommandCollectionSort,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
 	for _, control := range []expletives.Control{
 		collectionList,
 		collectionTree,
 		collectionTable,
+		collectionDataGrid,
 		collectionDropDown,
 		collectionCombo,
 	} {
@@ -3505,6 +3664,7 @@ func NewWithRootConstraints(
 		{"list", collectionListPanel, collectionList},
 		{"tree", collectionTreePanel, collectionTree},
 		{"table", collectionTablePanel, collectionTable},
+		{"data-grid", collectionDataGridPanel, collectionDataGrid},
 	} {
 		layout, layoutErr := expletives.NewBoxLayout(
 			expletives.Vertical,
@@ -3549,6 +3709,12 @@ func NewWithRootConstraints(
 		); err != nil {
 			return nil, err
 		}
+	}
+	if err := collectionChoiceLayout.AddPanel(
+		collectionDataGridPanel,
+		expletives.LayoutItemOptions{Grow: 1},
+	); err != nil {
+		return nil, err
 	}
 	menusLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
@@ -4637,6 +4803,7 @@ func NewWithRootConstraints(
 		collectionList:          collectionList,
 		collectionTree:          collectionTree,
 		collectionTable:         collectionTable,
+		collectionDataGrid:      collectionDataGrid,
 		collectionDropDown:      collectionDropDown,
 		collectionCombo:         collectionCombo,
 		activeScreen:            CommandViewHome,
@@ -4897,8 +5064,8 @@ func initialCommandDefinitions(
 			Enabled:     true, Automation: true,
 		},
 		{
-			ID: CommandCollectionSort, Label: "Sort Table Column",
-			Description: "Report a user-originated table sort change",
+			ID: CommandCollectionSort, Label: "Sort Collection Column",
+			Description: "Report a user-originated table or grid sort change",
 			Enabled:     true, Automation: true,
 		},
 		unavailableCatalogDefinition(
@@ -4911,35 +5078,21 @@ func initialCommandDefinitions(
 			"Context Menu",
 			"Collections and context Menu",
 		),
-		unavailableCatalogDefinition(
-			CommandDialogMessage,
-			"Message Box",
-			"Modal Controls",
-		),
-		unavailableCatalogDefinition(
-			CommandDialogConfirm,
-			"Confirm Dialog",
-			"Modal Controls",
-		),
-		unavailableCatalogDefinition(
-			CommandDialogInput,
-			"Input Dialog",
-			"Modal Controls",
-		),
-		unavailableCatalogDefinition(
-			CommandDialogProgress,
-			"Progress Dialog",
-			"Modal Controls",
-		),
+		catalogActionDefinition(CommandDialogMessage, "Message Box"),
+		catalogActionDefinition(CommandDialogConfirm, "Confirm Dialog"),
+		catalogActionDefinition(CommandDialogInput, "Input Dialog"),
+		catalogActionDefinition(CommandDialogProgress, "Progress Dialog"),
 		{
 			ID: CommandAppQuit, Label: "Quit",
 			Description: "Exit the demonstration application",
 			Enabled:     true, Automation: true,
+			ModalPolicy: expletives.CommandModalAllowed,
 		},
 		{
 			ID: CommandAppInterrupt, Label: "Interrupt",
 			Description: "Interrupt the demonstration application",
 			Enabled:     true, Automation: true,
+			ModalPolicy: expletives.CommandModalAllowed,
 		},
 	}
 	for _, screen := range catalogScreens {
@@ -4962,6 +5115,17 @@ func unavailableCatalogDefinition(
 		Enabled:        false,
 		DisabledReason: "Available after the " + phase + " phase",
 		Automation:     true,
+	}
+}
+
+func catalogActionDefinition(
+	id expletives.CommandID,
+	label string,
+) expletives.CommandDefinition {
+	return expletives.CommandDefinition{
+		ID: id, Label: label,
+		Description: "Open the " + label + " demonstration",
+		Enabled:     true, Automation: true,
 	}
 }
 
@@ -5577,6 +5741,7 @@ func (s *Scene) handleCommand(
 		collectionListState := s.collectionList.State()
 		collectionTreeState := s.collectionTree.State()
 		collectionTableState := s.collectionTable.State()
+		collectionDataGridState := s.collectionDataGrid.State()
 		changed := s.toggled || s.progressTick != 0 || s.progressReduced ||
 			s.contentTick != 0 ||
 			collectionListState.Current != "alpha" ||
@@ -5593,6 +5758,13 @@ func (s *Scene) handleCommand(
 			collectionTableState.Selected[0] != "core" ||
 			collectionTableState.SortColumn != "" ||
 			collectionTableState.SortDirection != expletives.SortNone ||
+			collectionDataGridState.CurrentRow != "core" ||
+			collectionDataGridState.CurrentColumn != "name" ||
+			len(collectionDataGridState.Selected) != 1 ||
+			collectionDataGridState.Selected[0] != "core" ||
+			collectionDataGridState.SortColumn != "" ||
+			collectionDataGridState.SortDirection != expletives.SortNone ||
+			collectionDataGridState.Editing ||
 			s.collectionDropDown.State().Selected != "medium" ||
 			s.collectionCombo.State().Selected != "alpha" ||
 			s.collectionCombo.Text() != "Alpha" ||
@@ -5784,6 +5956,18 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.ReplaceDataGrid(
+			s.collectionDataGrid,
+			collectionDataGridColumns(),
+			collectionTableRows(),
+			"core",
+			"name",
+			[]string{"core"},
+			"",
+			expletives.SortNone,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.SetDropDownSelection(
 			s.collectionDropDown,
 			"medium",
@@ -5922,6 +6106,14 @@ func (s *Scene) handleCommand(
 			CommandViewLayoutBox,
 			s.layer.Lower,
 		)
+	case CommandDialogMessage:
+		return s.showMessageDialogLocked()
+	case CommandDialogConfirm:
+		return s.showConfirmDialogLocked()
+	case CommandDialogInput:
+		return s.showInputDialogLocked()
+	case CommandDialogProgress:
+		return s.showProgressDialogLocked()
 	case CommandAppQuit:
 		return expletives.OutcomeExited, nil
 	case CommandAppInterrupt:
@@ -5929,6 +6121,163 @@ func (s *Scene) handleCommand(
 	default:
 		return expletives.OutcomeRejected, nil
 	}
+}
+
+type disposableDemoModal interface {
+	Done() <-chan struct{}
+	Destroy() error
+}
+
+func disposeDemoModalAfterClose(modal disposableDemoModal) {
+	go func() {
+		<-modal.Done()
+		_ = modal.Destroy()
+	}()
+}
+
+func (s *Scene) showMessageDialogLocked() (expletives.Outcome, error) {
+	dialog, err := expletives.NewMessageBox(
+		s.App.Root(),
+		expletives.MessageBoxOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "dialog.message",
+					},
+					Title: "Message Box",
+				},
+			},
+			Message: "This MessageBox is composed from ordinary StaticText, " +
+				"ScrollablePanel, Button, and Layout controls. Press Enter or Escape.",
+		},
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := dialog.Show(nil); err != nil {
+		_ = dialog.Destroy()
+		return expletives.OutcomeFailed, err
+	}
+	disposeDemoModalAfterClose(dialog)
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) showConfirmDialogLocked() (expletives.Outcome, error) {
+	dialog, err := expletives.NewConfirmDialog(
+		s.App.Root(),
+		expletives.ConfirmDialogOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "dialog.confirm",
+					},
+					Title: "Confirm",
+				},
+			},
+			Message: "Continue with this harmless demonstration?",
+			Default: expletives.ConfirmChoiceNo, ShowCancel: true,
+		},
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := dialog.Show(nil); err != nil {
+		_ = dialog.Destroy()
+		return expletives.OutcomeFailed, err
+	}
+	disposeDemoModalAfterClose(dialog)
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) showInputDialogLocked() (expletives.Outcome, error) {
+	dialog, err := expletives.NewInputDialog(
+		s.App.Root(),
+		expletives.InputDialogOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "dialog.input",
+					},
+					Title: "Input",
+				},
+			},
+			Prompt: "Enter an alphanumeric catalog value:",
+			Text:   "Demo",
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationWhitelist,
+				Characters:  inputAlphanumericCharacters,
+			},
+		},
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := dialog.Show(nil); err != nil {
+		_ = dialog.Destroy()
+		return expletives.OutcomeFailed, err
+	}
+	disposeDemoModalAfterClose(dialog)
+	return expletives.OutcomeApplied, nil
+}
+
+func (s *Scene) showProgressDialogLocked() (expletives.Outcome, error) {
+	dialog, err := expletives.NewProgressDialog(
+		s.App.Root(),
+		expletives.ProgressDialogOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "dialog.progress",
+					},
+					Title: "Progress",
+				},
+			},
+			State: expletives.ProgressDialogState{
+				Status: "Working; Escape requests orderly cancellation",
+				Progress: expletives.ProgressBarState{
+					Current: 42, Total: 100, Status: expletives.ProgressRunning,
+				},
+			},
+			Cancellable: true,
+		},
+	)
+	if err != nil {
+		return expletives.OutcomeFailed, err
+	}
+	if err := dialog.Show(nil); err != nil {
+		_ = dialog.Destroy()
+		return expletives.OutcomeFailed, err
+	}
+	s.lastProgressDialog = dialog
+	go func() {
+		<-dialog.Context().Done()
+		if !dialog.CancelRequested() {
+			return
+		}
+		if err := dialog.SetState(expletives.ProgressDialogState{
+			Status: "Cancellation acknowledged",
+			Progress: expletives.ProgressBarState{
+				Current: 42, Total: 100, Status: expletives.ProgressCancelled,
+			},
+		}); err != nil {
+			return
+		}
+		_ = dialog.Complete(expletives.ModalResult{
+			Reason: expletives.ModalCancelled,
+			Action: expletives.CommandDialogCancel,
+		})
+	}()
+	go func() {
+		<-dialog.Done()
+		_ = dialog.Destroy()
+		s.mu.Lock()
+		if s.lastProgressDialog == dialog {
+			s.lastProgressDialog = nil
+		}
+		s.mu.Unlock()
+	}()
+	return expletives.OutcomeApplied, nil
 }
 
 func (s *Scene) appendContentLocked() (expletives.Outcome, error) {
@@ -6651,9 +7000,11 @@ func SelfCheck() error {
 		"collections.panel.list",
 		"collections.panel.tree",
 		"collections.panel.table",
+		"collections.panel.data-grid",
 		"collections.list",
 		"collections.tree",
 		"collections.table",
+		"collections.data-grid",
 		"collections.group.popup",
 		"collections.drop-down",
 		"collections.combo",
@@ -7445,6 +7796,7 @@ func SelfCheck() error {
 	listDetails := controls["collections.list"].Details.ListBox
 	treeDetails := controls["collections.tree"].Details.TreeView
 	tableDetails := controls["collections.table"].Details.Table
+	dataGridDetails := controls["collections.data-grid"].Details.DataGrid
 	dropDownDetails := controls["collections.drop-down"].Details.DropDown
 	comboDetails := controls["collections.combo"].Details.ComboBox
 	disabledDropDown :=
@@ -7460,6 +7812,11 @@ func SelfCheck() error {
 		tableDetails.ColumnCount != 3 || tableDetails.CellCount != 11 ||
 		tableDetails.CurrentRow != "core" || tableDetails.CurrentColumn != "name" ||
 		tableDetails.SelectedCount != 1 || tableDetails.SortDirection != expletives.SortNone ||
+		dataGridDetails == nil || dataGridDetails.Table.RowCount != 4 ||
+		dataGridDetails.Table.ColumnCount != 3 || dataGridDetails.Table.CellCount != 11 ||
+		dataGridDetails.Table.CurrentRow != "core" ||
+		dataGridDetails.Table.CurrentColumn != "name" ||
+		dataGridDetails.Table.SelectedCount != 1 || dataGridDetails.Editing ||
 		dropDownDetails == nil || dropDownDetails.Selected != "medium" ||
 		comboDetails == nil || comboDetails.Popup.Selected != "alpha" ||
 		comboDetails.Editor.Text != "Alpha" ||
@@ -7556,6 +7913,69 @@ func SelfCheck() error {
 		state.SortColumn != "name" || state.SortDirection != expletives.SortAscending {
 		return fmt.Errorf("Table interactive State = %+v", state)
 	}
+	if err := scene.collectionDataGrid.Focus(); err != nil {
+		return fmt.Errorf("DataGrid focus: %w", err)
+	}
+	for _, input := range []struct {
+		request string
+		key     expletives.Key
+	}{
+		{"collection-grid-edit", expletives.KeyEnter},
+		{"collection-grid-type", "x"},
+	} {
+		completion, inputErr := pressCollectionKey(input.request, input.key)
+		if inputErr != nil || completion.Outcome != expletives.OutcomeApplied {
+			return fmt.Errorf(
+				"DataGrid %s dispatch = %+v, %v",
+				input.request,
+				completion,
+				inputErr,
+			)
+		}
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-grid-commit",
+		expletives.KeyEnter,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionChanged {
+		return fmt.Errorf("DataGrid commit dispatch = %+v, %v", completion, inputErr)
+	}
+	if rows := scene.collectionDataGrid.Rows(); rows[0].Cells[0].Text != "Corex" {
+		return fmt.Errorf("DataGrid committed rows = %+v", rows)
+	}
+	for _, input := range []struct {
+		request string
+		key     expletives.Key
+	}{
+		{"collection-grid-column", expletives.KeyRight},
+		{"collection-grid-f2", expletives.KeyF2},
+	} {
+		completion, inputErr := pressCollectionKey(input.request, input.key)
+		if inputErr != nil || completion.Outcome != expletives.OutcomeApplied {
+			return fmt.Errorf(
+				"DataGrid %s dispatch = %+v, %v",
+				input.request,
+				completion,
+				inputErr,
+			)
+		}
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-grid-hard-reject",
+		"!",
+	); inputErr != nil || completion.Outcome != expletives.OutcomeNoOp {
+		return fmt.Errorf("DataGrid hard rejection = %+v, %v", completion, inputErr)
+	}
+	if state := scene.collectionDataGrid.State(); !state.Editing ||
+		state.EditText != "Ready" || !state.EditValid {
+		return fmt.Errorf("DataGrid hard validation State = %+v", state)
+	}
+	if completion, inputErr := pressCollectionKey(
+		"collection-grid-cancel",
+		expletives.KeyEscape,
+	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("DataGrid cancel dispatch = %+v, %v", completion, inputErr)
+	}
 	if err := scene.collectionDropDown.Focus(); err != nil {
 		return fmt.Errorf("DropDown focus: %w", err)
 	}
@@ -7628,6 +8048,12 @@ func SelfCheck() error {
 		scene.collectionTable.State().CurrentColumn != "name" ||
 		len(scene.collectionTable.State().Selected) != 1 ||
 		scene.collectionTable.State().SortDirection != expletives.SortNone ||
+		scene.collectionDataGrid.State().CurrentRow != "core" ||
+		scene.collectionDataGrid.State().CurrentColumn != "name" ||
+		len(scene.collectionDataGrid.State().Selected) != 1 ||
+		scene.collectionDataGrid.State().SortDirection != expletives.SortNone ||
+		scene.collectionDataGrid.State().Editing ||
+		scene.collectionDataGrid.Rows()[0].Cells[0].Text != "Core" ||
 		scene.collectionDropDown.State().Selected != "medium" ||
 		scene.collectionCombo.State().Selected != "alpha" ||
 		scene.collectionCombo.Text() != "Alpha" {
@@ -7667,6 +8093,127 @@ func SelfCheck() error {
 		controls["footer.hotkeys.global.items"].AbsoluteBounds.Height != 1 ||
 		controls["footer.guidance.focus.text"].AbsoluteBounds.Height != 1 {
 		return errors.New("Header/Footer toggle Layout evidence is incomplete")
+	}
+	for index := 0; index < 16; index++ {
+		completion, dismissErr := scene.App.InvokeCommand(
+			context.Background(), "self-check", fmt.Sprintf("overflow-dismiss-%d", index),
+			expletives.CommandOverflowDismiss, "",
+		)
+		if dismissErr != nil {
+			return dismissErr
+		}
+		if completion.Outcome == expletives.OutcomeNoOp {
+			break
+		}
+		if completion.Outcome != expletives.OutcomeApplied {
+			return fmt.Errorf("overflow dismissal = %+v", completion)
+		}
+	}
+	if err := invoke("dialog-message", CommandDialogMessage); err != nil {
+		return err
+	}
+	if modal := controls["dialog.message"]; modal.Kind != expletives.ControlMessageBox ||
+		modal.Details.ModalPanel == nil || !modal.Details.ModalPanel.Active {
+		return errors.New("MessageBox catalog command did not open its modal")
+	}
+	messageClose, err := scene.App.DispatchKey(
+		context.Background(), "self-check", "dialog-message-close",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyEnter},
+	)
+	if err != nil || messageClose.Outcome != expletives.OutcomeApplied ||
+		messageClose.Command != expletives.CommandDialogOK {
+		return fmt.Errorf("MessageBox close = %+v, %v", messageClose, err)
+	}
+	messageSnapshot, err := scene.App.SnapshotAt(messageClose.FrameSequence)
+	if err != nil {
+		return err
+	}
+	messageResult := indexControls(messageSnapshot)["dialog.message"].Details.ModalPanel
+	if messageResult == nil || messageResult.Result == nil ||
+		messageResult.Result.Reason != expletives.ModalAccepted {
+		return errors.New("MessageBox exact completion omitted its accepted result")
+	}
+
+	if err := invoke("dialog-confirm", CommandDialogConfirm); err != nil {
+		return err
+	}
+	if modal := controls["dialog.confirm"]; modal.Kind != expletives.ControlConfirmDialog ||
+		modal.Details.ModalPanel == nil || !modal.Details.ModalPanel.Active {
+		return errors.New("ConfirmDialog catalog command did not open its modal")
+	}
+	confirmClose, err := scene.App.DispatchKey(
+		context.Background(), "self-check", "dialog-confirm-close",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyEnter},
+	)
+	if err != nil || confirmClose.Outcome != expletives.OutcomeApplied ||
+		confirmClose.Command != expletives.CommandDialogNo {
+		return fmt.Errorf("ConfirmDialog safe-default close = %+v, %v", confirmClose, err)
+	}
+
+	if err := invoke("dialog-input", CommandDialogInput); err != nil {
+		return err
+	}
+	if modal := controls["dialog.input"]; modal.Kind != expletives.ControlInputDialog ||
+		modal.Details.ModalPanel == nil || !modal.Details.ModalPanel.Active ||
+		!controls["dialog.input.input"].Focused {
+		return errors.New("InputDialog catalog command did not open its focused editor")
+	}
+	if _, err := scene.App.DispatchTextInput(
+		context.Background(), "self-check", "dialog-input-text",
+		expletives.TextInputEvent{
+			Kind: expletives.TextInputCommitted, Text: "42",
+		},
+	); err != nil {
+		return err
+	}
+	inputClose, err := scene.App.DispatchKey(
+		context.Background(), "self-check", "dialog-input-close",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyEnter},
+	)
+	if err != nil || inputClose.Outcome != expletives.OutcomeApplied ||
+		inputClose.Command != expletives.CommandDialogOK {
+		return fmt.Errorf("InputDialog close = %+v, %v", inputClose, err)
+	}
+
+	if err := invoke("dialog-progress", CommandDialogProgress); err != nil {
+		return err
+	}
+	scene.mu.Lock()
+	progressDialog := scene.lastProgressDialog
+	scene.mu.Unlock()
+	if progressDialog == nil ||
+		controls["dialog.progress"].Kind != expletives.ControlProgressDialog ||
+		controls["dialog.progress"].Details.ProgressDialog == nil ||
+		!controls["dialog.progress"].Details.ModalPanel.Active {
+		return errors.New("ProgressDialog catalog command did not open its compound")
+	}
+	progressCancel, err := scene.App.DispatchKey(
+		context.Background(), "self-check", "dialog-progress-cancel",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyEscape},
+	)
+	if err != nil || progressCancel.Outcome != expletives.OutcomeApplied ||
+		progressCancel.Command != expletives.CommandDialogCancel {
+		return fmt.Errorf("ProgressDialog cancel request = %+v, %v", progressCancel, err)
+	}
+	progressSnapshot, err := scene.App.SnapshotAt(progressCancel.FrameSequence)
+	if err != nil {
+		return err
+	}
+	progressRequest := indexControls(progressSnapshot)["dialog.progress"]
+	if progressRequest.Details.ProgressDialog == nil ||
+		!progressRequest.Details.ProgressDialog.CancelRequested ||
+		progressRequest.Details.ModalPanel == nil ||
+		!progressRequest.Details.ModalPanel.Active {
+		return errors.New("ProgressDialog exact request snapshot closed prematurely")
+	}
+	select {
+	case <-progressDialog.Done():
+	case <-time.After(time.Second):
+		return errors.New("ProgressDialog demo did not acknowledge cancellation")
+	}
+	if result, ready := progressDialog.Result(); !ready ||
+		result.Reason != expletives.ModalCancelled {
+		return fmt.Errorf("ProgressDialog acknowledged result = %+v, %t", result, ready)
 	}
 	if err := invoke("show-home", CommandViewHome); err != nil {
 		return err

@@ -1016,10 +1016,66 @@ Improvement applied:
 - preserve canonical `Rows()` order so the performance optimization cannot
   become an observable model mutation.
 
-Improvement candidate for the next slice: implement DataGrid by reusing the
-private Table model, order, width, navigation, and projection capabilities,
-then add only explicit editor state and validated cell commit behavior. Do
-not fork a second tabular model or create a public inheritance relationship.
+Improvement applied in the next slice: DataGrid wraps the private Table model,
+order, width, navigation, and viewport capabilities, then adds only explicit
+editor state and validated cell commit behavior. It does not fork a second
+tabular model or create a public inheritance relationship.
+
+### 34. Verify Git Identity Before An ACP Boundary
+
+The Table implementation and all verification completed before the checkout's
+missing Git author/committer configuration was discovered. FieldManual
+correctly prevents guessing identity from history or the host, but finding
+this only after staging delays an otherwise complete checkpoint.
+
+The historical audit then showed the more serious consequence: Git had
+silently synthesized `Matt Heck` plus the workstation's FQDN as the email for
+28 published commits. That fallback looked plausible enough to escape the
+ACP boundary even though it was not the project identity.
+
+Improvement applied:
+
+- make `Matt Heck <mheck@hardproblemsgroup.com>` the explicit project commit
+  identity in `AGENTS.md`;
+- set the checkout's repository-local identity and `user.useConfigOnly=true`,
+  so missing configuration fails instead of synthesizing an address;
+- verify both `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT`
+  before the first ACP operation in a checkout; and
+- repair the affected published history once from a clean, verified tree,
+  rather than layering corrected commits over known-bad metadata.
+
+### 35. Keep Compound Privacy In One Projection Boundary
+
+InputDialog must expose useful validation evidence to closed-loop automation
+without disclosing the entered value or the validator alphabet. Reimplementing
+a special editor DTO would duplicate all TextField schema and client checks.
+
+Improvement applied:
+
+- retain an ordinary TextField in the control tree and public in-process API;
+- derive sensitive membership once from the immutable control ancestry during
+  automation projection;
+- clear only value and validator characters while preserving length, caret,
+  validity, enforcement, and mode; and
+- extend the shared TextField validator with an explicit redacted-character-set
+  state instead of adding a parallel InputDialog editor schema.
+
+### 36. Compose ProgressDialog From Existing Atomic Controls
+
+A progress dialog needs coupled status/progress updates and a cancellation
+handshake, but it does not justify a second progress renderer, job runner, or
+nested event loop.
+
+Improvement applied:
+
+- compose the existing StaticText, ProgressBar, Button, Dialog, and BoxLayout;
+- batch status and ProgressBar mutations in one ordinary Transaction;
+- keep only the stable context and one atomic cancellation-request bit outside
+  the serialized control state;
+- derive compound automation details from the same child behaviors and require
+  the client validator to cross-check them; and
+- make `Complete` a named alias for the existing explicit modal close result,
+  avoiding another completion lifecycle.
 
 ## Adopted Going-Forward Policy
 

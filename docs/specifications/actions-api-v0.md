@@ -13,10 +13,13 @@ and pass through the same `CommandDefinition` enabled-state check and
 `CommandRouter`.
 
 `CommandDefinition` adds canonical bounded `Label`, `DisabledReason`, and
-`Checked` values. An empty Label displays the command ID. A disabled command
-with no supplied reason receives a bounded fallback reason. Enabled commands
-cannot retain a disabled reason. Checked state is carried now for Menu reuse;
-Button does not reinterpret it.
+`Checked` values, plus `ModalPolicy`. An empty Label displays the command ID. A
+disabled command with no supplied reason receives a bounded fallback reason.
+Enabled commands cannot retain a disabled reason. Checked state is carried now
+for Menu reuse; Button does not reinterpret it. `ModalPolicy` is blocked by
+default and may explicitly allow an un-targeted global command while a modal is
+active. Commands originating from eligible controls inside the top modal remain
+local regardless of that global policy.
 
 Replacing or removing a command immediately republishes any affected Action
 presentation. Removing a command leaves an existing Button or HotkeyBar item
@@ -141,6 +144,12 @@ Non-menu Action mnemonics are unique App-wide in this phase. Menu scope and
 precedence arrive in the next phase. Other registered chords retain their
 existing global command behavior. Text/paste and terminal bytes are not
 introduced by this phase.
+
+While a ModalPanel is active, an ordinary global chord is rejected with
+`modal_scope` unless its command definition uses `CommandModalAllowed`. Direct
+commands with a target outside the top modal are rejected even when the command
+is globally allowed. This preserves explicit interrupt/quit/help escape routes
+without letting automation or application code activate obscured controls.
 
 ## Snapshots And Automation
 

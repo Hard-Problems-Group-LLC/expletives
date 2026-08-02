@@ -159,12 +159,14 @@ func defaultControlLayoutHints(
 	}
 	switch kind {
 	case ControlRoot, ControlPanel, ControlFrame, ControlGroupBox,
+		ControlModalPanel, ControlDialog, ControlMessageBox, ControlConfirmDialog,
+		ControlInputDialog, ControlProgressDialog,
 		ControlRadioGroup, ControlStaticText, ControlTextArea,
 		ControlTabbedPanel, ControlNotebook, ControlViewport,
 		ControlScrollablePanel, ControlMarkdownView:
 		return hints(LayoutSizeStretch, LayoutSizeStretch)
 	case ControlLogView, ControlStreamView, ControlListBox, ControlTreeView,
-		ControlTable:
+		ControlTable, ControlDataGrid:
 		return hints(LayoutSizeStretch, LayoutSizeStretch)
 	case ControlMenuBar, ControlStatusBar, ControlHeader, ControlFooter,
 		ControlHotkeyBar, ControlFocusGuideBar, ControlTextField,
@@ -948,6 +950,7 @@ func arrangeAllLayoutsLocked(app *App) {
 			measureLayoutLocked(state)
 		}
 	}
+	app.reconcileModalsLocked()
 	arrangeControlLayoutsLocked(app, app.root.state)
 	app.reconcileOverflowsLocked()
 }
@@ -962,6 +965,7 @@ func arrangeControlLayoutsLocked(app *App, owner *controlState) {
 	reconcileListBoxLocked(owner)
 	reconcileTreeViewLocked(owner)
 	reconcileTableLocked(owner)
+	reconcileDataGridLocked(owner)
 	for _, root := range owner.layoutRoots {
 		client := controlClientSize(owner)
 		if owner.root {

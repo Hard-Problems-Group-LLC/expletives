@@ -1118,6 +1118,84 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 40, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = expletives.NewDataGrid(app.Root(), expletives.DataGridOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "data-grid", Bounds: expletives.Rect{Width: 30, Height: 6},
+			}},
+			BorderForm: expletives.BorderSingle,
+		},
+		Columns: []expletives.Column{{
+			Key: "value", Header: "Value", Editable: true,
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationWhitelist,
+				Characters:  "One",
+			},
+		}},
+		Rows: []expletives.TableRow{{
+			Key: "row", Cells: []expletives.TableCell{{Column: "value", Text: "One"}},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.DispatchKey(
+		context.Background(), "automation-test", "grid-edit",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyEnter},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.DispatchTextInput(
+		context.Background(), "automation-test", "grid-type",
+		expletives.TextInputEvent{Kind: expletives.TextInputCommitted, Text: "!"},
+	); err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *DataGridDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "data-grid" {
+			details = projected.Controls[index].Details.DataGrid
+			break
+		}
+	}
+	if details == nil || !details.Editing || details.EditRow != "row" ||
+		details.EditColumn != "value" || details.EditLength != 4 ||
+		details.EditCaret != 4 || details.EditValid ||
+		details.ValidationEnforcement != "soft" ||
+		details.ValidationMode != "whitelist" || details.Table.FocusMode != "cell" {
+		t.Fatalf("projected DataGrid details = %#v", details)
+	}
+	encoded, err := json.Marshal(details)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "One!") || strings.Contains(string(encoded), "Characters") {
+		t.Fatalf("DataGrid automation leaked edit text or validator set: %s", encoded)
+	}
+	cloned := cloneSnapshot(projected)
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "data-grid" {
+			cloned.Controls[index].Details.DataGrid.EditRow = "mutated"
+		}
+	}
+	if details.EditRow == "mutated" {
+		t.Fatal("cloneSnapshot exposed DataGridDetails storage")
+	}
+}
+
 func TestSnapshotProjectsPopupCollectionDetailsAndCopiesState(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{
@@ -1393,6 +1471,277 @@ func TestSnapshotProjectsTabbedPanelDetailsAndCopiesTabs(t *testing.T) {
 				copied.Selected != "second" {
 				t.Fatal("cloned Tab details alias projected storage")
 			}
+		}
+	}
+}
+
+func TestSnapshotProjectsClosedDialogResultAndDeepCopies(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 30, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	modal, err := expletives.NewDialog(
+		app.Root(),
+		expletives.DialogOptions{ModalPanelOptions: expletives.ModalPanelOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "modal", Bounds: expletives.Rect{Width: 16, Height: 5},
+			},
+		}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := modal.Show(nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := modal.Close(expletives.ModalResult{
+		Reason: expletives.ModalAccepted,
+		Action: "dialog.ok",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *ModalPanelDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "modal" {
+			if projected.Controls[index].Kind != "dialog" {
+				t.Fatalf("projected kind = %q", projected.Controls[index].Kind)
+			}
+			details = projected.Controls[index].Details.ModalPanel
+			break
+		}
+	}
+	if details == nil || details.Lifecycle != "closed" || details.Active ||
+		details.Result == nil || details.Result.Reason != "accepted" ||
+		details.Result.Action != "dialog.ok" {
+		t.Fatalf("projected ModalPanelDetails = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	details.Result.Action = "mutated"
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "modal" &&
+			cloned.Controls[index].Details.ModalPanel.Result.Action != "dialog.ok" {
+			t.Fatal("cloneSnapshot exposed ModalPanel result storage")
+		}
+	}
+}
+
+func TestSnapshotValidatesStandardDialogKinds(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 50, Height: 16},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := expletives.NewMessageBox(
+		app.Root(),
+		expletives.MessageBoxOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{AutomationKey: "message"},
+				},
+			},
+			Message: "Complete.",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirm, err := expletives.NewConfirmDialog(
+		app.Root(),
+		expletives.ConfirmDialogOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{AutomationKey: "confirm"},
+				},
+			},
+			Message: "Continue?", ShowCancel: true,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fixture := range []struct {
+		key  string
+		kind ControlKind
+		show func() error
+		stop func() error
+	}{
+		{
+			key: "message", kind: "message_box", show: func() error { return message.Show(nil) },
+			stop: func() error {
+				return message.Close(expletives.ModalResult{Reason: expletives.ModalDismissed})
+			},
+		},
+		{
+			key: "confirm", kind: "confirm_dialog", show: func() error { return confirm.Show(nil) },
+			stop: func() error {
+				return confirm.Close(expletives.ModalResult{Reason: expletives.ModalDismissed})
+			},
+		},
+	} {
+		if err := fixture.show(); err != nil {
+			t.Fatalf("Show(%s) error = %v", fixture.key, err)
+		}
+		projected := snapshotFromCore(app.Snapshot())
+		if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+			t.Fatalf("validateSnapshot(%s) error = %v", fixture.key, err)
+		}
+		found := false
+		for index := range projected.Controls {
+			control := projected.Controls[index]
+			if control.Key == fixture.key {
+				found = control.Kind == fixture.kind &&
+					control.Details.ModalPanel != nil &&
+					control.Details.ModalPanel.Active
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("projected %s kind/details missing", fixture.key)
+		}
+		if err := fixture.stop(); err != nil {
+			t.Fatalf("Close(%s) error = %v", fixture.key, err)
+		}
+	}
+}
+
+func TestInputDialogSnapshotRedactsValueAndValidatorCharacters(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 50, Height: 16},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dialog, err := expletives.NewInputDialog(
+		app.Root(),
+		expletives.InputDialogOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{AutomationKey: "input"},
+				},
+			},
+			Prompt: "Enter a private value:",
+			Text:   "private",
+			Validator: &expletives.TextValidator{
+				Enforcement: expletives.TextValidationSoft,
+				Mode:        expletives.TextValidationWhitelist,
+				Characters:  "abcdefghijklmnopqrstuvwxyz",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dialog.Show(nil); err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot(input dialog) error = %v", err)
+	}
+	var field *TextFieldDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "input.input" {
+			field = projected.Controls[index].Details.TextField
+			break
+		}
+	}
+	if field == nil {
+		t.Fatal("projected input field details missing")
+	}
+	if field.Text != "" || !field.Redacted || field.Password ||
+		field.Length != len("private") || field.Validator == nil ||
+		field.Validator.Characters != "" ||
+		!field.Validator.CharactersRedacted ||
+		field.Validator.Enforcement != "soft" ||
+		field.Validator.Mode != "whitelist" {
+		t.Fatalf("projected sensitive TextFieldDetails = %#v", field)
+	}
+}
+
+func TestProgressDialogSnapshotTracksCancellationRequest(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 50, Height: 16},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dialog, err := expletives.NewProgressDialog(
+		app.Root(),
+		expletives.ProgressDialogOptions{
+			DialogOptions: expletives.DialogOptions{
+				ModalPanelOptions: expletives.ModalPanelOptions{
+					PanelOptions: expletives.PanelOptions{AutomationKey: "progress"},
+				},
+			},
+			State: expletives.ProgressDialogState{
+				Status: "Working",
+				Progress: expletives.ProgressBarState{
+					Indeterminate: true,
+					Tick:          7,
+					Status:        expletives.ProgressRunning,
+				},
+			},
+			Cancellable: true,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dialog.Show(nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.DispatchKey(
+		context.Background(), "test", "cancel",
+		expletives.KeyEvent{
+			Kind: expletives.KeyEventPress,
+			Key:  expletives.KeyEscape,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot(progress dialog) error = %v", err)
+	}
+	var details *ProgressDialogDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "progress" {
+			control := projected.Controls[index]
+			if control.Kind != "progress_dialog" ||
+				control.Details.ModalPanel == nil ||
+				!control.Details.ModalPanel.Active {
+				t.Fatalf("projected progress root = %#v", control)
+			}
+			details = control.Details.ProgressDialog
+			break
+		}
+	}
+	if details == nil || details.StatusLength != len("Working") ||
+		!details.Cancellable || !details.CancelRequested ||
+		!details.Progress.Indeterminate || details.Progress.Tick != 7 ||
+		details.Progress.Status != "running" {
+		t.Fatalf("projected ProgressDialogDetails = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	details.Cancellable = false
+	if err := validateSnapshot(&projected, DefaultLimits()); err == nil {
+		t.Fatal("validateSnapshot accepted requested but non-cancellable dialog")
+	}
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "progress" &&
+			!cloned.Controls[index].Details.ProgressDialog.Cancellable {
+			t.Fatal("cloneSnapshot exposed ProgressDialogDetails storage")
 		}
 	}
 }

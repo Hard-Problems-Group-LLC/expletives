@@ -15,6 +15,10 @@ var (
 	ErrDispatchBusy = errors.New("expletives: dispatch gate is busy")
 	// ErrMutationBusy reports that the bounded mutation wait elapsed.
 	ErrMutationBusy = errors.New("expletives: mutation gate is busy")
+	// ErrModalState reports an invalid one-shot modal lifecycle or stack action.
+	ErrModalState = errors.New("expletives: invalid modal state")
+	// ErrModalCapacity reports that the bounded modal stack is full.
+	ErrModalCapacity = errors.New("expletives: modal stack capacity reached")
 	// ErrTransactionCapacity reports that a transaction reached its operation
 	// limit.
 	ErrTransactionCapacity = errors.New("expletives: transaction operation capacity reached")

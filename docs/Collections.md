@@ -1,8 +1,8 @@
 # Collections
 
 Phase 16 collection controls use copied, bounded application models and stable
-keys. `ListBox`, `DropDown`, `ComboBox`, `TreeView`, and `Table` are
-implemented. The formal shared contract, including the planned DataGrid, is
+keys. `ListBox`, `DropDown`, `ComboBox`, `TreeView`, `Table`, and `DataGrid`
+are implemented. The formal shared contract is
 [`specifications/collections-api-v0.md`](specifications/collections-api-v0.md).
 
 ## Construct A ListBox
@@ -280,18 +280,79 @@ compact: exact model content stays available through the in-process copied
 digests, sort, commands, and viewport state. Pull the frame to inspect exact
 visible headers, cells, markers, styles, sticky placement, and clipping.
 
+## Editable Data Grids
+
+DataGrid uses the same copied row/column model, stable current and selection,
+sorting, sticky header, and viewport behavior as Table, but always uses cell
+focus and can edit columns marked `Editable`:
+
+```go
+grid, err := expletives.NewDataGrid(panel, expletives.DataGridOptions{
+    ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+        ScrollViewOptions: expletives.ScrollViewOptions{
+            PanelOptions: expletives.PanelOptions{
+                AutomationKey: "jobs.grid",
+            },
+            ChangeCommand: "jobs.changed",
+        },
+        BorderForm:  expletives.BorderSingle,
+        VerticalBar: expletives.ScrollBarVisibilityAuto,
+    },
+    Columns: []expletives.Column{
+        {
+            Key: "name", Header: "Name", Grow: 2,
+            Sortable: true, Editable: true,
+            Validator: &expletives.TextValidator{
+                Enforcement: expletives.TextValidationSoft,
+                Mode:        expletives.TextValidationWhitelist,
+                Characters:  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ",
+            },
+        },
+        {Key: "state", Header: "State", Width: 10, Editable: true},
+        {Key: "count", Header: "Count", Width: 6},
+    },
+    Rows: []expletives.TableRow{{
+        Key: "build",
+        Cells: []expletives.TableCell{
+            {Column: "name", Text: "Build"},
+            {Column: "state", Text: "Running"},
+            {Column: "count", Text: "3"},
+        },
+    }},
+    CurrentRow: "build", CurrentColumn: "name",
+})
+```
+
+Enter or F2 begins editing an editable current cell. Enter commits and Escape
+cancels. Tab or Shift-Tab commits a valid value and moves directly to the next
+or previous editable cell, retaining edit traversal inside the grid; at the
+boundary it leaves the DataGrid focus group. Soft validation displays the
+whole active value as invalid and its offending cells distinctly, and blocks
+commit until corrected. Hard validation ignores disallowed input. Enter on a
+read-only cell performs ordinary collection activation.
+
+Every programmatic mutation cancels the active editor and is silent. A user
+commit updates the grid's copied model before `ChangeCommand` is invoked
+outside the App lock, so an MVC/MVVM controller can call `Rows`/`State`,
+persist or reject the edit, and atomically publish a replacement. The same
+command also reports row-selection changes. The catalog fixture is
+`collections.data-grid`.
+
 ## Layout, Theme, And Automation
 
-ListBox, TreeView, and Table offer to stretch on both axes. DropDown and
-ComboBox offer to stretch horizontally and remain one row high. A border adds the normal
-one-cell inset; integrated scrollbars consume collection client cells only
+ListBox, TreeView, Table, and DataGrid offer to stretch on both axes. DropDown
+and ComboBox offer to stretch horizontally and remain one row high. A border
+adds the normal one-cell inset; integrated scrollbars consume collection client cells only
 when their policies and content require them. Current is always kept
 vertically visible when the viewport has height.
 
 Theme roles are `list_box`, `list_box.border`, `tree_view`,
 `tree_view.border`, `tree.guide`, `tree.branch`, `tree.expanded`, `table`,
 `table.border`, `table.header`, `table.header_current`, `table.sort`,
-`table.cell_current`, `table.row_selected`, `drop_down`,
+`table.cell_current`, `table.row_selected`, `data_grid`,
+`data_grid.border`, `data_grid.edit`,
+`data_grid.edit_focused`, `data_grid.edit_invalid`,
+`data_grid.edit_invalid_character`, `drop_down`,
 `drop_down.focused`, `drop_down.disabled`, `drop_down.popup`,
 `drop_down.popup_border`, `combo_box`, `combo_box.focused`,
 `combo_box.disabled`, `collection.current`,
@@ -301,7 +362,8 @@ Theme roles are `list_box`, `list_box.border`, `tree_view`,
 meaning.
 
 Core typed details expose exact bounded state. Automation intentionally omits
-retained item, recursive node, and table models. ListBox, TreeView, and Table
+retained item, recursive node, table/grid models, active grid edit text, and
+grid validator character sets. ListBox, TreeView, Table, and DataGrid
 replace status text and disabled reason with bounded evidence; TreeView also publishes
 selection and expansion digests. DropDown exposes compact popup geometry and
 stable identities; ComboBox adds the exact bounded editor record. Pull the
@@ -310,4 +372,4 @@ automation key events exercise the same current, provisional selection,
 expansion, commit/cancel, editing, scrolling, and activation paths as a
 terminal user. The catalog page is reachable at Controls / Collections with
 stable keys `collections.list`, `collections.tree`, `collections.table`,
-`collections.drop-down`, and `collections.combo`.
+`collections.data-grid`, `collections.drop-down`, and `collections.combo`.

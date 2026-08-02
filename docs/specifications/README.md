@@ -77,6 +77,9 @@ do not use them as retrospective decoration.
 - [`collections-api-v0.md`](collections-api-v0.md) defines copied bounded
   collection models, stable current/selection identity, popup selection,
   tree expansion, table sorting, DataGrid editing, and compact automation.
+- [`modals-api-v0.md`](modals-api-v0.md) defines the Phase 17 modal stack,
+  one-shot result lifecycle, focus and command capture, resize/shadow behavior,
+  standard dialogs, progress cancellation, and automation evidence.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

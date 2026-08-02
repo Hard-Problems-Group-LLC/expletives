@@ -836,7 +836,8 @@ func activatePopupCollection(
 		return Completion{}, ErrClosed
 	}
 	popup, ok := popupCollectionForState(state)
-	if !ok || !popupCanFocus(state, popup) {
+	if !ok || !popupCanFocus(state, popup) ||
+		!app.inActiveModalScopeLocked(state) {
 		app.mu.Unlock()
 		return Completion{}, ErrNotFocusable
 	}
@@ -858,7 +859,7 @@ func activatePopupCollection(
 	var router CommandRouter
 	var execute bool
 	if command != "" {
-		router, result, execute = app.resolveCommandLocked(command)
+		router, result, execute = app.resolveCommandLocked(command, true)
 	}
 	app.mu.Unlock()
 	if execute {

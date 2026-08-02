@@ -45,6 +45,10 @@ var enabledCatalogMenuPaths = []enabledMenuPath{
 	{"menu.sections.footers.screen", []expletives.Key{"s", "f", "s"}, CommandFooterScreenShow, expletives.OutcomeApplied, "", []string{"menu.sections.footers"}},
 	{"menu.sections.footers.focus", []expletives.Key{"s", "f", "f"}, CommandFooterFocusShow, expletives.OutcomeApplied, "", []string{"menu.sections.footers"}},
 	{"menu.menus.overview", []expletives.Key{"m", "o"}, CommandViewMenus, expletives.OutcomeApplied, CommandViewMenus, nil},
+	{"menu.dialogs.message", []expletives.Key{"d", "m"}, CommandDialogMessage, expletives.OutcomeApplied, "", nil},
+	{"menu.dialogs.confirm", []expletives.Key{"d", "c"}, CommandDialogConfirm, expletives.OutcomeApplied, "", nil},
+	{"menu.dialogs.input", []expletives.Key{"d", "i"}, CommandDialogInput, expletives.OutcomeApplied, "", nil},
+	{"menu.dialogs.progress", []expletives.Key{"d", "p"}, CommandDialogProgress, expletives.OutcomeApplied, "", nil},
 	{"menu.help.about", []expletives.Key{"p", "a"}, CommandViewAbout, expletives.OutcomeApplied, CommandViewAbout, nil},
 }
 
@@ -60,10 +64,6 @@ var disabledCatalogMenuEntries = []disabledMenuEntry{
 	{"menu.layouts.absolute", "a", 3},
 	{"menu.menus.panel", "m", 1},
 	{"menu.menus.context", "m", 2},
-	{"menu.dialogs.message", "d", 0},
-	{"menu.dialogs.confirm", "d", 1},
-	{"menu.dialogs.input", "d", 2},
-	{"menu.dialogs.progress", "d", 3},
 }
 
 func TestCatalogEveryEnabledMenuPath(t *testing.T) {
@@ -231,6 +231,7 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		{"controls", "c", []string{"menu.controls.text", "menu.controls.actions", "menu.controls.selection", "menu.controls.input", "menu.controls.progress", "menu.controls.navigation", "menu.controls.scrolling", "menu.controls.collections"}},
 		{"sections", "s", []string{"menu.sections.status", "menu.sections.headers", "menu.sections.footers"}},
 		{"menus", "m", []string{"menu.menus.overview", "menu.menus.panel", "menu.menus.context"}},
+		{"dialogs", "d", []string{"menu.dialogs.message", "menu.dialogs.confirm", "menu.dialogs.input", "menu.dialogs.progress"}},
 	}
 	for _, traversal := range traversals {
 		t.Run(traversal.name, func(t *testing.T) {

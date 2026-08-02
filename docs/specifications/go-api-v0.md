@@ -735,6 +735,19 @@ func (t *Table) SetSort(string, SortDirection) error
 func (t *Table) SetStatus(CollectionStatus, string) error
 func (t *Table) Focus() error
 func (t *Table) Activate(context.Context, string, string) (Completion, error)
+func NewDataGrid(Container, DataGridOptions) (*DataGrid, error)
+func (g *DataGrid) Columns() []Column
+func (g *DataGrid) Rows() []TableRow
+func (g *DataGrid) State() DataGridState
+func (g *DataGrid) SetRows([]TableRow) error
+func (g *DataGrid) SetModel([]Column, []TableRow) error
+func (g *DataGrid) Replace([]Column, []TableRow, string, string, []string, string, SortDirection) error
+func (g *DataGrid) SetCurrent(string, string) error
+func (g *DataGrid) SetSelection([]string) error
+func (g *DataGrid) SetSort(string, SortDirection) error
+func (g *DataGrid) SetStatus(CollectionStatus, string) error
+func (g *DataGrid) Focus() error
+func (g *DataGrid) Activate(context.Context, string, string) (Completion, error)
 func NewDropDown(Container, DropDownOptions) (*DropDown, error)
 func (d *DropDown) Items() []ListItem
 func (d *DropDown) State() DropDownState
@@ -827,6 +840,20 @@ exact Transaction replacements support MVC/MVVM publication. Automation
 reports bounded counts, identities, sort, digests, and viewport state while
 the intended frame carries visible header/cell evidence.
 
+`DataGrid` is the editable tabular Phase 16 collection leaf. It privately
+reuses Table's copied model, stable current/selection, derived sorting, sticky
+header, and viewport behavior while remaining a distinct public concrete
+type. Columns opt into editing and may copy a TextValidator. Enter/F2 begins a
+single-line cell editor, Enter commits, Escape cancels, and Tab/Shift-Tab
+commits then traverses editable cells before leaving the grid at a boundary.
+Soft-invalid values remain visible but block commit; hard-invalid input is
+ignored. Programmatic mutations cancel editing and remain silent. A committed
+user change updates the copied row model atomically before its optional
+ChangeCommand is routed outside the App lock. Core details expose exact
+bounded editor state; automation omits model text, active edit text, and
+validator character sets while preserving counts, coordinates, validity, and
+frame evidence.
+
 `DropDown` and `ComboBox` share the same private stable-key popup capability
 without a public inheritance relationship. DropDown is selection-only;
 ComboBox embeds an observable TextField-compatible editor and copied optional
@@ -878,6 +905,7 @@ func (t *Transaction) NewStreamView(Container, StreamViewOptions) (*StreamView, 
 func (t *Transaction) NewListBox(Container, ListBoxOptions) (*ListBox, error)
 func (t *Transaction) NewTreeView(Container, TreeViewOptions) (*TreeView, error)
 func (t *Transaction) NewTable(Container, TableOptions) (*Table, error)
+func (t *Transaction) NewDataGrid(Container, DataGridOptions) (*DataGrid, error)
 func (t *Transaction) NewDropDown(Container, DropDownOptions) (*DropDown, error)
 func (t *Transaction) NewComboBox(Container, ComboBoxOptions) (*ComboBox, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
@@ -931,6 +959,13 @@ func (t *Transaction) SetTableCurrent(*Table, string, string) error
 func (t *Transaction) SetTableSelection(*Table, []string) error
 func (t *Transaction) SetTableSort(*Table, string, SortDirection) error
 func (t *Transaction) SetTableStatus(*Table, CollectionStatus, string) error
+func (t *Transaction) SetDataGridRows(*DataGrid, []TableRow) error
+func (t *Transaction) SetDataGridModel(*DataGrid, []Column, []TableRow) error
+func (t *Transaction) ReplaceDataGrid(*DataGrid, []Column, []TableRow, string, string, []string, string, SortDirection) error
+func (t *Transaction) SetDataGridCurrent(*DataGrid, string, string) error
+func (t *Transaction) SetDataGridSelection(*DataGrid, []string) error
+func (t *Transaction) SetDataGridSort(*DataGrid, string, SortDirection) error
+func (t *Transaction) SetDataGridStatus(*DataGrid, CollectionStatus, string) error
 func (t *Transaction) SetDropDownItems(Control, []ListItem) error
 func (t *Transaction) SetDropDownSelection(Control, string) error
 func (t *Transaction) SetComboBoxText(*ComboBox, string) error
@@ -1105,7 +1140,16 @@ type CommandDefinition struct {
     DisabledReason string
     Checked        bool
     Automation     bool
+    ModalPolicy    CommandModalPolicy
 }
+
+type CommandModalPolicy string
+
+const (
+    CommandModalDefault CommandModalPolicy = ""
+    CommandModalBlocked CommandModalPolicy = "blocked"
+    CommandModalAllowed CommandModalPolicy = "allowed"
+)
 
 type CommandResult struct {
     Outcome Outcome
@@ -1123,6 +1167,10 @@ canonical bounded one-cell display text; an empty label displays the command
 ID. Descriptions and disabled reasons must be valid UTF-8 without NUL and fit
 `MaxCommandDescriptionBytes`. An enabled command cannot retain a disabled
 reason; a disabled command receives a sensible reason when none is supplied.
+The zero/default modal policy blocks an un-targeted global command while a
+modal is active. `CommandModalAllowed` is an explicit escape hatch for commands
+such as configured interrupt, quit, or Help; control-originated commands inside
+the top modal remain locally eligible.
 Replacing or removing a command republishes affected Action presentation and
 repairs focus. Removing a command removes its current chord bindings while
 existing controls retain a safely disabled unknown-command reference.
@@ -1172,8 +1220,11 @@ func (a *App) ResetInput(
 ) (Completion, error)
 ```
 
-A direct nonempty target must identify an active control. Automation resolves
-its stable `target_key` to this runtime ID at the boundary.
+A direct nonempty target must identify an active control. While a modal is
+active, that target must be inside the top modal even when the command is
+globally modal-allowed; otherwise the completion is rejected with
+`modal_scope`. Automation resolves its stable `target_key` to this runtime ID
+at the boundary.
 
 `ClearInputSource` is uncorrelated disconnect cleanup. It publishes only when
 held or pressed-capture state actually changed and the App is not final.

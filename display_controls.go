@@ -690,6 +690,9 @@ func controlBehaviorEqual(left, right controlBehavior) bool {
 	case tableBehavior:
 		rightValue, ok := right.(tableBehavior)
 		return ok && tableBehaviorEqual(leftValue, rightValue)
+	case dataGridBehavior:
+		rightValue, ok := right.(dataGridBehavior)
+		return ok && dataGridBehaviorEqual(leftValue, rightValue)
 	case dropDownBehavior:
 		rightValue, ok := right.(dropDownBehavior)
 		return ok && dropDownBehaviorEqual(leftValue, rightValue)

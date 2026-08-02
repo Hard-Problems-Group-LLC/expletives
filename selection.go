@@ -927,7 +927,7 @@ func (a *App) activateSelection(
 		result.Outcome = OutcomeApplied
 	}
 	if command != "" {
-		router, result, execute = a.resolveCommandLocked(command)
+		router, result, execute = a.resolveCommandLocked(command, true)
 	}
 	a.mu.Unlock()
 

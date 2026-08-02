@@ -357,17 +357,44 @@ func (a *App) actionDetailsLocked(
 	behavior buttonBehavior,
 ) ActionDetails {
 	definition, exists := a.commands[behavior.command]
+	enabled := exists && definition.Enabled
+	disabledReason := effectiveDisabledReason(definition, exists)
+	if reason := a.localButtonDisabledReasonLocked(state, behavior); reason != "" {
+		enabled = false
+		disabledReason = reason
+	}
 	return ActionDetails{
 		Label:          effectiveCommandLabel(definition, behavior.command).text,
 		Command:        behavior.command,
-		Enabled:        exists && definition.Enabled,
-		DisabledReason: effectiveDisabledReason(definition, exists),
+		Enabled:        enabled,
+		DisabledReason: disabledReason,
 		Checked:        definition.Checked,
 		Mnemonic:       behavior.mnemonic,
 		Pressed:        a.pressedAnyLocked(state),
 		Default:        behavior.default_,
 		Cancel:         behavior.cancel,
 	}
+}
+
+func (a *App) localButtonDisabledReasonLocked(
+	state *controlState,
+	behavior buttonBehavior,
+) string {
+	if behavior.command != CommandDialogCancel {
+		return ""
+	}
+	modal := modalAncestorState(state)
+	if modal == nil || modal.kind != ControlProgressDialog {
+		return ""
+	}
+	modalBehavior, ok := modal.behavior.(modalPanelBehavior)
+	if !ok || modalBehavior.progress == nil || modalBehavior.progressCancel == nil {
+		return "Cancellation is unavailable"
+	}
+	if modalBehavior.progress.cancelRequested.Load() {
+		return "Cancellation requested"
+	}
+	return ""
 }
 
 func (a *App) hotkeyBarItemDetailsLocked(
@@ -468,7 +495,8 @@ func (a *App) effectivelyVisibleLocked(state *controlState) bool {
 
 func (a *App) buttonEligibleLocked(state *controlState) bool {
 	if state == nil || state.kind != ControlButton ||
-		!a.effectivelyVisibleLocked(state) {
+		!a.effectivelyVisibleLocked(state) ||
+		!a.inActiveModalScopeLocked(state) {
 		return false
 	}
 	behavior, ok := state.behavior.(buttonBehavior)
@@ -476,17 +504,20 @@ func (a *App) buttonEligibleLocked(state *controlState) bool {
 		return false
 	}
 	definition, exists := a.commands[behavior.command]
-	return exists && definition.Enabled
+	return exists && definition.Enabled &&
+		a.localButtonDisabledReasonLocked(state, behavior) == ""
 }
 
 func (a *App) focusEligibleLocked(state *controlState) bool {
-	if state == nil || !a.effectivelyVisibleLocked(state) {
+	if state == nil || !a.effectivelyVisibleLocked(state) ||
+		!a.inActiveModalScopeLocked(state) {
 		return false
 	}
 	switch behavior := state.behavior.(type) {
 	case buttonBehavior:
 		definition, exists := a.commands[behavior.command]
-		return exists && definition.Enabled
+		return exists && definition.Enabled &&
+			a.localButtonDisabledReasonLocked(state, behavior) == ""
 	case checkboxBehavior:
 		return !behavior.disabled
 	case radioButtonBehavior:
@@ -515,6 +546,8 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 		return treeViewCanFocus(state, behavior)
 	case tableBehavior:
 		return tableCanFocus(state, behavior)
+	case dataGridBehavior:
+		return dataGridCanFocus(state, behavior)
 	case dropDownBehavior:
 		return popupCanFocus(state, behavior.popup)
 	case comboBoxBehavior:
@@ -531,7 +564,8 @@ func (a *App) focusBehaviorEligibleLocked(
 	switch behavior := behavior.(type) {
 	case buttonBehavior:
 		definition, exists := a.commands[behavior.command]
-		return exists && definition.Enabled
+		return exists && definition.Enabled &&
+			a.localButtonDisabledReasonLocked(state, behavior) == ""
 	case checkboxBehavior:
 		return !behavior.disabled
 	case radioButtonBehavior:
@@ -571,6 +605,8 @@ func (a *App) focusBehaviorEligibleLocked(
 		return treeViewCanFocus(state, behavior)
 	case tableBehavior:
 		return tableCanFocus(state, behavior)
+	case dataGridBehavior:
+		return dataGridCanFocus(state, behavior)
 	case dropDownBehavior:
 		return popupCanFocus(state, behavior.popup)
 	case comboBoxBehavior:
@@ -601,7 +637,11 @@ func (a *App) allFocusableControlsLocked() []*controlState {
 			visit(child)
 		}
 	}
-	visit(a.root.state)
+	start := a.root.state
+	if modal := a.topModalLocked(); modal != nil {
+		start = modal
+	}
+	visit(start)
 	return controls
 }
 
@@ -648,13 +688,17 @@ func (a *App) tabEntryForFocusGroupLocked(
 
 func (a *App) ensureFocusLocked() bool {
 	if a.menu != nil {
-		if a.menu.bar != nil &&
-			a.effectivelyVisibleLocked(a.menu.bar) {
-			changed := a.focus != a.menu.bar
-			a.focus = a.menu.bar
-			return changed
+		if a.topModalLocked() != nil {
+			a.closeMenuLocked()
+		} else {
+			if a.menu.bar != nil &&
+				a.effectivelyVisibleLocked(a.menu.bar) {
+				changed := a.focus != a.menu.bar
+				a.focus = a.menu.bar
+				return changed
+			}
+			a.closeMenuLocked()
 		}
-		a.closeMenuLocked()
 	}
 	if a.focusEligibleLocked(a.focus) {
 		return false
@@ -891,7 +935,11 @@ func (a *App) mnemonicControlLocked(key Key) (*controlState, bool) {
 			visit(child)
 		}
 	}
-	visit(a.root.state)
+	start := a.root.state
+	if modal := a.topModalLocked(); modal != nil {
+		start = modal
+	}
+	visit(start)
 	return found, activate
 }
 
@@ -960,7 +1008,7 @@ func (a *App) activateButton(
 		return Completion{}, ErrNotFocusable
 	}
 	behavior := state.behavior.(buttonBehavior)
-	router, result, execute := a.resolveCommandLocked(behavior.command)
+	router, result, execute := a.resolveCommandLocked(behavior.command, true)
 	target := state.id
 	a.mu.Unlock()
 	if execute {
@@ -973,5 +1021,6 @@ func (a *App) activateButton(
 	if a.final {
 		return Completion{}, ErrClosed
 	}
+	result = a.applyStandardDialogCommandLocked(behavior.command, target, result)
 	return a.associateLocked(requestID, result, behavior.command), nil
 }
