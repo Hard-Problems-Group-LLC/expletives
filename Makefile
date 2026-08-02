@@ -20,7 +20,7 @@ BUILDINFO_PATH := $(MODULE)/internal/buildinfo.buildMode
 .PHONY: all build release profiling
 .PHONY: check-debug-artifacts check-release-artifacts
 .PHONY: check-profiling-artifacts
-.PHONY: clean test test-unit test-integration test-race
+.PHONY: clean test test-unit test-integration test-race benchmark-terminal
 .PHONY: fmt-check vet verify smoke FORCE
 
 all: build release profiling
@@ -80,6 +80,12 @@ test-integration: check-debug-artifacts
 # cgo on supported platforms, so cgo is enabled only for this verification.
 test-race:
 	CGO_ENABLED=1 $(GO) test -mod=readonly -race ./...
+
+# Keep the large 1200x1200 renderer workload out of the ordinary verification
+# loop while making Phase 19 terminal profiling evidence reproducible.
+benchmark-terminal:
+	$(GO) test -mod=readonly -run '^$$' -bench '^BenchmarkTerminal' \
+		-benchtime=10x -benchmem ./internal/terminal ./terminal
 
 fmt-check:
 	@unformatted="$$(find . -type f -name '*.go' \

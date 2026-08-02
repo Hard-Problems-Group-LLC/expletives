@@ -101,6 +101,33 @@ notice followed by an authoritative geometry query. `SIGINT` remains the
 configurable semantic interrupt path, while `SIGTERM` and `SIGHUP` request an
 orderly quit and final snapshot.
 
+## Failure Recovery
+
+Terminal ownership and logical activity are separate state. Once interactive
+termios has been changed, the Presenter retains restoration responsibility
+until both its leave sequence and original-termios restore have succeeded.
+An enter, frame-write, suspend, or resume failure therefore cannot make
+`Close` silently skip cleanup. A failed rollback is retried by the enclosing
+open/close boundary, and independent output and termios failures are joined so
+neither result hides the other.
+
+This contract covers catchable in-process failures. No process can guarantee
+cleanup after `SIGKILL`, machine loss, or an equivalent uncatchable boundary;
+the controlling shell or terminal remains responsible for those cases.
+
+## Load And Profiling Evidence
+
+`make benchmark-terminal` runs four bounded micro-workloads: 80-by-24 and
+1200-by-1200 complete-frame encoding, a 4 KiB coalesced ASCII input read, and
+byte-fragmented navigation sequences. The workloads report time, throughput,
+bytes, and allocations without imposing host-specific timing thresholds on
+ordinary verification.
+
+The coalesced ASCII path uses one caller-owned backing key array and one event
+array. Escape, control-chord, UTF-8, and bracketed-paste input continues
+through the bounded incremental state machine. This optimization does not
+alter event order, pointer ownership, escape deadlines, or decoder bounds.
+
 ## Verification Matrix
 
 Automated evidence is required at several boundaries:
@@ -109,7 +136,7 @@ Automated evidence is required at several boundaries:
 | --- | --- |
 | Profile and locale | exact accepted/rejected `$TERM` tables and UTF-8/DEC selection tables |
 | Encoder | ASCII, Unicode, DEC line art, highlighted degradation, colors, attributes, cursor, bounds, and canonical-frame immutability |
-| Presenter | validation-before-mutation, exact termios restore, partial writes, suspend/resume, rollback, read readiness, geometry, and PTY lifecycle |
+| Presenter | validation-before-mutation, exact termios restore, partial writes, suspend/resume, failed-rollback retry, frame-output failure, read readiness, geometry, and PTY lifecycle |
 | Input | fragmented/coalesced CSI and SS3, enhanced modifiers, Escape timeout, paste, malformed/oversized input, reset, and fuzzing |
 | Real process | controlling PTY resize, fragmented keys, menus, Ctrl-C, quit, `SIGTSTP`/`SIGCONT`, full repaint, and exact final restoration |
 | Physical matrix | supported emulator/profile/locale/transport combinations with operator-observed color, line art, cursor, paste, resize, job control, and teardown |

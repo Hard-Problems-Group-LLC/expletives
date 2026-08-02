@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 	"unsafe"
+
+	expletives "github.com/Hard-Problems-Group-LLC/expletives"
 )
 
 type fakeInput struct {
@@ -236,6 +238,29 @@ func TestOpenTermiosFailureDoesNotWrite(t *testing.T) {
 	}
 }
 
+func TestOpenRetriesFailedRollbackCleanup(t *testing.T) {
+	input, output, system := newFakeSession()
+	enterErr := errors.New("enter failed")
+	rollbackErr := errors.New("rollback restore failed")
+	output.failOn[1] = enterErr
+	system.setFailAt = 2
+	system.setErr = rollbackErr
+
+	_, err := openWith(input, output, ProfileXTerm, system)
+	if !errors.Is(err, enterErr) || !errors.Is(err, rollbackErr) {
+		t.Fatalf("openWith() error = %v, want enter and rollback failures", err)
+	}
+	if len(system.setCalls) != 3 {
+		t.Fatalf("setTermios calls = %d, want configure, failed rollback, retry", len(system.setCalls))
+	}
+	if got := system.setCalls[2]; !reflect.DeepEqual(got, system.original) {
+		t.Errorf("cleanup retry differs from original")
+	}
+	if got, want := output.String(), leaveTerminal+leaveTerminal; got != want {
+		t.Errorf("cleanup output = %q, want %q", got, want)
+	}
+}
+
 func TestCloseRestoresTermiosWhenExitWriteFails(t *testing.T) {
 	input, output, system := newFakeSession()
 	presenter, err := openWith(input, output, ProfileXTerm, system)
@@ -299,6 +324,52 @@ func TestSuspendResumeAndClose(t *testing.T) {
 		if !reflect.DeepEqual(system.setCalls[index], system.original) {
 			t.Errorf("restore call %d differs from original", index)
 		}
+	}
+}
+
+func TestSuspendFailureLeavesCleanupForCloseRetry(t *testing.T) {
+	input, output, system := newFakeSession()
+	presenter, err := openWith(input, output, ProfileTMux, system)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaveErr := errors.New("suspend leave failed")
+	output.failOn[2] = leaveErr
+	if err := presenter.Suspend(); !errors.Is(err, leaveErr) {
+		t.Fatalf("Suspend() error = %v", err)
+	}
+	if err := presenter.Close(); err != nil {
+		t.Fatalf("Close() cleanup retry error = %v", err)
+	}
+	if len(system.setCalls) != 3 {
+		t.Fatalf("setTermios calls = %d, want configure, suspend restore, close retry", len(system.setCalls))
+	}
+	if got, want := output.String(), enterTerminal+leaveTerminal; got != want {
+		t.Errorf("terminal output = %q, want %q", got, want)
+	}
+}
+
+func TestPresentFailureStillAllowsCloseRestoration(t *testing.T) {
+	input, output, system := newFakeSession()
+	presenter, err := openWith(input, output, ProfileXTerm, system)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentErr := errors.New("frame write failed")
+	output.failOn[2] = presentErr
+	snapshot := expletives.Snapshot{
+		Frame: expletives.IntendedFrame{Size: expletives.Size{Width: 1, Height: 1}, Cells: []expletives.Cell{{
+			Grapheme: "x",
+		}}},
+	}
+	if err := presenter.Present(snapshot); !errors.Is(err, presentErr) {
+		t.Fatalf("Present() error = %v", err)
+	}
+	if err := presenter.Close(); err != nil {
+		t.Fatalf("Close() after Present failure = %v", err)
+	}
+	if len(system.setCalls) != 2 || !reflect.DeepEqual(system.setCalls[1], system.original) {
+		t.Fatalf("Present failure did not restore original termios")
 	}
 }
 

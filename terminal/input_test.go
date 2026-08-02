@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +48,36 @@ func TestInputDecoderHandlesCoalescedInput(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("events = %#v, want %#v", got, want)
+	}
+}
+
+func TestInputDecoderCoalescedASCIIEventsAreCallerOwned(t *testing.T) {
+	t.Parallel()
+
+	decoder := mustInputDecoder(t, InputDecoderOptions{})
+	got := decoder.FeedInput(time.Unix(1, 0), []byte("a Z\t\r\x7f"))
+	want := []expletives.Key{
+		"a", expletives.KeySpace, "Z", expletives.KeyTab,
+		expletives.KeyEnter, expletives.KeyBackspace,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("events = %d, want %d", len(got), len(want))
+	}
+	for index, key := range want {
+		if got[index].KeyEvent == nil || got[index].TextInput != nil ||
+			got[index].KeyEvent.Kind != expletives.KeyEventPress ||
+			got[index].KeyEvent.Key != key {
+			t.Fatalf("event %d = %#v, want press %q", index, got[index], key)
+		}
+	}
+
+	got[0].KeyEvent.Key = "changed"
+	if got[1].KeyEvent.Key != expletives.KeySpace {
+		t.Fatalf("event mutation changed its neighbor: %#v", got)
+	}
+	decoder.FeedInput(time.Unix(2, 0), []byte("next"))
+	if got[0].KeyEvent.Key != "changed" {
+		t.Fatalf("later feed changed caller-owned event: %#v", got[0])
 	}
 }
 
@@ -484,6 +515,44 @@ func FuzzInputDecoder(f *testing.F) {
 			t.Fatalf("pending bytes after Reset() = %d", len(decoder.pending))
 		}
 	})
+}
+
+func BenchmarkTerminalInputDecoderCoalesced(b *testing.B) {
+	decoder, err := NewInputDecoder(InputDecoderOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	input := []byte(strings.Repeat("a", 4096))
+	now := time.Unix(1, 0)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	for range b.N {
+		decoder.Reset()
+		if events := decoder.FeedInput(now, input); len(events) != len(input) {
+			b.Fatalf("events = %d, want %d", len(events), len(input))
+		}
+	}
+}
+
+func BenchmarkTerminalInputDecoderFragmentedNavigation(b *testing.B) {
+	decoder, err := NewInputDecoder(InputDecoderOptions{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	input := []byte("\x1b[A\x1b[B\x1b[C\x1b[D")
+	now := time.Unix(1, 0)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	for range b.N {
+		decoder.Reset()
+		events := 0
+		for _, value := range input {
+			events += len(decoder.FeedInput(now, []byte{value}))
+		}
+		if events != 4 {
+			b.Fatalf("events = %d, want 4", events)
+		}
+	}
 }
 
 func mustInputDecoder(

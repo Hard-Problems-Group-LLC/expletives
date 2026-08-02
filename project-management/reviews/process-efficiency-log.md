@@ -1136,6 +1136,31 @@ Improvement applied:
 This preserves the strong assertion on ordinary shells and CI while making
 the same test deterministic under a supervising development runner.
 
+### 39. Profile Representative Terminal Chunks Before Redesigning Input
+
+A 4 KiB coalesced ASCII read originally took about 304 microseconds and
+12,303 allocations in a short local benchmark. Most of that cost came from
+materializing each pointer-valued public event independently, not from escape
+parsing. Broadly redesigning the event union or state machine would have
+created API and correctness risk without addressing the common path directly.
+
+Improvement applied:
+
+- retain the existing public pointer-valued `InputEvent` contract;
+- recognize only complete chunks whose bytes each map to exactly one ordinary
+  ASCII key event;
+- allocate one caller-owned key backing array and one event array, while
+  caching printable ASCII key identities;
+- keep control chords, Escape, UTF-8, paste, and fragmented sequences on the
+  existing bounded state machine; and
+- retain small and 1200-by-1200 renderer workloads plus coalesced and
+  fragmented input workloads behind opt-in `make benchmark-terminal`.
+
+On the same short local run, the optimized 4 KiB path took about 20
+microseconds with two allocations. These figures are directional development
+evidence, not portable performance guarantees; the durable win is the bounded
+allocation shape and reproducible workload.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

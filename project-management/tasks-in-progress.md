@@ -17,4 +17,6 @@ owner, known blockers, and brief status notes.
   - Blockers: none.
   - Status: slices 19.0 through 19.2 fixed the compatibility matrix, bounded
     compiled-terminfo corroboration, and verified `SIGTSTP`/`SIGCONT` terminal
-    ownership. Slice 19.3 failure recovery and load evidence is active.
+    ownership. Slice 19.3 now has cleanup-debt recovery tests, bounded renderer
+    workloads through 1200 by 1200, and an allocation-reduced coalesced-input
+    path; the full verification gate is active.

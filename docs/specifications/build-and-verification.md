@@ -47,9 +47,12 @@ marked phony where appropriate. They must not silently install or upgrade
 system-wide or user-wide tools.
 
 The Makefile also exposes `test`, `test-unit`, `test-integration`,
-`test-race`, `fmt-check`, `vet`, `smoke`, and `verify`. `verify` runs format
-checking, vet, ordinary and integration-tagged package tests, race detection,
-all three builds, and command smoke/self-checks.
+`test-race`, `benchmark-terminal`, `fmt-check`, `vet`, `smoke`, and `verify`.
+`verify` runs format checking, vet, ordinary and integration-tagged package
+tests, race detection, all three builds, and command smoke/self-checks.
+`benchmark-terminal` is deliberately opt-in: it measures coalesced and
+fragmented input plus ordinary and 1200-by-1200 frame encoding without making
+machine-dependent timing a correctness gate.
 
 ## Artifact Layout
 
@@ -145,6 +148,16 @@ The implemented profiling command deliberately uses the same ordinary
 optimization, `-trimpath`, symbols, and VCS information as release, with
 `buildMode=profiling`. It adds no listener or instrumentation by itself so
 standard Go profiling tools can observe a representative binary.
+
+The reproducible terminal micro-workload is:
+
+```text
+make benchmark-terminal
+```
+
+It reports allocation counts and processed-byte throughput. Results are
+diagnostic evidence tied to the recorded host and revision, not a portable
+latency guarantee.
 
 ## Normal Go Tests
 

@@ -66,10 +66,11 @@ type Presenter struct {
 	profile Profile
 	glyphs  glyphMode
 
-	original syscall.Termios
-	active   bool
-	closed   bool
-	closeErr error
+	original     syscall.Termios
+	active       bool
+	needsRestore bool
+	closed       bool
+	closeErr     error
 }
 
 // Open validates and acquires the supplied terminal streams using TERM from
@@ -144,7 +145,7 @@ func openWithGlyphs(
 		original: original,
 	}
 	if err := presenter.acquire(); err != nil {
-		return nil, err
+		return nil, errors.Join(err, presenter.Close())
 	}
 	return presenter, nil
 }
@@ -245,12 +246,17 @@ func (p *Presenter) Suspend() error {
 		return nil
 	}
 
-	err := errors.Join(
-		wrapWriteError("leave terminal for suspension", writeAll(p.output, []byte(leaveTerminal))),
-		wrapStateError("restore terminal for suspension", p.system.setTermios(p.input.Fd(), p.original)),
+	leaveErr := wrapWriteError(
+		"leave terminal for suspension",
+		writeAll(p.output, []byte(leaveTerminal)),
+	)
+	restoreErr := wrapStateError(
+		"restore terminal for suspension",
+		p.system.setTermios(p.input.Fd(), p.original),
 	)
 	p.active = false
-	return err
+	p.needsRestore = leaveErr != nil || restoreErr != nil
+	return errors.Join(leaveErr, restoreErr)
 }
 
 // Resume reacquires terminal modes after continuation. If reacquisition fails,
@@ -276,15 +282,21 @@ func (p *Presenter) Close() error {
 		return p.closeErr
 	}
 	p.closed = true
-	if !p.active {
+	if !p.needsRestore {
 		return nil
 	}
 
-	p.closeErr = errors.Join(
-		wrapWriteError("leave terminal", writeAll(p.output, []byte(leaveTerminal))),
-		wrapStateError("restore terminal", p.system.setTermios(p.input.Fd(), p.original)),
+	leaveErr := wrapWriteError(
+		"leave terminal",
+		writeAll(p.output, []byte(leaveTerminal)),
 	)
+	restoreErr := wrapStateError(
+		"restore terminal",
+		p.system.setTermios(p.input.Fd(), p.original),
+	)
+	p.closeErr = errors.Join(leaveErr, restoreErr)
 	p.active = false
+	p.needsRestore = p.closeErr != nil
 	return p.closeErr
 }
 
@@ -293,11 +305,18 @@ func (p *Presenter) acquire() error {
 	if err := p.system.setTermios(p.input.Fd(), configured); err != nil {
 		return fmt.Errorf("configure terminal input: %w", err)
 	}
+	p.needsRestore = true
 	if err := writeAll(p.output, []byte(enterTerminal)); err != nil {
-		rollbackErr := errors.Join(
-			wrapWriteError("rollback terminal presentation", writeAll(p.output, []byte(leaveTerminal))),
-			wrapStateError("rollback terminal input", p.system.setTermios(p.input.Fd(), p.original)),
+		leaveErr := wrapWriteError(
+			"rollback terminal presentation",
+			writeAll(p.output, []byte(leaveTerminal)),
 		)
+		restoreErr := wrapStateError(
+			"rollback terminal input",
+			p.system.setTermios(p.input.Fd(), p.original),
+		)
+		rollbackErr := errors.Join(leaveErr, restoreErr)
+		p.needsRestore = rollbackErr != nil
 		return errors.Join(fmt.Errorf("enter terminal presentation: %w", err), rollbackErr)
 	}
 	p.active = true

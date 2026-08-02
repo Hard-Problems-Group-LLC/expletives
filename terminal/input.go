@@ -56,6 +56,14 @@ const (
 
 var pasteEnd = [...]byte{0x1b, '[', '2', '0', '1', '~'}
 
+var asciiKeys = func() [utf8.RuneSelf]expletives.Key {
+	var keys [utf8.RuneSelf]expletives.Key
+	for value := byte(0x21); value <= 0x7e; value++ {
+		keys[value] = expletives.Key(string(rune(value)))
+	}
+	return keys
+}()
+
 const pasteStart = "\x1b[200~"
 
 // InputEvent is one decoded terminal event. Exactly one member is non-nil.
@@ -144,10 +152,59 @@ func (d *InputDecoder) FeedInput(
 	input []byte,
 ) []InputEvent {
 	events := d.flushExpiredInput(now)
+	if len(events) == 0 && d.state == stateGround {
+		if decoded, ok := coalescedASCIIInput(input); ok {
+			return decoded
+		}
+	}
 	for _, value := range input {
 		events = d.consume(events, now, value)
 	}
 	return events
+}
+
+// coalescedASCIIInput decodes the common terminal-read case without creating
+// one separately allocated KeyEvent per byte. Control chords and Escape still
+// take the state-machine path because one source byte may produce several
+// logical events there.
+func coalescedASCIIInput(input []byte) ([]InputEvent, bool) {
+	if len(input) == 0 {
+		return nil, false
+	}
+	for _, value := range input {
+		if !isSingleEventASCII(value) {
+			return nil, false
+		}
+	}
+
+	keys := make([]expletives.KeyEvent, len(input))
+	events := make([]InputEvent, len(input))
+	for index, value := range input {
+		keys[index] = keyPress(keyForASCII(value))
+		events[index].KeyEvent = &keys[index]
+	}
+	return events, true
+}
+
+func isSingleEventASCII(value byte) bool {
+	return value >= 0x21 && value <= 0x7e ||
+		value == ' ' || value == '\r' || value == '\n' ||
+		value == '\t' || value == 0x7f || value == '\b'
+}
+
+func keyForASCII(value byte) expletives.Key {
+	switch value {
+	case ' ':
+		return expletives.KeySpace
+	case '\r', '\n':
+		return expletives.KeyEnter
+	case '\t':
+		return expletives.KeyTab
+	case 0x7f, '\b':
+		return expletives.KeyBackspace
+	default:
+		return asciiKeys[value]
+	}
 }
 
 // Deadline returns the deadline for the currently ambiguous Escape prefix.
@@ -795,7 +852,7 @@ func appendASCII(
 		value != '\r':
 		return appendControl(events, expletives.Key('a'+value-1))
 	case value >= 0x21 && value <= 0x7e:
-		return append(events, keyPress(expletives.Key(value)))
+		return append(events, keyPress(asciiKeys[value]))
 	}
 
 	switch value {

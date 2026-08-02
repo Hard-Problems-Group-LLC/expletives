@@ -3,6 +3,7 @@ package terminal
 import (
 	"errors"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -331,6 +332,41 @@ func TestEncodeSnapshotRejectsInvalidFrame(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkTerminalEncodeSnapshot80x24(b *testing.B) {
+	benchmarkTerminalEncodeSnapshot(b, 80, 24)
+}
+
+func BenchmarkTerminalEncodeSnapshot1200x1200(b *testing.B) {
+	benchmarkTerminalEncodeSnapshot(b, 1200, 1200)
+}
+
+func benchmarkTerminalEncodeSnapshot(b *testing.B, width, height int) {
+	b.Helper()
+	cell := expletives.Cell{
+		Grapheme:   "x",
+		Style:      "benchmark",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0, 0, 0),
+	}
+	cells := make([]expletives.Cell, width*height)
+	for index := range cells {
+		cells[index] = cell
+	}
+	snapshot := expletives.Snapshot{Frame: expletives.IntendedFrame{
+		Size:  expletives.Size{Width: width, Height: height},
+		Cells: cells,
+	}}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(cells)))
+	b.ResetTimer()
+	for range b.N {
+		if _, err := EncodeSnapshot(snapshot); err != nil {
+			b.Fatal(err)
+		}
+	}
+	runtime.KeepAlive(snapshot)
 }
 
 func testCell(grapheme string) expletives.Cell {
