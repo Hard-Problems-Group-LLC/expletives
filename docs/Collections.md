@@ -1,8 +1,8 @@
 # Collections
 
 Phase 16 collection controls use copied, bounded application models and stable
-keys. `ListBox`, `DropDown`, `ComboBox`, and `TreeView` are implemented. The
-formal shared contract, including the planned Table and DataGrid, is
+keys. `ListBox`, `DropDown`, `ComboBox`, `TreeView`, and `Table` are
+implemented. The formal shared contract, including the planned DataGrid, is
 [`specifications/collections-api-v0.md`](specifications/collections-api-v0.md).
 
 ## Construct A ListBox
@@ -222,16 +222,76 @@ stay collapsed even if replacement flags differ. Use `Replace` or
 and expanded key sets. A nil `TreeViewOptions.Expanded` uses node flags, while
 a non-nil slice overrides them exactly.
 
+## Read-Only Tables
+
+Table owns a copied canonical row model and derives its displayed order from
+one optional stable sortable column. The sticky header remains visible while
+rows scroll:
+
+```go
+table, err := expletives.NewTable(panel, expletives.TableOptions{
+    ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+        ScrollViewOptions: expletives.ScrollViewOptions{
+            PanelOptions: expletives.PanelOptions{
+                AutomationKey: "jobs.table",
+            },
+            ChangeCommand: "jobs.selection.changed",
+        },
+        BorderForm:  expletives.BorderSingle,
+        VerticalBar: expletives.ScrollBarVisibilityAuto,
+    },
+    Columns: []expletives.Column{
+        {Key: "name", Header: "Name", MinimumWidth: 12, Grow: 2, Sortable: true},
+        {Key: "state", Header: "State", Width: 10, Sortable: true},
+        {Key: "count", Header: "Count", Width: 6, Alignment: expletives.TextAlignEnd},
+    },
+    Rows: []expletives.TableRow{
+        {Key: "build", Cells: []expletives.TableCell{
+            {Column: "name", Text: "Build"},
+            {Column: "state", Text: "Running"},
+            {Column: "count", Text: "3"},
+        }},
+    },
+    FocusMode:        expletives.TableFocusCell,
+    RequireSelection: true,
+    ActivateCommand:  "jobs.open",
+    SortCommand:      "jobs.sort.changed",
+})
+```
+
+Up/Down, Page Up/Page Down, Home, and End move current by enabled displayed
+row. In cell mode Left and Right move the current column; in row mode they
+scroll horizontally. Space changes stable row selection, Enter activates,
+and Ctrl-Home/Ctrl-End move to the first/last enabled row and boundary column.
+Press `S` on a sortable current column to cycle ascending, descending, and
+canonical model order. Sorting is stable and never changes `Rows()` order.
+
+Use `SetRows` for ordinary controller refreshes. Use `SetModel` when the
+column schema changes while surviving identities should be preserved, or
+`Replace` when the view model owns exact current, selection, and sort state.
+All direct methods are concurrency-safe and Transaction forms publish related
+view-model changes in one frame. Programmatic updates are silent; only actual
+keyboard selection, activation, and sort changes route their respective
+commands.
+
+The catalog Table is `collections.table`. Its typed automation record is
+compact: exact model content stays available through the in-process copied
+`Columns` and `Rows` APIs, while automation reports counts, identities,
+digests, sort, commands, and viewport state. Pull the frame to inspect exact
+visible headers, cells, markers, styles, sticky placement, and clipping.
+
 ## Layout, Theme, And Automation
 
-ListBox and TreeView offer to stretch on both axes. DropDown and ComboBox offer
-to stretch horizontally and remain one row high. A border adds the normal
+ListBox, TreeView, and Table offer to stretch on both axes. DropDown and
+ComboBox offer to stretch horizontally and remain one row high. A border adds the normal
 one-cell inset; integrated scrollbars consume collection client cells only
 when their policies and content require them. Current is always kept
 vertically visible when the viewport has height.
 
 Theme roles are `list_box`, `list_box.border`, `tree_view`,
-`tree_view.border`, `tree.guide`, `tree.branch`, `tree.expanded`, `drop_down`,
+`tree_view.border`, `tree.guide`, `tree.branch`, `tree.expanded`, `table`,
+`table.border`, `table.header`, `table.header_current`, `table.sort`,
+`table.cell_current`, `table.row_selected`, `drop_down`,
 `drop_down.focused`, `drop_down.disabled`, `drop_down.popup`,
 `drop_down.popup_border`, `combo_box`, `combo_box.focused`,
 `combo_box.disabled`, `collection.current`,
@@ -241,13 +301,13 @@ Theme roles are `list_box`, `list_box.border`, `tree_view`,
 meaning.
 
 Core typed details expose exact bounded state. Automation intentionally omits
-retained item and recursive node models. ListBox and TreeView replace status
-text and disabled reason with bounded evidence; TreeView also publishes
+retained item, recursive node, and table models. ListBox, TreeView, and Table
+replace status text and disabled reason with bounded evidence; TreeView also publishes
 selection and expansion digests. DropDown exposes compact popup geometry and
 stable identities; ComboBox adds the exact bounded editor record. Pull the
 intended frame for exact visible labels, markers, and semantic styles. Raw
 automation key events exercise the same current, provisional selection,
 expansion, commit/cancel, editing, scrolling, and activation paths as a
 terminal user. The catalog page is reachable at Controls / Collections with
-stable keys `collections.list`, `collections.tree`,
+stable keys `collections.list`, `collections.tree`, `collections.table`,
 `collections.drop-down`, and `collections.combo`.

@@ -61,7 +61,8 @@ Keep durable project documentation here.
   stable-identity, selection, viewport, popup, tree, table, grid, MVC, and
   automation contracts for Phase 16.
 - [Collections](Collections.md) shows how consuming applications construct,
-  replace, drive, theme, and inspect ListBox, TreeView, DropDown, and ComboBox.
+  replace, drive, theme, and inspect ListBox, TreeView, Table, DropDown, and
+  ComboBox.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

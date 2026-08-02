@@ -999,6 +999,28 @@ touches several explicit kind registries. Keep those trust-boundary switches
 explicit, but add the proposed exhaustive registration test after the
 Collections phase rather than building a generator during feature work.
 
+### 33. Cache Derived Table Order And Reuse It For DataGrid
+
+The first Table implementation correctly kept canonical row order separate
+from stable sorted display order, but deriving that order independently for
+each visible painted row would multiply sorting work by viewport height. That
+cost is avoidable because a complete control mutation already publishes one
+immutable behavior value.
+
+Improvement applied:
+
+- derive the bounded display-order index once during Table reflow;
+- invalidate it only when the copied row model or sort state changes;
+- use the same derived index for painting, navigation, state projection,
+  selection ordering, and repair; and
+- preserve canonical `Rows()` order so the performance optimization cannot
+  become an observable model mutation.
+
+Improvement candidate for the next slice: implement DataGrid by reusing the
+private Table model, order, width, navigation, and projection capabilities,
+then add only explicit editor state and validated cell commit behavior. Do
+not fork a second tabular model or create a public inheritance relationship.
+
 ## Adopted Going-Forward Policy
 
 The charter simplification is the immediate process correction. Do not build

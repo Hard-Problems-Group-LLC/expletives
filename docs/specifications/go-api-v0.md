@@ -722,6 +722,19 @@ func (v *TreeView) SetNodeExpanded(string, bool) error
 func (v *TreeView) SetStatus(CollectionStatus, string) error
 func (v *TreeView) Focus() error
 func (v *TreeView) Activate(context.Context, string, string) (Completion, error)
+func NewTable(Container, TableOptions) (*Table, error)
+func (t *Table) Columns() []Column
+func (t *Table) Rows() []TableRow
+func (t *Table) State() TableState
+func (t *Table) SetRows([]TableRow) error
+func (t *Table) SetModel([]Column, []TableRow) error
+func (t *Table) Replace([]Column, []TableRow, string, string, []string, string, SortDirection) error
+func (t *Table) SetCurrent(string, string) error
+func (t *Table) SetSelection([]string) error
+func (t *Table) SetSort(string, SortDirection) error
+func (t *Table) SetStatus(CollectionStatus, string) error
+func (t *Table) Focus() error
+func (t *Table) Activate(context.Context, string, string) (Completion, error)
 func NewDropDown(Container, DropDownOptions) (*DropDown, error)
 func (d *DropDown) Items() []ListItem
 func (d *DropDown) State() DropDownState
@@ -802,6 +815,18 @@ preserving replacement APIs support MVC/MVVM publication. Compact automation
 reports visible identity and selection/expansion digests without copying the
 recursive node model.
 
+`Table` is the read-only tabular Phase 16 collection leaf. It copies bounded
+`[]Column` and canonical `[]TableRow` models, keeps current row, current
+column, and row selection by stable key, and derives an optional stable
+single-column display sort without mutating canonical row order. Its one-row
+header remains sticky while rows scroll. Row mode uses Left/Right for
+horizontal scrolling; cell mode uses them for column current. `S` cycles sort
+on a sortable current column, Ctrl-Home/Ctrl-End reach the boundary cell,
+Space selects, and Enter activates. Exact copied getters and preserving or
+exact Transaction replacements support MVC/MVVM publication. Automation
+reports bounded counts, identities, sort, digests, and viewport state while
+the intended frame carries visible header/cell evidence.
+
 `DropDown` and `ComboBox` share the same private stable-key popup capability
 without a public inheritance relationship. DropDown is selection-only;
 ComboBox embeds an observable TextField-compatible editor and copied optional
@@ -852,6 +877,7 @@ func (t *Transaction) NewLogView(Container, LogViewOptions) (*LogView, error)
 func (t *Transaction) NewStreamView(Container, StreamViewOptions) (*StreamView, error)
 func (t *Transaction) NewListBox(Container, ListBoxOptions) (*ListBox, error)
 func (t *Transaction) NewTreeView(Container, TreeViewOptions) (*TreeView, error)
+func (t *Transaction) NewTable(Container, TableOptions) (*Table, error)
 func (t *Transaction) NewDropDown(Container, DropDownOptions) (*DropDown, error)
 func (t *Transaction) NewComboBox(Container, ComboBoxOptions) (*ComboBox, error)
 func (t *Transaction) NewFooter(Container, FooterOptions) (*Footer, error)
@@ -898,6 +924,13 @@ func (t *Transaction) SetTreeSelection(*TreeView, []string) error
 func (t *Transaction) SetTreeExpanded(*TreeView, []string) error
 func (t *Transaction) SetTreeNodeExpanded(*TreeView, string, bool) error
 func (t *Transaction) SetTreeStatus(*TreeView, CollectionStatus, string) error
+func (t *Transaction) SetTableRows(*Table, []TableRow) error
+func (t *Transaction) SetTableModel(*Table, []Column, []TableRow) error
+func (t *Transaction) ReplaceTable(*Table, []Column, []TableRow, string, string, []string, string, SortDirection) error
+func (t *Transaction) SetTableCurrent(*Table, string, string) error
+func (t *Transaction) SetTableSelection(*Table, []string) error
+func (t *Transaction) SetTableSort(*Table, string, SortDirection) error
+func (t *Transaction) SetTableStatus(*Table, CollectionStatus, string) error
 func (t *Transaction) SetDropDownItems(Control, []ListItem) error
 func (t *Transaction) SetDropDownSelection(Control, string) error
 func (t *Transaction) SetComboBoxText(*ComboBox, string) error

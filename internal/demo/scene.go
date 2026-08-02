@@ -61,6 +61,7 @@ const (
 	CommandCollectionChanged    expletives.CommandID = "collection.changed"
 	CommandCollectionActivate   expletives.CommandID = "collection.activate"
 	CommandCollectionExpand     expletives.CommandID = "collection.expand"
+	CommandCollectionSort       expletives.CommandID = "collection.sort"
 	CommandPanelMenu            expletives.CommandID = "catalog.menus.panel"
 	CommandContextMenu          expletives.CommandID = "catalog.menus.context"
 	CommandDialogMessage        expletives.CommandID = "catalog.dialogs.message"
@@ -126,6 +127,23 @@ func collectionTreeFixture() []expletives.TreeNode {
 				DisabledReason: "Demonstration branch is unavailable"},
 		},
 	}}
+}
+
+func collectionTableColumns() []expletives.Column {
+	return []expletives.Column{
+		{Key: "name", Header: "Name", MinimumWidth: 8, Grow: 2, Sortable: true},
+		{Key: "state", Header: "State", Width: 8, Sortable: true},
+		{Key: "tests", Header: "Tests", Width: 5, Alignment: expletives.TextAlignEnd, Sortable: true},
+	}
+}
+
+func collectionTableRows() []expletives.TableRow {
+	return []expletives.TableRow{
+		{Key: "core", Cells: []expletives.TableCell{{Column: "name", Text: "Core"}, {Column: "state", Text: "Ready"}, {Column: "tests", Text: "148"}}},
+		{Key: "terminal", Cells: []expletives.TableCell{{Column: "name", Text: "Terminal"}, {Column: "state", Text: "Active"}, {Column: "tests", Text: "62"}}},
+		{Key: "legacy", Disabled: true, DisabledReason: "Legacy adapter is unavailable", Cells: []expletives.TableCell{{Column: "name", Text: "Legacy"}, {Column: "state", Text: "Offline"}}},
+		{Key: "automation", Cells: []expletives.TableCell{{Column: "name", Text: "Automation"}, {Column: "state", Text: "Ready"}, {Column: "tests", Text: "91"}}},
+	}
 }
 
 var catalogScreens = []struct {
@@ -381,6 +399,7 @@ type Scene struct {
 	streamView              *expletives.StreamView
 	collectionList          *expletives.ListBox
 	collectionTree          *expletives.TreeView
+	collectionTable         *expletives.Table
 	collectionDropDown      *expletives.DropDown
 	collectionCombo         *expletives.ComboBox
 	screens                 map[expletives.CommandID]*expletives.Panel
@@ -667,6 +686,44 @@ func NewWithRootConstraints(
 			ID:         "tree.expanded",
 			Foreground: menuMnemonicStyle.Foreground,
 			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "table",
+			Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+		},
+		expletives.Style{
+			ID:         "table.border",
+			Foreground: menuBorderStyle.Foreground,
+			Background: menuBorderStyle.Background,
+		},
+		expletives.Style{
+			ID:         "table.header",
+			Foreground: menuPopupStyle.Foreground,
+			Background: menuPopupStyle.Background,
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "table.header_current",
+			Foreground: menuFocusedStyle.Foreground,
+			Background: menuFocusedStyle.Background,
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "table.sort",
+			Foreground: menuMnemonicStyle.Foreground,
+			Background: menuPopupStyle.Background,
+			Attributes: expletives.StyleBold,
+		},
+		expletives.Style{
+			ID:         "table.cell_current",
+			Foreground: menuFocusedStyle.Foreground,
+			Background: menuFocusedStyle.Background,
+		},
+		expletives.Style{
+			ID:         "table.row_selected",
+			Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+			Background: expletives.RGB(0x00, 0x00, 0xAA),
 		},
 		expletives.Style{
 			ID:         "drop_down",
@@ -2965,10 +3022,10 @@ func NewWithRootConstraints(
 		expletives.GroupBoxOptions{
 			PanelOptions: expletives.PanelOptions{
 				AutomationKey: "collections.group.list",
-				MinimumSize:   expletives.Size{Width: 24, Height: 9},
+				MinimumSize:   expletives.Size{Width: 24, Height: 12},
 				Style:         canvasStyle.ID,
 			},
-			Title:       "Stable lists and trees",
+			Title:       "Stable lists, trees, and tables",
 			BorderStyle: borderStyle.ID,
 			BorderForm:  expletives.BorderSingle,
 		},
@@ -2976,8 +3033,38 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	collectionList, err := transaction.NewListBox(
+	collectionListPanel, err := transaction.NewPanel(
 		collectionListGroup,
+		expletives.PanelOptions{
+			AutomationKey: "collections.panel.list",
+			Style:         canvasStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionTreePanel, err := transaction.NewPanel(
+		collectionListGroup,
+		expletives.PanelOptions{
+			AutomationKey: "collections.panel.tree",
+			Style:         canvasStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionTablePanel, err := transaction.NewPanel(
+		collectionListGroup,
+		expletives.PanelOptions{
+			AutomationKey: "collections.panel.table",
+			Style:         canvasStyle.ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionList, err := transaction.NewListBox(
+		collectionListPanel,
 		expletives.ListBoxOptions{
 			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
 				ScrollViewOptions: expletives.ScrollViewOptions{
@@ -3010,7 +3097,7 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	collectionTree, err := transaction.NewTreeView(
-		collectionListGroup,
+		collectionTreePanel,
 		expletives.TreeViewOptions{
 			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
 				ScrollViewOptions: expletives.ScrollViewOptions{
@@ -3030,6 +3117,37 @@ func NewWithRootConstraints(
 			Selected:        []string{"workspace"},
 			ActivateCommand: CommandCollectionActivate,
 			ExpandCommand:   CommandCollectionExpand,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionTable, err := transaction.NewTable(
+		collectionTablePanel,
+		expletives.TableOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{
+					PanelOptions: expletives.PanelOptions{
+						AutomationKey: "collections.table",
+						Style:         "table",
+					},
+					ChangeCommand: CommandCollectionChanged,
+				},
+				BorderStyle:   "table.border",
+				BorderForm:    expletives.BorderNone,
+				HorizontalBar: expletives.ScrollBarVisibilityAuto,
+				VerticalBar:   expletives.ScrollBarVisibilityAuto,
+			},
+			Columns:          collectionTableColumns(),
+			Rows:             collectionTableRows(),
+			CurrentRow:       "core",
+			CurrentColumn:    "name",
+			Selected:         []string{"core"},
+			SelectionMode:    expletives.CollectionSelectionMultiple,
+			RequireSelection: true,
+			FocusMode:        expletives.TableFocusCell,
+			ActivateCommand:  CommandCollectionActivate,
+			SortCommand:      CommandCollectionSort,
 		},
 	)
 	if err != nil {
@@ -3147,6 +3265,7 @@ func NewWithRootConstraints(
 	for _, control := range []expletives.Control{
 		collectionList,
 		collectionTree,
+		collectionTable,
 		collectionDropDown,
 		collectionCombo,
 	} {
@@ -3361,16 +3480,50 @@ func NewWithRootConstraints(
 		return nil, err
 	}
 	if err := collectionListLayout.AddPanel(
-		collectionList,
+		collectionListPanel,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
 	}
 	if err := collectionListLayout.AddPanel(
-		collectionTree,
+		collectionTreePanel,
 		expletives.LayoutItemOptions{Grow: 1},
 	); err != nil {
 		return nil, err
+	}
+	if err := collectionListLayout.AddPanel(
+		collectionTablePanel,
+		expletives.LayoutItemOptions{Grow: 2},
+	); err != nil {
+		return nil, err
+	}
+	for _, entry := range []struct {
+		key     string
+		owner   expletives.Container
+		control expletives.Control
+	}{
+		{"list", collectionListPanel, collectionList},
+		{"tree", collectionTreePanel, collectionTree},
+		{"table", collectionTablePanel, collectionTable},
+	} {
+		layout, layoutErr := expletives.NewBoxLayout(
+			expletives.Vertical,
+			expletives.BoxLayoutOptions{
+				AutomationKey: "layout.collections." + entry.key + ".control",
+			},
+		)
+		if layoutErr != nil {
+			return nil, layoutErr
+		}
+		if err := layout.AddPanel(
+			entry.control,
+			expletives.LayoutItemOptions{Grow: 1},
+		); err != nil {
+			return nil, err
+		}
+		if err := transaction.SetLayout(entry.owner, layout); err != nil {
+			return nil, err
+		}
 	}
 	collectionChoiceLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
@@ -4483,6 +4636,7 @@ func NewWithRootConstraints(
 		streamView:              streamView,
 		collectionList:          collectionList,
 		collectionTree:          collectionTree,
+		collectionTable:         collectionTable,
 		collectionDropDown:      collectionDropDown,
 		collectionCombo:         collectionCombo,
 		activeScreen:            CommandViewHome,
@@ -4740,6 +4894,11 @@ func initialCommandDefinitions(
 		{
 			ID: CommandCollectionExpand, Label: "Expand Collection Branch",
 			Description: "Report a user-originated tree expansion change",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandCollectionSort, Label: "Sort Table Column",
+			Description: "Report a user-originated table sort change",
 			Enabled:     true, Automation: true,
 		},
 		unavailableCatalogDefinition(
@@ -5417,6 +5576,7 @@ func (s *Scene) handleCommand(
 		resetSequence := s.App.Snapshot().Sequence
 		collectionListState := s.collectionList.State()
 		collectionTreeState := s.collectionTree.State()
+		collectionTableState := s.collectionTable.State()
 		changed := s.toggled || s.progressTick != 0 || s.progressReduced ||
 			s.contentTick != 0 ||
 			collectionListState.Current != "alpha" ||
@@ -5427,6 +5587,12 @@ func (s *Scene) handleCommand(
 			collectionTreeState.Selected[0] != "workspace" ||
 			len(collectionTreeState.Expanded) != 1 ||
 			collectionTreeState.Expanded[0] != "workspace" ||
+			collectionTableState.CurrentRow != "core" ||
+			collectionTableState.CurrentColumn != "name" ||
+			len(collectionTableState.Selected) != 1 ||
+			collectionTableState.Selected[0] != "core" ||
+			collectionTableState.SortColumn != "" ||
+			collectionTableState.SortDirection != expletives.SortNone ||
 			s.collectionDropDown.State().Selected != "medium" ||
 			s.collectionCombo.State().Selected != "alpha" ||
 			s.collectionCombo.Text() != "Alpha" ||
@@ -5606,6 +5772,18 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.ReplaceTable(
+			s.collectionTable,
+			collectionTableColumns(),
+			collectionTableRows(),
+			"core",
+			"name",
+			[]string{"core"},
+			"",
+			expletives.SortNone,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.SetDropDownSelection(
 			s.collectionDropDown,
 			"medium",
@@ -5722,7 +5900,7 @@ func (s *Scene) handleCommand(
 	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged,
 		CommandNavigationChanged, CommandContentChanged,
 		CommandCollectionChanged, CommandCollectionActivate,
-		CommandCollectionExpand:
+		CommandCollectionExpand, CommandCollectionSort:
 		return expletives.OutcomeApplied, nil
 	case CommandPanelRaise:
 		return s.showAndMutateLocked(
@@ -6470,7 +6648,12 @@ func SelfCheck() error {
 		"content.group.stream-drops",
 		"content.stream-drops",
 		"collections.group.list",
+		"collections.panel.list",
+		"collections.panel.tree",
+		"collections.panel.table",
 		"collections.list",
+		"collections.tree",
+		"collections.table",
 		"collections.group.popup",
 		"collections.drop-down",
 		"collections.combo",
@@ -7261,6 +7444,7 @@ func SelfCheck() error {
 	}
 	listDetails := controls["collections.list"].Details.ListBox
 	treeDetails := controls["collections.tree"].Details.TreeView
+	tableDetails := controls["collections.table"].Details.Table
 	dropDownDetails := controls["collections.drop-down"].Details.DropDown
 	comboDetails := controls["collections.combo"].Details.ComboBox
 	disabledDropDown :=
@@ -7272,6 +7456,10 @@ func SelfCheck() error {
 		treeDetails == nil || treeDetails.NodeCount != 7 ||
 		treeDetails.VisibleCount != 4 || treeDetails.Current != "workspace" ||
 		treeDetails.SelectedCount != 1 || treeDetails.ExpandedCount != 1 ||
+		tableDetails == nil || tableDetails.RowCount != 4 ||
+		tableDetails.ColumnCount != 3 || tableDetails.CellCount != 11 ||
+		tableDetails.CurrentRow != "core" || tableDetails.CurrentColumn != "name" ||
+		tableDetails.SelectedCount != 1 || tableDetails.SortDirection != expletives.SortNone ||
 		dropDownDetails == nil || dropDownDetails.Selected != "medium" ||
 		comboDetails == nil || comboDetails.Popup.Selected != "alpha" ||
 		comboDetails.Editor.Text != "Alpha" ||
@@ -7336,6 +7524,37 @@ func SelfCheck() error {
 		len(state.Selected) != 2 || state.Selected[1] != "core" ||
 		len(state.Expanded) != 2 || state.Expanded[1] != "source" {
 		return fmt.Errorf("TreeView interactive State = %+v", state)
+	}
+	if err := scene.collectionTable.Focus(); err != nil {
+		return fmt.Errorf("Table focus: %w", err)
+	}
+	for _, input := range []struct {
+		request string
+		key     expletives.Key
+		command expletives.CommandID
+	}{
+		{"collection-table-column", expletives.KeyRight, ""},
+		{"collection-table-row", expletives.KeyDown, ""},
+		{"collection-table-select", expletives.KeySpace, CommandCollectionChanged},
+		{"collection-table-column-back", expletives.KeyLeft, ""},
+		{"collection-table-sort", expletives.Key("s"), CommandCollectionSort},
+	} {
+		completion, inputErr := pressCollectionKey(input.request, input.key)
+		if inputErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+			completion.Command != input.command {
+			return fmt.Errorf(
+				"Table %s dispatch = %+v, %v",
+				input.request,
+				completion,
+				inputErr,
+			)
+		}
+	}
+	if state := scene.collectionTable.State(); state.CurrentRow != "terminal" ||
+		state.CurrentColumn != "name" || len(state.Selected) != 2 ||
+		state.Selected[0] != "core" || state.Selected[1] != "terminal" ||
+		state.SortColumn != "name" || state.SortDirection != expletives.SortAscending {
+		return fmt.Errorf("Table interactive State = %+v", state)
 	}
 	if err := scene.collectionDropDown.Focus(); err != nil {
 		return fmt.Errorf("DropDown focus: %w", err)
@@ -7405,6 +7624,10 @@ func SelfCheck() error {
 		scene.collectionTree.State().Current != "workspace" ||
 		len(scene.collectionTree.State().Selected) != 1 ||
 		len(scene.collectionTree.State().Expanded) != 1 ||
+		scene.collectionTable.State().CurrentRow != "core" ||
+		scene.collectionTable.State().CurrentColumn != "name" ||
+		len(scene.collectionTable.State().Selected) != 1 ||
+		scene.collectionTable.State().SortDirection != expletives.SortNone ||
 		scene.collectionDropDown.State().Selected != "medium" ||
 		scene.collectionCombo.State().Selected != "alpha" ||
 		scene.collectionCombo.Text() != "Alpha" {

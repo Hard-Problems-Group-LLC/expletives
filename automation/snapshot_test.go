@@ -1042,6 +1042,82 @@ func TestSnapshotProjectsTreeViewDetailsAndCopiesViewport(t *testing.T) {
 	}
 }
 
+func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 44, Height: 12},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = expletives.NewTable(app.Root(), expletives.TableOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{
+				PanelOptions: expletives.PanelOptions{
+					AutomationKey: "table",
+					Bounds:        expletives.Rect{Width: 32, Height: 7},
+				},
+			},
+			BorderForm: expletives.BorderSingle,
+		},
+		Columns: []expletives.Column{
+			{Key: "name", Header: "Name", Grow: 1, Sortable: true},
+			{Key: "state", Header: "State", Width: 8},
+		},
+		Rows: []expletives.TableRow{
+			{Key: "two", Cells: []expletives.TableCell{{Column: "name", Text: "Two"}, {Column: "state", Text: "Ready"}}},
+			{Key: "one", Cells: []expletives.TableCell{{Column: "name", Text: "One"}, {Column: "state", Text: "Ready"}}},
+		},
+		CurrentRow: "two", CurrentColumn: "name",
+		FocusMode:     expletives.TableFocusCell,
+		SelectionMode: expletives.CollectionSelectionMultiple,
+		Selected:      []string{"one", "two"},
+		SortColumn:    "name", SortDirection: expletives.SortAscending,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *TableDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "table" {
+			details = projected.Controls[index].Details.Table
+			break
+		}
+	}
+	if details == nil || details.Status != "ready" ||
+		details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
+		details.RowCount != 2 || details.EnabledCount != 2 ||
+		details.ColumnCount != 2 || details.CellCount != 4 || details.RetainedBytes <= 0 ||
+		details.CurrentRow != "two" || details.CurrentRowIndex != 1 ||
+		details.CurrentColumn != "name" || details.CurrentColumnIndex != 0 ||
+		details.FocusMode != "cell" || details.SelectionMode != "multiple" ||
+		details.SelectedCount != 2 || details.FirstSelected != "one" ||
+		details.LastSelected != "two" || details.SortColumn != "name" ||
+		details.SortDirection != "ascending" || len(details.SelectionDigest) != 64 ||
+		len(details.ColumnWidthsDigest) != 64 {
+		t.Fatalf("projected Table details = %#v", details)
+	}
+	cloned := cloneSnapshot(projected)
+	var clonedDetails *TableDetails
+	for index := range cloned.Controls {
+		if cloned.Controls[index].Key == "table" {
+			clonedDetails = cloned.Controls[index].Details.Table
+			break
+		}
+	}
+	if clonedDetails == nil {
+		t.Fatal("clone has no Table details")
+	}
+	clonedDetails.Status = "mutated"
+	if details.Status == "mutated" {
+		t.Fatal("cloneSnapshot exposed TableDetails storage")
+	}
+}
+
 func TestSnapshotProjectsPopupCollectionDetailsAndCopiesState(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

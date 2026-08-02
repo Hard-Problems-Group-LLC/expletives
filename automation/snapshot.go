@@ -204,6 +204,8 @@ type ControlDetails struct {
 	ListBox *ListBoxDetails `json:"list_box,omitempty"`
 	// TreeView is present for TreeView.
 	TreeView *TreeViewDetails `json:"tree_view,omitempty"`
+	// Table is present for Table.
+	Table *TableDetails `json:"table,omitempty"`
 	// DropDown is present for DropDown.
 	DropDown *DropDownDetails `json:"drop_down,omitempty"`
 	// ComboBox is present for ComboBox.
@@ -653,6 +655,41 @@ type TreeViewDetails struct {
 	ChangeCommand       string                 `json:"change_command,omitempty"`
 	ActivateCommand     string                 `json:"activate_command,omitempty"`
 	ExpandCommand       string                 `json:"expand_command,omitempty"`
+	Viewport            ContentViewportDetails `json:"viewport"`
+}
+
+// TableDetails is a compact stable-identity tabular observation that omits
+// the retained column and row models and exact status/reason text.
+type TableDetails struct {
+	Status              string                 `json:"status"`
+	StatusMessageBytes  int                    `json:"status_message_bytes"`
+	StatusMessageDigest string                 `json:"status_message_digest,omitempty"`
+	RowCount            int                    `json:"row_count"`
+	EnabledCount        int                    `json:"enabled_count"`
+	ColumnCount         int                    `json:"column_count"`
+	CellCount           int                    `json:"cell_count"`
+	RetainedBytes       int                    `json:"retained_bytes"`
+	CurrentRow          string                 `json:"current_row,omitempty"`
+	CurrentRowIndex     int                    `json:"current_row_index"`
+	CurrentColumn       string                 `json:"current_column,omitempty"`
+	CurrentColumnIndex  int                    `json:"current_column_index"`
+	FocusMode           string                 `json:"focus_mode"`
+	SelectionMode       string                 `json:"selection_mode"`
+	RequireSelection    bool                   `json:"require_selection"`
+	SelectedCount       int                    `json:"selected_count"`
+	FirstSelected       string                 `json:"first_selected,omitempty"`
+	LastSelected        string                 `json:"last_selected,omitempty"`
+	SelectionDigest     string                 `json:"selection_digest"`
+	SortColumn          string                 `json:"sort_column,omitempty"`
+	SortDirection       string                 `json:"sort_direction"`
+	FirstColumn         string                 `json:"first_column,omitempty"`
+	LastColumn          string                 `json:"last_column,omitempty"`
+	ColumnWidthsDigest  string                 `json:"column_widths_digest"`
+	Enabled             bool                   `json:"enabled"`
+	DisabledReasonBytes int                    `json:"disabled_reason_bytes"`
+	ChangeCommand       string                 `json:"change_command,omitempty"`
+	ActivateCommand     string                 `json:"activate_command,omitempty"`
+	SortCommand         string                 `json:"sort_command,omitempty"`
 	Viewport            ContentViewportDetails `json:"viewport"`
 }
 
@@ -1341,6 +1378,43 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				),
 			}
 		}
+		if details := control.Details.Table; details != nil {
+			statusBytes, statusDigest := compactTextEvidence(details.StatusMessage)
+			projectedControl.Details.Table = &TableDetails{
+				Status:              string(details.Status),
+				StatusMessageBytes:  statusBytes,
+				StatusMessageDigest: statusDigest,
+				RowCount:            details.RowCount,
+				EnabledCount:        details.EnabledCount,
+				ColumnCount:         details.ColumnCount,
+				CellCount:           details.CellCount,
+				RetainedBytes:       details.RetainedBytes,
+				CurrentRow:          details.CurrentRow,
+				CurrentRowIndex:     details.CurrentRowIndex,
+				CurrentColumn:       details.CurrentColumn,
+				CurrentColumnIndex:  details.CurrentColumnIndex,
+				FocusMode:           string(details.FocusMode),
+				SelectionMode:       string(details.SelectionMode),
+				RequireSelection:    details.RequireSelection,
+				SelectedCount:       details.SelectedCount,
+				FirstSelected:       details.FirstSelected,
+				LastSelected:        details.LastSelected,
+				SelectionDigest:     details.SelectionDigest,
+				SortColumn:          details.SortColumn,
+				SortDirection:       string(details.SortDirection),
+				FirstColumn:         details.FirstColumn,
+				LastColumn:          details.LastColumn,
+				ColumnWidthsDigest:  details.ColumnWidthsDigest,
+				Enabled:             details.Enabled,
+				DisabledReasonBytes: len(details.DisabledReason),
+				ChangeCommand:       string(details.ChangeCommand),
+				ActivateCommand:     string(details.ActivateCommand),
+				SortCommand:         string(details.SortCommand),
+				Viewport: contentViewportDetailsFromCore(
+					&details.Viewport,
+				),
+			}
+		}
 		if details := control.Details.DropDown; details != nil {
 			dropDown := dropDownDetailsFromCore(details)
 			projectedControl.Details.DropDown = &dropDown
@@ -1726,6 +1800,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		if snapshot.Controls[index].Details.TreeView != nil {
 			treeView := *snapshot.Controls[index].Details.TreeView
 			cloned.Controls[index].Details.TreeView = &treeView
+		}
+		if snapshot.Controls[index].Details.Table != nil {
+			table := *snapshot.Controls[index].Details.Table
+			cloned.Controls[index].Details.Table = &table
 		}
 		if snapshot.Controls[index].Details.DropDown != nil {
 			dropDown := *snapshot.Controls[index].Details.DropDown

@@ -363,6 +363,8 @@ const (
 	ControlListBox ControlKind = "list_box"
 	// ControlTreeView identifies one bounded stable-identity hierarchy.
 	ControlTreeView ControlKind = "tree_view"
+	// ControlTable identifies one bounded stable-identity read-only table.
+	ControlTable ControlKind = "table"
 	// ControlDropDown identifies one selection-only collapsed popup field.
 	ControlDropDown ControlKind = "drop_down"
 	// ControlComboBox identifies one editable collapsed popup field.
@@ -663,6 +665,8 @@ type ControlDetails struct {
 	ListBox *ListBoxDetails `json:"list_box,omitempty"`
 	// TreeView is present for TreeView.
 	TreeView *TreeViewDetails `json:"tree_view,omitempty"`
+	// Table is present for Table.
+	Table *TableDetails `json:"table,omitempty"`
 	// DropDown is present for DropDown.
 	DropDown *DropDownDetails `json:"drop_down,omitempty"`
 	// ComboBox is present for ComboBox.
@@ -1089,6 +1093,41 @@ type TreeViewDetails struct {
 	Viewport         ScrollableDetails       `json:"viewport"`
 }
 
+// TableDetails describes compact stable-identity tabular state without
+// duplicating the retained column or row model.
+type TableDetails struct {
+	Status             CollectionStatus        `json:"status"`
+	StatusMessage      string                  `json:"status_message,omitempty"`
+	RowCount           int                     `json:"row_count"`
+	EnabledCount       int                     `json:"enabled_count"`
+	ColumnCount        int                     `json:"column_count"`
+	CellCount          int                     `json:"cell_count"`
+	RetainedBytes      int                     `json:"retained_bytes"`
+	CurrentRow         string                  `json:"current_row,omitempty"`
+	CurrentRowIndex    int                     `json:"current_row_index"`
+	CurrentColumn      string                  `json:"current_column,omitempty"`
+	CurrentColumnIndex int                     `json:"current_column_index"`
+	FocusMode          TableFocusMode          `json:"focus_mode"`
+	SelectionMode      CollectionSelectionMode `json:"selection_mode"`
+	RequireSelection   bool                    `json:"require_selection"`
+	SelectedCount      int                     `json:"selected_count"`
+	FirstSelected      string                  `json:"first_selected,omitempty"`
+	LastSelected       string                  `json:"last_selected,omitempty"`
+	SelectionDigest    string                  `json:"selection_digest"`
+	SortColumn         string                  `json:"sort_column,omitempty"`
+	SortDirection      SortDirection           `json:"sort_direction"`
+	FirstColumn        string                  `json:"first_column,omitempty"`
+	LastColumn         string                  `json:"last_column,omitempty"`
+	ColumnWidths       []int                   `json:"column_widths"`
+	ColumnWidthsDigest string                  `json:"column_widths_digest"`
+	Enabled            bool                    `json:"enabled"`
+	DisabledReason     string                  `json:"disabled_reason,omitempty"`
+	ChangeCommand      CommandID               `json:"change_command,omitempty"`
+	ActivateCommand    CommandID               `json:"activate_command,omitempty"`
+	SortCommand        CommandID               `json:"sort_command,omitempty"`
+	Viewport           ScrollableDetails       `json:"viewport"`
+}
+
 // DropDownDetails describes one collapsed field and its optional transient
 // popup without duplicating the retained item model.
 type DropDownDetails struct {
@@ -1465,6 +1504,19 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 				treeView.Viewport.VerticalBar = &bar
 			}
 			cloned.Controls[index].Details.TreeView = &treeView
+		}
+		if snapshot.Controls[index].Details.Table != nil {
+			table := *snapshot.Controls[index].Details.Table
+			table.ColumnWidths = append([]int(nil), table.ColumnWidths...)
+			if table.Viewport.HorizontalBar != nil {
+				bar := *table.Viewport.HorizontalBar
+				table.Viewport.HorizontalBar = &bar
+			}
+			if table.Viewport.VerticalBar != nil {
+				bar := *table.Viewport.VerticalBar
+				table.Viewport.VerticalBar = &bar
+			}
+			cloned.Controls[index].Details.Table = &table
 		}
 		if snapshot.Controls[index].Details.DropDown != nil {
 			dropDown := *snapshot.Controls[index].Details.DropDown

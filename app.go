@@ -505,6 +505,9 @@ func (a *App) paintControlLocked(
 	case treeViewBehavior:
 		treeView := treeViewDetails(bounds, behavior)
 		details.TreeView = &treeView
+	case tableBehavior:
+		table := tableDetails(bounds, behavior)
+		details.Table = &table
 	case dropDownBehavior:
 		dropDown := a.popupDetailsLocked(state, behavior.popup)
 		details.DropDown = &dropDown

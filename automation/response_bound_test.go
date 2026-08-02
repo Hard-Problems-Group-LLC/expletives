@@ -1682,6 +1682,84 @@ func TestSnapshotRejectsInvalidTreeViewDetails(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsInvalidTableDetails(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	valid := func() SnapshotV1 {
+		app, err := expletives.NewApp(expletives.AppOptions{
+			Size: expletives.Size{Width: 36, Height: 10},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = expletives.NewTable(app.Root(), expletives.TableOptions{
+			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+				ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+					AutomationKey: "table", Bounds: expletives.Rect{Width: 28, Height: 6},
+				}},
+				BorderForm: expletives.BorderSingle,
+			},
+			Columns: []expletives.Column{
+				{Key: "name", Header: "Name", Sortable: true},
+				{Key: "state", Header: "State"},
+			},
+			Rows: []expletives.TableRow{
+				{Key: "one", Cells: []expletives.TableCell{{Column: "name", Text: "One"}}},
+				{Key: "two", Cells: []expletives.TableCell{{Column: "name", Text: "Two"}}},
+			},
+			SelectionMode: expletives.CollectionSelectionMultiple,
+			Selected:      []string{"one", "two"}, RequireSelection: true,
+			FocusMode: expletives.TableFocusCell,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshotFromCore(app.Snapshot())
+	}
+	find := func(snapshot *SnapshotV1) *ControlSnapshot {
+		for index := range snapshot.Controls {
+			if snapshot.Controls[index].Key == "table" {
+				return &snapshot.Controls[index]
+			}
+		}
+		t.Fatal("fixture has no Table details")
+		return nil
+	}
+	snapshot := valid()
+	if err := validateSnapshot(&snapshot, limits); err != nil {
+		t.Fatalf("valid Table fixture rejected: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*ControlSnapshot)
+	}{
+		{"status", func(control *ControlSnapshot) { control.Details.Table.Status = "unknown" }},
+		{"row count", func(control *ControlSnapshot) { control.Details.Table.RowCount = expletives.MaxCollectionItems + 1 }},
+		{"column count", func(control *ControlSnapshot) {
+			control.Details.Table.ColumnCount = expletives.MaxCollectionColumns + 1
+		}},
+		{"cell count", func(control *ControlSnapshot) { control.Details.Table.CellCount = expletives.MaxCollectionCells + 1 }},
+		{"current row", func(control *ControlSnapshot) { control.Details.Table.CurrentRowIndex = 2 }},
+		{"current column", func(control *ControlSnapshot) { control.Details.Table.CurrentColumnIndex = 2 }},
+		{"focus mode", func(control *ControlSnapshot) { control.Details.Table.FocusMode = "header" }},
+		{"selection digest", func(control *ControlSnapshot) { control.Details.Table.SelectionDigest = strings.Repeat("G", 64) }},
+		{"width digest", func(control *ControlSnapshot) { control.Details.Table.ColumnWidthsDigest = strings.Repeat("G", 64) }},
+		{"sort implication", func(control *ControlSnapshot) { control.Details.Table.SortColumn = "name" }},
+		{"viewport state", func(control *ControlSnapshot) { control.Details.Table.Viewport.State.ContentSize.Height++ }},
+		{"invalid command", func(control *ControlSnapshot) { control.Details.Table.SortCommand = "bad command" }},
+		{"detail union", func(control *ControlSnapshot) { control.Details.TreeView = &TreeViewDetails{} }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := valid()
+			test.mutate(find(&snapshot))
+			if err := validateSnapshot(&snapshot, limits); err == nil {
+				t.Fatal("validateSnapshot() accepted invalid Table details")
+			}
+		})
+	}
+}
+
 func TestSnapshotRejectsInvalidPopupCollectionDetails(t *testing.T) {
 	t.Parallel()
 	limits := DefaultLimits()
@@ -2907,6 +2985,46 @@ func maximumCompletionJSONBytes(
 			Viewport:            markdownViewport,
 		},
 	}
+	tableControl := controlValue
+	tableControl.Details = ControlDetails{
+		Version: 1,
+		Border: &BorderDetails{
+			Form:          "single",
+			Style:         StyleID(controlValue.ID),
+			ResolvedStyle: controlValue.ResolvedStyle,
+		},
+		Table: &TableDetails{
+			Status:              "error",
+			StatusMessageBytes:  math.MaxInt,
+			StatusMessageDigest: strings.Repeat("f", sha256HexBytes),
+			RowCount:            math.MaxInt,
+			EnabledCount:        math.MaxInt,
+			ColumnCount:         math.MaxInt,
+			CellCount:           math.MaxInt,
+			RetainedBytes:       math.MaxInt,
+			CurrentRow:          string(controlValue.ID),
+			CurrentRowIndex:     math.MaxInt,
+			CurrentColumn:       string(controlValue.ID),
+			CurrentColumnIndex:  math.MaxInt,
+			FocusMode:           "cell",
+			SelectionMode:       "multiple",
+			RequireSelection:    true,
+			SelectedCount:       math.MaxInt,
+			FirstSelected:       string(controlValue.ID),
+			LastSelected:        string(controlValue.ID),
+			SelectionDigest:     strings.Repeat("f", sha256HexBytes),
+			SortColumn:          string(controlValue.ID),
+			SortDirection:       "descending",
+			FirstColumn:         string(controlValue.ID),
+			LastColumn:          string(controlValue.ID),
+			ColumnWidthsDigest:  strings.Repeat("f", sha256HexBytes),
+			DisabledReasonBytes: math.MaxInt,
+			ChangeCommand:       string(controlValue.ID),
+			ActivateCommand:     string(controlValue.ID),
+			SortCommand:         string(controlValue.ID),
+			Viewport:            markdownViewport,
+		},
+	}
 	comboBoxControl := controlValue
 	comboBoxControl.Details = ControlDetails{
 		Version: 1,
@@ -2946,6 +3064,7 @@ func maximumCompletionJSONBytes(
 		mustMarshal(t, streamControl),
 		mustMarshal(t, listBoxControl),
 		mustMarshal(t, treeViewControl),
+		mustMarshal(t, tableControl),
 		mustMarshal(t, comboBoxControl),
 	} {
 		if len(candidate) > len(control) {

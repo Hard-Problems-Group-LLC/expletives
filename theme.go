@@ -121,6 +121,7 @@ func DefaultTheme() Theme {
 		"stream_view":       resolved,
 		"list_box":          menuNormal,
 		"tree_view":         menuNormal,
+		"table":             menuNormal,
 		"drop_down":         inputNormal,
 		"combo_box":         inputNormal,
 		"drop_down.focused": menuSelected,
@@ -144,6 +145,18 @@ func DefaultTheme() Theme {
 		"stream_view.border":      resolved,
 		"list_box.border":         menuNormal,
 		"tree_view.border":        menuNormal,
+		"table.border":            menuNormal,
+		"table.header":            menuNormal,
+		"table.header_current":    menuSelected,
+		"table.sort": {
+			Foreground: RGB(0xAA, 0x00, 0x00),
+			Background: menuNormal.Background,
+		},
+		"table.cell_current": menuSelected,
+		"table.row_selected": {
+			Foreground: white,
+			Background: RGB(0x00, 0x00, 0xAA),
+		},
 		"tree.guide": {
 			Foreground: RGB(0x80, 0x80, 0x80),
 			Background: menuNormal.Background,

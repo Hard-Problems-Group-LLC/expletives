@@ -478,25 +478,141 @@ const (
     SortAscending  SortDirection = "ascending"
     SortDescending SortDirection = "descending"
 )
+
+type TableOptions struct {
+    ScrollablePanelOptions
+    Columns          []Column
+    Rows             []TableRow
+    CurrentRow       string
+    CurrentColumn    string
+    Selected         []string
+    SelectionMode    CollectionSelectionMode
+    RequireSelection bool
+    FocusMode        TableFocusMode
+    SortColumn       string
+    SortDirection    SortDirection
+    Status           CollectionStatus
+    StatusMessage    string
+    ActivateCommand  CommandID
+    SortCommand      CommandID
+}
+
+type TableState struct {
+    Status             CollectionStatus
+    StatusMessage      string
+    CurrentRow         string
+    CurrentRowIndex    int
+    CurrentColumn      string
+    CurrentColumnIndex int
+    Selected           []string
+    FocusMode          TableFocusMode
+    SortColumn         string
+    SortDirection      SortDirection
+    Offset              Point
+    RowCount            int
+    EnabledCount        int
+    ColumnCount         int
+    CellCount           int
+    ColumnWidths        []int
+}
+
+type Table struct { /* copy-safe Panel-derived leaf */ }
+
+func NewTable(Container, TableOptions) (*Table, error)
+func (t *Transaction) NewTable(Container, TableOptions) (*Table, error)
+func (t *Table) Columns() []Column
+func (t *Table) Rows() []TableRow
+func (t *Table) State() TableState
+func (t *Table) SetRows([]TableRow) error
+func (t *Table) SetModel([]Column, []TableRow) error
+func (t *Table) Replace(
+    []Column,
+    []TableRow,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
+func (t *Table) SetCurrent(row string, column string) error
+func (t *Table) SetSelection([]string) error
+func (t *Table) SetSort(string, SortDirection) error
+func (t *Table) SetStatus(CollectionStatus, string) error
+func (t *Table) Focus() error
+func (t *Table) Activate(
+    context.Context,
+    source string,
+    requestID string,
+) (Completion, error)
+
+func (t *Transaction) SetTableRows(*Table, []TableRow) error
+func (t *Transaction) SetTableModel(
+    *Table,
+    []Column,
+    []TableRow,
+) error
+func (t *Transaction) ReplaceTable(
+    *Table,
+    []Column,
+    []TableRow,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
+func (t *Transaction) SetTableCurrent(*Table, string, string) error
+func (t *Transaction) SetTableSelection(*Table, []string) error
+func (t *Transaction) SetTableSort(*Table, string, SortDirection) error
+func (t *Transaction) SetTableStatus(
+    *Table,
+    CollectionStatus,
+    string,
+) error
 ```
 
 Column and row keys are unique. Each row contains at most one cell for a
 known column; omitted cells are empty. The App-wide cell count is bounded by
 `MaxCollectionCells`. Zero column width measures the maximum header/cell
 width; explicit minimum/maximum constraints clamp it; positive Grow values
-share spare viewport width. Text does not wrap in v0. The header is always
-one sticky row and never participates in vertical scrolling.
+share spare viewport width in stable column order. Text does not wrap in v0.
+The header is always one sticky row and never participates in vertical
+scrolling. A column validator requires `Editable`; hard validation rejects
+incompatible copied model cells now so the same schema remains valid when the
+later DataGrid editor uses it. Table itself never enters edit mode.
 
 Table supports row or cell current focus, stable row selection, and optional
 single-column stable sorting. Sorting is stable and compares normalized cell
 sequences, then preserves original model order for equal values. Activating a
-sortable header cycles none → ascending → descending → none. Programmatic
-replacement never silently reorders the caller's canonical model; display
-order is derived and observable.
+sortable current column with `S` cycles none → ascending → descending → none.
+`SortCommand` is routed only after a real user sort change. Programmatic
+`SetSort`, model replacement, and Transactions are silent. Programmatic
+replacement never reorders the caller's canonical model; `Rows` always
+returns canonical model order while current indices, selection order, the
+frame, and automation reflect derived display order.
 
 Up/Down/Page/Home/End move rows. In cell mode Left/Right move columns; in row
 mode they scroll horizontally. Space changes row selection. Enter activates
-the current row/cell. Ctrl-Home and Ctrl-End move to the first and last cell.
+the current row/cell. Ctrl-Home and Ctrl-End move to the first and last
+enabled row and boundary column. Disabled rows remain visible but cannot be
+current, selected, or activated. Tab and Shift-Tab leave the complete Table
+as one focus group.
+
+`SetRows` preserves surviving row current and selection, the current column,
+and sort. `SetModel` additionally preserves a surviving current column and
+sortable sort column; otherwise it repairs to the first column and clears
+sort. `Replace` supplies the exact copied schema, canonical rows, current
+coordinate, selection, and sort. Current-row repair starts at the former
+displayed index under the resulting sort, then scans forward and backward.
+
+Core typed details expose exact bounded status text and derived column widths.
+Automation omits the retained columns, rows, cells, validators, and exact
+status/disabled-reason text. It reports row/column/cell/enabled counts,
+retained bytes, current stable row/column and indices, selection endpoints
+and digest, sort state, column endpoints and a digest of all derived widths,
+optional commands, and the compact viewport. The intended frame supplies
+exact visible headers, cells, markers, styles, clipping, and sticky-header
+evidence.
 
 ## DataGrid
 

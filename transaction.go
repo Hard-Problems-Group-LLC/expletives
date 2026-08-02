@@ -66,6 +66,7 @@ const (
 	mutationLogView
 	mutationListBox
 	mutationTreeView
+	mutationTable
 	mutationPopupCollection
 )
 
@@ -429,7 +430,7 @@ func (t *Transaction) SetFocus(control Control) error {
 		ControlScrollBar, ControlTabbedPanel, ControlNotebook,
 		ControlViewport, ControlScrollablePanel, ControlMarkdownView,
 		ControlLogView, ControlStreamView, ControlListBox,
-		ControlTreeView,
+		ControlTreeView, ControlTable,
 		ControlDropDown, ControlComboBox:
 	default:
 		return ErrNotFocusable
@@ -759,7 +760,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationTreeView, mutationPopupCollection:
+			mutationListBox, mutationTreeView, mutationTable, mutationPopupCollection:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -916,7 +917,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationTreeView, mutationPopupCollection,
+			mutationListBox, mutationTreeView, mutationTable, mutationPopupCollection,
 			mutationStatusSegments,
 			mutationCheckState, mutationRadioValue,
 			mutationChoiceValue, mutationChoiceOptions:
@@ -999,6 +1000,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 	textInputBytes := 0
 	contentBytes := 0
 	collectionBytes := 0
+	collectionCells := 0
 	menuBars := 0
 	statusBars := 0
 	mnemonics := make(map[Key]*controlState)
@@ -1384,6 +1386,34 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 					}
 				}
 			}
+		case tableBehavior:
+			collectionBytes += tableStorageBytes(behavior)
+			collectionCells += tableCellCount(behavior.rows)
+			if err := validateChangeCommand(
+				behavior.changeCommand,
+				requireCommand,
+				"Table",
+			); err != nil {
+				return err
+			}
+			for _, command := range []struct {
+				id   CommandID
+				role string
+			}{
+				{id: behavior.activateCommand, role: "activation"},
+				{id: behavior.sortCommand, role: "sort"},
+			} {
+				if command.id != "" && requireCommand {
+					if _, exists := t.app.commands[command.id]; !exists {
+						return fmt.Errorf(
+							"%w: Table %s command %q is not registered",
+							ErrInvalidControl,
+							command.role,
+							command.id,
+						)
+					}
+				}
+			}
 		case dropDownBehavior:
 			collectionBytes += popupCollectionStorageBytes(behavior.popup)
 			if err := validatePopupCollectionCommands(
@@ -1468,6 +1498,13 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			"%w: aggregate collection data exceeds %d bytes",
 			ErrControlCapacity,
 			MaxCollectionAggregateBytes,
+		)
+	}
+	if collectionCells > MaxCollectionCells {
+		return fmt.Errorf(
+			"%w: aggregate table data exceeds %d cells",
+			ErrControlCapacity,
+			MaxCollectionCells,
 		)
 	}
 	if err := ctx.Err(); err != nil {
@@ -1633,7 +1670,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationTreeView, mutationPopupCollection:
+			mutationListBox, mutationTreeView, mutationTable, mutationPopupCollection:
 			if !controlBehaviorEqual(
 				mutation.state.behavior,
 				mutation.behavior,

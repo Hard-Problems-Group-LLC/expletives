@@ -731,6 +731,12 @@ func (a *App) DispatchKey(
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.treeViewKeyLocked(a.focus, event.Key)
 			}
+			controlOnly := held[KeyControl] && !held[KeyAlt] &&
+				!held[KeyMeta] && !held[KeyShift]
+			if (noHeldModifiers(held) || controlOnly) && !scrollHandled {
+				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
+					a.tableKeyLocked(a.focus, event.Key, controlOnly)
+			}
 			if noHeldModifiers(held) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
 					a.logViewKeyLocked(a.focus, event.Key)

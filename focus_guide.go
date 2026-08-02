@@ -176,6 +176,8 @@ func genericFocusGuidance(kind ControlKind) string {
 		return "List: arrows move current; Space selects; Enter activates; Tab leaves"
 	case ControlTreeView:
 		return "Tree: arrows navigate; Space selects; Enter activates; +, -, * expand"
+	case ControlTable:
+		return "Table: arrows navigate; Space selects; Enter activates; S sorts column"
 	case ControlDropDown:
 		return "Drop-down: Space, Enter, F4, or Alt-Down opens; Escape cancels"
 	case ControlComboBox:

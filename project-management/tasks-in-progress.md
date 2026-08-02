@@ -18,12 +18,10 @@ owner, known blockers, and brief status notes.
   - Dependencies: completed Phase 15 content viewport and scrolling,
     Selection, Actions, Menus, grouped focus, Layouts, and automation.
   - Blockers: none.
-  - Status: shared contracts are fixed. ListBox, DropDown, and ComboBox now
-    have stable-key repair, keyboard-complete selection/editing, transient
-    popup ownership, compact typed automation, catalog/self-check coverage,
-    full ordinary/race verification, debug builds, live attached evidence, and
-    pushed ACPs. TreeView now has its copied flat preorder model, stable
-    expansion/current/selection repair, keyboard behavior, compact typed
-    automation, catalog fixture, full ordinary/race/static/self-check gates,
-    and live raw-key/frame evidence. ACP is the remaining checkpoint before
-    Table.
+  - Status: ListBox, DropDown/ComboBox, and TreeView are verified pushed ACPs
+    through `cf8fd19`. Table now has its copied canonical column/row model,
+    stable row/cell current and selection, derived stable sorting, sticky
+    header, keyboard behavior, compact typed automation, catalog fixture,
+    documentation, focused tests, static analysis, all build modes, and
+    self-check. Full ordinary/race and live raw-key/frame verification passed;
+    the Table ACP is the remaining checkpoint before the DataGrid slice.

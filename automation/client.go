@@ -736,6 +736,7 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 	textInputBytes := 0
 	contentBytes := 0
 	collectionBytes := 0
+	collectionCells := 0
 	controlsByID := make(map[ControlID]*ControlSnapshot, len(snapshot.Controls))
 	for _, control := range snapshot.Controls {
 		if !validIdentifier(string(control.ID), limits.IdentifierBytes) ||
@@ -916,6 +917,22 @@ func validateSnapshot(snapshot *SnapshotV1, limits Limits) error {
 				)
 			}
 			collectionBytes += retained
+		}
+		if control.Details.Table != nil {
+			retained := control.Details.Table.RetainedBytes
+			if retained > expletives.MaxCollectionAggregateBytes-collectionBytes {
+				return errors.New(
+					"snapshot collection data exceeds advertised aggregate bound",
+				)
+			}
+			collectionBytes += retained
+			if control.Details.Table.CellCount >
+				expletives.MaxCollectionCells-collectionCells {
+				return errors.New(
+					"snapshot table cells exceed advertised aggregate bound",
+				)
+			}
+			collectionCells += control.Details.Table.CellCount
 		}
 		if control.Details.DropDown != nil {
 			retained := control.Details.DropDown.RetainedBytes
@@ -1171,6 +1188,9 @@ func validControlDetails(
 		specialMembers++
 	}
 	if details.TreeView != nil {
+		specialMembers++
+	}
+	if details.Table != nil {
 		specialMembers++
 	}
 	if details.DropDown != nil {
@@ -1531,6 +1551,23 @@ func validControlDetails(
 				controlHeight,
 				limits,
 			)
+	case "table":
+		return specialMembers == 1 &&
+			details.Container == nil &&
+			validBorderDetails(details.Border, limits) &&
+			details.Text == nil &&
+			details.Divider == nil &&
+			details.Action == nil &&
+			details.HotkeyBar == nil &&
+			details.MenuBar == nil &&
+			details.StatusBar == nil &&
+			validTableDetails(
+				details.Table,
+				details.Border,
+				controlWidth,
+				controlHeight,
+				limits,
+			)
 	case "drop_down":
 		return specialMembers == 1 &&
 			details.Container == nil &&
@@ -1850,6 +1887,110 @@ func validTreeViewDetails(
 	return details.Viewport.State.ContentSize.Width >= 1 &&
 		details.Viewport.State.ContentSize.Width <=
 			expletives.MaxDisplayTextCells+2*expletives.MaxCollectionDepth+12
+}
+
+func validTableDetails(
+	details *TableDetails,
+	border *BorderDetails,
+	controlWidth int,
+	controlHeight int,
+	limits Limits,
+) bool {
+	if details == nil || border == nil || border.Title != "" ||
+		details.RowCount < 0 || details.RowCount > expletives.MaxCollectionItems ||
+		details.EnabledCount < 0 || details.EnabledCount > details.RowCount ||
+		details.ColumnCount < 0 || details.ColumnCount > expletives.MaxCollectionColumns ||
+		details.CellCount < 0 || details.CellCount > expletives.MaxCollectionCells ||
+		details.RetainedBytes < 0 || details.RetainedBytes > expletives.MaxCollectionAggregateBytes ||
+		((details.RowCount > 0 || details.ColumnCount > 0 || details.StatusMessageBytes > 0) && details.RetainedBytes == 0) ||
+		details.SelectedCount < 0 || details.SelectedCount > details.RowCount ||
+		details.DisabledReasonBytes < 0 || details.DisabledReasonBytes > expletives.MaxCommandDescriptionBytes ||
+		(details.Enabled && details.DisabledReasonBytes != 0) ||
+		(!details.Enabled && details.DisabledReasonBytes == 0) ||
+		!validOptionalCommand(details.ChangeCommand, limits) ||
+		!validOptionalCommand(details.ActivateCommand, limits) ||
+		!validOptionalCommand(details.SortCommand, limits) ||
+		!validContentViewportDetails(&details.Viewport, border, controlWidth, controlHeight) {
+		return false
+	}
+	switch details.Status {
+	case "ready":
+		if details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
+			details.Viewport.State.ContentSize.Height != max(2, details.RowCount+1) {
+			return false
+		}
+	case "loading", "error":
+		if details.StatusMessageBytes < 1 || details.StatusMessageBytes > expletives.MaxDisplayTextBytes ||
+			!validLowerSHA256(details.StatusMessageDigest) ||
+			details.Viewport.State.ContentSize.Height != 2 {
+			return false
+		}
+	default:
+		return false
+	}
+	if details.FocusMode != "row" && details.FocusMode != "cell" {
+		return false
+	}
+	if details.SelectionMode != "single" && details.SelectionMode != "multiple" {
+		return false
+	}
+	if details.SelectionMode == "single" && details.SelectedCount > 1 {
+		return false
+	}
+	if details.RequireSelection && details.EnabledCount > 0 && details.SelectedCount == 0 {
+		return false
+	}
+	if details.EnabledCount == 0 {
+		if details.CurrentRow != "" || details.CurrentRowIndex != -1 {
+			return false
+		}
+	} else if !validIdentifier(details.CurrentRow, limits.IdentifierBytes) ||
+		details.CurrentRowIndex < 0 || details.CurrentRowIndex >= details.RowCount {
+		return false
+	}
+	if details.ColumnCount == 0 {
+		if details.CurrentColumn != "" || details.CurrentColumnIndex != -1 ||
+			details.FirstColumn != "" || details.LastColumn != "" {
+			return false
+		}
+	} else if !validIdentifier(details.CurrentColumn, limits.IdentifierBytes) ||
+		details.CurrentColumnIndex < 0 || details.CurrentColumnIndex >= details.ColumnCount ||
+		!validCompactKeyRange(details.ColumnCount, details.FirstColumn, details.LastColumn, limits) {
+		return false
+	}
+	if details.FocusMode == "cell" && details.EnabledCount > 0 && details.ColumnCount == 0 {
+		return false
+	}
+	if !validCompactKeyRange(details.SelectedCount, details.FirstSelected, details.LastSelected, limits) ||
+		!validLowerSHA256(details.SelectionDigest) || !validLowerSHA256(details.ColumnWidthsDigest) {
+		return false
+	}
+	emptyDigest := "e3b0c44298fc1c149afbf4c8996fb924" +
+		"27ae41e4649b934ca495991b7852b855"
+	if (details.SelectedCount == 0 && details.SelectionDigest != emptyDigest) ||
+		(details.ColumnCount == 0 && details.ColumnWidthsDigest != emptyDigest) {
+		return false
+	}
+	switch details.SortDirection {
+	case "none":
+		if details.SortColumn != "" {
+			return false
+		}
+	case "ascending", "descending":
+		if !validIdentifier(details.SortColumn, limits.IdentifierBytes) {
+			return false
+		}
+	default:
+		return false
+	}
+	bodyHeight := max(0, details.Viewport.ViewportBounds.Height-1)
+	if details.Status == "ready" && details.CurrentRowIndex >= 0 && bodyHeight > 0 &&
+		(details.CurrentRowIndex < details.Viewport.State.Offset.Y ||
+			details.CurrentRowIndex >= details.Viewport.State.Offset.Y+bodyHeight) {
+		return false
+	}
+	return details.Viewport.State.ContentSize.Width >= 1 &&
+		details.Viewport.State.ContentSize.Width <= expletives.MaxFrameCells
 }
 
 func validCompactKeyRange(
@@ -2930,7 +3071,7 @@ func validFocusTargetKind(kind ControlKind) bool {
 		"select_field", "text_field", "number_field", "spin_box",
 		"text_area", "menu_bar", "scroll_bar", "tabbed_panel", "notebook",
 		"viewport", "scrollable_panel", "markdown_view", "log_view",
-		"stream_view", "list_box", "tree_view", "drop_down", "combo_box":
+		"stream_view", "list_box", "tree_view", "table", "drop_down", "combo_box":
 		return true
 	default:
 		return false
