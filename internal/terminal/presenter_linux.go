@@ -81,8 +81,12 @@ func Open(input, output *os.File) (*Presenter, error) {
 	if output == nil {
 		return nil, fmt.Errorf("%w: nil output", ErrNotTerminal)
 	}
-	profile, err := DetectProfile(os.Getenv("TERM"))
+	term := os.Getenv("TERM")
+	profile, err := DetectProfile(term)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateInstalledTerminfo(term); err != nil {
 		return nil, err
 	}
 	return openWithGlyphs(

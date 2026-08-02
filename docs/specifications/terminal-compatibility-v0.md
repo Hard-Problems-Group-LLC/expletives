@@ -61,12 +61,21 @@ extension supplies implementation and evidence:
 - terminal queries whose replies could be confused with user input; and
 - arbitrary curses/ncurses ABI or application-window interoperability.
 
-Terminfo is relevant capability evidence, not an automatic source of trust.
-Phase 19 may add a bounded project-owned reader or another explicitly selected
-strategy to validate required capabilities for already supported profiles.
-Missing or contradictory entries must fail closed or retain the narrower
-static profile; they must not silently widen support. Runtime dependence on an
-ambient `infocmp` executable is not part of the product contract.
+Terminfo is corroborating capability evidence, not an automatic source of
+trust. The project-owned reader accepts the ncurses/System V legacy compiled
+magic and the ncurses extended-number magic, reads at most 32 KiB, validates
+every section and string-table offset, and checks only the stable capability
+indices consumed by the static Presenter. It supports directory-tree entries
+from the normal `TERMINFO`, user, `TERMINFO_DIRS`, and system search roots;
+hashed databases are left to the narrower static profile.
+
+A missing entry retains the static profile. A found malformed entry, wrong
+alias, fewer than eight declared colors, or missing clear, absolute cursor,
+cursor visibility, alternate-screen, attribute reset, or ANSI foreground/
+background capabilities fails closed before any terminal mutation. Parsed
+parameter strings are never executed or used for rendering, and the probe
+never executes ambient `infocmp`, `tput`, or ncurses code. Evidence cannot
+silently widen the supported `$TERM` families.
 
 ## Job Control And Signals
 

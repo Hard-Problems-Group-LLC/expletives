@@ -30,6 +30,9 @@ var ErrUnsupportedTerminal = errors.New("unsupported terminal")
 // presenter. It deliberately does not infer capabilities from COLORTERM,
 // emulator names, or other unverified environment values.
 func DetectProfile(term string) (Profile, error) {
+	if !validTerminfoName(term) {
+		return "", fmt.Errorf("%w: TERM=%q", ErrUnsupportedTerminal, term)
+	}
 	switch {
 	case term == "xterm" || strings.HasPrefix(term, "xterm-"):
 		return ProfileXTerm, nil

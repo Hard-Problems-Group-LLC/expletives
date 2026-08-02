@@ -166,7 +166,10 @@ project. It is not a claim of generic ANSI, VT100, curses, ncurses, terminfo,
 or other-platform support.
 
 Before changing terminal state, the adapter verifies terminal descriptors,
-the supported profile, and geometry. It saves the exact termios state, enters
+the supported profile, any available bounded compiled terminfo evidence, and
+geometry. Missing terminfo retains the narrow static profile; found malformed
+or contradictory evidence fails closed without executing its strings or an
+ambient helper. The adapter saves the exact termios state, enters
 noncanonical/no-echo mode while retaining signal generation, enters the
 alternate screen, enables bracketed paste, hides the cursor, and uses one
 owner for input and output. Every catchable exit restores style, cursor,

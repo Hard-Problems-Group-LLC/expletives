@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -438,6 +440,51 @@ func TestLinuxPTYLifecycleRestoresExactTermios(t *testing.T) {
 	}
 	if !reflect.DeepEqual(after, before) {
 		t.Errorf("PTY termios was not restored exactly:\n got: %#v\nwant: %#v", after, before)
+	}
+}
+
+func TestOpenTerminfoContradictionDoesNotMutatePTY(t *testing.T) {
+	master, slave := openTestPTY(t, Geometry{Width: 80, Height: 24})
+	t.Cleanup(func() {
+		_ = master.Close()
+		_ = slave.Close()
+	})
+	root := t.TempDir()
+	directory := filepath.Join(root, "x")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(directory, "xterm-256color"),
+		terminfoFixture(
+			terminfoExtendedNumberMagic,
+			"xterm-256color|fixture",
+			256,
+			map[int]bool{terminfoCursorAddressIndex: true},
+		),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("TERMINFO", root)
+
+	system := linuxSystem{}
+	before, err := system.getTermios(slave.Fd())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Open(slave, slave)
+	if !errors.Is(err, ErrUnsupportedTerminal) ||
+		!strings.Contains(err.Error(), "cursor_address") {
+		t.Fatalf("Open() error = %v", err)
+	}
+	after, err := system.getTermios(slave.Fd())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("contradictory terminfo mutated PTY termios:\n got: %#v\nwant: %#v", after, before)
 	}
 }
 

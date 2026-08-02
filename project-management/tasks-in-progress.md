@@ -15,6 +15,6 @@ owner, known blockers, and brief status notes.
     evidence across the declared terminal matrix.
   - Dependencies: completed Phase 18 interaction/control-state matrix.
   - Blockers: none.
-  - Status: slice 19.0 fixed the compatibility matrix and slice 19.2 wired
-    and verified `SIGTSTP`/`SIGCONT` through the real terminal owner. Slice
-    19.1 capability and terminfo probes is next.
+  - Status: slices 19.0 through 19.2 fixed the compatibility matrix, bounded
+    compiled-terminfo corroboration, and verified `SIGTSTP`/`SIGCONT` terminal
+    ownership. Slice 19.3 failure recovery and load evidence is active.

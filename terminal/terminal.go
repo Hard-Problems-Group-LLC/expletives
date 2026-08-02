@@ -58,9 +58,13 @@ var (
 )
 
 // Open validates and acquires input and output using the current TERM value.
-// The files must remain open for the Presenter lifetime; Open and Close do not
-// transfer or close file ownership. The caller must call Close to restore the
-// acquired terminal state.
+// When a bounded compiled terminfo directory entry is available, Open also
+// requires it to corroborate the capabilities consumed by the already-narrow
+// static profile. Missing terminfo retains that static contract; malformed or
+// contradictory evidence fails closed before terminal mutation. The files
+// must remain open for the Presenter lifetime; Open and Close do not transfer
+// or close file ownership. The caller must call Close to restore the acquired
+// terminal state.
 func Open(input, output *os.File) (*Presenter, error) {
 	return internalterminal.Open(input, output)
 }
