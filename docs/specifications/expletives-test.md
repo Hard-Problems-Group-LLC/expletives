@@ -354,6 +354,9 @@ roots plus an end-aligned Help root.
   Collections currently exercises `collections.list`,
   `collections.drop-down`, `collections.combo`, and an explicitly disabled
   DropDown; later Phase 16 controls join that page as delivered.
+  The ListBox fixture includes an opt-in word-wrapped description whose
+  continuation rows demonstrate hanging indentation without multiplying its
+  logical item count or showing an ordinary-width horizontal scrollbar.
 - Sections owns the independent Status Bar toggle, the Headers lifecycle
   submenu, and the semantic Footer-role visibility submenu.
 - Menus links the Menu overview and reserves Panel-owned and context-menu

@@ -3360,10 +3360,11 @@ func NewWithRootConstraints(
 				{Key: "charlie", Label: "Charlie", Description: "enabled"},
 				{Key: "delta", Label: "Delta", Description: "enabled"},
 				{Key: "echo", Label: "Echo", Description: "enabled"},
-				{Key: "foxtrot", Label: "Foxtrot with a long horizontal label"},
+				{Key: "foxtrot", Label: "Foxtrot", Description: "A long prose description wraps by words and keeps every continuation aligned beneath this description."},
 			},
 			SelectionMode:   expletives.CollectionSelectionMultiple,
 			Selected:        []string{"alpha"},
+			Wrap:            expletives.TextWrapWords,
 			ActivateCommand: CommandCollectionActivate,
 		},
 	)
@@ -8081,6 +8082,9 @@ func SelfCheck() error {
 	if !controls["screen.collections"].Visible ||
 		!controls["collections.list"].Focused ||
 		listDetails == nil || listDetails.ItemCount != 6 ||
+		listDetails.VisualRowCount <= listDetails.ItemCount ||
+		listDetails.Wrap != expletives.TextWrapWords ||
+		listDetails.Viewport.HorizontalVisible ||
 		listDetails.Current != "alpha" || listDetails.SelectedCount != 1 ||
 		treeDetails == nil || treeDetails.NodeCount != 7 ||
 		treeDetails.VisibleCount != 4 || treeDetails.Current != "workspace" ||

@@ -690,6 +690,8 @@ type ListBoxDetails struct {
 	StatusMessageDigest string                 `json:"status_message_digest,omitempty"`
 	ItemCount           int                    `json:"item_count"`
 	EnabledCount        int                    `json:"enabled_count"`
+	VisualRowCount      int                    `json:"visual_row_count"`
+	Wrap                TextWrap               `json:"wrap"`
 	RetainedBytes       int                    `json:"retained_bytes"`
 	Current             string                 `json:"current,omitempty"`
 	CurrentIndex        int                    `json:"current_index"`
@@ -1454,6 +1456,8 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				StatusMessageDigest: statusDigest,
 				ItemCount:           details.ItemCount,
 				EnabledCount:        details.EnabledCount,
+				VisualRowCount:      details.VisualRowCount,
+				Wrap:                TextWrap(details.Wrap),
 				RetainedBytes:       details.RetainedBytes,
 				Current:             details.Current,
 				CurrentIndex:        details.CurrentIndex,

@@ -1162,6 +1162,8 @@ type ListBoxDetails struct {
 	StatusMessage    string                  `json:"status_message,omitempty"`
 	ItemCount        int                     `json:"item_count"`
 	EnabledCount     int                     `json:"enabled_count"`
+	VisualRowCount   int                     `json:"visual_row_count"`
+	Wrap             TextWrap                `json:"wrap"`
 	RetainedBytes    int                     `json:"retained_bytes"`
 	Current          string                  `json:"current,omitempty"`
 	CurrentIndex     int                     `json:"current_index"`

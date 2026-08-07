@@ -607,6 +607,18 @@ ordered backlog and the active-task record; it does not replace either.
   validation/replacement fuzzing and alignment checks, race and sustained-load
   runs, profiling workloads, failure teardown, and the declared real-terminal/
   transport matrix.
+- Consumer-driven Slice 19.5: extend `ListBox` with opt-in word/cell wrapping
+  so one stable logical item may occupy multiple visual rows. Description
+  continuations use a hanging indent, current/selection styling covers the
+  complete logical item, and compact snapshot/automation evidence reports
+  wrap policy and derived visual-row count without retained content.
+  The final candidate completed the full verification gate at
+  2026-08-07T11:43:43-07:00, including compact over-height leading-row
+  behavior. The canonical `feature/listbox-logical-row-wrap` branch repeated
+  that complete gate at 2026-08-07T14:52:28-07:00 and is approved for
+  permanent origin publication plus a non-fast-forward merge into `main`.
+  Consumer pinning must use the resulting immutable revision; no machine-
+  local workspace replacement may become part of a consumer commit.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.

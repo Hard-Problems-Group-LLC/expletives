@@ -1603,6 +1603,12 @@ func TestSnapshotRejectsInvalidListBoxDetails(t *testing.T) {
 		{"enabled count", func(control *ControlSnapshot) {
 			control.Details.ListBox.EnabledCount = 4
 		}},
+		{"visual row count", func(control *ControlSnapshot) {
+			control.Details.ListBox.VisualRowCount = -1
+		}},
+		{"wrap", func(control *ControlSnapshot) {
+			control.Details.ListBox.Wrap = "paragraphs"
+		}},
 		{"retained bytes", func(control *ControlSnapshot) {
 			control.Details.ListBox.RetainedBytes = -1
 		}},

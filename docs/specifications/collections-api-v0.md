@@ -135,6 +135,7 @@ type ListBoxOptions struct {
     RequireSelection  bool
     Status            CollectionStatus
     StatusMessage     string
+    Wrap              TextWrap
     CurrentCommand    CommandID
     ActivateCommand   CommandID
 }
@@ -148,6 +149,8 @@ type ListBoxState struct {
     Offset          Point
     ItemCount       int
     EnabledCount    int
+    VisualRowCount  int
+    Wrap            TextWrap
 }
 
 type ListBox struct { /* copy-safe Panel-derived leaf */ }
@@ -195,13 +198,32 @@ or public `Activate`; activation has precedence over selection, and selection
 has precedence over a coincident current change. Programmatic setters never
 route commands.
 
-One displayed item occupies one row. Up and Down move current by one enabled
-item. Page Up and Page Down move by the current viewport height while landing
-on an enabled item. Home and End move to the first and last enabled item.
+The zero-value `Wrap` normalizes to `TextWrapNone` and preserves one visual row
+per displayed item. `TextWrapWords` and `TextWrapCells` may derive multiple
+visual rows from one logical item without manufacturing keys or multiplying
+item, current, selection, activation, or retention counts. Word wrapping uses
+the same ASCII-space break and canonical one-cell fallback rules as
+`StaticText`. When an item has both label and description, the description's
+continuation rows begin beneath the first description cell. If that natural
+indent would consume the complete narrow viewport, continuation rows degrade
+to the two-cell current-marker indent.
+
+Up and Down move current by one enabled logical item, regardless of its visual
+height. Page Up and Page Down use the visual viewport height while landing on
+an enabled logical item. Home and End move to the first and last enabled item.
 Space selects the current single-mode item or toggles it in multiple mode.
 Enter selects it if needed and activates it. Vertical offset automatically
-keeps current visible; horizontal scrolling remains available for long labels
-and descriptions. Tab and Shift-Tab leave the ListBox focus group.
+keeps the complete current item visible when it fits and at least its leading
+visual row visible otherwise. All visual rows of a current, selected,
+current-selected, or disabled item use the same semantic row style; the
+non-color marker remains on its first visual row.
+
+Wrapped content reflows at settled Panel Client Area width after integrated
+vertical-scrollbar visibility converges. Its derived content width never
+exceeds that viewport, so an `auto` horizontal bar remains absent. An explicit
+`always` policy remains authoritative. Unwrapped content retains horizontal
+scrolling for long labels and descriptions. Tab and Shift-Tab leave the
+ListBox focus group.
 
 ## DropDown And ComboBox
 
@@ -791,7 +813,9 @@ Core details expose exact bounded status text and disabled reason. Automation
 details expose compact evidence instead, so a maximum collection payload
 cannot inflate the retained wire response. ListBox uses message byte counts,
 a SHA-256 status digest, selection cardinality/endpoints/digest, and compact
-viewport state. DropDown uses item/enabled/retained counts, exact bounded
+viewport state. It also exposes the normalized wrap policy and bounded derived
+visual-row count while keeping `ItemCount` logical. DropDown uses
+item/enabled/retained counts, exact bounded
 stable current and selected keys/indices, popup rows/open/bounds/offset and
 provisional identities, enabled policy, disabled-reason byte count, and
 commands. ComboBox combines that popup record with its exact bounded
@@ -823,6 +847,8 @@ Phase 16 is complete when:
   key across insertion, removal, reorder, resize, and model replacement;
 - normal, empty, loading, error, disabled, large, and constrained geometries
   have deterministic typed and frame evidence;
+- wrapped logical rows preserve identity, navigation, hanging indentation,
+  style, resize reflow, and ordinary-width horizontal-bar suppression;
 - keyboard behavior is complete without stealing global Alt chords or Tab
   traversal;
 - popup commit/cancel and DataGrid edit commit/cancel are exact and leave no
