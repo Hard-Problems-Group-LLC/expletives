@@ -979,7 +979,8 @@ the root package's local snapshot. The client checks:
   cumulative line/byte drops, explicit follow state, and exact compact
   content-viewport geometry without complete off-screen stream content;
 - kind-consistent ListBox details with ready/loading/error evidence, bounded
-  item/enabled/retained counts, stable current identity/index, exact selection
+  logical-item/enabled/retained counts, normalized wrapping policy, bounded
+  derived visual-row count, stable current identity/index, exact selection
   cardinality/endpoints/SHA-256 digest, required-selection implications,
   enabled and command policy, and compact viewport geometry without retained
   item labels or status text;

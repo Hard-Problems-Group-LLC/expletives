@@ -25,3 +25,22 @@ owner, known blockers, and brief status notes.
     pass. Actual-operator keyboard/paste/job-control confirmation, GNU Screen,
     and one real remote-transport row remain under `EXPL-REQ-004` before the
     phase-completion ACP.
+  - Consumer repair (started 2026-08-07T11:14:29-07:00): radioradio exposed
+    an ordinary-width horizontal-overflow failure in the single-line
+    `ListBox` row contract. Slice 19.5 adds opt-in word/cell reflow with
+    description-aligned hanging indents while preserving one logical stable
+    item for current, selection, activation, retention, and automation.
+    The local candidate and downstream integration pass the focused tests. At
+    2026-08-07T11:31:14-07:00 the complete Expletives gate also passed vet,
+    ordinary and race suites, headless automation, PTY lifecycle, and debug,
+    release, and profiling builds. A final compact-width correction keeps the
+    leading row of an over-height logical item visible and passed the repeated
+    complete gate at 2026-08-07T11:43:43-07:00. The catalog race test's
+    pre-existing
+    30-second aggregate budget also failed on the unchanged pinned checkout;
+    its two-minute harness budget now accommodates observed 70.25- and
+    95.93-second race runs without changing independent protocol deadlines or
+    assertions.
+    Publication and downstream dependency pinning remain pending explicit
+    authorization; Slice 19.4 terminal-matrix evidence is paused, not
+    discarded.

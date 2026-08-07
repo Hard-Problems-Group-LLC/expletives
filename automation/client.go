@@ -2084,6 +2084,9 @@ func validListBoxDetails(
 		details.ItemCount > expletives.MaxCollectionItems ||
 		details.EnabledCount < 0 ||
 		details.EnabledCount > details.ItemCount ||
+		details.VisualRowCount < 0 ||
+		details.VisualRowCount > expletives.MaxFrameCells ||
+		!validTextWrap(details.Wrap) ||
 		details.RetainedBytes < 0 ||
 		details.RetainedBytes > expletives.MaxCollectionAggregateBytes ||
 		((details.ItemCount > 0 || details.StatusMessageBytes > 0) &&
@@ -2111,13 +2114,18 @@ func validListBoxDetails(
 	switch details.Status {
 	case "ready":
 		if details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
-			details.Viewport.State.ContentSize.Height != max(1, details.ItemCount) {
+			(details.ItemCount == 0 && details.VisualRowCount != 0) ||
+			(details.ItemCount > 0 && details.VisualRowCount < details.ItemCount) ||
+			(details.Wrap == TextWrap(expletives.TextWrapNone) &&
+				details.VisualRowCount != details.ItemCount) ||
+			details.Viewport.State.ContentSize.Height != max(1, details.VisualRowCount) {
 			return false
 		}
 	case "loading", "error":
 		if details.StatusMessageBytes < 1 ||
 			details.StatusMessageBytes > expletives.MaxDisplayTextBytes ||
 			!validLowerSHA256(details.StatusMessageDigest) ||
+			details.VisualRowCount != 0 ||
 			details.Viewport.State.ContentSize.Height != 1 {
 			return false
 		}

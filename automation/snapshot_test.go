@@ -923,12 +923,13 @@ func TestSnapshotProjectsListBoxDetailsAndCopiesViewport(t *testing.T) {
 			VerticalBar: expletives.ScrollBarVisibilityAuto,
 		},
 		Items: []expletives.ListItem{
-			{Key: "one", Label: "One"},
+			{Key: "one", Label: "One", Description: "wrapped prose for evidence"},
 			{Key: "two", Label: "Two"},
 			{Key: "three", Label: "Three"},
 		},
 		SelectionMode: expletives.CollectionSelectionMultiple,
 		Selected:      []string{"one", "three"},
+		Wrap:          expletives.TextWrapWords,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -947,6 +948,8 @@ func TestSnapshotProjectsListBoxDetailsAndCopiesViewport(t *testing.T) {
 	if details == nil || details.Status != "ready" ||
 		details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
 		details.ItemCount != 3 || details.EnabledCount != 3 ||
+		details.VisualRowCount <= details.ItemCount ||
+		details.Wrap != TextWrap(expletives.TextWrapWords) ||
 		details.RetainedBytes <= 0 || details.Current != "one" ||
 		details.CurrentIndex != 0 || details.SelectionMode != "multiple" ||
 		details.SelectedCount != 2 || details.FirstSelected != "one" ||

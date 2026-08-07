@@ -193,6 +193,112 @@ func TestListBoxNavigationSelectionActivationAndCommands(t *testing.T) {
 	}
 }
 
+func TestListBoxWordWrapUsesLogicalRowsAndHangingIndent(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 36, Height: 12})
+	list, err := NewListBox(app.Root(), ListBoxOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "list.wrapped",
+				Bounds:        Rect{X: 1, Y: 1, Width: 24, Height: 8},
+			}},
+			BorderForm: BorderSingle, HorizontalBar: ScrollBarVisibilityAuto,
+			VerticalBar: ScrollBarVisibilityAlways,
+		},
+		Items: []ListItem{
+			{Key: "one", Label: "Meta", Description: "alpha beta gamma delta epsilon"},
+			{Key: "two", Label: "Next", Description: "short"},
+		},
+		SelectionMarks: CollectionSelectionMarksHide,
+		Wrap:           TextWrapWords,
+	})
+	if err != nil {
+		t.Fatalf("NewListBox(wrapped) error = %v", err)
+	}
+	details := listBoxDetailsByKey(t, app, "list.wrapped")
+	if details.ItemCount != 2 || details.VisualRowCount <= details.ItemCount ||
+		details.Wrap != TextWrapWords || details.Viewport.HorizontalVisible ||
+		details.Viewport.HorizontalBar != nil {
+		t.Fatalf("wrapped ListBox details = %#v", details)
+	}
+	state := list.State()
+	if state.ItemCount != 2 || state.VisualRowCount != details.VisualRowCount ||
+		state.Wrap != TextWrapWords || state.Current != "one" {
+		t.Fatalf("wrapped ListBox state = %#v", state)
+	}
+
+	snapshot := app.Snapshot()
+	control := controlByKey(t, snapshot, "list.wrapped")
+	first := rowText(snapshot, control.AbsoluteBounds.Y+1)
+	continuation := rowText(snapshot, control.AbsoluteBounds.Y+2)
+	messageByte := strings.Index(first, "alpha")
+	continuedByte := strings.Index(continuation, "gamma")
+	messageStart := -1
+	continuedStart := -1
+	if messageByte >= 0 {
+		messageStart = utf8.RuneCountInString(first[:messageByte])
+	}
+	if continuedByte >= 0 {
+		continuedStart = utf8.RuneCountInString(continuation[:continuedByte])
+	}
+	if messageStart < 0 || continuedStart != messageStart {
+		t.Fatalf("wrapped rows lack hanging indent: first=%q continuation=%q", first, continuation)
+	}
+	for y := control.AbsoluteBounds.Y + 1; y < control.AbsoluteBounds.Y+1+details.VisualRowCount-1; y++ {
+		if got := cellAt(t, snapshot, control.AbsoluteBounds.X+1, y).Style; got != "collection.current" {
+			t.Fatalf("current logical item continuation at y=%d has style %q", y, got)
+		}
+	}
+
+	dispatchListBoxKey(t, app, "wrapped-down", KeyDown)
+	if got := list.State().Current; got != "two" {
+		t.Fatalf("Down selected visual continuation rather than next logical item: %q", got)
+	}
+	dispatchListBoxKey(t, app, "wrapped-page-up", KeyPageUp)
+	if got := list.State().Current; got != "one" {
+		t.Fatalf("Page Up did not account for wrapped visual rows: %q", got)
+	}
+	if err := list.SetBounds(Rect{X: 1, Y: 1, Width: 34, Height: 8}); err != nil {
+		t.Fatalf("resize wrapped ListBox: %v", err)
+	}
+	wider := listBoxDetailsByKey(t, app, "list.wrapped")
+	if wider.VisualRowCount >= details.VisualRowCount || wider.Current != "one" ||
+		wider.Viewport.HorizontalVisible {
+		t.Fatalf("wider wrapped ListBox did not reflow stably: before=%#v after=%#v", details, wider)
+	}
+	if err := list.SetBounds(Rect{X: 1, Y: 1, Width: 8, Height: 4}); err != nil {
+		t.Fatalf("compact wrapped ListBox: %v", err)
+	}
+	compact := listBoxDetailsByKey(t, app, "list.wrapped")
+	if compact.VisualRowCount <= wider.VisualRowCount ||
+		compact.Viewport.HorizontalVisible || compact.Viewport.State.Offset.Y != 0 {
+		t.Fatalf("compact wrapped ListBox did not retain leading row: %#v", compact)
+	}
+}
+
+func TestListBoxDefaultRemainsOneUnwrappedRowPerItem(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 24, Height: 8})
+	_, err := NewListBox(app.Root(), ListBoxOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "list.unwrapped",
+				Bounds:        Rect{Width: 14, Height: 4},
+			}},
+			BorderForm: BorderSingle, HorizontalBar: ScrollBarVisibilityAuto,
+		},
+		Items: []ListItem{{Key: "one", Label: "Meta", Description: "a deliberately long description"}},
+	})
+	if err != nil {
+		t.Fatalf("NewListBox(unwrapped) error = %v", err)
+	}
+	details := listBoxDetailsByKey(t, app, "list.unwrapped")
+	if details.Wrap != TextWrapNone || details.VisualRowCount != 1 ||
+		!details.Viewport.HorizontalVisible || details.Viewport.HorizontalBar == nil {
+		t.Fatalf("zero-value ListBox wrapping compatibility = %#v", details)
+	}
+}
+
 func TestListBoxStableIdentityRepairAndStatus(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 30, Height: 8})

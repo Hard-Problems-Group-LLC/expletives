@@ -55,7 +55,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	// many correlated snapshot-bearing round trips. Race instrumentation can
 	// make the aggregate run substantially slower even though each request
 	// remains within the protocol's independent deadline.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	var client *automation.Client
 	for client == nil {

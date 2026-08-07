@@ -60,8 +60,12 @@ type ListBoxOptions struct {
 	RequireSelection bool
 	Status           CollectionStatus
 	StatusMessage    string
-	CurrentCommand   CommandID
-	ActivateCommand  CommandID
+	// Wrap optionally reflows each logical item into one or more visual rows.
+	// A label-plus-description row uses the description start as its hanging
+	// indent. The zero value preserves the original one-row presentation.
+	Wrap            TextWrap
+	CurrentCommand  CommandID
+	ActivateCommand CommandID
 }
 
 // ListBoxState is one complete copied semantic and viewport state.
@@ -75,6 +79,8 @@ type ListBoxState struct {
 	Offset         Point
 	ItemCount      int
 	EnabledCount   int
+	VisualRowCount int
+	Wrap           TextWrap
 }
 
 // ListBox is a copy-safe focusable stable-identity collection leaf.
@@ -84,6 +90,12 @@ type normalizedListItem struct {
 	item        ListItem
 	label       normalizedDisplayText
 	description normalizedDisplayText
+}
+
+type listBoxVisualRow struct {
+	itemIndex int
+	within    int
+	cells     []string
 }
 
 type listBoxBehavior struct {
@@ -96,6 +108,8 @@ type listBoxBehavior struct {
 	requireSelection bool
 	status           CollectionStatus
 	statusMessage    normalizedDisplayText
+	wrap             TextWrap
+	rows             []listBoxVisualRow
 	changeCommand    CommandID
 	currentCommand   CommandID
 	activateCommand  CommandID
@@ -216,6 +230,10 @@ func newListBoxBehavior(options ListBoxOptions) (listBoxBehavior, error) {
 	if err != nil {
 		return listBoxBehavior{}, err
 	}
+	wrap, err := normalizeTextWrap(options.Wrap)
+	if err != nil {
+		return listBoxBehavior{}, err
+	}
 	items, err := normalizeListItems(options.Items)
 	if err != nil {
 		return listBoxBehavior{}, err
@@ -228,6 +246,7 @@ func newListBoxBehavior(options ListBoxOptions) (listBoxBehavior, error) {
 		requireSelection: options.RequireSelection,
 		status:           status,
 		statusMessage:    message,
+		wrap:             wrap,
 		changeCommand:    changeCommand,
 		currentCommand:   options.CurrentCommand,
 		activateCommand:  options.ActivateCommand,
@@ -477,6 +496,11 @@ func copyListItems(items []normalizedListItem) []ListItem {
 func cloneListBoxBehavior(behavior listBoxBehavior) listBoxBehavior {
 	cloned := behavior
 	cloned.items = cloneNormalizedListItems(behavior.items)
+	cloned.rows = make([]listBoxVisualRow, len(behavior.rows))
+	for index, row := range behavior.rows {
+		cloned.rows[index] = row
+		cloned.rows[index].cells = append([]string(nil), row.cells...)
+	}
 	cloned.selected = append([]string(nil), behavior.selected...)
 	cloned.statusMessage.lines = cloneTextRows(behavior.statusMessage.lines)
 	return cloned
@@ -508,11 +532,13 @@ func listBoxBehaviorEqual(left, right listBoxBehavior) bool {
 		left.requireSelection != right.requireSelection ||
 		left.status != right.status ||
 		left.statusMessage.text != right.statusMessage.text ||
+		left.wrap != right.wrap ||
 		left.changeCommand != right.changeCommand ||
 		left.currentCommand != right.currentCommand ||
 		left.activateCommand != right.activateCommand ||
 		len(left.items) != len(right.items) ||
-		len(left.selected) != len(right.selected) {
+		len(left.selected) != len(right.selected) ||
+		len(left.rows) != len(right.rows) {
 		return false
 	}
 	for index := range left.items {
@@ -522,6 +548,13 @@ func listBoxBehaviorEqual(left, right listBoxBehavior) bool {
 	}
 	for index := range left.selected {
 		if left.selected[index] != right.selected[index] {
+			return false
+		}
+	}
+	for index := range left.rows {
+		if left.rows[index].itemIndex != right.rows[index].itemIndex ||
+			left.rows[index].within != right.rows[index].within ||
+			!stringSlicesEqual(left.rows[index].cells, right.rows[index].cells) {
 			return false
 		}
 	}
@@ -617,10 +650,14 @@ func (b listBoxBehavior) displayRow(
 		return []string{"[", "e", "m", "p", "t", "y", "]"},
 			"collection.empty", true
 	}
-	if index < 0 || index >= len(b.items) {
+	if index < 0 || index >= len(b.rows) {
 		return nil, "", false
 	}
-	item := b.items[index]
+	row := b.rows[index]
+	if row.itemIndex < 0 || row.itemIndex >= len(b.items) {
+		return nil, "", false
+	}
+	item := b.items[row.itemIndex]
 	current := item.item.Key == b.current
 	selected := listSelectionContains(b.selected, item.item.Key)
 	style := StyleID("list_box")
@@ -641,16 +678,91 @@ func (b listBoxBehavior) displayRow(
 	if selected {
 		selectedMarker = "X"
 	}
-	cells := []string{marker, " "}
-	if b.selectionMarks {
-		cells = append(cells, "[", selectedMarker, "]", " ")
-	}
-	cells = append(cells, item.label.lines[0]...)
-	if item.description.cells > 0 {
-		cells = append(cells, " ", " ")
-		cells = append(cells, item.description.lines[0]...)
+	cells := append([]string(nil), row.cells...)
+	if len(cells) > 0 && row.within == 0 {
+		cells[0] = marker
+		if b.selectionMarks && len(cells) > 3 {
+			cells[3] = selectedMarker
+		}
 	}
 	return cells, style, true
+}
+
+func listItemCells(item normalizedListItem, selectionMarks bool) ([]string, int) {
+	cells := []string{" ", " "}
+	if selectionMarks {
+		cells = append(cells, "[", " ", "]", " ")
+	}
+	cells = append(cells, item.label.lines[0]...)
+	indent := len(cells)
+	if item.description.cells > 0 {
+		cells = append(cells, " ", " ")
+		indent = len(cells)
+		cells = append(cells, item.description.lines[0]...)
+	}
+	return cells, indent
+}
+
+func wrapListItemCells(cells []string, width int, wrap TextWrap, indent int) [][]string {
+	if wrap == TextWrapNone || width <= 0 || len(cells) <= width {
+		return [][]string{append([]string(nil), cells...)}
+	}
+	continuation := indent
+	if continuation >= width {
+		continuation = min(2, max(0, width-1))
+	}
+	rows := make([][]string, 0, 1+len(cells)/max(1, width-continuation))
+	remaining := append([]string(nil), cells...)
+	first := true
+	for len(remaining) > 0 {
+		prefix := 0
+		if !first {
+			prefix = continuation
+		}
+		available := max(1, width-prefix)
+		breakAt := min(available, len(remaining))
+		if wrap == TextWrapWords && breakAt < len(remaining) {
+			for index := breakAt - 1; index > 0; index-- {
+				if remaining[index] == " " {
+					breakAt = index
+					break
+				}
+			}
+		}
+		line := append([]string(nil), remaining[:breakAt]...)
+		for len(line) > 0 && line[len(line)-1] == " " {
+			line = line[:len(line)-1]
+		}
+		if prefix > 0 {
+			line = append(make([]string, prefix), line...)
+			for index := range prefix {
+				line[index] = " "
+			}
+		}
+		rows = append(rows, line)
+		remaining = remaining[breakAt:]
+		if wrap == TextWrapWords {
+			for len(remaining) > 0 && remaining[0] == " " {
+				remaining = remaining[1:]
+			}
+		}
+		first = false
+	}
+	return rows
+}
+
+func listBoxRows(behavior listBoxBehavior, width int) []listBoxVisualRow {
+	rows := make([]listBoxVisualRow, 0, len(behavior.items))
+	for itemIndex, item := range behavior.items {
+		cells, indent := listItemCells(item, behavior.selectionMarks)
+		wrapped := wrapListItemCells(cells, width, behavior.wrap, indent)
+		for within, line := range wrapped {
+			rows = append(rows, listBoxVisualRow{
+				itemIndex: itemIndex, within: within, cells: line,
+			})
+		}
+	}
+	return rows
 }
 
 func listStatusCells(
@@ -671,34 +783,64 @@ func reflowListBox(
 	behavior listBoxBehavior,
 	size Size,
 ) listBoxBehavior {
-	height := len(behavior.items)
-	if behavior.status != CollectionReady || height == 0 {
-		height = 1
-	}
-	maximum := 0
-	for index := 0; index < height; index++ {
-		cells, _, exists := behavior.displayRow(index, true)
+	behavior.rows = nil
+	if behavior.status == CollectionReady && len(behavior.items) > 0 {
+		probe := behavior.scroll
+		probe.state.ContentSize = Size{Height: len(behavior.items)}
+		geometry := calculateScrollViewGeometry(size, probe)
+		for range 3 {
+			behavior.rows = listBoxRows(behavior, geometry.viewport.Width)
+			maximum := 0
+			for _, row := range behavior.rows {
+				maximum = max(maximum, len(row.cells))
+			}
+			behavior.scroll.state.ContentSize = Size{Width: maximum, Height: len(behavior.rows)}
+			next := calculateScrollViewGeometry(size, behavior.scroll)
+			if next.viewport.Width == geometry.viewport.Width &&
+				next.viewport.Height == geometry.viewport.Height {
+				break
+			}
+			geometry = next
+		}
+	} else {
+		behavior.scroll.state.ContentSize = Size{Width: 0, Height: 1}
+		cells, _, exists := behavior.displayRow(0, true)
 		if exists {
-			maximum = max(maximum, len(cells))
+			behavior.scroll.state.ContentSize.Width = len(cells)
 		}
 	}
-	behavior.scroll.state.ContentSize = Size{Width: maximum, Height: height}
 	geometry := calculateScrollViewGeometry(size, behavior.scroll)
 	behavior.scroll.state = clampViewportState(behavior.scroll.state, geometry)
 	if behavior.status == CollectionReady {
 		current := listItemIndex(behavior.items, behavior.current)
 		if current >= 0 && geometry.viewport.Height > 0 {
-			if current < behavior.scroll.state.Offset.Y {
-				behavior.scroll.state.Offset.Y = current
-			} else if current >= behavior.scroll.state.Offset.Y+
-				geometry.viewport.Height {
-				behavior.scroll.state.Offset.Y =
-					current - geometry.viewport.Height + 1
+			first, last := listBoxItemVisualBounds(behavior.rows, current)
+			if last-first+1 > geometry.viewport.Height {
+				behavior.scroll.state.Offset.Y = first
+			} else if first < behavior.scroll.state.Offset.Y {
+				behavior.scroll.state.Offset.Y = first
+			} else if last >= behavior.scroll.state.Offset.Y+geometry.viewport.Height {
+				behavior.scroll.state.Offset.Y = last - geometry.viewport.Height + 1
 			}
 		}
 	}
 	behavior.scroll.state = clampViewportState(behavior.scroll.state, geometry)
 	return behavior
+}
+
+func listBoxItemVisualBounds(rows []listBoxVisualRow, item int) (int, int) {
+	first := -1
+	last := -1
+	for index, row := range rows {
+		if row.itemIndex != item {
+			continue
+		}
+		if first < 0 {
+			first = index
+		}
+		last = index
+	}
+	return max(first, 0), max(last, 0)
 }
 
 func reconcileListBoxLocked(state *controlState) bool {
@@ -758,6 +900,8 @@ func listBoxDetails(bounds Rect, behavior listBoxBehavior) ListBoxDetails {
 		StatusMessage:    behavior.statusMessage.text,
 		ItemCount:        len(behavior.items),
 		EnabledCount:     enabledListCount(behavior.items),
+		VisualRowCount:   len(behavior.rows),
+		Wrap:             behavior.wrap,
 		RetainedBytes:    listBoxStorageBytes(behavior),
 		Current:          behavior.current,
 		CurrentIndex:     listItemIndex(behavior.items, behavior.current),
@@ -812,6 +956,8 @@ func (l *ListBox) State() ListBoxState {
 		Offset:         behavior.scroll.state.Offset,
 		ItemCount:      len(behavior.items),
 		EnabledCount:   enabledListCount(behavior.items),
+		VisualRowCount: len(behavior.rows),
+		Wrap:           behavior.wrap,
 	}
 }
 
@@ -965,8 +1111,8 @@ func (a *App) listBoxKeyLocked(
 	case KeyDown:
 		behavior.current = nextEnabledListKey(behavior.items, current)
 	case KeyPageUp:
-		behavior.current = pageEnabledListKey(
-			behavior.items,
+		behavior.current = pageEnabledListKeyByVisualRows(
+			behavior,
 			current,
 			-effectiveScrollPageStep(
 				behavior.scroll.pageStep.Height,
@@ -974,8 +1120,8 @@ func (a *App) listBoxKeyLocked(
 			),
 		)
 	case KeyPageDown:
-		behavior.current = pageEnabledListKey(
-			behavior.items,
+		behavior.current = pageEnabledListKeyByVisualRows(
+			behavior,
 			current,
 			effectiveScrollPageStep(
 				behavior.scroll.pageStep.Height,
@@ -1074,6 +1220,28 @@ func pageEnabledListKey(
 		}
 	}
 	return previousEnabledListKey(items, target+1)
+}
+
+func pageEnabledListKeyByVisualRows(
+	behavior listBoxBehavior,
+	current int,
+	delta int,
+) string {
+	if current < 0 || current >= len(behavior.items) || len(behavior.rows) == 0 {
+		return firstEnabledListKey(behavior.items)
+	}
+	first, _ := listBoxItemVisualBounds(behavior.rows, current)
+	targetRow := min(len(behavior.rows)-1, max(0, first+delta))
+	targetItem := behavior.rows[targetRow].itemIndex
+	logicalDelta := targetItem - current
+	if logicalDelta == 0 {
+		if delta < 0 {
+			logicalDelta = -1
+		} else if delta > 0 {
+			logicalDelta = 1
+		}
+	}
+	return pageEnabledListKey(behavior.items, current, logicalDelta)
 }
 
 func selectCurrentListItem(behavior *listBoxBehavior, toggle bool) bool {
