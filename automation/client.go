@@ -3282,8 +3282,26 @@ func validTextFieldDetails(
 		(!details.Enabled && details.Editing) ||
 		!validSelectionReason(details.Enabled, details.DisabledReason) ||
 		(details.ChangeCommand != "" &&
-			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) {
+			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) ||
+		(details.EditCommand != "" &&
+			!validIdentifier(details.EditCommand, limits.IdentifierBytes)) ||
+		(details.SubmitCommand != "" &&
+			!validIdentifier(details.SubmitCommand, limits.IdentifierBytes)) ||
+		!validIdentifier(details.FocusedStyle, limits.IdentifierBytes) ||
+		!validIdentifier(details.EditingStyle, limits.IdentifierBytes) ||
+		details.ByteStyles == nil ||
+		len(details.ByteStyles) > expletives.MaxTextFieldByteStyles {
 		return false
+	}
+	previousThreshold := -1
+	for _, band := range details.ByteStyles {
+		if band.MinimumBytes < 0 ||
+			band.MinimumBytes > expletives.MaxTextInputBytes ||
+			band.MinimumBytes <= previousThreshold ||
+			!validIdentifier(band.Style, limits.IdentifierBytes) {
+			return false
+		}
+		previousThreshold = band.MinimumBytes
 	}
 	if details.Redacted {
 		if details.Text != "" {

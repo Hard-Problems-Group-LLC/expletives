@@ -40,6 +40,14 @@ type TextValidator struct {
 	Characters  string
 }
 
+// TextFieldByteStyle selects Style for the complete entered value when its
+// canonical UTF-8 encoding is at least MinimumBytes long. Policies are copied,
+// bounded, and must be strictly increasing by MinimumBytes.
+type TextFieldByteStyle struct {
+	MinimumBytes int
+	Style        StyleID
+}
+
 // TextFieldOptions configures one bounded single-line editor.
 type TextFieldOptions struct {
 	PanelOptions
@@ -49,6 +57,21 @@ type TextFieldOptions struct {
 	Disabled       bool
 	DisabledReason string
 	ChangeCommand  CommandID
+	// EditCommand is routed after an interactive transition changes the
+	// current working value. Programmatic setters remain silent.
+	EditCommand CommandID
+	// SubmitCommand is routed by unmodified Enter after an actively edited
+	// value is committed. Empty retains ordinary commit-only behavior.
+	SubmitCommand CommandID
+	// FocusedStyle paints the selected-but-not-editing background. Empty
+	// selects text_input.focused.
+	FocusedStyle StyleID
+	// EditingStyle paints the actively editing background. Empty inherits
+	// FocusedStyle, preserving the historical zero-value presentation.
+	EditingStyle StyleID
+	// ByteStyles is a copied ordered UTF-8 byte-threshold policy for the
+	// complete entered value. It is suppressed while Password is true.
+	ByteStyles []TextFieldByteStyle
 }
 
 // TextField is a copy-safe focusable single-line editor leaf.
@@ -72,6 +95,11 @@ type textFieldBehavior struct {
 	disabled        bool
 	disabledReason  string
 	changeCommand   CommandID
+	editCommand     CommandID
+	submitCommand   CommandID
+	focusedStyle    StyleID
+	editingStyle    StyleID
+	byteStyles      []TextFieldByteStyle
 	editing         bool
 	caret           int
 	viewOffset      int
@@ -128,6 +156,21 @@ func (t *Transaction) NewTextField(
 	if err := validateOptionalCommand(options.ChangeCommand); err != nil {
 		return nil, err
 	}
+	if err := validateOptionalCommand(options.EditCommand); err != nil {
+		return nil, err
+	}
+	if err := validateOptionalCommand(options.SubmitCommand); err != nil {
+		return nil, err
+	}
+	focusedStyle, editingStyle, byteStyles, err :=
+		normalizeTextFieldPresentation(
+			options.FocusedStyle,
+			options.EditingStyle,
+			options.ByteStyles,
+		)
+	if err != nil {
+		return nil, err
+	}
 	state, err := t.newLeafControl(
 		parent,
 		options.PanelOptions,
@@ -136,7 +179,10 @@ func (t *Transaction) NewTextField(
 			committed: value, working: cloneInputText(value),
 			validator: validator, password: options.Password,
 			disabled: options.Disabled, disabledReason: reason,
-			changeCommand: options.ChangeCommand, caret: len(value.cells),
+			changeCommand: options.ChangeCommand,
+			editCommand:   options.EditCommand, submitCommand: options.SubmitCommand,
+			focusedStyle: focusedStyle, editingStyle: editingStyle,
+			byteStyles: byteStyles, caret: len(value.cells),
 			selectionAnchor: -1,
 		},
 	)
@@ -146,6 +192,51 @@ func (t *Transaction) NewTextField(
 	field := &TextField{controlHandle: controlHandle{state: state}}
 	state.control = field
 	return field, nil
+}
+
+func normalizeTextFieldPresentation(
+	focused StyleID,
+	editing StyleID,
+	bands []TextFieldByteStyle,
+) (StyleID, StyleID, []TextFieldByteStyle, error) {
+	var err error
+	focused, err = normalizeStyleID(focused, "text_input.focused")
+	if err != nil {
+		return "", "", nil, err
+	}
+	editing, err = normalizeStyleID(editing, focused)
+	if err != nil {
+		return "", "", nil, err
+	}
+	if len(bands) > MaxTextFieldByteStyles {
+		return "", "", nil, fmt.Errorf(
+			"%w: TextField byte-style policy exceeds %d bands",
+			ErrTextLimit,
+			MaxTextFieldByteStyles,
+		)
+	}
+	normalized := make([]TextFieldByteStyle, len(bands))
+	previous := -1
+	for index, band := range bands {
+		if band.MinimumBytes < 0 || band.MinimumBytes > MaxTextInputBytes ||
+			band.MinimumBytes <= previous {
+			return "", "", nil, fmt.Errorf(
+				"%w: TextField byte-style thresholds must increase from 0 through %d",
+				ErrValidation,
+				MaxTextInputBytes,
+			)
+		}
+		style, styleErr := normalizeStyleID(band.Style, "")
+		if styleErr != nil {
+			return "", "", nil, styleErr
+		}
+		normalized[index] = TextFieldByteStyle{
+			MinimumBytes: band.MinimumBytes,
+			Style:        style,
+		}
+		previous = band.MinimumBytes
+	}
+	return focused, editing, normalized, nil
 }
 
 func normalizeInputText(text string) (normalizedInputText, error) {
@@ -319,7 +410,7 @@ func (b textFieldBehavior) current() normalizedInputText {
 func (b textFieldBehavior) clientInset() int { return 0 }
 
 func (b textFieldBehavior) additionalStyles() []StyleID {
-	return []StyleID{
+	styles := []StyleID{
 		"text_input.valid",
 		"text_input.invalid",
 		"text_input.invalid_character",
@@ -331,6 +422,25 @@ func (b textFieldBehavior) additionalStyles() []StyleID {
 		"text_input.focused_invalid_character",
 		"text_input.focused_selection",
 	}
+	styles = append(styles, b.selectedBackgroundStyle(), b.editingBackgroundStyle())
+	for _, band := range b.byteStyles {
+		styles = append(styles, band.Style)
+	}
+	return styles
+}
+
+func (b textFieldBehavior) selectedBackgroundStyle() StyleID {
+	if b.focusedStyle == "" {
+		return "text_input.focused"
+	}
+	return b.focusedStyle
+}
+
+func (b textFieldBehavior) editingBackgroundStyle() StyleID {
+	if b.editingStyle == "" {
+		return b.selectedBackgroundStyle()
+	}
+	return b.editingStyle
 }
 
 func (textFieldBehavior) intrinsicMinimum() Size {
@@ -378,7 +488,10 @@ func paintTextEditor(
 	}
 	backgroundStyle := state.style
 	if app.focus == state && !b.disabled {
-		backgroundStyle = "text_input.focused"
+		backgroundStyle = b.selectedBackgroundStyle()
+		if b.editing {
+			backgroundStyle = b.editingBackgroundStyle()
+		}
 	}
 	app.fillStyleLocked(
 		frame,
@@ -388,6 +501,7 @@ func paintTextEditor(
 	)
 	offset := textViewOffset(b.viewOffset, b.caret, len(current.cells), absolute.Width)
 	y := absolute.Y + max(0, (absolute.Height-1)/2)
+	byteStyle := b.currentByteStyle()
 	for column := 0; column < absolute.Width; column++ {
 		index := offset + column
 		if index >= len(current.cells) {
@@ -403,6 +517,8 @@ func paintTextEditor(
 			style = "text_input.disabled"
 		case textSelectionContains(b, index):
 			style = "text_input.selection"
+		case byteStyle != "":
+			style = byteStyle
 		case b.validator == nil:
 		case valid:
 			style = "text_input.valid"
@@ -411,7 +527,7 @@ func paintTextEditor(
 		default:
 			style = "text_input.invalid"
 		}
-		if app.focus == state && !b.disabled {
+		if app.focus == state && !b.disabled && byteStyle == "" {
 			style = focusedTextInputStyle(style)
 		}
 		app.setClippedCellLocked(
@@ -438,6 +554,21 @@ func paintTextEditor(
 			},
 		}
 	}
+}
+
+func (b textFieldBehavior) currentByteStyle() StyleID {
+	if b.password {
+		return ""
+	}
+	bytes := len(b.current().text)
+	style := StyleID("")
+	for _, band := range b.byteStyles {
+		if bytes < band.MinimumBytes {
+			break
+		}
+		style = band.Style
+	}
+	return style
 }
 
 func focusedTextInputStyle(style StyleID) StyleID {
@@ -478,6 +609,17 @@ func (f *TextField) Text() string {
 		return ""
 	}
 	return behavior.committed.text
+}
+
+// CurrentText returns the working value while editing and the committed value
+// otherwise. It is process-local owner access; Password continues to redact
+// rendered and snapshot observations but does not alter this return value.
+func (f *TextField) CurrentText() string {
+	behavior, ok := textFieldBehaviorForRead(f.controlState())
+	if !ok {
+		return ""
+	}
+	return behavior.current().text
 }
 
 // SetText atomically replaces the committed value without a user-change
@@ -733,6 +875,19 @@ func (a *App) textFieldDetailsLocked(
 		Redacted: behavior.password, Enabled: !behavior.disabled,
 		DisabledReason: behavior.disabledReason,
 		ChangeCommand:  behavior.changeCommand,
+		EditCommand:    behavior.editCommand, SubmitCommand: behavior.submitCommand,
+		FocusedStyle: behavior.selectedBackgroundStyle(),
+		EditingStyle: behavior.editingBackgroundStyle(),
+		ByteStyles: make(
+			[]TextFieldByteStyleDetails,
+			len(behavior.byteStyles),
+		),
+	}
+	for index, band := range behavior.byteStyles {
+		details.ByteStyles[index] = TextFieldByteStyleDetails{
+			MinimumBytes: band.MinimumBytes,
+			Style:        band.Style,
+		}
 	}
 	details.SelectionStart, details.SelectionEnd, _ =
 		textSelectionRange(behavior)
@@ -761,6 +916,7 @@ func (a *App) textEditorInputLocked(
 	bool,
 	bool,
 ) {
+	previousCurrent := behavior.current().text
 	if !behavior.editing {
 		if key != KeyEnter || !noHeldModifiers(held) {
 			return behavior, "", "", false, false
@@ -798,12 +954,19 @@ func (a *App) textEditorInputLocked(
 	}
 	switch key {
 	case KeyEnter:
+		if behavior.submitCommand != "" &&
+			!textCellsValid(behavior.working.cells, behavior.validator) {
+			return behavior, "", "", true, false
+		}
 		changed = true
 		valueChanged := behavior.committed.text != behavior.working.text
 		behavior.committed = cloneInputText(behavior.working)
 		behavior.editing = false
 		behavior.selectionAnchor = -1
-		if valueChanged {
+		if behavior.submitCommand != "" {
+			command = behavior.submitCommand
+			target = state.id
+		} else if valueChanged {
 			command = behavior.changeCommand
 			target = state.id
 		}
@@ -892,6 +1055,10 @@ func (a *App) textEditorInputLocked(
 			state.bounds.Width,
 		)
 	}
+	if command == "" && previousCurrent != behavior.current().text {
+		command = behavior.editCommand
+		target = state.id
+	}
 	return behavior, command, target, handled, changed
 }
 
@@ -971,10 +1138,27 @@ func textFieldBehaviorEqual(left, right textFieldBehavior) bool {
 		left.disabled == right.disabled &&
 		left.disabledReason == right.disabledReason &&
 		left.changeCommand == right.changeCommand &&
+		left.editCommand == right.editCommand &&
+		left.submitCommand == right.submitCommand &&
+		left.focusedStyle == right.focusedStyle &&
+		left.editingStyle == right.editingStyle &&
+		textFieldByteStylesEqual(left.byteStyles, right.byteStyles) &&
 		left.editing == right.editing &&
 		left.caret == right.caret &&
 		left.viewOffset == right.viewOffset &&
 		left.selectionAnchor == right.selectionAnchor
+}
+
+func textFieldByteStylesEqual(left, right []TextFieldByteStyle) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func textSelectionRange(

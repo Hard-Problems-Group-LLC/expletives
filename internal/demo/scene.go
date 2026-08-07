@@ -44,6 +44,8 @@ const (
 	CommandSelectionChanged     expletives.CommandID = "selection.changed"
 	CommandTextInput            expletives.CommandID = "catalog.controls.input"
 	CommandTextChanged          expletives.CommandID = "text.changed"
+	CommandTextEdited           expletives.CommandID = "text.edited"
+	CommandTextSubmitted        expletives.CommandID = "text.submitted"
 	CommandNumberChanged        expletives.CommandID = "number.changed"
 	CommandProgress             expletives.CommandID = "catalog.controls.progress"
 	CommandProgressTick         expletives.CommandID = "progress.tick"
@@ -444,6 +446,31 @@ var (
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
+	textInputCatalogSelectedStyle = expletives.Style{
+		ID:         "text_input.catalog_selected",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xFF, 0xFF, 0x00),
+	}
+	textInputCatalogEditingStyle = expletives.Style{
+		ID:         "text_input.catalog_editing",
+		Foreground: expletives.RGB(0x00, 0x00, 0x00),
+		Background: expletives.RGB(0xFF, 0xFF, 0xFF),
+	}
+	textInputCatalogNormalStyle = expletives.Style{
+		ID:         "text_input.catalog_normal",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	textInputCatalogWarningStyle = expletives.Style{
+		ID:         "text_input.catalog_warning",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0x00),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
+	textInputCatalogDangerStyle = expletives.Style{
+		ID:         "text_input.catalog_danger",
+		Foreground: expletives.RGB(0xFF, 0x00, 0x00),
+		Background: expletives.RGB(0x00, 0x38, 0x78),
+	}
 )
 
 // Scene owns the catalog controls and its small application controller state.
@@ -592,6 +619,11 @@ func NewWithRootConstraints(
 		textInputFocusedInvalidStyle,
 		textInputFocusedInvalidCharacterStyle,
 		textInputFocusedSelectionStyle,
+		textInputCatalogSelectedStyle,
+		textInputCatalogEditingStyle,
+		textInputCatalogNormalStyle,
+		textInputCatalogWarningStyle,
+		textInputCatalogDangerStyle,
 		expletives.Style{
 			ID:         "number_field",
 			Foreground: textFieldStyle.Foreground,
@@ -2338,6 +2370,15 @@ func NewWithRootConstraints(
 			},
 			Text:          "Edit me",
 			ChangeCommand: CommandTextChanged,
+			EditCommand:   CommandTextEdited,
+			SubmitCommand: CommandTextSubmitted,
+			FocusedStyle:  textInputCatalogSelectedStyle.ID,
+			EditingStyle:  textInputCatalogEditingStyle.ID,
+			ByteStyles: []expletives.TextFieldByteStyle{
+				{MinimumBytes: 0, Style: textInputCatalogNormalStyle.ID},
+				{MinimumBytes: 8, Style: textInputCatalogWarningStyle.ID},
+				{MinimumBytes: 10, Style: textInputCatalogDangerStyle.ID},
+			},
 		},
 	)
 	if err != nil {
@@ -2356,7 +2397,7 @@ func NewWithRootConstraints(
 		inputPlain,
 		expletives.FocusGuidance{
 			Mode: expletives.FocusGuidanceAppend,
-			Text: "This field accepts any supported one-cell character",
+			Text: "Live edit/submit commands; selected/editing backgrounds; byte thresholds",
 		},
 	); err != nil {
 		return nil, err
@@ -5143,6 +5184,16 @@ func initialCommandDefinitions(
 			Enabled:     true, Automation: true,
 		},
 		{
+			ID: CommandTextEdited, Label: "Text Edited",
+			Description: "Report an interactive TextField working-value change",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandTextSubmitted, Label: "Text Submitted",
+			Description: "Report an explicit TextField Enter submission",
+			Enabled:     true, Automation: true,
+		},
+		{
 			ID: CommandNumberChanged, Label: "Number Changed",
 			Description: "Report a user-originated numeric-field commit or step",
 			Enabled:     true, Automation: true,
@@ -6258,7 +6309,8 @@ func (s *Scene) handleCommand(
 		return s.appendContentLocked()
 	case CommandContentFollow:
 		return s.toggleContentFollowLocked()
-	case CommandSelectionChanged, CommandTextChanged, CommandNumberChanged,
+	case CommandSelectionChanged, CommandTextChanged, CommandTextEdited,
+		CommandTextSubmitted, CommandNumberChanged,
 		CommandNavigationChanged, CommandContentChanged,
 		CommandCollectionChanged, CommandCollectionActivate,
 		CommandCollectionExpand, CommandCollectionSort:
@@ -7585,6 +7637,13 @@ func SelfCheck() error {
 	if !controls["screen.input"].Visible ||
 		!controls["input.text.plain"].Focused ||
 		plainDetails == nil || plainDetails.Text != "Edit me" ||
+		plainDetails.EditCommand != CommandTextEdited ||
+		plainDetails.SubmitCommand != CommandTextSubmitted ||
+		plainDetails.FocusedStyle != textInputCatalogSelectedStyle.ID ||
+		plainDetails.EditingStyle != textInputCatalogEditingStyle.ID ||
+		len(plainDetails.ByteStyles) != 3 ||
+		plainDetails.ByteStyles[1].MinimumBytes != 8 ||
+		plainDetails.ByteStyles[2].Style != textInputCatalogDangerStyle.ID ||
 		softDetails == nil || softDetails.Validator == nil ||
 		softDetails.Validator.Enforcement != expletives.TextValidationSoft ||
 		softDetails.Validator.Mode != expletives.TextValidationWhitelist ||
@@ -7629,7 +7688,7 @@ func SelfCheck() error {
 			Kind: expletives.KeyEventPress,
 			Key:  expletives.KeyEnter,
 		},
-	); inputErr != nil ||
+	); inputErr != nil || completion.Command != "" ||
 		completion.Outcome != expletives.OutcomeApplied {
 		return fmt.Errorf(
 			"TextField edit dispatch = %+v, %v; overflows=%+v",
@@ -7646,7 +7705,7 @@ func SelfCheck() error {
 			Kind: expletives.KeyEventPress,
 			Key:  "!",
 		},
-	); inputErr != nil ||
+	); inputErr != nil || completion.Command != CommandTextEdited ||
 		completion.Outcome != expletives.OutcomeApplied {
 		return fmt.Errorf(
 			"TextField printable dispatch = %+v, %v; field=%+v overflows=%+v",
@@ -7665,7 +7724,7 @@ func SelfCheck() error {
 			Key:  expletives.KeyEnter,
 		},
 	); inputErr != nil ||
-		completion.Command != CommandTextChanged ||
+		completion.Command != CommandTextSubmitted ||
 		completion.Outcome != expletives.OutcomeApplied {
 		return fmt.Errorf("TextField commit dispatch = %+v, %v", completion, inputErr)
 	}

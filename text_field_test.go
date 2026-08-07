@@ -360,6 +360,236 @@ func TestTextFieldCommitNotificationAndTabGroupTraversal(t *testing.T) {
 	}
 }
 
+func TestTextFieldLiveEditCurrentValueAndSubmitCommands(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 40, Height: 3})
+	for _, command := range []CommandID{
+		"field.changed", "field.edited", "field.submitted",
+	} {
+		registerActionCommand(t, app, command, string(command), true)
+	}
+	field, err := NewTextField(app.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "field",
+			Bounds:        Rect{Width: 20, Height: 1},
+		},
+		ChangeCommand: "field.changed",
+		EditCommand:   "field.edited",
+		SubmitCommand: "field.submitted",
+	})
+	if err != nil {
+		t.Fatalf("NewTextField() error = %v", err)
+	}
+	commands := make([]CommandID, 0, 4)
+	values := make([]string, 0, 4)
+	if err := app.SetCommandRouter(func(_ context.Context, command Command) CommandResult {
+		commands = append(commands, command.ID)
+		values = append(values, field.CurrentText())
+		if command.Target != field.ID() {
+			t.Fatalf("command target = %q, want %q", command.Target, field.ID())
+		}
+		return CommandResult{Outcome: OutcomeApplied}
+	}); err != nil {
+		t.Fatalf("SetCommandRouter() error = %v", err)
+	}
+
+	dispatchTextKey(t, app, "begin", KeyEnter)
+	if completion := dispatchTextKey(t, app, "type-a", "a"); completion.Command != "field.edited" || field.Text() != "" ||
+		field.CurrentText() != "a" {
+		t.Fatalf("live key completion/Text/CurrentText = %#v/%q/%q", completion, field.Text(), field.CurrentText())
+	}
+	completion, err := app.DispatchTextInput(
+		context.Background(),
+		"paste",
+		"paste-accent",
+		TextInputEvent{Kind: TextInputPaste, Text: "é"},
+	)
+	if err != nil || completion.Command != "field.edited" ||
+		field.CurrentText() != "aé" {
+		t.Fatalf("paste completion/current = %#v/%q error=%v", completion, field.CurrentText(), err)
+	}
+	if completion := dispatchTextKey(t, app, "caret-left", KeyLeft); completion.Command != "" {
+		t.Fatalf("caret-only completion command = %q", completion.Command)
+	}
+	if completion := dispatchTextKey(t, app, "cancel", KeyEscape); completion.Command != "field.edited" || field.CurrentText() != "" {
+		t.Fatalf("cancel completion/current = %#v/%q", completion, field.CurrentText())
+	}
+	if err := field.SetText("ok"); err != nil {
+		t.Fatalf("SetText() error = %v", err)
+	}
+	if len(commands) != 3 {
+		t.Fatalf("programmatic SetText routed commands %v", commands)
+	}
+	dispatchTextKey(t, app, "begin-submit", KeyEnter)
+	dispatchTextKey(t, app, "type-x", "x")
+	if completion := dispatchTextKey(t, app, "submit", KeyEnter); completion.Command != "field.submitted" || field.Text() != "okx" ||
+		field.Editing() {
+		t.Fatalf("submit completion/Text/Editing = %#v/%q/%t", completion, field.Text(), field.Editing())
+	}
+	wantCommands := []CommandID{
+		"field.edited", "field.edited", "field.edited",
+		"field.edited", "field.submitted",
+	}
+	wantValues := []string{"a", "aé", "", "okx", "okx"}
+	if strings.Join(commandIDsAsStrings(commands), ",") !=
+		strings.Join(commandIDsAsStrings(wantCommands), ",") ||
+		strings.Join(values, "|") != strings.Join(wantValues, "|") {
+		t.Fatalf("routed commands/values = %v/%v, want %v/%v", commands, values, wantCommands, wantValues)
+	}
+}
+
+func commandIDsAsStrings(commands []CommandID) []string {
+	values := make([]string, len(commands))
+	for index, command := range commands {
+		values[index] = string(command)
+	}
+	return values
+}
+
+func TestTextFieldDistinctEditBackgroundsAndUTF8ByteStyles(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 250, Height: 3})
+	registerActionCommand(t, app, "field.edited", "Edited", true)
+	field, err := NewTextField(app.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "field",
+			Bounds:        Rect{Width: 240, Height: 1},
+		},
+		Text:         strings.Repeat("x", 174),
+		EditCommand:  "field.edited",
+		FocusedStyle: "test.text.selected",
+		EditingStyle: "test.text.editing",
+		ByteStyles: []TextFieldByteStyle{
+			{MinimumBytes: 0, Style: "test.text.normal"},
+			{MinimumBytes: 175, Style: "test.text.warning"},
+			{MinimumBytes: 222, Style: "test.text.danger"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewTextField() error = %v", err)
+	}
+	optionsByteStyles := []TextFieldByteStyle{{
+		MinimumBytes: 0,
+		Style:        "test.text.danger",
+	}}
+	copied, err := NewTextField(app.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "copied",
+			Bounds:        Rect{Y: 1, Width: 20, Height: 1},
+		},
+		Text:       "x",
+		ByteStyles: optionsByteStyles,
+	})
+	if err != nil {
+		t.Fatalf("NewTextField(copied) error = %v", err)
+	}
+	optionsByteStyles[0].Style = "test.text.normal"
+	copiedDetails := controlByKey(t, app.Snapshot(), "copied").Details.TextField
+	if copiedDetails == nil || copiedDetails.ByteStyles[0].Style != "test.text.danger" ||
+		copied.CurrentText() != "x" {
+		t.Fatalf("TextField presentation policy was not copied: %#v", copiedDetails)
+	}
+	if err := app.SetCommandRouter(func(_ context.Context, _ Command) CommandResult {
+		return CommandResult{Outcome: OutcomeApplied}
+	}); err != nil {
+		t.Fatalf("SetCommandRouter() error = %v", err)
+	}
+	assertTextFieldCellStyles(t, app.Snapshot(), field, 174, "test.text.normal", 200, "test.text.selected")
+	dispatchTextKey(t, app, "begin", KeyEnter)
+	assertTextFieldCellStyles(t, app.Snapshot(), field, 174, "test.text.normal", 200, "test.text.editing")
+	dispatchTextKey(t, app, "byte-175", "x")
+	assertTextFieldCellStyles(t, app.Snapshot(), field, 175, "test.text.warning", 200, "test.text.editing")
+
+	if err := field.SetText(strings.Repeat("x", 221)); err != nil {
+		t.Fatalf("SetText(221) error = %v", err)
+	}
+	if _, err := field.Activate(context.Background(), "test", "activate-221"); err != nil {
+		t.Fatalf("Activate(221) error = %v", err)
+	}
+	assertTextFieldCellStyles(t, app.Snapshot(), field, 221, "test.text.warning", 230, "test.text.editing")
+	dispatchTextKey(t, app, "byte-222", "x")
+	assertTextFieldCellStyles(t, app.Snapshot(), field, 222, "test.text.danger", 230, "test.text.editing")
+
+	if err := field.SetText(strings.Repeat("x", 173) + "é"); err != nil {
+		t.Fatalf("SetText(multibyte 175) error = %v", err)
+	}
+	if len(field.CurrentText()) != 175 {
+		t.Fatalf("multibyte CurrentText bytes = %d, want 175", len(field.CurrentText()))
+	}
+	if _, err := field.Activate(context.Background(), "test", "activate-multibyte"); err != nil {
+		t.Fatalf("Activate(multibyte) error = %v", err)
+	}
+	assertTextFieldCellStyles(t, app.Snapshot(), field, 174, "test.text.warning", 200, "test.text.editing")
+	if err := field.SetPassword(true); err != nil {
+		t.Fatalf("SetPassword(true) error = %v", err)
+	}
+	cell, _ := app.Snapshot().Frame.Cell(0, 0)
+	if cell.Grapheme != "*" || cell.Style == "test.text.warning" ||
+		field.CurrentText() != strings.Repeat("x", 173)+"é" {
+		t.Fatalf("masked byte-band/current cell = %#v current-bytes=%d", cell, len(field.CurrentText()))
+	}
+}
+
+func TestTextFieldRejectsInvalidByteStylePolicies(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 20, Height: 2})
+	tests := map[string][]TextFieldByteStyle{
+		"negative": {{MinimumBytes: -1, Style: "text_input.valid"}},
+		"beyond input bound": {{
+			MinimumBytes: MaxTextInputBytes + 1,
+			Style:        "text_input.valid",
+		}},
+		"duplicate": {
+			{MinimumBytes: 1, Style: "text_input.valid"},
+			{MinimumBytes: 1, Style: "text_input.invalid"},
+		},
+		"decreasing": {
+			{MinimumBytes: 2, Style: "text_input.valid"},
+			{MinimumBytes: 1, Style: "text_input.invalid"},
+		},
+		"missing style": {{MinimumBytes: 0}},
+	}
+	tooMany := make([]TextFieldByteStyle, MaxTextFieldByteStyles+1)
+	for index := range tooMany {
+		tooMany[index] = TextFieldByteStyle{
+			MinimumBytes: index,
+			Style:        "text_input.valid",
+		}
+	}
+	tests["too many"] = tooMany
+	for name, policy := range tests {
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewTextField(app.Root(), TextFieldOptions{
+				ByteStyles: policy,
+			}); err == nil {
+				t.Fatal("NewTextField() accepted invalid byte-style policy")
+			}
+		})
+	}
+}
+
+func assertTextFieldCellStyles(
+	t *testing.T,
+	snapshot SnapshotV1,
+	field *TextField,
+	textCells int,
+	textStyle StyleID,
+	emptyColumn int,
+	emptyStyle StyleID,
+) {
+	t.Helper()
+	for column := 0; column < textCells; column++ {
+		cell, found := snapshot.Frame.Cell(column, 0)
+		if !found || cell.Owner != field.ID() || cell.Style != textStyle {
+			t.Fatalf("text cell %d = %#v found=%t, want owner %q style %q", column, cell, found, field.ID(), textStyle)
+		}
+	}
+	cell, found := snapshot.Frame.Cell(emptyColumn, 0)
+	if !found || cell.Owner != field.ID() || cell.Style != emptyStyle {
+		t.Fatalf("empty cell %d = %#v found=%t, want owner %q style %q", emptyColumn, cell, found, field.ID(), emptyStyle)
+	}
+}
+
 func TestTextFieldMenuFocusLossCommitsAndHidesCursor(t *testing.T) {
 	t.Parallel()
 	app, _, _, _, _ := buildMenuFixture(t)

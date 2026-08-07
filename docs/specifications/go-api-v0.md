@@ -538,6 +538,7 @@ unrestricted maps. The complete contract is
 ```go
 func NewTextField(Container, TextFieldOptions) (*TextField, error)
 func (f *TextField) Text() string
+func (f *TextField) CurrentText() string
 func (f *TextField) SetText(string) error
 func (f *TextField) Validator() *TextValidator
 func (f *TextField) SetValidator(*TextValidator) error
@@ -553,6 +554,16 @@ Enter starts and commits editing; Escape cancels; caret and delete keys operate
 on complete elements. Tab commits before direct-parent focus-group traversal.
 Programmatic focus loss commits silently, while a user Enter/Tab commit may
 route the optional `ChangeCommand` after the value is published.
+
+An optional `EditCommand` reports interactive working-value transitions so
+applications can update live dependent presentation. `CurrentText()` returns
+that process-local working value while editing. An optional `SubmitCommand`
+replaces the Enter `ChangeCommand` route with one explicit post-commit submit
+event. Copied ordered `TextFieldByteStyle` thresholds apply one semantic style
+to the complete entered value by canonical UTF-8 byte count. `FocusedStyle`
+and `EditingStyle` distinguish selected from active-edit backgrounds. Password
+rendering suppresses the active byte band, and snapshots remain redacted. The
+exact bounded semantics are fixed by the input specification below.
 
 TextField, NumberField, and SpinBox default to horizontal stretch and natural
 one-row vertical sizing. They draw no implicit frame and use their distinct

@@ -129,6 +129,16 @@ type TextFieldOptions struct {
     Disabled       bool
     DisabledReason string
     ChangeCommand  CommandID
+    EditCommand    CommandID
+    SubmitCommand  CommandID
+    FocusedStyle   StyleID
+    EditingStyle   StyleID
+    ByteStyles     []TextFieldByteStyle
+}
+
+type TextFieldByteStyle struct {
+    MinimumBytes int
+    Style        StyleID
 }
 
 type TextField struct { /* copy-safe Panel-derived leaf */ }
@@ -139,6 +149,7 @@ func (t *Transaction) NewTextField(
     TextFieldOptions,
 ) (*TextField, error)
 func (f *TextField) Text() string
+func (f *TextField) CurrentText() string
 func (f *TextField) SetText(string) error
 func (f *TextField) Validator() *TextValidator
 func (f *TextField) SetValidator(*TextValidator) error
@@ -182,8 +193,35 @@ in edit mode. Horizontal view offset keeps the caret visible. Focus,
 selection, activation, committed value, working value, and validation remain
 distinct facts.
 
-User commits publish the value first and then invoke the optional registered
-`ChangeCommand` outside toolkit locks. Programmatic setters are silent.
+`Text()` returns the committed application value. `CurrentText()` returns the
+working value while editing and the committed value otherwise, allowing an
+owning process to calculate live counts and dependent state without weakening
+snapshot redaction. Interactive key or committed-text transitions which
+change that current value route the optional registered `EditCommand` after
+the transition and outside toolkit locks. Caret-only moves, rejected input,
+and programmatic setters remain silent. Escape restoration is a current-value
+transition and therefore routes `EditCommand` when it actually changes the
+working value.
+
+With no `SubmitCommand`, a changed Enter commit publishes the value and routes
+the optional `ChangeCommand` as before. When `SubmitCommand` is present, Enter
+first validates and commits, leaves edit mode, and routes `SubmitCommand`
+instead of `ChangeCommand`; this supplies one unambiguous submit event even
+when the value is unchanged. An invalid hard-enforced value remains in edit
+mode and routes neither command. Tab and focus-loss commit behavior is
+unchanged. Programmatic setters are silent.
+
+`FocusedStyle` selects the complete field background while focused but not
+editing; empty selects `text_input.focused`. `EditingStyle` selects that
+background during active editing; empty inherits `FocusedStyle`, preserving
+the historical presentation. `ByteStyles` is an optional copied policy of at
+most `MaxTextFieldByteStyles` entries. Entries must be strictly increasing by
+inclusive `MinimumBytes`, from zero through `MaxTextInputBytes`, with valid
+semantic Style IDs. The last threshold not greater than the current value's
+canonical UTF-8 byte length styles every entered cell. Empty remainder cells
+retain the applicable focused or editing background. Disabled and selected
+cells retain their stronger presentation. Byte styles are suppressed in
+Password mode so rendering does not reveal the active length band.
 
 ### Form Presentation And Sizing
 
@@ -434,8 +472,9 @@ through the terminal decoder.
 `ControlDetails.TextField`, `ControlDetails.NumberField`, and
 `ControlDetails.TextArea` are versioned typed members. TextField and TextArea
 details expose canonical committed or current edit text, length, caret,
-selection, viewport, editing, validity, password, disabled reason, change
-command, and the applicable copied policy summaries. Number details expose
+selection, viewport, editing, validity, password, disabled reason, change,
+edit, and submit commands, focused and editing styles, and the copied ordered
+byte-style policy. Number details expose
 the corresponding edit state, exact numeric policy, and committed value. A
 password member always has empty text and an asserted redacted flag.
 
@@ -468,6 +507,11 @@ Verification includes:
   interpretation or partial over-limit insertion;
 - raw human/headless/automation key equivalence;
 - edit activation, commit, cancel, focus loss, and disabled behavior;
+- live edit commands for key and committed-text transitions, process-local
+  current-value reads, silent caret/no-op/programmatic transitions, and
+  optional Enter submit routing;
+- distinct selected and editing field backgrounds plus exact UTF-8 byte-style
+  boundaries, copied/bounded policy, and Password suppression;
 - ordinary Go, race, headless automation, attached automation, and debug,
   release, and profiling builds; and
 - bounded-response proof after the new typed details are added.
