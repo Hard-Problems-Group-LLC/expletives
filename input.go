@@ -929,13 +929,51 @@ func (a *App) DispatchTextInput(
 	}
 	defer a.endDispatch()
 
+	var command CommandID
+	var target ControlID
+	var router CommandRouter
+	var execute bool
+	a.mu.Lock()
+	if a.final {
+		a.mu.Unlock()
+		return Completion{}, ErrClosed
+	}
+	state := a.focus
+	before := ""
+	if behavior, ok := stateBehaviorAsTextField(state); ok && behavior.editing {
+		before = behavior.current().text
+	}
+	result := a.applyTextInputLocked(event.Text)
+	if behavior, ok := stateBehaviorAsTextField(state); ok &&
+		behavior.editing && before != behavior.current().text {
+		command = behavior.editCommand
+		target = state.id
+		if command != "" {
+			router, result, execute = a.resolveCommandLocked(command, true)
+		}
+	}
+	a.mu.Unlock()
+	if execute {
+		result = a.callRouter(ctx, router, Command{
+			ID: command, Target: target, Source: source,
+		})
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.final {
 		return Completion{}, ErrClosed
 	}
-	result := a.applyTextInputLocked(event.Text)
-	return a.associateLocked(requestID, result, ""), nil
+	return a.associateLocked(requestID, result, command), nil
+}
+
+func stateBehaviorAsTextField(
+	state *controlState,
+) (textFieldBehavior, bool) {
+	if state == nil {
+		return textFieldBehavior{}, false
+	}
+	behavior, ok := state.behavior.(textFieldBehavior)
+	return behavior, ok
 }
 
 func (a *App) applyTextInputLocked(text string) CommandResult {

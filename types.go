@@ -72,6 +72,9 @@ const (
 	// whitelist or blacklist.
 	MaxTextValidatorBytes = 4 << 10
 	MaxTextValidatorCells = 1024
+	// MaxTextFieldByteStyles bounds one TextField's copied ordered UTF-8
+	// byte-threshold presentation policy.
+	MaxTextFieldByteStyles = 16
 	// MaxTextInputAggregateBytes bounds values plus validator sets retained
 	// across one App so immutable snapshots and automation remain bounded.
 	MaxTextInputAggregateBytes = 256 << 10
@@ -981,23 +984,35 @@ type TextValidatorDetails struct {
 	Characters  string                    `json:"characters"`
 }
 
+// TextFieldByteStyleDetails describes one copied inclusive UTF-8 byte
+// threshold and the semantic style selected at or above it.
+type TextFieldByteStyleDetails struct {
+	MinimumBytes int     `json:"minimum_bytes"`
+	Style        StyleID `json:"style"`
+}
+
 // TextFieldDetails describes current single-line editing and validation state.
 // Text is always empty when Redacted is true.
 type TextFieldDetails struct {
-	Text           string                `json:"text,omitempty"`
-	Length         int                   `json:"length"`
-	Caret          int                   `json:"caret"`
-	SelectionStart int                   `json:"selection_start"`
-	SelectionEnd   int                   `json:"selection_end"`
-	ViewOffset     int                   `json:"view_offset"`
-	Editing        bool                  `json:"editing"`
-	Valid          bool                  `json:"valid"`
-	Password       bool                  `json:"password"`
-	Redacted       bool                  `json:"redacted"`
-	Enabled        bool                  `json:"enabled"`
-	DisabledReason string                `json:"disabled_reason,omitempty"`
-	ChangeCommand  CommandID             `json:"change_command,omitempty"`
-	Validator      *TextValidatorDetails `json:"validator,omitempty"`
+	Text           string                      `json:"text,omitempty"`
+	Length         int                         `json:"length"`
+	Caret          int                         `json:"caret"`
+	SelectionStart int                         `json:"selection_start"`
+	SelectionEnd   int                         `json:"selection_end"`
+	ViewOffset     int                         `json:"view_offset"`
+	Editing        bool                        `json:"editing"`
+	Valid          bool                        `json:"valid"`
+	Password       bool                        `json:"password"`
+	Redacted       bool                        `json:"redacted"`
+	Enabled        bool                        `json:"enabled"`
+	DisabledReason string                      `json:"disabled_reason,omitempty"`
+	ChangeCommand  CommandID                   `json:"change_command,omitempty"`
+	EditCommand    CommandID                   `json:"edit_command,omitempty"`
+	SubmitCommand  CommandID                   `json:"submit_command,omitempty"`
+	FocusedStyle   StyleID                     `json:"focused_style"`
+	EditingStyle   StyleID                     `json:"editing_style"`
+	ByteStyles     []TextFieldByteStyleDetails `json:"byte_styles"`
+	Validator      *TextValidatorDetails       `json:"validator,omitempty"`
 }
 
 // NumberFieldDetails describes current decimal editing, range, and step

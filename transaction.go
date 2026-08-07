@@ -1237,6 +1237,20 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			); err != nil {
 				return err
 			}
+			if err := validateChangeCommand(
+				behavior.editCommand,
+				requireCommand,
+				"TextField edit",
+			); err != nil {
+				return err
+			}
+			if err := validateChangeCommand(
+				behavior.submitCommand,
+				requireCommand,
+				"TextField submit",
+			); err != nil {
+				return err
+			}
 		case numberFieldBehavior:
 			textInputBytes += len(behavior.editor.committed.text)
 			if behavior.editor.editing {

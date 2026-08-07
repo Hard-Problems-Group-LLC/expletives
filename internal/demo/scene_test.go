@@ -677,7 +677,7 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	}
 	blankCell, ok := snapshot.Frame.Cell(blankPoint.X, blankPoint.Y)
 	if !ok || blankCell.Owner != control("input.text.plain").ID ||
-		blankCell.Background != textInputFocusedStyle.Background ||
+		blankCell.Background != textInputCatalogSelectedStyle.Background ||
 		blankCell.Background == canvasStyle.Background {
 		t.Fatalf(
 			"focused TextField blank-cell treatment = %+v",
@@ -685,8 +685,21 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 		)
 	}
 	dispatch("plain-edit", expletives.KeyEnter)
-	dispatch("plain-type", "!")
-	if completion := dispatch("plain-commit", expletives.KeyEnter); completion.Command != CommandTextChanged {
+	editingBlank, _ := scene.App.Snapshot().Frame.Cell(blankPoint.X, blankPoint.Y)
+	if editingBlank.Background != textInputCatalogEditingStyle.Background {
+		t.Fatalf("editing TextField blank-cell treatment = %+v", editingBlank)
+	}
+	if completion := dispatch("plain-type", "!"); completion.Command != CommandTextEdited {
+		t.Fatalf("plain live edit = %+v", completion)
+	}
+	warningCell, _ := scene.App.Snapshot().Frame.Cell(
+		control("input.text.plain").AbsoluteBounds.X,
+		control("input.text.plain").AbsoluteBounds.Y,
+	)
+	if warningCell.Style != textInputCatalogWarningStyle.ID {
+		t.Fatalf("plain byte-threshold style = %+v", warningCell)
+	}
+	if completion := dispatch("plain-commit", expletives.KeyEnter); completion.Command != CommandTextSubmitted {
 		t.Fatalf("plain commit = %+v", completion)
 	}
 	if details := control("input.text.plain").Details.TextField; details == nil || details.Text != "Edit me!" || details.Editing {

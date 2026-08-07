@@ -619,6 +619,20 @@ ordered backlog and the active-task record; it does not replace either.
   permanent origin publication plus a non-fast-forward merge into `main`.
   Consumer pinning must use the resulting immutable revision; no machine-
   local workspace replacement may become part of a consumer commit.
+- Consumer-driven Slice 19.6 (`complete`): extended `TextField` with an optional
+  live-edit command, process-local current-value access, distinct selected and
+  editing semantic styles, and a bounded ordered UTF-8 byte-style policy.
+  Preserve the existing commit-only `ChangeCommand`, route every application
+  command outside toolkit locks, suppress active byte-band disclosure while a
+  password field is masked, and keep the zero-value presentation backward
+  compatible. Add the optional submit-command contract requested by the same
+  ECR so Enter-to-send can be integrated without a second public-API break.
+  Exercise keys, committed input, paste, deletion, cancellation, exact
+  multibyte thresholds, whole-entered-text styling, validation, redaction,
+  transactions, automation projection, public-consumer compilation, and a
+  deterministic `expletives-test` catalog fixture. The complete ordinary,
+  PTY, race, build-mode, self-check, and smoke gate passed at
+  2026-08-07T16:40:12-07:00; no serial or RF path was used.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.

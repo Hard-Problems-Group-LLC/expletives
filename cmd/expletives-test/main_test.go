@@ -1063,7 +1063,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	if textCommit.Snapshot == nil ||
 		textCommit.Snapshot.Completion == nil ||
 		textCommit.Snapshot.Completion.Command !=
-			string(demo.CommandTextChanged) {
+			string(demo.CommandTextSubmitted) {
 		t.Fatalf("TextField commit outcome=%q snapshot=%t",
 			textCommit.Outcome, textCommit.Snapshot != nil)
 	}

@@ -460,6 +460,16 @@ func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewApp() error = %v", err)
 	}
+	for _, command := range []expletives.CommandID{
+		"input.edited", "input.submitted",
+	} {
+		if err := app.RegisterCommand(expletives.CommandDefinition{
+			ID: command, Label: string(command), Enabled: true,
+			Automation: true,
+		}); err != nil {
+			t.Fatalf("RegisterCommand(%q) error = %v", command, err)
+		}
+	}
 	if _, err := expletives.NewTextField(
 		app.Root(),
 		expletives.TextFieldOptions{
@@ -469,8 +479,16 @@ func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
 					Width: 20, Height: 1,
 				},
 			},
-			Text:     "secret",
-			Password: true,
+			Text:          "secret",
+			Password:      true,
+			EditCommand:   "input.edited",
+			SubmitCommand: "input.submitted",
+			FocusedStyle:  "text_input.focused",
+			EditingStyle:  "text_input.focused_invalid",
+			ByteStyles: []expletives.TextFieldByteStyle{
+				{MinimumBytes: 0, Style: "text_input.valid"},
+				{MinimumBytes: 5, Style: "text_input.invalid"},
+			},
 			Validator: &expletives.TextValidator{
 				Enforcement: expletives.TextValidationSoft,
 				Mode:        expletives.TextValidationBlacklist,
@@ -493,6 +511,13 @@ func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
 	}
 	if details == nil || details.Text != "" || details.Length != 6 ||
 		!details.Password || !details.Redacted || !details.Valid ||
+		details.EditCommand != "input.edited" ||
+		details.SubmitCommand != "input.submitted" ||
+		details.FocusedStyle != "text_input.focused" ||
+		details.EditingStyle != "text_input.focused_invalid" ||
+		len(details.ByteStyles) != 2 ||
+		details.ByteStyles[1].MinimumBytes != 5 ||
+		details.ByteStyles[1].Style != "text_input.invalid" ||
 		details.Validator == nil ||
 		details.Validator.Enforcement != "soft" ||
 		details.Validator.Mode != "blacklist" {
@@ -508,10 +533,13 @@ func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
 
 	cloned := cloneSnapshot(projected)
 	details.Validator.Characters = "mutated"
+	details.ByteStyles[1].Style = "mutated"
 	for index := range cloned.Controls {
 		if cloned.Controls[index].Key == "input.password" &&
-			cloned.Controls[index].Details.TextField.Validator.Characters != " " {
-			t.Fatal("cloned TextField validator aliases projected storage")
+			(cloned.Controls[index].Details.TextField.Validator.Characters != " " ||
+				cloned.Controls[index].Details.TextField.ByteStyles[1].Style !=
+					"text_input.invalid") {
+			t.Fatal("cloned TextField policy aliases projected storage")
 		}
 	}
 }

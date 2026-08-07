@@ -47,3 +47,24 @@ owner, known blockers, and brief status notes.
     forward merge into `main`; Slice 19.5 is complete. Resume Slice 19.4 after
     the merge. Downstream dependency pinning belongs to the radioradio
     consumer and must use the published immutable revision.
+  - TextField consumer repair (started 2026-08-07T15:55:18-07:00):
+    radioradio ECR 2026-002 confirmed that commit-only `ChangeCommand` cannot
+    keep an outgoing byte counter synchronized while editing and that one
+    focused presentation role cannot distinguish selection from active edit.
+    Phase 19 Slice 19.6 implements bounded live-edit/current-value,
+    selected/editing style, byte-band, and submit contracts under
+    `EXPL-BUG-003`. Slice 19.4 is paused while this consumer repair is active;
+    tests are headless and synthetic, with no application, serial, or RF use.
+    Work paused uncommitted at 2026-08-07T16:05:31-07:00 for a downstream
+    operator-requested live-dialog diagnosis. Preserve the feature worktree;
+    do not publish or merge it until the downstream dialog repair is resolved.
+    The downstream repair passed full fake-only and restarted live acceptance
+    at 2026-08-07T16:23:30-07:00. Resume Slice 19.6 in the preserved feature
+    worktree; the radio remains outside upstream test scope.
+    Slice 19.6 completed at 2026-08-07T16:40:12-07:00. TextField now exposes
+    copied bounded live-edit, current-value, explicit submit, distinct
+    selected/editing style, and UTF-8 byte-threshold contracts; password
+    rendering suppresses the active band. Unit, public-consumer, automation,
+    catalog, PTY, race, debug, release, profiling, self-check, and smoke gates
+    pass. Publish the permanent feature branch and merge it non-fast-forward,
+    then resume Slice 19.4; no serial or RF path was used.

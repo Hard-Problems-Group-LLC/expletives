@@ -484,22 +484,34 @@ type TextValidatorDetails struct {
 	CharactersRedacted bool   `json:"characters_redacted,omitempty"`
 }
 
+// TextFieldByteStyleDetails describes one UTF-8 byte threshold and semantic
+// style. It exposes policy, never the currently active password threshold.
+type TextFieldByteStyleDetails struct {
+	MinimumBytes int    `json:"minimum_bytes"`
+	Style        string `json:"style"`
+}
+
 // TextFieldDetails describes current single-line editing and validation state.
 type TextFieldDetails struct {
-	Text           string                `json:"text,omitempty"`
-	Length         int                   `json:"length"`
-	Caret          int                   `json:"caret"`
-	SelectionStart int                   `json:"selection_start"`
-	SelectionEnd   int                   `json:"selection_end"`
-	ViewOffset     int                   `json:"view_offset"`
-	Editing        bool                  `json:"editing"`
-	Valid          bool                  `json:"valid"`
-	Password       bool                  `json:"password"`
-	Redacted       bool                  `json:"redacted"`
-	Enabled        bool                  `json:"enabled"`
-	DisabledReason string                `json:"disabled_reason,omitempty"`
-	ChangeCommand  string                `json:"change_command,omitempty"`
-	Validator      *TextValidatorDetails `json:"validator,omitempty"`
+	Text           string                      `json:"text,omitempty"`
+	Length         int                         `json:"length"`
+	Caret          int                         `json:"caret"`
+	SelectionStart int                         `json:"selection_start"`
+	SelectionEnd   int                         `json:"selection_end"`
+	ViewOffset     int                         `json:"view_offset"`
+	Editing        bool                        `json:"editing"`
+	Valid          bool                        `json:"valid"`
+	Password       bool                        `json:"password"`
+	Redacted       bool                        `json:"redacted"`
+	Enabled        bool                        `json:"enabled"`
+	DisabledReason string                      `json:"disabled_reason,omitempty"`
+	ChangeCommand  string                      `json:"change_command,omitempty"`
+	EditCommand    string                      `json:"edit_command,omitempty"`
+	SubmitCommand  string                      `json:"submit_command,omitempty"`
+	FocusedStyle   string                      `json:"focused_style"`
+	EditingStyle   string                      `json:"editing_style"`
+	ByteStyles     []TextFieldByteStyleDetails `json:"byte_styles"`
+	Validator      *TextValidatorDetails       `json:"validator,omitempty"`
 }
 
 // NumberFieldDetails describes current decimal editing, range, and step state.
@@ -1759,6 +1771,20 @@ func textFieldDetailsFromCore(
 		Enabled:        details.Enabled,
 		DisabledReason: details.DisabledReason,
 		ChangeCommand:  string(details.ChangeCommand),
+		EditCommand:    string(details.EditCommand),
+		SubmitCommand:  string(details.SubmitCommand),
+		FocusedStyle:   string(details.FocusedStyle),
+		EditingStyle:   string(details.EditingStyle),
+		ByteStyles: make(
+			[]TextFieldByteStyleDetails,
+			len(details.ByteStyles),
+		),
+	}
+	for index, band := range details.ByteStyles {
+		field.ByteStyles[index] = TextFieldByteStyleDetails{
+			MinimumBytes: band.MinimumBytes,
+			Style:        string(band.Style),
+		}
 	}
 	if details.Validator != nil {
 		field.Validator = &TextValidatorDetails{
@@ -1975,6 +2001,10 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		}
 		if snapshot.Controls[index].Details.TextField != nil {
 			field := *snapshot.Controls[index].Details.TextField
+			field.ByteStyles = append(
+				[]TextFieldByteStyleDetails{},
+				snapshot.Controls[index].Details.TextField.ByteStyles...,
+			)
 			if field.Validator != nil {
 				validator := *field.Validator
 				field.Validator = &validator

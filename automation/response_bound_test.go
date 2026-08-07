@@ -658,6 +658,11 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 				Text: "abc", Length: 3, Caret: 2, ViewOffset: 0,
 				SelectionStart: 2, SelectionEnd: 2,
 				Valid: true, Enabled: true,
+				FocusedStyle: "text_input.focused",
+				EditingStyle: "text_input.focused",
+				ByteStyles: []TextFieldByteStyleDetails{
+					{MinimumBytes: 0, Style: "text_input.valid"},
+				},
 				Validator: &TextValidatorDetails{
 					Enforcement: "soft",
 					Mode:        "whitelist",
@@ -710,6 +715,33 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 			details.Enabled = false
 			details.DisabledReason = "Disabled"
 			details.Editing = true
+		},
+		"missing focused style": func(details *TextFieldDetails) {
+			details.FocusedStyle = ""
+		},
+		"missing editing style": func(details *TextFieldDetails) {
+			details.EditingStyle = ""
+		},
+		"missing byte styles": func(details *TextFieldDetails) {
+			details.ByteStyles = nil
+		},
+		"decreasing byte threshold": func(details *TextFieldDetails) {
+			details.ByteStyles = append(
+				details.ByteStyles,
+				TextFieldByteStyleDetails{
+					MinimumBytes: 0,
+					Style:        "text_input.invalid",
+				},
+			)
+		},
+		"byte threshold beyond limit": func(details *TextFieldDetails) {
+			details.ByteStyles[0].MinimumBytes = expletives.MaxTextInputBytes + 1
+		},
+		"invalid edit command": func(details *TextFieldDetails) {
+			details.EditCommand = "bad command"
+		},
+		"invalid submit command": func(details *TextFieldDetails) {
+			details.SubmitCommand = "bad command"
 		},
 	}
 	for name, mutate := range tests {
@@ -2993,6 +3025,14 @@ func maximumCompletionJSONBytes(
 			Enabled:        false,
 			DisabledReason: strings.Repeat("\x00", maxDisplayTextBytes),
 			ChangeCommand:  string(controlValue.ID),
+			EditCommand:    string(controlValue.ID),
+			SubmitCommand:  string(controlValue.ID),
+			FocusedStyle:   string(controlValue.ID),
+			EditingStyle:   string(controlValue.ID),
+			ByteStyles: []TextFieldByteStyleDetails{{
+				MinimumBytes: math.MaxInt,
+				Style:        string(controlValue.ID),
+			}},
 			Validator: &TextValidatorDetails{
 				Enforcement: string(controlValue.ID),
 				Mode:        string(controlValue.ID),

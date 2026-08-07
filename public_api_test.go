@@ -2,10 +2,87 @@ package expletives_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	expletives "github.com/Hard-Problems-Group-LLC/expletives"
 )
+
+func TestExternalConsumerObservesLiveTextFieldPresentation(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 16, Height: 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []expletives.CommandID{
+		"draft.edited", "draft.submitted",
+	} {
+		if err := app.RegisterCommand(expletives.CommandDefinition{
+			ID: command, Label: string(command), Enabled: true,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	field, err := expletives.NewTextField(
+		app.Root(),
+		expletives.TextFieldOptions{
+			PanelOptions: expletives.PanelOptions{
+				AutomationKey: "draft",
+				Bounds:        expletives.Rect{Width: 12, Height: 1},
+			},
+			EditCommand:   "draft.edited",
+			SubmitCommand: "draft.submitted",
+			FocusedStyle:  "text_input.focused",
+			EditingStyle:  "text_input.focused_invalid",
+			ByteStyles: []expletives.TextFieldByteStyle{
+				{MinimumBytes: 0, Style: "text_input.valid"},
+				{MinimumBytes: 4, Style: "text_input.invalid"},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var routed []expletives.CommandID
+	if err := app.SetCommandRouter(func(
+		_ context.Context,
+		command expletives.Command,
+	) expletives.CommandResult {
+		routed = append(routed, command.ID)
+		return expletives.CommandResult{Outcome: expletives.OutcomeApplied}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for request, key := range []expletives.Key{expletives.KeyEnter, "é"} {
+		if _, err := app.DispatchKey(
+			context.Background(),
+			"external-test",
+			"text-field-"+string(rune('0'+request)),
+			expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: key},
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if field.Text() != "" || field.CurrentText() != "é" ||
+		strings.Join(commandIDs(routed), ",") != "draft.edited" {
+		t.Fatalf(
+			"Text=%q CurrentText=%q commands=%v",
+			field.Text(),
+			field.CurrentText(),
+			routed,
+		)
+	}
+}
+
+func commandIDs(values []expletives.CommandID) []string {
+	result := make([]string, len(values))
+	for index, value := range values {
+		result[index] = string(value)
+	}
+	return result
+}
 
 // counterModel deliberately contains no toolkit types.
 type counterModel struct {
