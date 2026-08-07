@@ -1,7 +1,7 @@
 # Bug: ListBox Prose Forces Ordinary-Width Horizontal Scrolling
 
 - ID: `EXPL-BUG-002`
-- Status: Candidate verified; publication pending
+- Status: Closed
 - Priority: High consumer usability
 - Reported: 2026-08-07T11:02:54-07:00
 - Reporter: radioradio operator via `radioradio-ECR-2026-003`
@@ -47,11 +47,10 @@ not cover.
 
 ## Resolution
 
-The verified local candidate adds `ListBoxOptions.Wrap`, preserves logical
+The verified implementation adds `ListBoxOptions.Wrap`, preserves logical
 item state, derives bounded visual rows with description-aligned hanging
 indents, exposes normalized wrap/visual-row evidence, and extends contract and
-regression tests. Publishing that dependency change remains an explicit
-operator authorization boundary.
+regression tests. The zero-value path remains one-row compatible.
 
 ## Validation
 
@@ -65,6 +64,11 @@ well, so the harness now permits two minutes while preserving every protocol
 deadline and assertion; observed race runs completed in 70.25 and 95.93
 seconds.
 
+At 2026-08-07T14:52:28-07:00 the canonical feature branch repeated the full
+gate: vet, ordinary tests, PTY integration, the complete race suite, and
+debug/release/profiling builds all passed. The race-instrumented catalog
+completed in 109.23 seconds within its two-minute aggregate harness budget.
+
 ## History
 
 - 2026-08-07T11:14:29-07:00 — Accepted as Phase 19 Slice 19.5; local
@@ -73,3 +77,6 @@ seconds.
   awaits publication authorization and downstream pinning.
 - 2026-08-07T11:43:43-07:00 — Compact over-height leading-row correction and
   both final complete project gates passed.
+- 2026-08-07T14:52:28-07:00 — Operator authorized permanent feature-branch
+  publication and merge; canonical feature-branch verification passed and the
+  bug closed.

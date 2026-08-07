@@ -612,11 +612,13 @@ ordered backlog and the active-task record; it does not replace either.
   continuations use a hanging indent, current/selection styling covers the
   complete logical item, and compact snapshot/automation evidence reports
   wrap policy and derived visual-row count without retained content.
-  The final local candidate completed the full verification gate at
+  The final candidate completed the full verification gate at
   2026-08-07T11:43:43-07:00, including compact over-height leading-row
-  behavior. Upstream publication and consumer pinning remain
-  an explicit authorization boundary; no machine-local workspace replacement
-  may become part of a consumer commit.
+  behavior. The canonical `feature/listbox-logical-row-wrap` branch repeated
+  that complete gate at 2026-08-07T14:52:28-07:00 and is approved for
+  permanent origin publication plus a non-fast-forward merge into `main`.
+  Consumer pinning must use the resulting immutable revision; no machine-
+  local workspace replacement may become part of a consumer commit.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.
