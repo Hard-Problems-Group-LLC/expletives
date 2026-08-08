@@ -2369,6 +2369,7 @@ func NewWithRootConstraints(
 				},
 			},
 			Text:          "Edit me",
+			MaximumBytes:  10,
 			ChangeCommand: CommandTextChanged,
 			EditCommand:   CommandTextEdited,
 			SubmitCommand: CommandTextSubmitted,
@@ -7637,6 +7638,7 @@ func SelfCheck() error {
 	if !controls["screen.input"].Visible ||
 		!controls["input.text.plain"].Focused ||
 		plainDetails == nil || plainDetails.Text != "Edit me" ||
+		plainDetails.MaximumBytes != 10 ||
 		plainDetails.EditCommand != CommandTextEdited ||
 		plainDetails.SubmitCommand != CommandTextSubmitted ||
 		plainDetails.FocusedStyle != textInputCatalogSelectedStyle.ID ||
@@ -7727,6 +7729,57 @@ func SelfCheck() error {
 		completion.Command != CommandTextSubmitted ||
 		completion.Outcome != expletives.OutcomeApplied {
 		return fmt.Errorf("TextField commit dispatch = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"input-cap-edit",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyEnter},
+	); inputErr != nil || completion.Command != "" ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextField capacity edit = %+v, %v", completion, inputErr)
+	}
+	for index := 0; index < 2; index++ {
+		completion, inputErr := scene.App.DispatchKey(
+			context.Background(),
+			"self-check",
+			fmt.Sprintf("input-cap-fill-%d", index),
+			expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: "x"},
+		)
+		if inputErr != nil || completion.Command != CommandTextEdited ||
+			completion.Outcome != expletives.OutcomeApplied {
+			return fmt.Errorf("TextField capacity fill = %+v, %v", completion, inputErr)
+		}
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"input-cap-reject",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: "x"},
+	); inputErr != nil || completion.Command != "" ||
+		completion.Outcome != expletives.OutcomeNoOp {
+		return fmt.Errorf("TextField capacity rejection = %+v, %v", completion, inputErr)
+	}
+	if details := indexControls(scene.App.Snapshot())["input.text.plain"].Details.TextField; details == nil || details.MaximumBytes != 10 || len(details.Text) != 10 {
+		return fmt.Errorf("TextField capacity evidence = %+v", details)
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"input-cap-backspace",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyBackspace},
+	); inputErr != nil || completion.Command != CommandTextEdited ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextField capacity recovery = %+v, %v", completion, inputErr)
+	}
+	if completion, inputErr := scene.App.DispatchKey(
+		context.Background(),
+		"self-check",
+		"input-cap-cancel",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyEscape},
+	); inputErr != nil || completion.Command != CommandTextEdited ||
+		completion.Outcome != expletives.OutcomeApplied {
+		return fmt.Errorf("TextField capacity cancel = %+v, %v", completion, inputErr)
 	}
 	if err := scene.inputArea.Focus(); err != nil {
 		return fmt.Errorf("TextArea focus: %w", err)

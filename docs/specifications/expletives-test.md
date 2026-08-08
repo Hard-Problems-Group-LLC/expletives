@@ -247,6 +247,9 @@ and Tab crosses the field parent groups. Soft-invalid input remains visible
 with the specified green/yellow/red validation presentation. Hard-invalid
 input is ignored. Password text is masked in the frame and redacted from all
 snapshot and automation payloads.
+The unrestricted demonstration carries a ten-byte per-control maximum so the
+catalog self-check proves exact-limit acceptance, atomic excess-key rejection,
+and Backspace recovery without relying on the library-wide safety ceiling.
 Successful user commits route the optional `text.changed` command.
 `input.number.ranged` demonstrates a one-decimal NumberField with inclusive
 minimum/maximum bounds, and `input.spin.clamped` demonstrates a half-unit

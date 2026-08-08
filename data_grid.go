@@ -792,6 +792,7 @@ func (a *App) applyDataGridTextInputLocked(
 		behavior.editor.caret,
 		behavior.editor.selectionAnchor,
 		inserted.cells,
+		behavior.editor.effectiveMaximumBytes(),
 	)
 	if !ok {
 		return textInputCapacityResult()

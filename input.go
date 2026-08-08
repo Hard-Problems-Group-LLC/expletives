@@ -1000,6 +1000,7 @@ func (a *App) applyTextInputLocked(text string) CommandResult {
 			behavior.caret,
 			behavior.selectionAnchor,
 			inserted.cells,
+			behavior.effectiveMaximumBytes(),
 		)
 		if !ok {
 			return textInputCapacityResult()
@@ -1041,6 +1042,7 @@ func (a *App) applyTextInputLocked(text string) CommandResult {
 			behavior.editor.caret,
 			behavior.editor.selectionAnchor,
 			inserted.cells,
+			behavior.editor.effectiveMaximumBytes(),
 		)
 		if !ok {
 			return textInputCapacityResult()
@@ -1078,6 +1080,7 @@ func (a *App) applyTextInputLocked(text string) CommandResult {
 			behavior.caret,
 			behavior.selectionAnchor,
 			inserted.cells,
+			MaxTextInputBytes,
 		)
 		if !ok {
 			return textInputCapacityResult()
@@ -1127,6 +1130,7 @@ func replaceTextInputCells(
 	caret int,
 	anchor int,
 	inserted []string,
+	maximumBytes int,
 ) (candidate []string, nextCaret int, ok bool) {
 	start, end := caret, caret
 	if anchor >= 0 && anchor != caret {
@@ -1139,8 +1143,11 @@ func replaceTextInputCells(
 	candidate = append(candidate, current[:start]...)
 	candidate = append(candidate, inserted...)
 	candidate = append(candidate, current[end:]...)
+	if maximumBytes <= 0 || maximumBytes > MaxTextInputBytes {
+		maximumBytes = MaxTextInputBytes
+	}
 	if len(candidate) > MaxTextInputCells ||
-		len(strings.Join(candidate, "")) > MaxTextInputBytes {
+		len(strings.Join(candidate, "")) > maximumBytes {
 		return nil, caret, false
 	}
 	return candidate, start + len(inserted), true

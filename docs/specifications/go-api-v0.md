@@ -539,6 +539,7 @@ unrestricted maps. The complete contract is
 func NewTextField(Container, TextFieldOptions) (*TextField, error)
 func (f *TextField) Text() string
 func (f *TextField) CurrentText() string
+func (f *TextField) MaximumBytes() int
 func (f *TextField) SetText(string) error
 func (f *TextField) Validator() *TextValidator
 func (f *TextField) SetValidator(*TextValidator) error
@@ -564,6 +565,12 @@ to the complete entered value by canonical UTF-8 byte count. `FocusedStyle`
 and `EditingStyle` distinguish selected from active-edit backgrounds. Password
 rendering suppresses the active byte band, and snapshots remain redacted. The
 exact bounded semantics are fixed by the input specification below.
+
+`TextFieldOptions.MaximumBytes` optionally narrows one field's canonical
+UTF-8 byte ceiling; zero retains `MaxTextInputBytes`. Construction, setters,
+keys, committed text, and paste enforce the effective ceiling atomically,
+including selection replacement. `MaximumBytes()` reports that effective
+value.
 
 TextField, NumberField, and SpinBox default to horizontal stretch and natural
 one-row vertical sizing. They draw no implicit frame and use their distinct

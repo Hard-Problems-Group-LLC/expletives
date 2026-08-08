@@ -480,6 +480,7 @@ func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
 				},
 			},
 			Text:          "secret",
+			MaximumBytes:  9,
 			Password:      true,
 			EditCommand:   "input.edited",
 			SubmitCommand: "input.submitted",
@@ -510,6 +511,7 @@ func TestSnapshotProjectsAndRedactsTextFieldDetails(t *testing.T) {
 		}
 	}
 	if details == nil || details.Text != "" || details.Length != 6 ||
+		details.MaximumBytes != 9 ||
 		!details.Password || !details.Redacted || !details.Valid ||
 		details.EditCommand != "input.edited" ||
 		details.SubmitCommand != "input.submitted" ||

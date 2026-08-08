@@ -633,6 +633,18 @@ ordered backlog and the active-task record; it does not replace either.
   deterministic `expletives-test` catalog fixture. The complete ordinary,
   PTY, race, build-mode, self-check, and smoke gate passed at
   2026-08-07T16:40:12-07:00; no serial or RF path was used.
+- Consumer-driven Slice 19.7 (`complete`): added a zero-compatible, copied
+  per-`TextField` canonical UTF-8 byte maximum under `EXPL-BUG-004` and
+  radioradio ECR 2026-004. Enforce construction, programmatic replacement,
+  printable insertion, selection replacement, committed text, and paste
+  atomically. Rejected input changes no value/caret/frame and routes no live
+  edit command; Backspace, Left, Delete, and Enter remain available at the
+  bound. Extended core/automation evidence, malformed-client validation,
+  public-consumer tests, and the maintained catalog with exact ASCII,
+  multi-byte, replacement, and zero-value coverage. The full ordinary, PTY,
+  race, build-mode, catalog self-check, and smoke gate passed at
+  2026-08-07T17:23:42-07:00. Synthetic fixtures only; Slice 19.4 resumes after
+  publication and merge.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.

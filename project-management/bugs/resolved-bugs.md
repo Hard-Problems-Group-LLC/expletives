@@ -5,6 +5,9 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-07 — [`EXPL-BUG-004`](closed/EXPL-BUG-004-text-field-maximum-bytes.md)
+  — Added a copied per-TextField canonical UTF-8 byte ceiling with atomic
+  admission, recovery-key behavior, and typed automation evidence.
 - 2026-08-07 — [`EXPL-BUG-003`](closed/EXPL-BUG-003-text-field-live-presentation.md)
   — Added live working-value notification/access, explicit Enter submission,
   distinct selected/editing presentation, and bounded UTF-8 byte styles to

@@ -254,6 +254,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 				control.Kind == "text_field" &&
 					control.Details.TextField != nil &&
 					control.Details.TextField.Text == "Edit me" &&
+					control.Details.TextField.MaximumBytes == 10 &&
 					control.Details.TextField.Validator == nil &&
 					!control.Details.TextField.Password
 		case "input.text.soft_whitelist":

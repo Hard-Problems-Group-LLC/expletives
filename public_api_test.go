@@ -34,6 +34,7 @@ func TestExternalConsumerObservesLiveTextFieldPresentation(t *testing.T) {
 			},
 			EditCommand:   "draft.edited",
 			SubmitCommand: "draft.submitted",
+			MaximumBytes:  4,
 			FocusedStyle:  "text_input.focused",
 			EditingStyle:  "text_input.focused_invalid",
 			ByteStyles: []expletives.TextFieldByteStyle{
@@ -66,12 +67,28 @@ func TestExternalConsumerObservesLiveTextFieldPresentation(t *testing.T) {
 		}
 	}
 	if field.Text() != "" || field.CurrentText() != "é" ||
+		field.MaximumBytes() != 4 ||
 		strings.Join(commandIDs(routed), ",") != "draft.edited" {
 		t.Fatalf(
 			"Text=%q CurrentText=%q commands=%v",
 			field.Text(),
 			field.CurrentText(),
 			routed,
+		)
+	}
+	completion, err := app.DispatchTextInput(
+		context.Background(),
+		"external-test",
+		"over-maximum",
+		expletives.TextInputEvent{Kind: expletives.TextInputCommitted, Text: "éé"},
+	)
+	if err != nil || completion.Outcome != expletives.OutcomeRejected ||
+		field.CurrentText() != "é" {
+		t.Fatalf(
+			"over-maximum committed text = %+v CurrentText=%q error=%v",
+			completion,
+			field.CurrentText(),
+			err,
 		)
 	}
 }
