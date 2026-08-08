@@ -495,6 +495,7 @@ type TextFieldByteStyleDetails struct {
 type TextFieldDetails struct {
 	Text           string                      `json:"text,omitempty"`
 	Length         int                         `json:"length"`
+	MaximumBytes   int                         `json:"maximum_bytes"`
 	Caret          int                         `json:"caret"`
 	SelectionStart int                         `json:"selection_start"`
 	SelectionEnd   int                         `json:"selection_end"`
@@ -1762,6 +1763,7 @@ func textFieldDetailsFromCore(
 ) TextFieldDetails {
 	field := TextFieldDetails{
 		Text: details.Text, Length: details.Length,
+		MaximumBytes:   details.MaximumBytes,
 		Caret:          details.Caret,
 		SelectionStart: details.SelectionStart,
 		SelectionEnd:   details.SelectionEnd,

@@ -702,7 +702,7 @@ func TestTextInputCatalogValidationPasswordAndReset(t *testing.T) {
 	if completion := dispatch("plain-commit", expletives.KeyEnter); completion.Command != CommandTextSubmitted {
 		t.Fatalf("plain commit = %+v", completion)
 	}
-	if details := control("input.text.plain").Details.TextField; details == nil || details.Text != "Edit me!" || details.Editing {
+	if details := control("input.text.plain").Details.TextField; details == nil || details.Text != "Edit me!" || details.Editing || details.MaximumBytes != 10 {
 		t.Fatalf("plain details after commit = %#v", details)
 	}
 

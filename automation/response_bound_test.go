@@ -655,7 +655,8 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 		control.Details = ControlDetails{
 			Version: 1,
 			TextField: &TextFieldDetails{
-				Text: "abc", Length: 3, Caret: 2, ViewOffset: 0,
+				Text: "abc", Length: 3, MaximumBytes: 8,
+				Caret: 2, ViewOffset: 0,
 				SelectionStart: 2, SelectionEnd: 2,
 				Valid: true, Enabled: true,
 				FocusedStyle: "text_input.focused",
@@ -678,6 +679,15 @@ func TestSnapshotRejectsInvalidTextFieldDetails(t *testing.T) {
 	tests := map[string]func(*TextFieldDetails){
 		"length mismatch": func(details *TextFieldDetails) {
 			details.Length++
+		},
+		"missing maximum bytes": func(details *TextFieldDetails) {
+			details.MaximumBytes = 0
+		},
+		"maximum beyond global bound": func(details *TextFieldDetails) {
+			details.MaximumBytes = expletives.MaxTextInputBytes + 1
+		},
+		"text beyond configured maximum": func(details *TextFieldDetails) {
+			details.MaximumBytes = 2
 		},
 		"caret beyond value": func(details *TextFieldDetails) {
 			details.Caret = details.Length + 1
@@ -3019,7 +3029,8 @@ func maximumCompletionJSONBytes(
 	textFieldControl.Details = ControlDetails{
 		Version: 1,
 		TextField: &TextFieldDetails{
-			Length: math.MaxInt, Caret: math.MaxInt,
+			Length: math.MaxInt, MaximumBytes: math.MaxInt,
+			Caret:      math.MaxInt,
 			ViewOffset: math.MaxInt, Editing: true,
 			Valid: true, Password: true, Redacted: true,
 			Enabled:        false,

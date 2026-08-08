@@ -1523,6 +1523,7 @@ func (a *App) applyComboBoxTextInputLocked(
 		behavior.editor.caret,
 		behavior.editor.selectionAnchor,
 		inserted.cells,
+		behavior.editor.effectiveMaximumBytes(),
 	)
 	if !ok {
 		return textInputCapacityResult()

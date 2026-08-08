@@ -923,6 +923,7 @@ the root package's local snapshot. The client checks:
   control, and at most 1,024 aggregate RadioButton/fixed-option/Tab records;
 - kind-consistent TextField details with canonical bounded text, caret,
   selection, and horizontal view position, editing/valid/enabled state,
+  an effective per-control byte maximum from one through 65,536,
   optional change/edit/submit commands, required focused/editing semantic
   styles, a copied strictly increasing policy of at most 16 UTF-8 byte-style
   thresholds, copied validator policy, hard-validator consistency, and

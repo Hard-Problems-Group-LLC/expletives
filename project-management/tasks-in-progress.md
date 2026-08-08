@@ -68,3 +68,21 @@ owner, known blockers, and brief status notes.
     catalog, PTY, race, debug, release, profiling, self-check, and smoke gates
     pass. Publish the permanent feature branch and merge it non-fast-forward,
     then resume Slice 19.4; no serial or RF path was used.
+  - TextField maximum-byte consumer repair (started
+    2026-08-07T17:09:22-07:00): radioradio ECR 2026-004 requests a hard
+    233-byte composer ceiling. Phase 19 Slice 19.7 adds one reusable
+    zero-compatible per-field UTF-8 maximum under `EXPL-BUG-004`; excess key
+    or committed input is an atomic no-op with no edit command. Backspace,
+    Left, Delete, and Enter remain usable at capacity. Update typed evidence,
+    automation validation, documentation, public-consumer coverage, and the
+    deterministic catalog before the full gate and permanent feature-branch
+    publication. Slice 19.4 is paused; fixtures are synthetic only.
+  - TextField maximum-byte consumer repair (completed
+    2026-08-07T17:23:42-07:00): the effective copied maximum now gates every
+    constructor, setter, key, selection replacement, committed-text, and
+    paste path atomically while retaining deletion, navigation, cancellation,
+    and submission. Core/automation details and the catalog expose the bound;
+    malformed-client, public-consumer, ASCII, multi-byte, exact-limit, and
+    recovery coverage pass. The complete ordinary, PTY, race, build-mode,
+    self-check, and smoke gate is green. Publish and non-fast-forward merge
+    the permanent feature branch, then resume Slice 19.4.

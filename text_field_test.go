@@ -568,6 +568,171 @@ func TestTextFieldRejectsInvalidByteStylePolicies(t *testing.T) {
 	}
 }
 
+func TestTextFieldMaximumBytesRejectsAtomicallyAndRetainsRecoveryKeys(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 250, Height: 3})
+	for _, command := range []CommandID{"field.edited", "field.submitted"} {
+		registerActionCommand(t, app, command, string(command), true)
+	}
+	field, err := NewTextField(app.Root(), TextFieldOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "field",
+			Bounds:        Rect{Width: 240, Height: 1},
+		},
+		Text:          strings.Repeat("x", 232),
+		MaximumBytes:  233,
+		EditCommand:   "field.edited",
+		SubmitCommand: "field.submitted",
+	})
+	if err != nil {
+		t.Fatalf("NewTextField() error = %v", err)
+	}
+	var commands []CommandID
+	if err := app.SetCommandRouter(func(_ context.Context, command Command) CommandResult {
+		commands = append(commands, command.ID)
+		return CommandResult{Outcome: OutcomeApplied}
+	}); err != nil {
+		t.Fatalf("SetCommandRouter() error = %v", err)
+	}
+	if field.MaximumBytes() != 233 ||
+		textFieldDetailsByKey(t, app, "field").MaximumBytes != 233 {
+		t.Fatalf(
+			"MaximumBytes accessor/details = %d/%d",
+			field.MaximumBytes(),
+			textFieldDetailsByKey(t, app, "field").MaximumBytes,
+		)
+	}
+	if err := field.SetText(strings.Repeat("y", 234)); !errors.Is(err, ErrTextLimit) || field.Text() != strings.Repeat("x", 232) {
+		t.Fatalf("SetText(over limit) error/Text = %v/%d bytes", err, len(field.Text()))
+	}
+
+	dispatchTextKey(t, app, "begin", KeyEnter)
+	before := textFieldDetailsByKey(t, app, "field")
+	if completion := dispatchTextKey(t, app, "reject-multibyte", "é"); completion.Outcome != OutcomeNoOp || completion.Command != "" {
+		t.Fatalf("over-limit key completion = %+v", completion)
+	}
+	after := textFieldDetailsByKey(t, app, "field")
+	if after.Text != before.Text || after.Caret != before.Caret || len(commands) != 0 {
+		t.Fatalf("rejected key changed details/commands = %#v/%#v/%v", before, after, commands)
+	}
+	if completion := dispatchTextKey(t, app, "fill", "x"); completion.Command != "field.edited" || len(field.CurrentText()) != 233 {
+		t.Fatalf("exact-limit key completion/current = %+v/%d", completion, len(field.CurrentText()))
+	}
+	before = textFieldDetailsByKey(t, app, "field")
+	if completion := dispatchTextKey(t, app, "reject-extra", "y"); completion.Outcome != OutcomeNoOp || completion.Command != "" {
+		t.Fatalf("extra key completion = %+v", completion)
+	}
+	after = textFieldDetailsByKey(t, app, "field")
+	if after.Text != before.Text || after.Caret != before.Caret || len(commands) != 1 {
+		t.Fatalf("extra key changed details/commands = %#v/%#v/%v", before, after, commands)
+	}
+
+	dispatchTextKey(t, app, "left-at-limit", KeyLeft)
+	if details := textFieldDetailsByKey(t, app, "field"); details.Caret != 232 {
+		t.Fatalf("Left at limit caret = %d, want 232", details.Caret)
+	}
+	dispatchTextKey(t, app, "delete-at-limit", KeyDelete)
+	if len(field.CurrentText()) != 232 {
+		t.Fatalf("Delete at limit left %d bytes, want 232", len(field.CurrentText()))
+	}
+	dispatchTextKey(t, app, "backspace-after-delete", KeyBackspace)
+	if len(field.CurrentText()) != 231 {
+		t.Fatalf("Backspace left %d bytes, want 231", len(field.CurrentText()))
+	}
+	dispatchTextKey(t, app, "refill-multibyte", "é")
+	if len(field.CurrentText()) != 233 {
+		t.Fatalf("multibyte refill left %d bytes, want 233", len(field.CurrentText()))
+	}
+	if completion := dispatchTextKey(t, app, "submit-at-limit", KeyEnter); completion.Command != "field.submitted" || field.Editing() || len(field.Text()) != 233 {
+		t.Fatalf("submit-at-limit completion/editing/text = %+v/%t/%d", completion, field.Editing(), len(field.Text()))
+	}
+
+	if err := field.SetText(strings.Repeat("x", 232)); err != nil {
+		t.Fatal(err)
+	}
+	dispatchTextKey(t, app, "begin-paste", KeyEnter)
+	commandCount := len(commands)
+	completion, err := app.DispatchTextInput(
+		context.Background(),
+		"paste",
+		"paste-over-limit",
+		TextInputEvent{Kind: TextInputPaste, Text: "é"},
+	)
+	if err != nil || completion.Outcome != OutcomeRejected ||
+		completion.Code != "text_capacity" || len(field.CurrentText()) != 232 ||
+		len(commands) != commandCount {
+		t.Fatalf(
+			"over-limit paste completion/current/commands = %+v/%d/%v error=%v",
+			completion,
+			len(field.CurrentText()),
+			commands,
+			err,
+		)
+	}
+	dispatchTextKey(t, app, "fill-before-selection", "x")
+	dispatchTextChord(t, app, "select-one", KeyShift, KeyLeft)
+	before = textFieldDetailsByKey(t, app, "field")
+	completion, err = app.DispatchTextInput(
+		context.Background(),
+		"paste",
+		"replace-one-over-limit",
+		TextInputEvent{Kind: TextInputPaste, Text: "é"},
+	)
+	after = textFieldDetailsByKey(t, app, "field")
+	if err != nil || completion.Outcome != OutcomeRejected ||
+		completion.Code != "text_capacity" || after.Text != before.Text ||
+		after.Caret != before.Caret ||
+		after.SelectionStart != before.SelectionStart ||
+		after.SelectionEnd != before.SelectionEnd {
+		t.Fatalf(
+			"over-limit selection replacement = %+v before=%#v after=%#v error=%v",
+			completion,
+			before,
+			after,
+			err,
+		)
+	}
+	dispatchTextChord(t, app, "select-two", KeyShift, KeyLeft)
+	completion, err = app.DispatchTextInput(
+		context.Background(),
+		"paste",
+		"replace-two-at-limit",
+		TextInputEvent{Kind: TextInputPaste, Text: "é"},
+	)
+	if err != nil || completion.Outcome != OutcomeApplied ||
+		completion.Command != "field.edited" || len(field.CurrentText()) != 233 {
+		t.Fatalf(
+			"exact-limit selection replacement = %+v current=%d error=%v",
+			completion,
+			len(field.CurrentText()),
+			err,
+		)
+	}
+}
+
+func TestTextFieldMaximumBytesConstructionAndZeroValue(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 20, Height: 2})
+	field, err := NewTextField(app.Root(), TextFieldOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if field.MaximumBytes() != MaxTextInputBytes {
+		t.Fatalf("zero-value MaximumBytes = %d, want %d", field.MaximumBytes(), MaxTextInputBytes)
+	}
+	for name, options := range map[string]TextFieldOptions{
+		"negative maximum":             {MaximumBytes: -1},
+		"maximum beyond global":        {MaximumBytes: MaxTextInputBytes + 1},
+		"initial value beyond maximum": {Text: "é", MaximumBytes: 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewTextField(app.Root(), options); err == nil {
+				t.Fatal("NewTextField() accepted invalid maximum/value")
+			}
+		})
+	}
+}
+
 func assertTextFieldCellStyles(
 	t *testing.T,
 	snapshot SnapshotV1,

@@ -122,9 +122,10 @@ lifetime, clearing, and domain storage.
 
 ```go
 type TextFieldOptions struct {
-    PanelOptions
-    Text           string
-    Validator      *TextValidator
+	PanelOptions
+	Text           string
+	MaximumBytes   int
+	Validator      *TextValidator
     Password       bool
     Disabled       bool
     DisabledReason string
@@ -150,6 +151,7 @@ func (t *Transaction) NewTextField(
 ) (*TextField, error)
 func (f *TextField) Text() string
 func (f *TextField) CurrentText() string
+func (f *TextField) MaximumBytes() int
 func (f *TextField) SetText(string) error
 func (f *TextField) Validator() *TextValidator
 func (f *TextField) SetValidator(*TextValidator) error
@@ -200,8 +202,18 @@ snapshot redaction. Interactive key or committed-text transitions which
 change that current value route the optional registered `EditCommand` after
 the transition and outside toolkit locks. Caret-only moves, rejected input,
 and programmatic setters remain silent. Escape restoration is a current-value
-transition and therefore routes `EditCommand` when it actually changes the
-working value.
+	transition and therefore routes `EditCommand` when it actually changes the
+	working value.
+
+`MaximumBytes` optionally narrows the retained canonical UTF-8 byte ceiling
+for one TextField. Zero selects `MaxTextInputBytes`; a nonzero value must be
+between one and that global ceiling. `MaximumBytes()` returns the effective
+ceiling. Construction and `SetText` reject an over-limit value atomically with
+`ErrTextLimit`. While editing, printable keys and committed-text or paste
+events whose complete post-selection-replacement candidate would exceed the
+ceiling leave the value, caret, selection, and command stream unchanged.
+Deletion, caret movement, Escape, and Enter remain available at the ceiling.
+Input is never byte-truncated, including across multibyte UTF-8 elements.
 
 With no `SubmitCommand`, a changed Enter commit publishes the value and routes
 the optional `ChangeCommand` as before. When `SubmitCommand` is present, Enter
@@ -474,7 +486,8 @@ through the terminal decoder.
 details expose canonical committed or current edit text, length, caret,
 selection, viewport, editing, validity, password, disabled reason, change,
 edit, and submit commands, focused and editing styles, and the copied ordered
-byte-style policy. Number details expose
+byte-style policy. TextField details also expose the effective per-control
+maximum byte count. Number details expose
 the corresponding edit state, exact numeric policy, and committed value. A
 password member always has empty text and an asserted redacted flag.
 
@@ -505,6 +518,8 @@ Verification includes:
   TextArea stretching, and weighted division between multiple TextAreas;
 - bounded committed-text and bracketed-paste delivery with no command
   interpretation or partial over-limit insertion;
+- exact per-TextField UTF-8 byte ceilings, including multibyte and
+  selection-replacement boundaries with atomic recovery-key behavior;
 - raw human/headless/automation key equivalence;
 - edit activation, commit, cancel, focus loss, and disabled behavior;
 - live edit commands for key and committed-text transitions, process-local

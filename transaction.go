@@ -317,6 +317,12 @@ func (t *Transaction) SetText(control Control, text string) error {
 		if !ok {
 			return ErrInvalidControl
 		}
+		if err := validateTextFieldMaximum(
+			value,
+			behavior.effectiveMaximumBytes(),
+		); err != nil {
+			return err
+		}
 		if behavior.validator != nil &&
 			behavior.validator.value.Enforcement == TextValidationHard &&
 			!textCellsValid(value.cells, behavior.validator) {

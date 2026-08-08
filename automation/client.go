@@ -3266,6 +3266,8 @@ func validTextFieldDetails(
 	if details == nil ||
 		details.Length < 0 ||
 		details.Length > expletives.MaxTextInputCells ||
+		details.MaximumBytes < 1 ||
+		details.MaximumBytes > expletives.MaxTextInputBytes ||
 		details.Caret < 0 ||
 		details.Caret > details.Length ||
 		details.SelectionStart < 0 ||
@@ -3309,7 +3311,8 @@ func validTextFieldDetails(
 		}
 	} else {
 		cells, ok := canonicalInputCells(details.Text)
-		if !ok || len(cells) != details.Length {
+		if !ok || len(cells) != details.Length ||
+			len(details.Text) > details.MaximumBytes {
 			return false
 		}
 	}

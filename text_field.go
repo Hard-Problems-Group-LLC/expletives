@@ -51,7 +51,10 @@ type TextFieldByteStyle struct {
 // TextFieldOptions configures one bounded single-line editor.
 type TextFieldOptions struct {
 	PanelOptions
-	Text           string
+	Text string
+	// MaximumBytes bounds the canonical UTF-8 working and committed value.
+	// Zero retains the library-wide MaxTextInputBytes ceiling.
+	MaximumBytes   int
 	Validator      *TextValidator
 	Password       bool
 	Disabled       bool
@@ -90,6 +93,7 @@ type normalizedTextValidator struct {
 type textFieldBehavior struct {
 	committed       normalizedInputText
 	working         normalizedInputText
+	maximumBytes    int
 	validator       *normalizedTextValidator
 	password        bool
 	disabled        bool
@@ -130,8 +134,15 @@ func (t *Transaction) NewTextField(
 	parent Container,
 	options TextFieldOptions,
 ) (*TextField, error) {
+	maximumBytes, err := normalizeTextFieldMaximumBytes(options.MaximumBytes)
+	if err != nil {
+		return nil, err
+	}
 	value, err := normalizeInputText(options.Text)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateTextFieldMaximum(value, maximumBytes); err != nil {
 		return nil, err
 	}
 	validator, err := normalizeTextValidator(options.Validator)
@@ -177,7 +188,8 @@ func (t *Transaction) NewTextField(
 		ControlTextField,
 		textFieldBehavior{
 			committed: value, working: cloneInputText(value),
-			validator: validator, password: options.Password,
+			maximumBytes: maximumBytes,
+			validator:    validator, password: options.Password,
 			disabled: options.Disabled, disabledReason: reason,
 			changeCommand: options.ChangeCommand,
 			editCommand:   options.EditCommand, submitCommand: options.SubmitCommand,
@@ -192,6 +204,47 @@ func (t *Transaction) NewTextField(
 	field := &TextField{controlHandle: controlHandle{state: state}}
 	state.control = field
 	return field, nil
+}
+
+func normalizeTextFieldMaximumBytes(value int) (int, error) {
+	if value == 0 {
+		return MaxTextInputBytes, nil
+	}
+	if value < 0 {
+		return 0, fmt.Errorf(
+			"%w: TextField MaximumBytes cannot be negative",
+			ErrValidation,
+		)
+	}
+	if value > MaxTextInputBytes {
+		return 0, fmt.Errorf(
+			"%w: TextField MaximumBytes exceeds %d",
+			ErrTextLimit,
+			MaxTextInputBytes,
+		)
+	}
+	return value, nil
+}
+
+func validateTextFieldMaximum(
+	value normalizedInputText,
+	maximumBytes int,
+) error {
+	if len(value.text) <= maximumBytes {
+		return nil
+	}
+	return fmt.Errorf(
+		"%w: TextField value exceeds configured %d-byte maximum",
+		ErrTextLimit,
+		maximumBytes,
+	)
+}
+
+func (b textFieldBehavior) effectiveMaximumBytes() int {
+	if b.maximumBytes <= 0 || b.maximumBytes > MaxTextInputBytes {
+		return MaxTextInputBytes
+	}
+	return b.maximumBytes
 }
 
 func normalizeTextFieldPresentation(
@@ -622,6 +675,16 @@ func (f *TextField) CurrentText() string {
 	return behavior.current().text
 }
 
+// MaximumBytes returns the effective canonical UTF-8 byte ceiling. A zero
+// TextFieldOptions.MaximumBytes is reported as MaxTextInputBytes.
+func (f *TextField) MaximumBytes() int {
+	behavior, ok := textFieldBehaviorForRead(f.controlState())
+	if !ok {
+		return 0
+	}
+	return behavior.effectiveMaximumBytes()
+}
+
 // SetText atomically replaces the committed value without a user-change
 // notification and leaves edit mode.
 func (f *TextField) SetText(text string) error {
@@ -870,7 +933,8 @@ func (a *App) textFieldDetailsLocked(
 	)
 	details := TextFieldDetails{
 		Length: len(current.cells), Caret: behavior.caret,
-		ViewOffset: offset, Editing: behavior.editing,
+		MaximumBytes: behavior.effectiveMaximumBytes(),
+		ViewOffset:   offset, Editing: behavior.editing,
 		Valid: valid, Password: behavior.password,
 		Redacted: behavior.password, Enabled: !behavior.disabled,
 		DisabledReason: behavior.disabledReason,
@@ -1037,7 +1101,7 @@ func (a *App) textEditorInputLocked(
 		candidate = append(candidate, cell)
 		candidate = append(candidate, behavior.working.cells[end:]...)
 		candidateText := strings.Join(candidate, "")
-		if len(candidateText) > MaxTextInputBytes ||
+		if len(candidateText) > behavior.effectiveMaximumBytes() ||
 			len(candidate) > MaxTextInputCells {
 			return behavior, "", "", true, false
 		}
@@ -1133,6 +1197,7 @@ func validPrintableKey(key Key) bool {
 func textFieldBehaviorEqual(left, right textFieldBehavior) bool {
 	return left.committed.text == right.committed.text &&
 		left.working.text == right.working.text &&
+		left.effectiveMaximumBytes() == right.effectiveMaximumBytes() &&
 		textValidatorEqual(left.validator, right.validator) &&
 		left.password == right.password &&
 		left.disabled == right.disabled &&

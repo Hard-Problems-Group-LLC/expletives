@@ -996,6 +996,7 @@ type TextFieldByteStyleDetails struct {
 type TextFieldDetails struct {
 	Text           string                      `json:"text,omitempty"`
 	Length         int                         `json:"length"`
+	MaximumBytes   int                         `json:"maximum_bytes"`
 	Caret          int                         `json:"caret"`
 	SelectionStart int                         `json:"selection_start"`
 	SelectionEnd   int                         `json:"selection_end"`
