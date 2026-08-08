@@ -21,6 +21,8 @@ type (
 	ControlID string
 	// ControlKind identifies one bounded control behavior.
 	ControlKind string
+	// InputScopeMode identifies one structural keyboard-input boundary.
+	InputScopeMode string
 	// LayoutID is an App-scoped runtime Layout identity.
 	LayoutID string
 	// LayoutKind identifies one bounded arrangement algorithm.
@@ -224,6 +226,8 @@ type ControlDetails struct {
 type ContainerDetails struct {
 	// ClientInset is the number of cells reserved on every edge.
 	ClientInset int `json:"client_inset"`
+	// InputScope identifies an explicit or toolkit-owned input boundary.
+	InputScope InputScopeMode `json:"input_scope,omitempty"`
 }
 
 // ModalResultDetails is the bounded terminal result of one modal lifecycle.
@@ -1039,6 +1043,9 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 		if control.Details.Container != nil {
 			projectedControl.Details.Container = &ContainerDetails{
 				ClientInset: control.Details.Container.ClientInset,
+				InputScope: InputScopeMode(
+					control.Details.Container.InputScope,
+				),
 			}
 		}
 		if control.Details.Border != nil {

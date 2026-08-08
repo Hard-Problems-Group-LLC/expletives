@@ -191,6 +191,35 @@ func TestEncodeSnapshotRetainsResolvedColorChanges(t *testing.T) {
 	}
 }
 
+func TestEncodeSnapshotKeepsDefaultDisabledButtonLabelContrasting(t *testing.T) {
+	t.Parallel()
+	disabled, found := expletives.DefaultTheme().Resolve("button.disabled")
+	if !found {
+		t.Fatal("DefaultTheme has no button.disabled style")
+	}
+	snapshot := expletives.Snapshot{
+		Frame: expletives.IntendedFrame{
+			Size: expletives.Size{Width: 1, Height: 1},
+			Cells: []expletives.Cell{{
+				Grapheme:   "S",
+				Style:      "button.disabled",
+				Foreground: disabled.Foreground,
+				Background: disabled.Background,
+			}},
+		},
+	}
+	encoded, err := EncodeSnapshot(snapshot)
+	if err != nil {
+		t.Fatalf("EncodeSnapshot(disabled Button) error = %v", err)
+	}
+	if !strings.Contains(string(encoded), "\x1b[30;100mS") {
+		t.Fatalf(
+			"EncodeSnapshot(disabled Button) = %q, want black on bright-black label",
+			encoded,
+		)
+	}
+}
+
 func TestEncodeSnapshotProjectsResolvedAttributes(t *testing.T) {
 	snapshot := expletives.Snapshot{
 		Frame: expletives.IntendedFrame{

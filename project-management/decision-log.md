@@ -10,6 +10,67 @@ For each entry, include:
 - rationale
 - related files, proposals, or backlog items
 
+## EXPL-DEC-015 — Add Explicit Non-Modal Input Scopes
+
+- Date: 2026-08-08
+- Status: Directed and adopted
+- Authority: Direct operator request accepting radioradio ECR 2026-005
+
+### Decision
+
+Container-capable controls may declare an immutable construction-time input
+scope through a typed `PanelOptions` mode. The zero value declares no new
+boundary and preserves existing application behavior. A declared scope owns
+the mnemonic and default/cancel-role namespace of its descendants, while the
+existing direct-parent focus groups remain the units of spatial and Tab entry.
+
+Declared scopes confine Tab and Shift-Tab by default. A distinct explicit mode
+permits traversal to escape to another eligible group. Modal scopes remain
+implicit, top-of-stack, and confined; they are not replaced by the new
+non-modal facility. The App root remains the fallback scope for controls with
+no nearer declared or modal boundary.
+
+Input resolution uses committed toolkit visibility, destruction, selected-tab
+state, current focus, and modal state. An atomic Transaction that hides one
+workspace and shows another publishes no intermediate resolver state. Core and
+automation snapshots expose the structural scope mode through bounded typed
+container details and no application content.
+
+### Rationale
+
+Mutually exclusive workspaces need conventional repeated mnemonics such as
+Save and Cancel without manufacturing modal dialogs or omitting keyboard
+access. A typed immutable boundary is smaller and safer than a reflective
+binding system, preserves the existing ownership tree, and lets validation,
+focus repair, rendering, and automation observe one canonical structure.
+
+### Compatibility And Boundaries
+
+- Applications declaring no scope retain the current App-wide non-modal
+  mnemonic validation, same-parent default/cancel validation, and traversal.
+- Duplicate mnemonics or default/cancel roles within one declared scope remain
+  transaction errors.
+- The change does not reparent controls, alter command ownership, make hidden
+  or disabled controls eligible, or replace direct-parent focus groups.
+- Directional navigation within composite controls and modal input capture are
+  unchanged.
+
+### Adoption Evidence
+
+Phase 19 Slice 19.10 implemented `InputScopeNone`, `InputScopeConfined`, and
+`InputScopeEscaping` through `PanelOptions`, scope-aware validation and input
+resolution, root/modal structural evidence, explicit automation projection
+and fail-closed validation, response-bound accounting, public-consumer
+coverage, and confined catalog screens. The complete `make verify` gate passed
+at 2026-08-08T10:31:25-07:00.
+
+### Related Records
+
+- [`EXPL-TASK-036`](tasks-in-progress.md)
+- [`development-roadmap.md`](development-roadmap.md)
+- [`actions-api-v0.md`](../docs/specifications/actions-api-v0.md)
+- radioradio ECR 2026-005
+
 ## EXPL-DEC-014 — Avoid Host-Terminal Shortcut Collisions
 
 - Date: 2026-07-30

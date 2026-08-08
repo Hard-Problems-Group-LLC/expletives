@@ -581,10 +581,109 @@ func (a *App) effectivelyVisibleLocked(state *controlState) bool {
 	return true
 }
 
+func (a *App) effectiveControlClipLocked(state *controlState) Rect {
+	if state == nil {
+		return Rect{}
+	}
+	path := make([]*controlState, 0)
+	for current := state; current != nil; current = current.parent {
+		path = append(path, current)
+	}
+	if len(path) == 0 || path[len(path)-1] != a.root.state {
+		return Rect{}
+	}
+	surface := Rect{Width: a.size.Width, Height: a.size.Height}
+	parentOrigin := Point{}
+	ancestorClip := surface
+	ancestorsVisible := true
+	for index := len(path) - 1; index >= 0; index-- {
+		current := path[index]
+		if current.destroyed || current.aborted {
+			return Rect{}
+		}
+		bounds := current.bounds
+		absolute := bounds
+		if isApplicationChrome(current.kind) {
+			switch current.kind {
+			case ControlMenuBar:
+				bounds = menuBarSurfaceRect(a.size)
+			case ControlStatusBar:
+				bounds = statusBarSurfaceRect(a.size)
+			}
+			absolute = bounds
+			ancestorClip = surface
+		} else if !current.root {
+			absolute.X += parentOrigin.X
+			absolute.Y += parentOrigin.Y
+		}
+		clip := absolute.Intersect(ancestorClip)
+		visible := ancestorsVisible && current.visible
+		if managed, selected := a.isManagedTabPageLocked(current); managed && !selected {
+			visible = false
+		}
+		if !visible {
+			return Rect{}
+		}
+		if current == state {
+			return clip
+		}
+		client := absolute
+		if current.root {
+			client = a.rootContentRectLocked()
+		} else {
+			client = controlClientRect(current, absolute)
+		}
+		ancestorClip = clip.Intersect(client)
+		parentOrigin = Point{X: client.X, Y: client.Y}
+		ancestorsVisible = visible
+	}
+	return Rect{}
+}
+
+func (a *App) controlReceivesInputLocked(state *controlState) bool {
+	if !a.effectivelyVisibleLocked(state) ||
+		!a.inActiveModalScopeLocked(state) {
+		return false
+	}
+	if scope := declaredInputScopeState(state); scope != nil &&
+		a.effectiveControlClipLocked(scope).Empty() {
+		return false
+	}
+	return true
+}
+
+func (a *App) activeInputScopeLocked() (*controlState, InputScopeMode) {
+	if modal := a.topModalLocked(); modal != nil {
+		return modal, InputScopeConfined
+	}
+	if scope := declaredInputScopeState(a.focus); scope != nil &&
+		a.controlReceivesInputLocked(scope) {
+		return scope, scope.inputScope
+	}
+	return a.root.state, InputScopeConfined
+}
+
+func (a *App) inInputScopeLocked(
+	state *controlState,
+	scope *controlState,
+) bool {
+	if state == nil || scope == nil || !controlWithin(state, scope) {
+		return false
+	}
+	if scope == a.topModalLocked() {
+		return true
+	}
+	return inputScopeOwnerState(state, a.root.state) == scope
+}
+
+func (a *App) inActiveInputScopeLocked(state *controlState) bool {
+	scope, _ := a.activeInputScopeLocked()
+	return a.inInputScopeLocked(state, scope)
+}
+
 func (a *App) buttonEligibleLocked(state *controlState) bool {
 	if state == nil || state.kind != ControlButton ||
-		!a.effectivelyVisibleLocked(state) ||
-		!a.inActiveModalScopeLocked(state) {
+		!a.controlReceivesInputLocked(state) {
 		return false
 	}
 	behavior, ok := state.behavior.(buttonBehavior)
@@ -597,8 +696,7 @@ func (a *App) buttonEligibleLocked(state *controlState) bool {
 }
 
 func (a *App) focusEligibleLocked(state *controlState) bool {
-	if state == nil || !a.effectivelyVisibleLocked(state) ||
-		!a.inActiveModalScopeLocked(state) {
+	if state == nil || !a.controlReceivesInputLocked(state) {
 		return false
 	}
 	switch behavior := state.behavior.(type) {
@@ -703,8 +801,8 @@ func (a *App) focusBehaviorEligibleLocked(
 	return false
 }
 
-func (a *App) focusableControlsLocked() []*controlState {
-	groups := a.focusGroupsLocked()
+func (a *App) focusableControlsLocked(global bool) []*controlState {
+	groups := a.focusGroupsLocked(global)
 	controls := make([]*controlState, 0, len(groups))
 	for _, group := range groups {
 		if target := a.tabEntryForFocusGroupLocked(group, false); target != nil {
@@ -714,11 +812,13 @@ func (a *App) focusableControlsLocked() []*controlState {
 	return controls
 }
 
-func (a *App) allFocusableControlsLocked() []*controlState {
+func (a *App) allFocusableControlsLocked(global bool) []*controlState {
 	controls := make([]*controlState, 0)
+	scope, mode := a.activeInputScopeLocked()
 	var visit func(*controlState)
 	visit = func(state *controlState) {
-		if a.focusEligibleLocked(state) {
+		if a.focusEligibleLocked(state) &&
+			(global || mode == InputScopeEscaping || a.inInputScopeLocked(state, scope)) {
 			controls = append(controls, state)
 		}
 		for _, child := range state.children {
@@ -738,10 +838,10 @@ type focusGroup struct {
 	controls []*controlState
 }
 
-func (a *App) focusGroupsLocked() []focusGroup {
+func (a *App) focusGroupsLocked(global bool) []focusGroup {
 	groups := make([]focusGroup, 0)
 	indexes := make(map[*controlState]int)
-	for _, control := range a.allFocusableControlsLocked() {
+	for _, control := range a.allFocusableControlsLocked(global) {
 		owner := control.parent
 		index, found := indexes[owner]
 		if !found {
@@ -794,7 +894,7 @@ func (a *App) ensureFocusLocked() bool {
 	previous := a.focus
 	committed := a.commitOrCancelEditorStateLocked(previous)
 	a.focus = nil
-	controls := a.focusableControlsLocked()
+	controls := a.focusableControlsLocked(true)
 	if len(controls) != 0 {
 		a.focus = controls[0]
 	}
@@ -806,7 +906,7 @@ func (a *App) ensureFocusLocked() bool {
 }
 
 func (a *App) moveFocusLocked(reverse bool) bool {
-	groups := a.focusGroupsLocked()
+	groups := a.focusGroupsLocked(false)
 	if len(groups) == 0 {
 		if a.focus == nil {
 			return false
@@ -860,7 +960,7 @@ func (a *App) moveDirectionalFocusLocked(key Key) bool {
 	if !isDirectionalFocusKey(key) || !a.focusEligibleLocked(a.focus) {
 		return false
 	}
-	controls := a.allFocusableControlsLocked()
+	controls := a.allFocusableControlsLocked(false)
 	sameGroup := make([]*controlState, 0)
 	otherGroups := make([]*controlState, 0)
 	for _, control := range controls {
@@ -968,7 +1068,11 @@ func abs(value int) int {
 }
 
 func (a *App) roleButtonLocked(cancel bool) *controlState {
-	for _, state := range a.allFocusableControlsLocked() {
+	scope, _ := a.activeInputScopeLocked()
+	for _, state := range a.allFocusableControlsLocked(true) {
+		if !a.inInputScopeLocked(state, scope) {
+			continue
+		}
 		behavior, ok := state.behavior.(buttonBehavior)
 		if !ok {
 			continue
@@ -983,9 +1087,11 @@ func (a *App) roleButtonLocked(cancel bool) *controlState {
 func (a *App) mnemonicControlLocked(key Key) (*controlState, bool) {
 	var found *controlState
 	activate := false
+	scope, _ := a.activeInputScopeLocked()
 	var visit func(*controlState)
 	visit = func(state *controlState) {
-		if found != nil || !a.effectivelyVisibleLocked(state) {
+		if found != nil || !a.controlReceivesInputLocked(state) ||
+			!a.inInputScopeLocked(state, scope) {
 			return
 		}
 		switch behavior := state.behavior.(type) {
@@ -1023,11 +1129,7 @@ func (a *App) mnemonicControlLocked(key Key) (*controlState, bool) {
 			visit(child)
 		}
 	}
-	start := a.root.state
-	if modal := a.topModalLocked(); modal != nil {
-		start = modal
-	}
-	visit(start)
+	visit(scope)
 	return found, activate
 }
 

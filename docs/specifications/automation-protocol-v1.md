@@ -895,8 +895,10 @@ the root package's local snapshot. The client checks:
 - at most 4,096 controls and at most 4,096 aggregate child references;
 - at most 1,024 Layouts and 4,096 aggregate Layout item references, with
   bounded identities, geometry, arrangement indices, and stack indices;
-- kind-consistent typed control details, including the generic zero-inset
-  Container detail for root, Panel, Header, and Footer; canonical bounded
+- kind-consistent typed control details, including the generic Container
+  detail for root, Panel, Header, and Footer; a valid empty, `confined`, or
+  `escaping` structural input-scope mode; required `confined` evidence for
+  root and modal containers; canonical bounded
   border titles; Label/StaticText values and target/mnemonic associations;
   and Separator/Rule orientation, form, title, alignment, and wrapping state;
 - generic focus plus Button label, command, enabled/disabled reason, checked,
@@ -1043,6 +1045,12 @@ bytes. Every encoded response must also fit the 40 MiB response-line limit.
 The conservative legal-maximum completion proof is 41,391,622 JSON bytes;
 three such records total 124,174,866 bytes and remain below the 128 MiB
 aggregate encoded-evidence budget.
+
+`details.container.input_scope` is omitted for an ordinary container which
+inherits its nearest boundary, is `confined` or `escaping` for an explicitly
+declared non-modal boundary, and is always `confined` for root and modal
+containers. It is bounded structural evidence only; it contains no
+application-defined identifier or content.
 
 ## Public Go Client Contract
 

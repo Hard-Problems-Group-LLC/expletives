@@ -222,8 +222,11 @@ Wrapped content reflows at settled Panel Client Area width after integrated
 vertical-scrollbar visibility converges. Its derived content width never
 exceeds that viewport, so an `auto` horizontal bar remains absent. An explicit
 `always` policy remains authoritative. Unwrapped content retains horizontal
-scrolling for long labels and descriptions. Tab and Shift-Tab leave the
-ListBox focus group.
+scrolling for long labels and descriptions. Left and Right are handled,
+non-wrapping horizontal movements; at either boundary they are explicit
+no-ops, and the offset remains in `[0, MaximumOffset.X]`. In particular, a
+wrapped ListBox whose content fits has zero maximum and current horizontal
+offset. Tab and Shift-Tab leave the ListBox focus group.
 
 ## DropDown And ComboBox
 

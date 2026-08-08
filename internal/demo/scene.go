@@ -1116,7 +1116,7 @@ func NewWithRootConstraints(
 			Background: expletives.RGB(0x00, 0xAA, 0x00),
 		},
 		expletives.Style{
-			ID: "button.disabled", Foreground: expletives.RGB(0x80, 0x80, 0x80),
+			ID: "button.disabled", Foreground: expletives.RGB(0x00, 0x00, 0x00),
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1349,6 +1349,7 @@ func NewWithRootConstraints(
 	homeScreen, err := transaction.NewPanel(content, expletives.PanelOptions{
 		AutomationKey: "screen.home",
 		Style:         canvasStyle.ID,
+		InputScope:    expletives.InputScopeConfined,
 	})
 	if err != nil {
 		return nil, err
@@ -1359,6 +1360,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.panels.core",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1370,6 +1372,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.panels.styles",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1381,6 +1384,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.layouts.box",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1392,6 +1396,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.layouts.grid",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1401,6 +1406,7 @@ func NewWithRootConstraints(
 		AutomationKey: "screen.text",
 		Style:         canvasStyle.ID,
 		Hidden:        true,
+		InputScope:    expletives.InputScopeConfined,
 	})
 	if err != nil {
 		return nil, err
@@ -1409,6 +1415,7 @@ func NewWithRootConstraints(
 		AutomationKey: "screen.actions",
 		Style:         canvasStyle.ID,
 		Hidden:        true,
+		InputScope:    expletives.InputScopeConfined,
 	})
 	if err != nil {
 		return nil, err
@@ -1419,6 +1426,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.selection",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1430,6 +1438,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.input",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1441,6 +1450,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.progress",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1452,6 +1462,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.navigation",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1463,6 +1474,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.scrolling",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1474,6 +1486,7 @@ func NewWithRootConstraints(
 			AutomationKey: "screen.collections",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
 		},
 	)
 	if err != nil {
@@ -1483,6 +1496,7 @@ func NewWithRootConstraints(
 		AutomationKey: "screen.menus",
 		Style:         canvasStyle.ID,
 		Hidden:        true,
+		InputScope:    expletives.InputScopeConfined,
 	})
 	if err != nil {
 		return nil, err
@@ -1491,6 +1505,7 @@ func NewWithRootConstraints(
 		AutomationKey: "screen.status",
 		Style:         canvasStyle.ID,
 		Hidden:        true,
+		InputScope:    expletives.InputScopeConfined,
 	})
 	if err != nil {
 		return nil, err
@@ -1499,6 +1514,7 @@ func NewWithRootConstraints(
 		AutomationKey: "screen.headers_footers",
 		Style:         canvasStyle.ID,
 		Hidden:        true,
+		InputScope:    expletives.InputScopeConfined,
 	})
 	if err != nil {
 		return nil, err
@@ -1507,6 +1523,7 @@ func NewWithRootConstraints(
 		AutomationKey: "screen.about",
 		Style:         canvasStyle.ID,
 		Hidden:        true,
+		InputScope:    expletives.InputScopeConfined,
 	})
 	if err != nil {
 		return nil, err
@@ -7576,6 +7593,9 @@ func SelfCheck() error {
 	}
 	if controls["screen.home"].Visible ||
 		!controls["screen.actions"].Visible ||
+		controls["screen.actions"].Details.Container == nil ||
+		controls["screen.actions"].Details.Container.InputScope !=
+			expletives.InputScopeConfined ||
 		!controls["action.toggle"].Focused {
 		return errors.New("Actions screen did not become visible and focused")
 	}

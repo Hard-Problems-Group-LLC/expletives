@@ -335,6 +335,12 @@ func (t *Transaction) newLeafControl(
 	kind ControlKind,
 	behavior controlBehavior,
 ) (*controlState, error) {
+	if options.InputScope != InputScopeNone {
+		return nil, fmt.Errorf(
+			"%w: input scope requires a container",
+			ErrInvalidControl,
+		)
+	}
 	panel, err := t.newControl(parent, options, kind, behavior)
 	if err != nil {
 		return nil, err

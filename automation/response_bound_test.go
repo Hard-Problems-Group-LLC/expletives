@@ -2840,6 +2840,7 @@ func maximumCompletionJSONBytes(
 		Version: 1,
 		Container: &ContainerDetails{
 			ClientInset: controlValue.Bounds.X,
+			InputScope:  "escaping",
 		},
 		Border: &BorderDetails{
 			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
@@ -3005,7 +3006,7 @@ func maximumCompletionJSONBytes(
 	radioControl := controlValue
 	radioControl.Details = ControlDetails{
 		Version:   1,
-		Container: &ContainerDetails{},
+		Container: &ContainerDetails{InputScope: "escaping"},
 		RadioGroup: &RadioGroupDetails{
 			Value:          string(controlValue.ID),
 			AllowEmpty:     true,
@@ -3120,8 +3121,11 @@ func maximumCompletionJSONBytes(
 	}
 	scrollableControl := controlValue
 	scrollableControl.Details = ControlDetails{
-		Version:   1,
-		Container: &ContainerDetails{ClientInset: math.MaxInt},
+		Version: 1,
+		Container: &ContainerDetails{
+			ClientInset: math.MaxInt,
+			InputScope:  "escaping",
+		},
 		Border: &BorderDetails{
 			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
 			Form:          string(controlValue.ID),
@@ -3392,8 +3396,11 @@ func maximumCompletionJSONBytes(
 	}
 	modalControl := controlValue
 	modalControl.Details = ControlDetails{
-		Version:   1,
-		Container: &ContainerDetails{ClientInset: math.MaxInt},
+		Version: 1,
+		Container: &ContainerDetails{
+			ClientInset: math.MaxInt,
+			InputScope:  "confined",
+		},
 		Border: &BorderDetails{
 			Title:         strings.Repeat("\x00", maxBorderTitleBytes),
 			Form:          "double",
@@ -3464,7 +3471,7 @@ func maximumCompletionJSONBytes(
 	contentControl.Kind = "panel"
 	contentControl.Details = ControlDetails{
 		Version:   1,
-		Container: &ContainerDetails{},
+		Container: &ContainerDetails{InputScope: "escaping"},
 	}
 	contentControlBytes := len(mustMarshal(t, contentControl))
 	ordinaryControlsBytes := limits.Controls * ordinaryControlBytes
@@ -3716,8 +3723,11 @@ func maximumValidElementCompletion(limits Limits) Completion {
 	compactFrame(&completion.Snapshot.Frame, true)
 	completion.Snapshot.Controls[0].Kind = "frame"
 	completion.Snapshot.Controls[0].Details = ControlDetails{
-		Version:   1,
-		Container: &ContainerDetails{ClientInset: 1},
+		Version: 1,
+		Container: &ContainerDetails{
+			ClientInset: 1,
+			InputScope:  "escaping",
+		},
 		Border: &BorderDetails{
 			Title: maximumCanonicalTitle(),
 			Form:  "single",

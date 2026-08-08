@@ -70,7 +70,8 @@ The default color contract follows Turbo Vision's gray-dialog palette:
 - `button.default` is bright cyan on green;
 - `button.focused` and `button.pressed` are white on green;
 - `button.mnemonic` is yellow on green;
-- `button.disabled` is dark gray on light gray; and
+- `button.disabled` is black on the medium-gray dialog surface, preserving
+  practical label contrast while remaining visually disabled; and
 - `button.shadow` is black on light gray and owns the `▄`, `█`, and `▀`
   shadow cells.
 
@@ -136,6 +137,17 @@ chooses its first eligible control when moving forward and its last eligible
 control when moving backward; a RadioGroup instead enters through its
 selected enabled option when possible.
 
+The root is the backward-compatible confined input scope when no application
+boundary is declared. A container with `PanelOptions.InputScope` set to
+`InputScopeConfined` or `InputScopeEscaping` starts a distinct non-modal
+namespace for descendant mnemonics and default/cancel roles. The nearest
+scope containing current focus is active. Confined Tab traversal wraps within
+that scope; escaping traversal may leave it through the global stable group
+sequence. Explicit focus into another eligible scope changes the active
+scope. When focus becomes invalid, one atomic visibility transaction repairs
+from the complete eligible tree, allowing a hidden-old/shown-new workspace
+switch without an intermediate input namespace.
+
 Plain arrows move focus spatially among eligible controls in the same group.
 When no same-group control exists in that direction, focus may enter another
 group only when the nearest primary/cross-axis target is unambiguous. Arrow
@@ -156,10 +168,16 @@ An exact Alt plus mnemonic resolves before an ordinary global Alt chord:
 - a Button mnemonic activates that Button; and
 - a Label mnemonic focuses its target when that target is eligible.
 
-Non-menu Action mnemonics are unique App-wide in this phase. Menu scope and
-precedence arrive in the next phase. Other registered chords retain their
-existing global command behavior. Text/paste and terminal bytes are not
-introduced by this phase.
+Non-menu Action mnemonics are unique within their closest root, modal, or
+declared non-modal input scope. Separate workspaces may therefore reuse
+conventional keys and default/cancel roles. Nested declared scopes are
+distinct; a parent scope does not search them. A declared scope inside a modal
+is invalid so existing modal capture and role behavior remain unchanged.
+Hidden, destroyed, unselected-tab, and out-of-modal controls are ineligible;
+a fully clipped declared scope boundary is inactive. When focus remains
+outside visible sibling scopes, neither sibling is selected arbitrarily.
+Other registered chords retain their global command behavior. Text/paste and
+terminal bytes are not introduced here.
 
 While a ModalPanel is active, an ordinary global chord is rejected with
 `modal_scope` unless its command definition uses `CommandModalAllowed`. Direct
@@ -173,7 +191,10 @@ without letting automation or application code activate obscured controls.
 contains effective label, command, enabled flag, disabled reason, mnemonic,
 pressed/default/cancel state. `HotkeyBarDetails` contains bounded ordered
 items with effective label, command state, and the structured current chord.
-All nested slices are deep-copied.
+`ContainerDetails.InputScope` is empty for an ordinary inherited container,
+`confined` or `escaping` for a declared boundary, and `confined` for the root
+and modal containers. It exposes structure, not application content. All
+nested slices are deep-copied.
 
 The automation-owned DTO explicitly projects and validates the same typed
 union. HotkeyBar items are bounded both per bar and across a snapshot.
@@ -194,8 +215,9 @@ atomically. No callback runs during focus traversal, layout, or painting.
 ## Verification
 
 Normal Go tests cover construction, copy safety, leaf capabilities, grouped
-Tab/Shift-Tab traversal, spatial arrow traversal and invalidation,
-same-parent role uniqueness, every visual state,
+Tab/Shift-Tab traversal, confined and escaping scopes, atomic scope switches,
+clipped and modal exclusion, spatial arrow traversal and invalidation,
+same-parent and declared-scope role uniqueness, every visual state,
 label/mnemonic normalization, KeyPress and KeyDown/KeyUp activation,
 source-local reset, disabled/unknown rejection, target identity, command
 replacement, HotkeyBar binding reflection, clipping, transactions, snapshots,

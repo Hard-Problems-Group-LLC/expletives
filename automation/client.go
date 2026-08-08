@@ -1441,6 +1441,20 @@ func validControlDetails(
 	if details.Version != 1 {
 		return false
 	}
+	if details.Container != nil &&
+		!validInputScopeMode(details.Container.InputScope) {
+		return false
+	}
+	if kind == "root" &&
+		(details.Container == nil ||
+			details.Container.InputScope != "confined") {
+		return false
+	}
+	if isModalControlKind(kind) &&
+		(details.Container == nil ||
+			details.Container.InputScope != "confined") {
+		return false
+	}
 	specialMembers := 0
 	if details.Checkbox != nil {
 		specialMembers++
@@ -1979,6 +1993,26 @@ func validControlDetails(
 			details.MenuBar == nil &&
 			details.StatusBar == nil &&
 			validComboBoxDetails(details.ComboBox, limits)
+	default:
+		return false
+	}
+}
+
+func validInputScopeMode(mode InputScopeMode) bool {
+	switch mode {
+	case "", "confined", "escaping":
+		return true
+	default:
+		return false
+	}
+}
+
+func isModalControlKind(kind ControlKind) bool {
+	switch kind {
+	case "modal_panel", "dialog", "message_box", "confirm_dialog",
+		"input_dialog", "progress_dialog", "file_picker_dialog",
+		"multi_file_picker_dialog", "directory_picker_dialog":
+		return true
 	default:
 		return false
 	}

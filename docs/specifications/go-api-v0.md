@@ -266,12 +266,22 @@ func NewPanel(parent Container, options PanelOptions) (*Panel, error)
 func NewFrame(parent Container, options FrameOptions) (*Frame, error)
 func NewGroupBox(parent Container, options GroupBoxOptions) (*GroupBox, error)
 
+type InputScopeMode string
+
+const (
+    InputScopeNone     InputScopeMode = ""
+    InputScopeConfined InputScopeMode = "confined"
+    InputScopeEscaping InputScopeMode = "escaping"
+)
+
 type PanelOptions struct {
     AutomationKey string
     Bounds        Rect
     MinimumSize   Size
+    LayoutHints   LayoutHints
     Style         StyleID
     Hidden        bool
+    InputScope    InputScopeMode
 }
 
 type FrameOptions struct {
@@ -296,6 +306,18 @@ type GroupBoxOptions struct {
 Every ordinary control requires a valid `Container` in the same App.
 Parentage is immutable, cycles cannot be introduced, and reparenting remains
 unavailable.
+
+`InputScopeNone` preserves the nearest ancestor input scope and is the
+backward-compatible default. A non-modal container may declare a confined or
+escaping scope. The closest declared scope owns descendant Action mnemonics
+and default/cancel roles. Confined scope traversal wraps among its eligible
+direct-parent focus groups; escaping traversal may cross into the global
+eligible group sequence. Root and active modal scopes are toolkit-owned and
+always confined. Leaves, ModalPanel options, and containers nested beneath a
+modal reject an explicit scope. Hidden, destroyed, unselected-tab, or
+out-of-modal controls cannot receive scoped input, and a fully clipped
+declared scope boundary is inactive. A Label and its mnemonic target must
+share a scope.
 
 Empty style IDs select the control-kind defaults. Empty border style IDs
 select `"frame.border"` or `"group_box.border"`. Every selected ID must exist
@@ -397,16 +419,19 @@ roles, and an optional ASCII mnemonic activates through the ordinary router.
 HotkeyBar copies an ordered unique command inventory and projects the current
 first App binding for each entry; it does not retain a second binding table.
 
-Each direct parent Container defines a focus group. Tab and Shift-Tab cross
-groups; arrows move spatially between controls within a group and cross to a
-different group only for an unambiguous directional target. Plain
-Enter/Space activates the focused Button, Enter falls back to the applicable
-default Button, and Escape uses the applicable cancel Button. Raw Enter/Space
-down-up pairs publish and clear source-local pressed capture; input reset and
-disconnect clear capture without activation. An exact Alt mnemonic is
-resolved before a global Alt binding. `ControlSnapshot.Focused`,
-`ActionDetails`, and `HotkeyBarDetails` make the complete state atomically
-inspectable.
+Each direct parent Container defines a focus group. The active root, modal, or
+closest declared non-modal input scope selects which groups and Action
+namespace apply. Tab and Shift-Tab cross groups within a confined scope; an
+escaping declared scope permits crossing the boundary. Arrows move spatially
+between eligible controls within the same traversal set and cross to a
+different group only for an unambiguous directional target. Plain Enter/Space
+activates the focused Button, Enter falls back to the active scope's default
+Button, and Escape uses its cancel Button. Raw Enter/Space down-up pairs
+publish and clear source-local pressed capture; input reset and disconnect
+clear capture without activation. An exact scoped Alt mnemonic is resolved
+before a global Alt binding. `ControlSnapshot.Focused`, structural
+`ContainerDetails.InputScope`, `ActionDetails`, and `HotkeyBarDetails` make
+the complete state atomically inspectable.
 
 The complete construction, validation, rendering, focus, routing, snapshot,
 automation, and resource-bound contract is in
@@ -797,9 +822,11 @@ copied content extent and offset. `Viewport` is unframed with no integrated
 bars. `ScrollablePanel` supports the normal border forms plus independently
 configured Auto, Always, or Never horizontal and vertical integrated bars.
 
-Offsets clamp after state and geometry changes. Arrow, page, Home, and End
-keys move a focused eligible viewport without wrapping. `EnsureVisible` and
-focused-descendant repair make the smallest required offset change.
+Offsets clamp to the closed interval from zero through the current maximum
+after state and geometry changes. Arrow, page, Home, and End keys move a
+focused eligible viewport without wrapping; a boundary movement is a handled
+no-op. `EnsureVisible` and focused-descendant repair make the smallest required
+offset change.
 Programmatic changes are silent; direct user scrolling may route the optional
 change command outside toolkit locks. `ControlDetails.Scrollable` exposes the
 complete canonical state, viewport, managed Content relationship, policies,

@@ -150,6 +150,17 @@ func TestDefaultThemeKeepsMenusLightAndEveryDialogSurfaceDark(t *testing.T) {
 			t.Errorf("DefaultTheme().Resolve(%q) = %+v, %t; want background %s", id, resolved, found, dialogGray)
 		}
 	}
+	disabled, found := theme.Resolve("button.disabled")
+	if !found || disabled.Foreground != RGB(0x00, 0x00, 0x00) ||
+		disabled.Background != dialogGray ||
+		disabled.Foreground == disabled.Background {
+		t.Errorf(
+			"DefaultTheme().Resolve(button.disabled) = %+v, %t; want black on %s",
+			disabled,
+			found,
+			dialogGray,
+		)
+	}
 	for _, id := range []StyleID{
 		"modal_panel.border", "dialog.border", "message_box.border",
 		"confirm_dialog.border", "input_dialog.border",
@@ -781,8 +792,9 @@ func TestProgressDialogCancellationRequestAndAcknowledgement(t *testing.T) {
 		cancelView.AbsoluteBounds.Y,
 	)
 	if disabledBody.Style != "button.disabled" ||
-		disabledBody.Foreground != RGB(0x80, 0x80, 0x80) ||
+		disabledBody.Foreground != RGB(0x00, 0x00, 0x00) ||
 		disabledBody.Background != RGB(0x80, 0x80, 0x80) ||
+		disabledBody.Foreground == disabledBody.Background ||
 		disabledShadow.Style != "button.shadow" ||
 		disabledShadow.Grapheme != "▄" {
 		t.Fatalf(

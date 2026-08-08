@@ -108,6 +108,14 @@ func TestActionConstructionFocusAndRendering(t *testing.T) {
 	if got := rowText(snapshot, 1)[15:29]; got != "   Disabled   " {
 		t.Fatalf("disabled one-row Button override = %q", got)
 	}
+	for x := disabledState.AbsoluteBounds.X; x < disabledState.AbsoluteBounds.X+disabledState.AbsoluteBounds.Width; x++ {
+		cell, _ := snapshot.Frame.Cell(x, disabledState.AbsoluteBounds.Y)
+		if strings.Contains("Disabled", cell.Grapheme) &&
+			(cell.Style != "button.disabled" ||
+				cell.Foreground == cell.Background) {
+			t.Fatalf("disabled Button label cell = %+v", cell)
+		}
+	}
 }
 
 func TestGlobalAltBindingPrecedesLocalControlMnemonic(t *testing.T) {

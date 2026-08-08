@@ -1055,10 +1055,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		if mnemonic == "" {
 			return nil
 		}
-		scope := modalAncestorState(state)
-		if scope == nil {
-			scope = t.app.root.state
-		}
+		scope := inputScopeOwnerState(state, t.app.root.state)
 		if mnemonics[scope] == nil {
 			mnemonics[scope] = make(map[Key]*controlState)
 		}
@@ -1077,12 +1074,21 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 		behavior controlBehavior,
 		requireCommand bool,
 	) error {
+		if state.inputScope != InputScopeNone &&
+			modalAncestorState(state.parent) != nil {
+			return fmt.Errorf(
+				"%w: non-modal input scope cannot be nested in a modal",
+				ErrInvalidControl,
+			)
+		}
 		switch behavior := behavior.(type) {
 		case buttonBehavior:
 			roleOwner := state.parent
 			modal := modalAncestorState(state)
 			if modal != nil {
 				roleOwner = modal
+			} else if scope := declaredInputScopeState(state); scope != nil {
+				roleOwner = scope
 			}
 			if isStandardDialogCommand(behavior.command) &&
 				(modal == nil ||
@@ -1166,6 +1172,13 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 		case textBehavior:
 			if behavior.mnemonic != "" && !destroyed[behavior.target] {
+				if inputScopeOwnerState(state, t.app.root.state) !=
+					inputScopeOwnerState(behavior.target, t.app.root.state) {
+					return fmt.Errorf(
+						"%w: Label mnemonic target crosses an input scope",
+						ErrInvalidControl,
+					)
+				}
 				if err := validateMnemonic(state, behavior.mnemonic); err != nil {
 					return err
 				}

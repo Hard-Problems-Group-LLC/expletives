@@ -142,6 +142,9 @@ purpose, deterministic reset behavior, and the important applicable states.
 The implemented `toolkit.catalog` scene has one persistent MenuBar and exactly
 one visible purpose-specific Home, Core Panels, Visual Styles, Box Layout,
 Grid Layout, Text/Display, Actions, Selection, Menus, or About screen.
+Every `screen.*` Panel is a confined non-modal input scope, so the catalog is
+a real public-API consumer of atomic workspace activation, scoped focus, and
+structural snapshot/automation evidence.
 Screen selection uses registered commands reached through menu input or
 automation; it has no private test-only navigation path. Each enabled catalog
 label has its own screen and stable command identity. Disabled `catalog.*`
@@ -205,7 +208,10 @@ and cancel Buttons in `action.panel`, plus a live HotkeyBar in
 Tab or spatial arrows plus Enter/Space, the existing Ctrl-R binding, and
 direct command invocation all enter the shared command router. The Toggle
 command's checked presentation state changes with the same controller
-transition observed in the accent Panel.
+transition observed in the accent Panel. Switching to Actions atomically
+hides the prior confined screen, shows `screen.actions`, repairs focus to its
+first eligible group, and exposes `details.container.input_scope` as
+`confined`.
 
 The Selection screen embeds two-state, three-state, and disabled Checkboxes;
 one exclusive RadioGroup with enabled and disabled RadioButtons; CycleField

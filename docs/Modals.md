@@ -46,8 +46,9 @@ Escape uses the applicable Cancel Button after editor/popup cancellation.
 The default dialog palette is the Turbo Vision gray-dialog palette: white
 active border/title and black body text on light gray. Buttons are raised
 two-row controls with a green body and a black half-block drop shadow; focused
-or pressed text is white, default text is bright cyan, and accelerators are
-yellow. The Button shadow is distinct from the larger black dialog shadow.
+or pressed text is white, default text is bright cyan, accelerators are
+yellow, and disabled labels are black on the medium-gray dialog surface. The
+Button shadow is distinct from the larger black dialog shadow.
 Override the semantic `message_box`/`confirm_dialog`/`input_dialog`/
 `progress_dialog`, `.border`, and `.shadow` styles for dialog surfaces, and
 the `button`, `button.default`, `button.focused`, `button.pressed`,

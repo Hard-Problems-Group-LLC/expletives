@@ -5,6 +5,13 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-08 — [`EXPL-BUG-006`](closed/EXPL-BUG-006-negative-viewport-offset.md)
+  — Enforced the shared closed viewport-offset interval and stable handled
+  no-ops for wrapped ListBox horizontal boundary keys.
+- 2026-08-08 — [`EXPL-BUG-005`](closed/EXPL-BUG-005-disabled-button-label-contrast.md)
+  — Restored practical default disabled-Button label contrast through the
+  canonical frame and ANSI-16 terminal projection.
+
 - 2026-08-07 — [`EXPL-BUG-004`](closed/EXPL-BUG-004-text-field-maximum-bytes.md)
   — Added a copied per-TextField canonical UTF-8 byte ceiling with atomic
   admission, recovery-key behavior, and typed automation evidence.

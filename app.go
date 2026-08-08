@@ -433,6 +433,9 @@ func (a *App) paintControlLocked(
 		parentID = state.parent.id
 	}
 	details := state.behavior.details()
+	if details.Container != nil {
+		details.Container.InputScope = inputScopeSnapshotMode(state)
+	}
 	if details.Border != nil {
 		provider := state.behavior.(controlBorderProvider)
 		border := provider.controlBorder()

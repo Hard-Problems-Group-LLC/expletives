@@ -565,8 +565,8 @@ func clampViewportState(
 	state ViewportState,
 	geometry scrollViewGeometry,
 ) ViewportState {
-	state.Offset.X = min(state.Offset.X, geometry.maximumOffset.X)
-	state.Offset.Y = min(state.Offset.Y, geometry.maximumOffset.Y)
+	state.Offset.X = max(0, min(state.Offset.X, geometry.maximumOffset.X))
+	state.Offset.Y = max(0, min(state.Offset.Y, geometry.maximumOffset.Y))
 	if state.ContentSize.Width == 0 {
 		state.Offset.X = 0
 	}

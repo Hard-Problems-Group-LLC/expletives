@@ -645,6 +645,34 @@ ordered backlog and the active-task record; it does not replace either.
   race, build-mode, catalog self-check, and smoke gate passed at
   2026-08-07T17:23:42-07:00. Synthetic fixtures only; Slice 19.4 resumes after
   publication and merge.
+- Consumer-driven Slice 19.8 (`complete`): corrected the default
+  `button.disabled` palette so retained labels have practical resolved color
+  contrast while remaining structurally disabled and visually distinct from
+  enabled, focused, default, and pressed Buttons. Added exact Theme, ordinary
+  Button, standard-dialog, catalog, and terminal-profile regressions. Intake:
+  radioradio ECR 2026-001; resolved target defect `EXPL-BUG-005`. Exact Theme,
+  ordinary Button, standard-dialog, catalog, and ANSI-16 regressions pass.
+- Consumer-driven Slice 19.9 (`complete`): made the shared viewport clamp
+  enforce zero through calculated maximum on both axes. Left/Right boundary
+  input remains handled as a state-preserving no-op; construction,
+  direct state, reflow, content replacement, resize, local snapshots, and
+  attached automation must never publish a negative offset. Intake:
+  radioradio ECR 2026-006; resolved target defect `EXPL-BUG-006`. Shared clamp
+  and wrapped consumer-equivalent ListBox boundary regressions pass.
+- Consumer-driven Slice 19.10 (`complete`): added an immutable, explicitly
+  declared non-modal input-scope boundary for container-capable controls.
+  Preserved the zero-value App-wide mnemonic and same-parent role behavior;
+  declared scopes own descendant mnemonics and default/cancel roles, retain
+  direct-parent focus groups, confine Tab by default, and may explicitly
+  permit Tab escape. Hidden/destroyed/inactive-modal scopes cannot receive
+  input, atomic workspace switches repair focus without an intermediate
+  ambiguous resolver, and typed snapshots expose only structural scope mode.
+  Intake: radioradio ECR 2026-005; adopted design `EXPL-DEC-015`. Core,
+  public-consumer, automation projection/validation/resource proof, modal,
+  visibility, clipping, traversal, catalog, and snapshot-copy coverage pass.
+  At 2026-08-08T10:31:25-07:00, `make verify` passed the complete ordinary,
+  integration, race, build-mode, catalog self-check, and smoke gate for all
+  three slices. Resume Slice 19.4.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.

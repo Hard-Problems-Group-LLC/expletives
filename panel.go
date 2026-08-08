@@ -9,6 +9,17 @@ import (
 	"github.com/Hard-Problems-Group-LLC/expletives/internal/display"
 )
 
+// InputScopeMode selects how one non-modal container bounds keyboard input.
+// The zero value preserves the containing scope. Confined scopes retain Tab
+// traversal; escaping scopes allow Tab traversal to leave the boundary.
+type InputScopeMode string
+
+const (
+	InputScopeNone     InputScopeMode = ""
+	InputScopeConfined InputScopeMode = "confined"
+	InputScopeEscaping InputScopeMode = "escaping"
+)
+
 // PanelOptions configures one ordinary Panel.
 type PanelOptions struct {
 	// AutomationKey is an optional stable application-selected lookup key.
@@ -26,6 +37,10 @@ type PanelOptions struct {
 	Style StyleID
 	// Hidden constructs the control and its descendants without painting them.
 	Hidden bool
+	// InputScope declares this non-modal container as the closest mnemonic,
+	// default/cancel, and focus-traversal boundary for its descendants. The
+	// zero value preserves the nearest ancestor boundary.
+	InputScope InputScopeMode
 }
 
 // FrameOptions configures a bordered Frame control.
@@ -137,6 +152,7 @@ type controlState struct {
 	aborted       bool
 	behavior      controlBehavior
 	focusGuidance focusGuidanceConfig
+	inputScope    InputScopeMode
 	contentGate   chan struct{}
 }
 
@@ -427,6 +443,10 @@ func preparePanel(
 	if err := validateMinimumSize(options.MinimumSize); err != nil {
 		return nil, err
 	}
+	inputScope, err := normalizeInputScopeMode(options.InputScope)
+	if err != nil {
+		return nil, err
+	}
 	layoutHints, err := resolveControlLayoutHints(
 		kind,
 		behavior,
@@ -459,6 +479,7 @@ func preparePanel(
 		visible:       !options.Hidden,
 		provisional:   true,
 		behavior:      behavior,
+		inputScope:    inputScope,
 	}
 	panel := &Panel{containerHandle: containerHandle{
 		controlHandle: controlHandle{state: state},
@@ -466,6 +487,48 @@ func preparePanel(
 	state.control = panel
 	state.container = panel
 	return panel, nil
+}
+
+func normalizeInputScopeMode(mode InputScopeMode) (InputScopeMode, error) {
+	switch mode {
+	case InputScopeNone, InputScopeConfined, InputScopeEscaping:
+		return mode, nil
+	default:
+		return "", fmt.Errorf(
+			"%w: invalid input scope mode %q",
+			ErrInvalidControl,
+			mode,
+		)
+	}
+}
+
+func inputScopeSnapshotMode(state *controlState) InputScopeMode {
+	if state == nil {
+		return InputScopeNone
+	}
+	if state.root || isModalKind(state.kind) {
+		return InputScopeConfined
+	}
+	return state.inputScope
+}
+
+func declaredInputScopeState(state *controlState) *controlState {
+	for current := state; current != nil; current = current.parent {
+		if current.inputScope != InputScopeNone {
+			return current
+		}
+	}
+	return nil
+}
+
+func inputScopeOwnerState(state, root *controlState) *controlState {
+	if modal := modalAncestorState(state); modal != nil {
+		return modal
+	}
+	if scope := declaredInputScopeState(state); scope != nil {
+		return scope
+	}
+	return root
 }
 
 func validateMinimumSize(size Size) error {

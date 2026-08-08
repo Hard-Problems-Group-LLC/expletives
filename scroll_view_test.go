@@ -39,6 +39,28 @@ func dispatchScrollViewKey(
 	return completion
 }
 
+func TestClampViewportStateUsesClosedOffsetInterval(t *testing.T) {
+	t.Parallel()
+	geometry := scrollViewGeometry{maximumOffset: Point{X: 5, Y: 7}}
+
+	if got := clampViewportState(ViewportState{
+		ContentSize: Size{Width: 20, Height: 20},
+		Offset:      Point{X: -3, Y: -4},
+	}, geometry); got.Offset != (Point{}) {
+		t.Fatalf("negative clamp offset = %+v, want origin", got.Offset)
+	}
+	if got := clampViewportState(ViewportState{
+		ContentSize: Size{Width: 20, Height: 20},
+		Offset:      Point{X: 9, Y: 11},
+	}, geometry); got.Offset != geometry.maximumOffset {
+		t.Fatalf(
+			"maximum clamp offset = %+v, want %+v",
+			got.Offset,
+			geometry.maximumOffset,
+		)
+	}
+}
+
 func TestScrollablePanelGeometryManagedContentAndRendering(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 30, Height: 12})

@@ -932,7 +932,8 @@ func (a *App) tabMnemonicLocked(
 	var candidates []*controlState
 	for _, state := range a.controlsByID {
 		behavior, ok := state.behavior.(tabbedPanelBehavior)
-		if !ok || !a.effectivelyVisibleLocked(state) {
+		if !ok || !a.controlReceivesInputLocked(state) ||
+			!a.inActiveInputScopeLocked(state) {
 			continue
 		}
 		index := tabIndexByMnemonic(behavior.tabs, key)

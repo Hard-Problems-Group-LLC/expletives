@@ -79,6 +79,11 @@ MaximumOffset.X = max(0, ContentSize.Width  - ViewportSize.Width)
 MaximumOffset.Y = max(0, ContentSize.Height - ViewportSize.Height)
 ```
 
+Each published offset lies in the corresponding closed interval:
+`0 <= Offset.X <= MaximumOffset.X` and
+`0 <= Offset.Y <= MaximumOffset.Y`. The shared clamp enforces both the lower
+and upper bound after every state or geometry change.
+
 Resize, chrome changes, Layout changes, state replacement, visibility repair,
 and content replacement re-clamp offsets before publication. ArrowStep zero
 defaults componentwise to one. PageStep zero defaults componentwise to the
@@ -169,7 +174,9 @@ Viewport has no border or integrated bars. ScrollablePanel supports the
 normal independent border forms and bar policies. Both are focusable when
 enabled and at least one axis can move. Left/Right/Up/Down move by the matching
 ArrowStep. PageUp/PageDown move vertically by PageStep. Home moves to `(0,0)`;
-End moves to MaximumOffset. Movement clamps and never wraps.
+End moves to MaximumOffset. Movement clamps and never wraps. A movement key at
+the corresponding boundary is handled as an explicit no-op and cannot make an
+offset negative.
 
 Tab/Shift-Tab retain grouped focus traversal. When focus moves to a descendant
 of Content, every scrollable ancestor minimally adjusts its offset to keep the

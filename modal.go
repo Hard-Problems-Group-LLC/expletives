@@ -110,6 +110,12 @@ func (t *Transaction) newModalPanel(
 	options ModalPanelOptions,
 	kind ControlKind,
 ) (*ModalPanel, error) {
+	if options.InputScope != InputScopeNone {
+		return nil, fmt.Errorf(
+			"%w: modal input scopes are implicit",
+			ErrInvalidControl,
+		)
+	}
 	if options.Bounds.X != 0 || options.Bounds.Y != 0 {
 		return nil, fmt.Errorf(
 			"%w: ModalPanel position is resolved by its App",

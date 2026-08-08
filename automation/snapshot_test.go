@@ -62,6 +62,7 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 				Version: expletives.ControlDetailsVersion,
 				Container: &expletives.ContainerDetails{
 					ClientInset: 1,
+					InputScope:  expletives.InputScopeEscaping,
 				},
 				Border: &expletives.BorderDetails{
 					Title:         "Border",
@@ -196,6 +197,9 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	if got := projected.Controls[0].Details.MenuBar.Entries[0].Placement; got != "end" {
 		t.Fatalf("projected MenuBar placement = %q, want end", got)
 	}
+	if got := projected.Controls[0].Details.Container.InputScope; got != "escaping" {
+		t.Fatalf("projected input scope = %q, want escaping", got)
+	}
 	if got := projected.Controls[0].Details.StatusBar.Segments[0]; got.Key !=
 		"status.run" || got.Chord == nil || got.Chord.Key != "r" {
 		t.Fatalf("projected StatusBar segment = %#v", got)
@@ -204,6 +208,7 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	core.Frame.Cells[0].Grapheme = "Z"
 	core.Controls[0].Children[0] = "changed"
 	core.Controls[0].Details.Container.ClientInset = 9
+	core.Controls[0].Details.Container.InputScope = expletives.InputScopeConfined
 	core.Controls[0].Details.Border.Title = "Changed"
 	core.Controls[0].Details.Text.Text = "Changed"
 	core.Controls[0].Details.Divider.Text = "Changed"
@@ -235,6 +240,7 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	projected.Frame.Cells[0].Grapheme = "Q"
 	projected.Controls[0].Children[0] = "mutated"
 	projected.Controls[0].Details.Container.ClientInset = 7
+	projected.Controls[0].Details.Container.InputScope = "confined"
 	projected.Controls[0].Details.Border.Title = "Mutated"
 	projected.Controls[0].Details.Text.Text = "Mutated"
 	projected.Controls[0].Details.Divider.Text = "Mutated"
@@ -260,6 +266,37 @@ func TestSnapshotProjectionPreservesJSONAndDeepCopies(t *testing.T) {
 	}
 	if !bytes.Equal(clonedJSON, projectedJSON) {
 		t.Fatal("cloned snapshot aliases projected snapshot storage")
+	}
+}
+
+func TestContainerInputScopeValidationIsKindAware(t *testing.T) {
+	t.Parallel()
+	limits := DefaultLimits()
+	root := ControlDetails{
+		Version: 1,
+		Container: &ContainerDetails{
+			InputScope: "confined",
+		},
+	}
+	if !validControlDetails("root", root, 20, 5, limits) {
+		t.Fatal("validControlDetails rejected the root's implicit scope")
+	}
+	root.Container.InputScope = ""
+	if validControlDetails("root", root, 20, 5, limits) {
+		t.Fatal("validControlDetails accepted a root without its implicit scope")
+	}
+	panel := ControlDetails{
+		Version: 1,
+		Container: &ContainerDetails{
+			InputScope: "escaping",
+		},
+	}
+	if !validControlDetails("panel", panel, 20, 5, limits) {
+		t.Fatal("validControlDetails rejected an escaping Panel scope")
+	}
+	panel.Container.InputScope = "unknown"
+	if validControlDetails("panel", panel, 20, 5, limits) {
+		t.Fatal("validControlDetails accepted an unknown input scope")
 	}
 }
 

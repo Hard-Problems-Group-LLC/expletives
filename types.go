@@ -708,6 +708,8 @@ type ControlDetails struct {
 type ContainerDetails struct {
 	// ClientInset is the number of cells reserved on every edge.
 	ClientInset int `json:"client_inset"`
+	// InputScope identifies an explicit or toolkit-owned input boundary.
+	InputScope InputScopeMode `json:"input_scope,omitempty"`
 }
 
 // BorderDetails describes one bordered container.

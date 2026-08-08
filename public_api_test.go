@@ -101,6 +101,33 @@ func commandIDs(values []expletives.CommandID) []string {
 	return result
 }
 
+func TestExternalConsumerDeclaresAndObservesInputScope(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 20, Height: 5},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := expletives.NewPanel(app.Root(), expletives.PanelOptions{
+		AutomationKey: "workspace",
+		Bounds:        expletives.Rect{Width: 20, Height: 5},
+		InputScope:    expletives.InputScopeEscaping,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := app.Snapshot()
+	var observed expletives.InputScopeMode
+	for _, control := range snapshot.Controls {
+		if control.Key == "workspace" && control.Details.Container != nil {
+			observed = control.Details.Container.InputScope
+		}
+	}
+	if observed != expletives.InputScopeEscaping {
+		t.Fatalf("workspace input scope = %q", observed)
+	}
+}
+
 // counterModel deliberately contains no toolkit types.
 type counterModel struct {
 	value int

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -273,6 +274,60 @@ func TestListBoxWordWrapUsesLogicalRowsAndHangingIndent(t *testing.T) {
 	if compact.VisualRowCount <= wider.VisualRowCount ||
 		compact.Viewport.HorizontalVisible || compact.Viewport.State.Offset.Y != 0 {
 		t.Fatalf("compact wrapped ListBox did not retain leading row: %#v", compact)
+	}
+}
+
+func TestListBoxWrappedHorizontalBoundaryKeysAreHandledNoOps(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 30, Height: 10})
+	list, err := NewListBox(app.Root(), ListBoxOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "list.horizontal-boundary",
+				Bounds:        Rect{X: 1, Y: 1, Width: 20, Height: 6},
+			}},
+			BorderForm:    BorderSingle,
+			HorizontalBar: ScrollBarVisibilityNever,
+		},
+		Items: []ListItem{{
+			Key: "monitor", Label: "Channel",
+			Description: "a wrapped consumer-equivalent monitor-column description",
+		}},
+		SelectionMode: CollectionSelectionMultiple,
+		Wrap:          TextWrapWords,
+	})
+	if err != nil {
+		t.Fatalf("NewListBox(wrapped boundary) error = %v", err)
+	}
+	before := app.Snapshot()
+	for index, key := range []Key{KeyLeft, KeyLeft, KeyRight, KeyRight} {
+		completion := dispatchListBoxKey(
+			t,
+			app,
+			fmt.Sprintf("horizontal-boundary-%d", index),
+			key,
+		)
+		if completion.Outcome != OutcomeNoOp {
+			t.Fatalf("%s completion = %+v, want handled no-op", key, completion)
+		}
+		state := list.State()
+		if state.Offset.X != 0 || state.Current != "monitor" ||
+			len(state.Selected) != 0 {
+			t.Fatalf("%s changed wrapped ListBox state = %#v", key, state)
+		}
+	}
+	after := app.Snapshot()
+	if got := listBoxDetailsByKey(
+		t,
+		app,
+		"list.horizontal-boundary",
+	); got.Viewport.State.Offset.X != 0 || got.Viewport.MaximumOffset.X != 0 ||
+		got.Viewport.HorizontalVisible {
+		t.Fatalf("wrapped boundary details = %#v", got)
+	}
+	if before.Frame.Size != after.Frame.Size ||
+		!slices.Equal(before.Frame.Cells, after.Frame.Cells) {
+		t.Fatal("horizontal boundary no-ops changed the intended frame")
 	}
 }
 

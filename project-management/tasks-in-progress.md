@@ -86,3 +86,18 @@ owner, known blockers, and brief status notes.
     recovery coverage pass. The complete ordinary, PTY, race, build-mode,
     self-check, and smoke gate is green. Publish and non-fast-forward merge
     the permanent feature branch, then resume Slice 19.4.
+  - Consumer ECR intake (completed 2026-08-08T10:31:25-07:00): the operator
+    directed target-side handling of radioradio ECRs 2026-001, 2026-005, and
+    2026-006. Slice 19.4 is paused while these bounded repairs are active.
+    Slice 19.8 corrects the default disabled-Button foreground/background
+    collision under `EXPL-BUG-005`. Slice 19.9 establishes the shared closed-
+    interval viewport invariant under `EXPL-BUG-006`. Slice 19.10 adds the
+    construction-time non-modal input-scope boundary directed by
+    `EXPL-DEC-015`, with zero-value compatibility, scope-local mnemonics and
+    roles, explicit Tab confinement/escape, atomic visibility/focus repair,
+    and typed core/automation evidence. Slices 19.8 through 19.10 are
+    complete. `make verify` passed formatting, vet, ordinary and Unix-socket
+    tests, PTY integration, the complete race suite, all three build modes,
+    catalog self-checks, and smoke tests. The source ECR files and dirty
+    radioradio worktree remained read-only and outside target-side mutation.
+    Resume Slice 19.4 physical terminal-matrix acquisition.

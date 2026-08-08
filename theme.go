@@ -158,7 +158,7 @@ func DefaultTheme() Theme {
 			Background: buttonNormal.Background,
 		},
 		"button.disabled": {
-			Foreground: RGB(0x80, 0x80, 0x80),
+			Foreground: black,
 			Background: dialogNormal.Background,
 		},
 		"button.mnemonic": {

@@ -150,6 +150,12 @@ axis. `PanelOptions.Hidden` must be false because modal visibility is owned by
 the lifecycle. The constructor inserts an inactive, non-painted control that
 can receive children and a Layout before `Show`.
 
+Modal input scope remains implicit and confined. `PanelOptions.InputScope`
+must be zero for a ModalPanel, and descendants of a modal may not declare a
+non-modal scope. Every modal container snapshot reports
+`ContainerDetails.InputScope == InputScopeConfined`; this structural evidence
+does not alter the existing top-modal capture or nested-modal stack.
+
 Border defaults to `BorderDouble`, body style defaults to `modal_panel`, border
 style defaults to `modal_panel.border`, and shadow style defaults to
 `modal_panel.shadow`. `ModalShadowDefault` selects the Turbo Vision two-column
