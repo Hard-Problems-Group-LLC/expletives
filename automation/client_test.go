@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -144,6 +145,24 @@ func TestValidateHelloAcceptsRequiredOperationsInAnyOrder(t *testing.T) {
 	}
 	if err := validateHello(hello); err != nil {
 		t.Fatalf("validateHello() error = %v", err)
+	}
+}
+
+func TestValidateHelloAcceptsCommandInventoryAtControlBound(t *testing.T) {
+	t.Parallel()
+
+	hello := validTestHello(DefaultLimits())
+	hello.Commands = make([]string, hello.Limits.Controls)
+	for index := range hello.Commands {
+		hello.Commands[index] = fmt.Sprintf("command-%04d", index)
+	}
+	if err := validateHello(hello); err != nil {
+		t.Fatalf("validateHello() at command bound error = %v", err)
+	}
+
+	hello.Commands = append(hello.Commands, "command-overflow")
+	if err := validateHello(hello); err == nil {
+		t.Fatal("validateHello() above command bound error = nil")
 	}
 }
 
