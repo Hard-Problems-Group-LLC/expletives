@@ -14,7 +14,9 @@ owner, known blockers, and brief status notes.
     bounded concurrency, sustained-load, failure-recovery, and profiling
     evidence across the declared terminal matrix.
   - Dependencies: completed Phase 18 interaction/control-state matrix.
-  - Blockers: none.
+  - Blockers: `EXPL-REQ-004` requires an operator-attached physical terminal,
+    GNU Screen, and a real supported remote transport before the Phase 19
+    acceptance gate can close.
   - Status: slices 19.0 through 19.3 fixed the compatibility matrix, bounded
     compiled-terminfo corroboration, verified `SIGTSTP`/`SIGCONT` terminal
     ownership, cleanup-debt recovery, profiling workloads through 1200 by
@@ -127,3 +129,26 @@ owner, known blockers, and brief status notes.
     instance; final ACP inspection at frame 84 reconfirmed the white body,
     revised spacing, and immediate bottom border, and frame 85 restored the
     session.
+  - Physical-matrix resync (2026-08-08): current `main` at
+    `5e8279c0d54c` retains the full green `make verify` gate from ACP. The
+    exact committed revision also completed all four terminal benchmark
+    workloads and ten-second bounded fuzz runs for the input decoder and
+    terminfo parser without failure. The local agent runner has no controlling
+    TTY; tmux 3.4 and an SSH client are present, while xterm, GNU Screen, and
+    mosh are absent. The XTerm/tmux/conservative-locale rows from
+    `778518ef251d` remain useful historical observations but cannot certify
+    the changed current product tree. Slice 19.4 remains active and is waiting
+    on the current-revision physical rows in `EXPL-REQ-004`.
+  - Current live attached row (2026-08-08): the operator-owned release-mode
+    instance reports product revision `5e8279c0d54c` and runs with a
+    controlling PTY under Terminator 2.1.5/VTE 0.78.6, the
+    `xterm-256color` profile, UTF-8 locale, and 137x19 geometry. Attached
+    automation drove the complete canonical style screen, revised MessageBox,
+    Alt-F and F9 menu paths, reversible TextField editing, bounded replacement
+    cells, and Markdown scrolling with explicit outcomes, then restored clean
+    Home frame 110. This closes the current native-profile attached
+    application/controller evidence. The operator confirmed that the driven
+    frontend rendering and physical keyboard behavior appeared correct.
+    Bracketed paste, resize, Ctrl-C, suspend/resume, and teardown remain, along
+    with current tmux, conservative-locale, GNU Screen, and remote rows under
+    `EXPL-REQ-004`.

@@ -12,14 +12,24 @@ Record each request with concise context, owner or requestor details, and ISO
   - Requestor: Codex
   - Owner: project operator
   - Created: 2026-08-02T03:15:00-07:00
-  - Request: run the bounded actual-keyboard/paste/resize/job-control checklist
-    on the native xterm-family and tmux profiles; add a GNU Screen row when an
-    appropriate environment is available; and add one real supported remote-
-    transport row.
-  - Current evidence: XTerm 366 native UTF-8, XTerm 366 plus tmux 3.2a with
-    pane `$TERM=screen`, and XTerm 366 under the conservative `C` locale have
-    visual evidence; the full controlling-PTY, automation-to-physical repaint,
-    race, fuzz, failure, and teardown suites pass.
+  - Last resynced: 2026-08-08
+  - Request: finish bracketed paste, resize, Ctrl-C, suspend/resume, and clean
+    teardown on the current native Terminator/VTE xterm-profile instance; run
+    the complete checklist on current tmux and conservative-locale profiles;
+    add a GNU Screen row when an appropriate environment is available; and add
+    one real supported remote-transport row.
+  - Current evidence: the current `5e8279c0d54c` revision passes the complete
+    verification gate, all terminal benchmarks, and bounded input-decoder and
+    terminfo-parser fuzz runs. XTerm 366 native UTF-8, XTerm 366 plus tmux
+    3.2a with pane `$TERM=screen`, and XTerm 366 under the conservative `C`
+    locale retain historical visual evidence from `778518ef251d`; subsequent
+    product changes require current-revision refreshes. A current release-mode
+    `5e8279c0d54c` instance under Terminator 2.1.5/VTE 0.78.6,
+    `TERM=xterm-256color`, UTF-8, and 137x19 completed the live attached
+    canonical/controller checklist through frame 110 and was restored to
+    Home. The operator confirmed the driven frontend rendering and physical
+    keyboard behavior, including the two previously accepted dialog changes.
+    Paste, resize, Ctrl-C, job control, and teardown remain for that row.
   - Safety/privacy: do not record secrets, addresses, hostnames, usernames,
     Wi-Fi names, unrelated screenshots, or private environment identifiers.
     Automation remains opt-in and unauthenticated.

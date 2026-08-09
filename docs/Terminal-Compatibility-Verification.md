@@ -2,8 +2,10 @@
 
 - Status: Phase 19 active evidence and operator runbook
 - Contract: [`Terminal Compatibility v0`](specifications/terminal-compatibility-v0.md)
-- Current product-code revision: `778518ef251d`
+- Current checkout and automated-evidence revision: `5e8279c0d54c`
+- Historical physical-row baseline revision: `778518ef251d`
 - Toolchain: Go 1.26.5, Linux amd64
+- Evidence refreshed: 2026-08-08
 
 ## Purpose And Claim Boundary
 
@@ -20,7 +22,8 @@ recorded. Capture a specifically owned test window, not the complete desktop.
 
 ## Automated Mechanical Evidence
 
-At the revision above, the controlling-PTY integration suite verifies:
+At the current automated-evidence revision above, the controlling-PTY
+integration suite verifies:
 
 - exact interactive termios acquisition and restoration;
 - fragmented navigation input, Alt-F, F9, arrows, Enter, Escape, Ctrl-Space,
@@ -37,18 +40,28 @@ retries, output failures, partial writes, concurrent Presenter serialization,
 and terminal-profile/terminfo rejection before mutation. These tests prove
 mechanics and byte streams; they do not replace the visual rows below.
 
-## Acquired Physical Rows
+The source tree committed as `5e8279c0d54c` passed the complete `make verify`
+gate before publication. On that committed revision, `make
+benchmark-terminal` completed all four ten-iteration workloads, including the
+1200-by-1200 encoder case. Ten-second bounded runs of `FuzzInputDecoder` and
+`FuzzParseTerminfo` also passed without a failing input after 64,065 and 608
+executions respectively. Those counts are host- and corpus-dependent and are
+not compatibility thresholds.
 
-The test binary contained product code from `778518ef251d`. The checkout had
-only subsequent verification-test and documentation edits; no product source
-used by the binary differed from that revision. Exact-window captures were
-inspected and then left only in ignored `.local/tmp/` workspaces.
+## Acquired Physical And Live Attached Evidence
 
-| Row | Emulator / multiplexer | Transport | `$TERM` and active locale | Geometry | Result |
-| --- | --- | --- | --- | --- | --- |
-| Native UTF-8 | XTerm 366; no multiplexer | local graphical session | `xterm-256color`; `C.UTF-8` | 100x30 | visual pass; human physical-key pass pending |
-| Multiplexer UTF-8 | XTerm 366 outside tmux 3.2a; xterm client; tmux `default-terminal=screen` | local graphical session | `screen`; `C.UTF-8` | 100x29 pane plus one tmux status row | visual pass; human physical-key/pass-through pass pending |
-| Conservative locale | XTerm 366; no multiplexer | local graphical session | `xterm-256color`; `LC_ALL=C`, `LC_CTYPE=C`, `LANG=C` | 100x30 | visual fallback pass; human physical-key pass pending |
+The rows in this section are retained as a historical baseline. Their test
+binary contained product code from `778518ef251d`; at acquisition time, the
+checkout had only subsequent verification-test and documentation edits.
+Product and catalog source have changed since then, so these rows do not
+certify the current revision. Exact-window captures were inspected and then
+left only in ignored `.local/tmp/` workspaces.
+
+| Row | Evidence revision | Emulator / multiplexer | Transport | `$TERM` and active locale | Geometry | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| Native UTF-8 | `778518ef251d` | XTerm 366; no multiplexer | local graphical session | `xterm-256color`; `C.UTF-8` | 100x30 | historical visual pass; human physical-key pass pending |
+| Multiplexer UTF-8 | `778518ef251d` | XTerm 366 outside tmux 3.2a; xterm client; tmux `default-terminal=screen` | local graphical session | `screen`; `C.UTF-8` | 100x29 pane plus one tmux status row | historical visual pass; human physical-key/pass-through pass pending |
+| Conservative locale | `778518ef251d` | XTerm 366; no multiplexer | local graphical session | `xterm-256color`; `LC_ALL=C`, `LC_CTYPE=C`, `LANG=C` | 100x30 | historical visual fallback pass; human physical-key pass pending |
 
 Observed native UTF-8 behavior:
 
@@ -72,18 +85,66 @@ documented structural `#` fallback while preserving their configured styles.
 Ordinary unsupported Unicode in Markdown/stream fixtures used conspicuous
 black-on-yellow one-cell `?` approximations; definite ASCII remained direct.
 
+### Current Live Attached Row
+
+On 2026-08-08, a release-mode live instance reported product revision
+`5e8279c0d54c` and owned a controlling PTY. Its VCS modified marker covered
+only the three pending documentation/project-management records in this
+checkout; no compiled product source differed from that revision.
+
+| Emulator / multiplexer | Transport | `$TERM` and active locale | Geometry | Result |
+| --- | --- | --- | --- | --- |
+| Terminator 2.1.5 with VTE 0.78.6; no multiplexer | local graphical session | `xterm-256color`; `LANG=en_US.UTF-8`; `COLORTERM=truecolor` | 137x19 | current-revision live attached canonical/controller, operator rendering, and physical-key interaction pass; paste/resize/job-control/teardown pending |
+
+Attached automation drove frames 73 through 110 through the same semantic
+controller used by human input:
+
+- Visual Styles exposed complete no-frame, single, double, light, medium,
+  dark, and full-cell canonical line art without clipping at 137x19.
+- MessageBox resolved its body and static text as `#FFFFFF` on `#808080`, its
+  double border as white on the same body, and its focused Button as black on
+  green. Its 126-by-8 bounds, two blank rows above the Button, shadow, and
+  immediate bottom border remained intact.
+- Raw logical Alt-F, F9, Right, Down, and Escape events opened, traversed, and
+  closed the expected menu paths with explicit applied outcomes.
+- Tab reached the plain TextField. Enter, one character, Backspace, and Escape
+  exercised then cancelled a reversible edit, restoring `Edit me` outside edit
+  mode.
+- Scrolling/Content retained one-cell alignment, rendered fifteen canonical
+  `U+FFFD` cells in the bounded StreamView fixture, moved MarkdownView from
+  offset `(0,0)` to `(0,8)` with Page Down, and returned it with Home.
+- The instance was restored to Home at frame 110 with no open menu, active
+  modal, held input, or focused control.
+
+This evidence proves the live current-revision application/controller and
+canonical intended-frame path in a real xterm-profile process. The operator
+observed the driven sequence and confirmed that rendering and physical keyboard
+interaction appeared correct. This closes those portions of the native row,
+including the earlier current-revision acceptance of the two dialog changes.
+Attached automation still cannot prove paste, resize, job-control signals, or
+final teardown through the emulator and shell; those remain explicitly
+pending.
+
 ## Rows Still Required For Phase 19
 
 | Required row | Current state | Completion evidence |
 | --- | --- | --- |
-| Native xterm-family operator interaction | pending | actual keyboard navigation, paste, resize, Ctrl-C, suspend/continue, and clean teardown on the native UTF-8 row |
-| GNU Screen | pending; `screen` is not installed in the current environment | version/profile plus visual and operator-interaction checklist |
-| tmux operator interaction | pending | actual keyboard/paste/resize/job-control pass-through on the acquired tmux visual row |
-| Supported remote transport | pending | one real SSH, mosh, serial, or other declared transport row preserving the supported profile byte stream |
+| Native xterm-family, current revision | live attached canonical/controller, frontend rendering, and physical-key interaction pass on Terminator/VTE; completion pending | bracketed paste, resize, Ctrl-C, suspend/continue, and clean teardown |
+| GNU Screen, current revision | pending; `screen` is not installed in the local agent environment | version/profile plus visual and operator-interaction checklist |
+| tmux, current revision | pending refresh | complete visual checklist plus actual keyboard/paste/resize/job-control pass-through |
+| Conservative non-UTF-8 locale, current revision | pending refresh | complete visual-fallback and operator-interaction checklist |
+| Supported remote transport, current revision | pending | one real SSH, mosh, serial, or other declared transport row preserving the supported profile byte stream |
 
 These rows block only the Phase 19 physical-support claim. They do not erase
-the automated, native visual, tmux visual, or conservative-locale evidence
-already acquired.
+the current automated evidence or the historical native, tmux, and
+conservative-locale observations already acquired.
+
+The 2026-08-08 local agent command runner had no controlling TTY. It had tmux
+3.4 and an SSH client, but no xterm, GNU Screen, or mosh installation. The
+operator-owned live instance supplied the current native-profile attached
+evidence above, but a nested PTY, tmux server, or SSH client-version check from
+the agent runner would only duplicate mechanical evidence; none can substitute
+for the remaining operator-observed physical behavior.
 
 ## Operator Procedure
 
