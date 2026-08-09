@@ -5,6 +5,10 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-09 — [`EXPL-BUG-008`](closed/EXPL-BUG-008-automation-command-inventory-bound.md)
+  — Aligned client Hello validation with the documented and server-enforced
+  `MaxControls` command-inventory bound.
+
 - 2026-08-08 — [`EXPL-BUG-007`](closed/EXPL-BUG-007-catalog-dialog-contrast-override.md)
   — Aligned the maintained catalog's complete custom Theme with the endorsed
   white dialog-body contrast variance and proved the rebuilt live frame.

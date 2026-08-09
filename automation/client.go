@@ -358,7 +358,7 @@ func validateHello(hello Hello) error {
 		return errors.New("automation: hello does not advertise protocol version 1")
 	}
 	if len(hello.Operations) != len(versionOneOperations) ||
-		len(hello.Commands) > 64 {
+		len(hello.Commands) > expletives.MaxControls {
 		return errors.New("automation: hello capability inventory exceeds bounds")
 	}
 	requiredOperations := make(map[string]struct{}, len(versionOneOperations))

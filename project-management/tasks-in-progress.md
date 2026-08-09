@@ -152,3 +152,19 @@ owner, known blockers, and brief status notes.
     Bracketed paste, resize, Ctrl-C, suspend/resume, and teardown remain, along
     with current tmux, conservative-locale, GNU Screen, and remote rows under
     `EXPL-REQ-004`.
+  - Automation command-inventory consumer repair (started
+    2026-08-09T10:19:22-07:00): radioradio's live acceptance exposed
+    `EXPL-BUG-008`. The server and protocol specification permit up to
+    `MaxControls` advertised automation commands, but the reference client
+    rejects more than 64 during Hello validation. Align the client with the
+    existing normative and server bound, prove exact-bound acceptance and
+    overflow rejection, run the project gate, and publish through a permanent
+    feature branch before resuming downstream acceptance. No UI command or
+    radio operation was issued.
+  - Automation command-inventory consumer repair (completed
+    2026-08-09T10:26:55-07:00): client Hello validation now uses the same
+    4,096-command `MaxControls` ceiling as the server and normative protocol.
+    Exact-bound acceptance and one-over rejection are covered. The complete
+    vet, ordinary, Unix-socket, PTY, race, debug, release, and profiling gate
+    passes. Publish and merge the permanent feature branch, then update the
+    downstream module pin and resume receive-only live acceptance.
