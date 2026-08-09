@@ -305,6 +305,7 @@ var (
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
 	}
+	dialogForeground = expletives.RGB(0xFF, 0xFF, 0xFF)
 	dialogBackground = expletives.RGB(0x80, 0x80, 0x80)
 	menuBorderStyle  = expletives.Style{
 		ID:         "menu.border",
@@ -1132,7 +1133,7 @@ func NewWithRootConstraints(
 			Background: menuPopupStyle.Background,
 		},
 		expletives.Style{
-			ID: "modal_panel", Foreground: menuPopupStyle.Foreground,
+			ID: "modal_panel", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1141,7 +1142,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "modal_panel.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "dialog", Foreground: menuPopupStyle.Foreground,
+			ID: "dialog", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1150,7 +1151,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "message_box", Foreground: menuPopupStyle.Foreground,
+			ID: "message_box", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1159,7 +1160,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "message_box.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "confirm_dialog", Foreground: menuPopupStyle.Foreground,
+			ID: "confirm_dialog", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1168,7 +1169,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "confirm_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "input_dialog", Foreground: menuPopupStyle.Foreground,
+			ID: "input_dialog", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1177,7 +1178,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "input_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "progress_dialog", Foreground: menuPopupStyle.Foreground,
+			ID: "progress_dialog", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1186,7 +1187,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "progress_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "file_picker_dialog", Foreground: menuPopupStyle.Foreground,
+			ID: "file_picker_dialog", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1195,7 +1196,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "file_picker_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "multi_file_picker_dialog", Foreground: menuPopupStyle.Foreground,
+			ID: "multi_file_picker_dialog", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{
@@ -1204,7 +1205,7 @@ func NewWithRootConstraints(
 		},
 		expletives.Style{ID: "multi_file_picker_dialog.shadow", Foreground: expletives.RGB(0, 0, 0), Background: expletives.RGB(0, 0, 0)},
 		expletives.Style{
-			ID: "directory_picker_dialog", Foreground: menuPopupStyle.Foreground,
+			ID: "directory_picker_dialog", Foreground: dialogForeground,
 			Background: dialogBackground,
 		},
 		expletives.Style{

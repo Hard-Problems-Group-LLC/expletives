@@ -906,25 +906,17 @@ func attachStandardDialogLayout(
 	root, err := NewBoxLayout(Vertical, BoxLayoutOptions{
 		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "layout"),
 		Gap:           1,
-		Insets:        Insets{Top: 1, Right: 1, Bottom: 1, Left: 1},
+		Insets:        Insets{Top: 1, Right: 1, Left: 1},
 	})
 	if err != nil {
 		return err
 	}
-	row, err := NewBoxLayout(Horizontal, BoxLayoutOptions{
-		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "buttons"),
-		Gap:           2,
-	})
+	row, err := newStandardDialogButtonRow(dialog, buttons)
 	if err != nil {
 		return err
 	}
 	if err := root.AddPanel(message, LayoutItemOptions{Grow: 1}); err != nil {
 		return err
-	}
-	for _, button := range buttons {
-		if err := row.AddPanel(button, LayoutItemOptions{}); err != nil {
-			return err
-		}
 	}
 	if err := root.AddLayout(row, LayoutItemOptions{
 		HorizontalAlign: AlignCenter,
@@ -944,15 +936,12 @@ func attachInputDialogLayout(
 	root, err := NewBoxLayout(Vertical, BoxLayoutOptions{
 		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "layout"),
 		Gap:           1,
-		Insets:        Insets{Top: 1, Right: 1, Bottom: 1, Left: 1},
+		Insets:        Insets{Top: 1, Right: 1, Left: 1},
 	})
 	if err != nil {
 		return err
 	}
-	row, err := NewBoxLayout(Horizontal, BoxLayoutOptions{
-		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "buttons"),
-		Gap:           2,
-	})
+	row, err := newStandardDialogButtonRow(dialog, buttons)
 	if err != nil {
 		return err
 	}
@@ -961,11 +950,6 @@ func attachInputDialogLayout(
 	}
 	if err := root.AddPanel(field, LayoutItemOptions{}); err != nil {
 		return err
-	}
-	for _, button := range buttons {
-		if err := row.AddPanel(button, LayoutItemOptions{}); err != nil {
-			return err
-		}
 	}
 	if err := root.AddLayout(row, LayoutItemOptions{
 		HorizontalAlign: AlignCenter,
@@ -982,10 +966,16 @@ func attachProgressDialogLayout(
 	progress *ProgressBar,
 	cancel *Button,
 ) error {
+	bottomInset := 1
+	if cancel != nil {
+		bottomInset = 0
+	}
 	root, err := NewBoxLayout(Vertical, BoxLayoutOptions{
 		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "layout"),
 		Gap:           1,
-		Insets:        Insets{Top: 1, Right: 1, Bottom: 1, Left: 1},
+		Insets: Insets{
+			Top: 1, Right: 1, Bottom: bottomInset, Left: 1,
+		},
 	})
 	if err != nil {
 		return err
@@ -997,13 +987,37 @@ func attachProgressDialogLayout(
 		return err
 	}
 	if cancel != nil {
-		if err := root.AddPanel(cancel, LayoutItemOptions{
+		row, rowErr := newStandardDialogButtonRow(dialog, []*Button{cancel})
+		if rowErr != nil {
+			return rowErr
+		}
+		if err := root.AddLayout(row, LayoutItemOptions{
 			HorizontalAlign: AlignCenter,
 		}); err != nil {
 			return err
 		}
 	}
 	return t.SetLayout(dialog, root)
+}
+
+func newStandardDialogButtonRow(
+	dialog *Dialog,
+	buttons []*Button,
+) (*BoxLayout, error) {
+	row, err := NewBoxLayout(Horizontal, BoxLayoutOptions{
+		AutomationKey: derivedCompoundKey(dialog.AutomationKey(), "buttons"),
+		Gap:           2,
+		Insets:        Insets{Top: 1},
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, button := range buttons {
+		if err := row.AddPanel(button, LayoutItemOptions{}); err != nil {
+			return nil, err
+		}
+	}
+	return row, nil
 }
 
 func (a *App) applyStandardDialogCommandLocked(

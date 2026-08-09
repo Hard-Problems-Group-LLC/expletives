@@ -5,6 +5,10 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-08 — [`EXPL-BUG-007`](closed/EXPL-BUG-007-catalog-dialog-contrast-override.md)
+  — Aligned the maintained catalog's complete custom Theme with the endorsed
+  white dialog-body contrast variance and proved the rebuilt live frame.
+
 - 2026-08-08 — [`EXPL-BUG-006`](closed/EXPL-BUG-006-negative-viewport-offset.md)
   — Enforced the shared closed viewport-offset interval and stable handled
   no-ops for wrapped ListBox horizontal boundary keys.

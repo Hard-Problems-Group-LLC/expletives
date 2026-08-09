@@ -673,6 +673,26 @@ ordered backlog and the active-task record; it does not replace either.
   At 2026-08-08T10:31:25-07:00, `make verify` passed the complete ordinary,
   integration, race, build-mode, catalog self-check, and smoke gate for all
   three slices. Resume Slice 19.4.
+- Directed Slice 19.11 (`complete`): made white the default foreground for
+  Dialog, ModalPanel, standard-dialog, and file-picker body text on the
+  established medium-gray `#808080` surface. Record this as the explicitly
+  approved and endorsed permanent Turbo Vision contrast variance in
+  `EXPL-DEC-016`; independent Button and shadow roles remain intact. Live
+  attached acceptance found and closed `EXPL-BUG-007`: `expletives-test`'s
+  complete custom Theme still supplied the prior black body foreground. The
+  library and maintained public consumer now have exact Theme and rendered-
+  cell coverage. The complete gate and a rebuilt temporary attached instance
+  pass, with live `#FFFFFF` on `#808080` at frame 76. Resume Slice 19.4.
+- Directed Slice 19.12 (`complete`): relocated the reserved blank interior row
+  below standard-dialog bottom Button sections immediately above those
+  Buttons. Dialog height, two-row raised Button bounds and shadows, horizontal
+  spacing, focus, and close behavior remain unchanged. Exact geometry coverage
+  passes for MessageBox, ConfirmDialog, InputDialog, and cancellable
+  ProgressDialog. The complete gate passed, and rebuilt attached frame 76
+  retained a 126 by 8 MessageBox with two blank rows above OK and its bottom
+  border immediately below. Operator-restarted final acceptance repeated that
+  evidence at frame 84 and restored the session at frame 85. Resume Slice
+  19.4.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.

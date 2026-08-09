@@ -64,7 +64,7 @@ func DefaultTheme() Theme {
 		Background: RGB(0xAA, 0xAA, 0xAA),
 	}
 	dialogNormal := ResolvedStyle{
-		Foreground: black,
+		Foreground: white,
 		Background: RGB(0x80, 0x80, 0x80),
 	}
 	menuSelected := ResolvedStyle{

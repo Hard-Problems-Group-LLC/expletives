@@ -101,3 +101,29 @@ owner, known blockers, and brief status notes.
     catalog self-checks, and smoke tests. The source ECR files and dirty
     radioradio worktree remained read-only and outside target-side mutation.
     Resume Slice 19.4 physical terminal-matrix acquisition.
+  - Dialog contrast variance (completed 2026-08-08T11:22:37-07:00): Slice
+    19.11 implements the operator-approved and endorsed permanent variance in
+    `EXPL-DEC-016`: default Dialog body and static-message text is white rather
+    than Turbo Vision black on the established medium-gray `#808080` surface.
+    Live attached acceptance reopened the first candidate under
+    `EXPL-BUG-007` because the maintained catalog's complete custom Theme
+    duplicated the old black body roles. The repaired library and public
+    consumer now agree, exact Theme and rendered-cell regressions pass, and
+    `make verify` passed the complete gate. A rebuilt temporary attached
+    instance proved `#FFFFFF` on `#808080` at frame 76 and shut down cleanly.
+    The operator's original active process remains untouched and requires a
+    restart to load the repaired executable. Resume Slice 19.4.
+  - Standard-dialog button spacing (completed
+    2026-08-08T11:46:06-07:00): Slice 19.12 moved the reserved blank interior
+    row below bottom Button sections immediately above them while preserving
+    dialog dimensions, two-row raised Button geometry, horizontal spacing,
+    focus, and shadow roles. Exact MessageBox, ConfirmDialog, InputDialog, and
+    cancellable ProgressDialog geometry coverage passes. `make verify` passed
+    the complete ordinary, Unix-socket, PTY, race, build-mode, catalog self-
+    check, and smoke gate. A rebuilt attached MessageBox retained its 126 by 8
+    bounds, moved OK from Y 8 to Y 9, exposed two blank body rows above it,
+    and placed the bottom border immediately below it at frame 76. Resume
+    Slice 19.4. The operator then restarted and accepted the maintained live
+    instance; final ACP inspection at frame 84 reconfirmed the white body,
+    revised spacing, and immediate bottom border, and frame 85 restored the
+    session.

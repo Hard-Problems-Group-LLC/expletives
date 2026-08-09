@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestStandardDialogTurboVisionPaletteAndButtonGeometry(t *testing.T) {
+func TestStandardDialogEndorsedContrastPaletteAndButtonGeometry(t *testing.T) {
 	app, err := NewApp(AppOptions{
 		Size: Size{Width: 44, Height: 16}, Scenario: "message.visual",
 	})
@@ -79,7 +79,7 @@ func TestStandardDialogTurboVisionPaletteAndButtonGeometry(t *testing.T) {
 		message.AbsoluteBounds.Y,
 		"R",
 		"message_box",
-		RGB(0x00, 0x00, 0x00),
+		RGB(0xFF, 0xFF, 0xFF),
 		wantGray,
 	)
 
@@ -143,8 +143,20 @@ func TestDefaultThemeKeepsMenusLightAndEveryDialogSurfaceDark(t *testing.T) {
 		"modal_panel", "dialog", "message_box", "confirm_dialog",
 		"input_dialog", "progress_dialog", "file_picker_dialog",
 		"multi_file_picker_dialog", "directory_picker_dialog",
-		"button.disabled", "button.shadow",
 	} {
+		resolved, found := theme.Resolve(id)
+		if !found || resolved.Foreground != RGB(0xFF, 0xFF, 0xFF) ||
+			resolved.Background != dialogGray {
+			t.Errorf(
+				"DefaultTheme().Resolve(%q) = %+v, %t; want white on %s",
+				id,
+				resolved,
+				found,
+				dialogGray,
+			)
+		}
+	}
+	for _, id := range []StyleID{"button.disabled", "button.shadow"} {
 		resolved, found := theme.Resolve(id)
 		if !found || resolved.Background != dialogGray {
 			t.Errorf("DefaultTheme().Resolve(%q) = %+v, %t; want background %s", id, resolved, found, dialogGray)
@@ -177,6 +189,7 @@ func TestDefaultThemeKeepsMenusLightAndEveryDialogSurfaceDark(t *testing.T) {
 
 func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
 	type dialogFixture struct {
+		modal   string
 		buttons map[string]StyleID
 		close   func()
 	}
@@ -200,6 +213,7 @@ func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
 					t.Fatal(err)
 				}
 				return dialogFixture{
+					modal:   "message",
 					buttons: map[string]StyleID{"message.ok": "button.focused"},
 					close: func() {
 						_ = box.Close(ModalResult{Reason: ModalAccepted})
@@ -223,6 +237,7 @@ func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
 					t.Fatal(err)
 				}
 				return dialogFixture{
+					modal: "confirm",
 					buttons: map[string]StyleID{
 						"confirm.yes":    "button",
 						"confirm.no":     "button.focused",
@@ -250,6 +265,7 @@ func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
 					t.Fatal(err)
 				}
 				return dialogFixture{
+					modal: "input",
 					buttons: map[string]StyleID{
 						"input.ok":     "button.default",
 						"input.cancel": "button",
@@ -282,6 +298,7 @@ func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
 					t.Fatal(err)
 				}
 				return dialogFixture{
+					modal: "progress",
 					buttons: map[string]StyleID{
 						"progress.cancel": "button.focused",
 					},
@@ -304,6 +321,9 @@ func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
 			fixture := test.build(t, app)
 			defer fixture.close()
 			snapshot := app.Snapshot()
+			modal := controlByKey(t, snapshot, fixture.modal)
+			buttonBottom := modal.AbsoluteBounds.Y +
+				modal.AbsoluteBounds.Height - 1
 			for key, bodyStyle := range fixture.buttons {
 				button := controlByKey(t, snapshot, key)
 				bounds := button.AbsoluteBounds
@@ -333,6 +353,28 @@ func TestEveryStandardDialogUsesRaisedButtons(t *testing.T) {
 				}
 				if !mnemonicFound {
 					t.Fatalf("%s did not paint its mnemonic style", key)
+				}
+				if got := bounds.Y + bounds.Height; got != buttonBottom {
+					t.Fatalf(
+						"%s bottom = %d, want %d immediately above dialog border",
+						key,
+						got,
+						buttonBottom,
+					)
+				}
+				for y := bounds.Y - 2; y < bounds.Y; y++ {
+					cell, found := snapshot.Frame.Cell(bounds.X, y)
+					if !found || cell.Grapheme != " " || cell.Style != modal.Style {
+						t.Fatalf(
+							"%s spacer cell (%d,%d) = %+v, %t; want blank %q",
+							key,
+							bounds.X,
+							y,
+							cell,
+							found,
+							modal.Style,
+						)
+					}
 				}
 			}
 		})

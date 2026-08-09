@@ -10,6 +10,42 @@ For each entry, include:
 - rationale
 - related files, proposals, or backlog items
 
+## EXPL-DEC-016 — Prefer White Default Dialog Body Text
+
+- Date: 2026-08-08
+- Status: Directed, approved, endorsed, and adopted
+- Authority: Direct operator instruction
+
+### Decision
+
+The default Theme renders Dialog, ModalPanel, standard-dialog, and file-picker
+body text white on the established medium-gray `#808080` dialog surface.
+Borders and titles remain white, outer shadows remain black, and semantic
+Button roles retain their independently specified colors. Applications may
+still replace these semantic styles through a custom Theme.
+
+This white body foreground is an explicitly approved and endorsed permanent
+variance from Turbo Vision's black dialog-body text. It is intentional product
+policy rather than a terminal approximation or an unresolved compatibility
+defect.
+
+### Rationale
+
+The available terminal color mappings do not reproduce every Turbo Vision
+ideal consistently. White supplies materially clearer body-copy contrast on
+the project-selected darker gray surface across the supported mappings while
+preserving the recognizable gray-dialog vocabulary and semantic theming
+boundary.
+
+### Related Records
+
+- [`Modals API v0`](../docs/specifications/modals-api-v0.md)
+- [`Modals`](../docs/Modals.md)
+- [`EXPL-TASK-036`](tasks-in-progress.md)
+- Phase 19 Slice 19.11 in
+  [`development-roadmap.md`](development-roadmap.md)
+- [`EXPL-BUG-007`](bugs/closed/EXPL-BUG-007-catalog-dialog-contrast-override.md)
+
 ## EXPL-DEC-015 — Add Explicit Non-Modal Input Scopes
 
 - Date: 2026-08-08

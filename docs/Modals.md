@@ -43,12 +43,16 @@ Default and Cancel roles are unique across the complete dialog subtree. Enter
 uses the applicable default Button after the focused control has first refusal;
 Escape uses the applicable Cancel Button after editor/popup cancellation.
 
-The default dialog palette is the Turbo Vision gray-dialog palette: white
-active border/title and black body text on light gray. Buttons are raised
-two-row controls with a green body and a black half-block drop shadow; focused
-or pressed text is white, default text is bright cyan, accelerators are
-yellow, and disabled labels are black on the medium-gray dialog surface. The
-Button shadow is distinct from the larger black dialog shadow.
+The default dialog palette uses white active border/title and white body text
+on the medium-gray `#808080` dialog surface. White body text is an explicitly
+approved and endorsed contrast variance from Turbo Vision's black dialog text.
+Buttons are raised two-row controls with a green body and a black half-block
+drop shadow; focused or pressed text is white, default text is bright cyan,
+accelerators are yellow, and disabled labels are black on the medium-gray
+dialog surface. The Button shadow is distinct from the larger black dialog
+shadow. Bottom button sections leave two blank dialog-body rows above their
+two-row Buttons, whose bottom shadows sit immediately above the dialog's
+bottom border; there is no extra blank row below them.
 Override the semantic `message_box`/`confirm_dialog`/`input_dialog`/
 `progress_dialog`, `.border`, and `.shadow` styles for dialog surfaces, and
 the `button`, `button.default`, `button.focused`, `button.pressed`,

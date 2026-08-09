@@ -118,6 +118,71 @@ func TestCatalogEveryEnabledMenuPath(t *testing.T) {
 	}
 }
 
+func TestCatalogDialogThemeUsesEndorsedWhiteBodyText(t *testing.T) {
+	scene, err := New(expletives.Size{Width: 100, Height: 30}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	theme := scene.App.Theme()
+	for _, id := range []expletives.StyleID{
+		"modal_panel", "dialog", "message_box", "confirm_dialog",
+		"input_dialog", "progress_dialog", "file_picker_dialog",
+		"multi_file_picker_dialog", "directory_picker_dialog",
+	} {
+		resolved, found := theme.Resolve(id)
+		if !found || resolved.Foreground != dialogForeground ||
+			resolved.Background != dialogBackground {
+			t.Errorf(
+				"catalog Theme %q = %+v, %t; want %s on %s",
+				id,
+				resolved,
+				found,
+				dialogForeground,
+				dialogBackground,
+			)
+		}
+	}
+
+	completion, err := scene.App.InvokeCommand(
+		context.Background(),
+		"dialog-contrast-test",
+		"show-message",
+		CommandDialogMessage,
+		"",
+	)
+	if err != nil || completion.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("show MessageBox = %+v, %v", completion, err)
+	}
+	snapshot := scene.App.Snapshot()
+	var message expletives.ControlSnapshot
+	foundMessage := false
+	for _, control := range snapshot.Controls {
+		if control.Key == "dialog.message.message" {
+			message = control
+			foundMessage = true
+			break
+		}
+	}
+	if !foundMessage {
+		t.Fatal("MessageBox body control is absent")
+	}
+	cell, found := snapshot.Frame.Cell(
+		message.AbsoluteBounds.X,
+		message.AbsoluteBounds.Y,
+	)
+	if !found || cell.Style != "message_box" ||
+		cell.Foreground != dialogForeground ||
+		cell.Background != dialogBackground {
+		t.Fatalf(
+			"MessageBox body cell = %+v, %t; want message_box %s on %s",
+			cell,
+			found,
+			dialogForeground,
+			dialogBackground,
+		)
+	}
+}
+
 func TestCatalogEveryDisabledMenuEntryIsSelectableButInactive(t *testing.T) {
 	for _, test := range disabledCatalogMenuEntries {
 		t.Run(test.key, func(t *testing.T) {

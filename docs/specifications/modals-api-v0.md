@@ -263,12 +263,11 @@ commands decide application policy and close a generic Dialog explicitly.
 
 ### Turbo Vision Appearance
 
-The default gray-dialog presentation follows the original Turbo Vision color
-roles while deliberately keeping the dialog surface distinct from the lighter
-Menu palette: active double-line border characters and title are white on
-medium gray, body and static message text are black on medium gray, and the
-outer modal shadow remains black. Standard-dialog Buttons use the two-row
-raised Button contract
+The default gray-dialog presentation uses the original Turbo Vision visual
+vocabulary while deliberately keeping the dialog surface distinct from the
+lighter Menu palette: active double-line border characters, title, body, and
+static message text are white on medium gray, and the outer modal shadow
+remains black. Standard-dialog Buttons use the two-row raised Button contract
 from [`actions-api-v0.md`](actions-api-v0.md): green body, state-specific text,
 yellow mnemonic, and a black right/bottom half-block shadow over the dialog's
 medium-gray body. Button shadows are part of each Button's Bounds and are
@@ -276,15 +275,23 @@ independent of the already-separate outer modal shadow.
 
 The project-selected default true-color dialog surface is `#808080`; the Menu
 surface remains `#AAAAAA`. This darker dialog gray is an authorized permanent
-palette choice made to preserve practical contrast in terminal renderers. The
-dialog body, border background, disabled buttons, and raised-button shadow
-background use the same gray surface unless a Theme overrides their semantic
-styles. Border and title foreground remains white because the darker gray is
-rendered distinctly; the dark-blue fallback variance is therefore not used.
+palette choice made to preserve practical contrast in terminal renderers. By
+direct operator direction, white dialog body and static-message text on that
+surface is an explicitly approved and endorsed permanent variance from Turbo
+Vision's black body text. The dialog body, border background, disabled
+buttons, and raised-button shadow background use the same gray surface unless
+a Theme overrides their semantic styles. Border and title foreground remains
+white because the darker gray is rendered distinctly; the dark-blue fallback
+variance is therefore not used. Disabled Button text remains governed by its
+distinct `button.disabled` role.
 
 Standard MessageBox and InputDialog OK Buttons use K as their mnemonic, while
 Yes, No, and Cancel use Y, N, and C where present. Buttons in a horizontal
 standard-dialog row retain two cells between their bounded shadow rectangles.
+Bottom button sections place two blank dialog-body rows above the two-row
+Button and place its bottom shadow immediately above the dialog's bottom
+border; they do not retain an additional blank row below the Button. Moving
+that reserved row does not change the dialog's requested or measured height.
 The source-level compatibility references are Turbo Vision's
 [`TDialog` palette map](https://github.com/magiblot/tvision/blob/master/include/tvision/dialogs.h),
 [`TButton` renderer](https://github.com/magiblot/tvision/blob/master/source/tvision/tbutton.cpp),
