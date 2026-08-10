@@ -162,6 +162,13 @@ the runner automatically continues it after the terminal leave transition.
 In both cases, terminal re-entry and a complete repaint must follow, and final
 exit must restore the original termios exactly.
 
+Continuation handling must tolerate an ordinary job-control shell restoring
+its saved canonical termios after the stopped process first wakes. The eager
+resume path enters the application modes once; a repeated resume from the
+queued `SIGCONT` notification reasserts interactive termios without emitting a
+duplicate terminal-entry sequence. Physical input must remain immediately
+usable after `fg`.
+
 The initial physical rows to record are a native xterm-family emulator,
 GNU Screen, and tmux on Linux in UTF-8 locale. At least one supported remote
 transport row and one conservative non-UTF-8 row are required before Phase 19

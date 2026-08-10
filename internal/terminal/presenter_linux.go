@@ -259,8 +259,13 @@ func (p *Presenter) Suspend() error {
 	return errors.Join(leaveErr, restoreErr)
 }
 
-// Resume reacquires terminal modes after continuation. If reacquisition fails,
-// it rolls back to the exact state captured by Open.
+// Resume reacquires terminal modes after continuation. A repeated call while
+// active reasserts interactive termios without emitting another terminal-entry
+// sequence. Real job-control shells may restore their saved termios after the
+// stopped process first wakes; the queued SIGCONT notification therefore gets
+// a harmless second opportunity to establish the application's input mode. If
+// initial reacquisition fails, it rolls back to the exact state captured by
+// Open.
 func (p *Presenter) Resume() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -268,6 +273,11 @@ func (p *Presenter) Resume() error {
 		return ErrClosed
 	}
 	if p.active {
+		configured := makeInteractive(p.original)
+		if err := p.system.setTermios(p.input.Fd(), configured); err != nil {
+			return fmt.Errorf("reassert terminal input: %w", err)
+		}
+		p.needsRestore = true
 		return nil
 	}
 	return p.acquire()

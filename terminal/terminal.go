@@ -22,8 +22,9 @@ import (
 // Size queries authoritative geometry; Present synchronously projects a
 // snapshot without retaining it; and ReadReady waits for at most its timeout
 // and reports a timeout as an empty slice with no error. Suspend restores
-// shell-facing state, Resume reacquires presentation state, and Close
-// idempotently restores the state captured by Open.
+// shell-facing state, Resume reacquires presentation state (and safely
+// reasserts raw input state when repeated after a job-control continuation),
+// and Close idempotently restores the state captured by Open.
 type Presenter = internalterminal.Presenter
 
 // Geometry is the current physical terminal width and height in cells. Its

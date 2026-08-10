@@ -318,13 +318,43 @@ func TestSuspendResumeAndClose(t *testing.T) {
 	if got := output.String(); got != wantOutput {
 		t.Errorf("lifecycle output = %q, want %q", got, wantOutput)
 	}
-	if len(system.setCalls) != 4 {
-		t.Fatalf("setTermios calls = %d, want configure/restore/configure/restore", len(system.setCalls))
+	if len(system.setCalls) != 5 {
+		t.Fatalf(
+			"setTermios calls = %d, want configure/restore/configure/reassert/restore",
+			len(system.setCalls),
+		)
 	}
-	for _, index := range []int{1, 3} {
+	for _, index := range []int{1, 4} {
 		if !reflect.DeepEqual(system.setCalls[index], system.original) {
 			t.Errorf("restore call %d differs from original", index)
 		}
+	}
+	configured := makeInteractive(system.original)
+	for _, index := range []int{0, 2, 3} {
+		if !reflect.DeepEqual(system.setCalls[index], configured) {
+			t.Errorf("interactive call %d differs from configured state", index)
+		}
+	}
+}
+
+func TestActiveResumeReportsTermiosReassertionFailure(t *testing.T) {
+	input, output, system := newFakeSession()
+	presenter, err := openWith(input, output, ProfileTMux, system)
+	if err != nil {
+		t.Fatalf("openWith() error = %v", err)
+	}
+
+	reassertErr := errors.New("termios reassertion failed")
+	system.setFailAt = 2
+	system.setErr = reassertErr
+	if err := presenter.Resume(); !errors.Is(err, reassertErr) {
+		t.Fatalf("active Resume() error = %v, want %v", err, reassertErr)
+	}
+	if got := output.String(); got != enterTerminal {
+		t.Errorf("active Resume() output = %q, want no duplicate entry", got)
+	}
+	if err := presenter.Close(); err != nil {
+		t.Fatalf("Close() after reassertion failure = %v", err)
 	}
 }
 
