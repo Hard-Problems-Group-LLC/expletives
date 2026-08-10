@@ -7,50 +7,32 @@ Record each request with concise context, owner or requestor details, and ISO
 
 ## Pending Requests
 
-- 2026-08-02 — `EXPL-REQ-004` — Complete the remaining Phase 19 physical
-  terminal rows.
-  - Requestor: Codex
-  - Owner: project operator
-  - Created: 2026-08-02T03:15:00-07:00
-  - Last resynced: 2026-08-08
-  - Request: finish bracketed paste, resize, Ctrl-C, suspend/resume, and clean
-    teardown on the current native Terminator/VTE xterm-profile instance;
-    finish ordinary-content fallback and the physical interaction checklist on
-    the current conservative-locale profile; run the complete checklist on
-    current tmux; add a GNU Screen row when an appropriate environment is
-    available; and add one real supported remote-transport row.
-  - Current evidence: current `098195361588` passes the complete verification
-    gate; its code-equivalent `5e8279c0d54c` parent passes all terminal
-    benchmarks and bounded input-decoder and terminfo-parser fuzz runs. XTerm
-    366 native UTF-8, XTerm 366 plus tmux 3.2a with pane `$TERM=screen`, and
-    XTerm 366 under the conservative `C` locale retain historical visual
-    evidence from `778518ef251d`; subsequent product changes require current-
-    revision refreshes. A release-mode `5e8279c0d54c` instance, whose only
-    dirty inputs were the records later committed as `098195361588`, ran under
-    Terminator 2.1.5/VTE 0.78.6,
-    `TERM=xterm-256color`, UTF-8, and 137x19 completed the live attached
-    canonical/controller checklist through frame 110 and was restored to
-    Home. The operator confirmed the driven frontend rendering and physical
-    keyboard behavior, including the two previously accepted dialog changes.
-    Paste, resize, Ctrl-C, job control, and teardown remain for that row. A
-    clean `098195361588` comparison under the same Terminator/VTE profile also
-    passed operator-observed Unicode structural rendering in `en_US.UTF-8` and
-    conservative DEC/ASCII structural rendering under `LC_ALL=C`. The latter
-    instance was restarted before the ordinary black-on-yellow text fallback
-    could be inspected.
-  - Safety/privacy: do not record secrets, addresses, hostnames, usernames,
-    Wi-Fi names, unrelated screenshots, or private environment identifiers.
-    Automation remains opt-in and unauthenticated.
-  - Completion guide:
-    [`Terminal Compatibility Verification`](../docs/Terminal-Compatibility-Verification.md).
-  - Blocking impact: blocks only the final Phase 19 physical-support claim and
-    Phase 20 release-readiness gate.
+No pending requests.
 
 ## Active Requests
 
 No active requests.
 
 ## Completed Requests
+
+- 2026-08-10 — `EXPL-REQ-004` — Complete the remaining Phase 19 physical
+  terminal rows.
+  - Requestor: Codex
+  - Owner: project operator
+  - Created: 2026-08-02T03:15:00-07:00
+  - Completed: 2026-08-10T14:21:00-07:00
+  - Outcome: current release `a402cf076358` passed the complete native XTerm,
+    tmux, GNU Screen, conservative-locale, and OpenSSH loopback PTY rows,
+    including exact-window visuals, terminal-native paste, resize, job
+    control, post-resume input, Ctrl-C status 130, and terminal restoration.
+  - Prerequisite and boundary: GNU Screen requires `altscreen on`; loopback
+    proves the actual OpenSSH TCP/PTY path but not real-network latency or
+    disconnect behavior.
+  - Safety/privacy: temporary profiles and credentials were isolated under the
+    ignored project-local workspace; durable records contain no secrets,
+    endpoints, usernames, unrelated captures, or private environment IDs.
+  - Evidence:
+    [`Terminal Compatibility Verification`](../docs/Terminal-Compatibility-Verification.md).
 
 - 2026-07-24 — `EXPL-REQ-003` — Decide the minimal Basic snapshot,
   Layout-attachment seam, and below-minimum behavior.

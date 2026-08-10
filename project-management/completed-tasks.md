@@ -4,6 +4,42 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-08-10 — `EXPL-TASK-036` — Deliver Phase 19 terminal compatibility and
+  operational hardening.
+  - Requestor: project operator
+  - Owner: Codex
+  - Started: 2026-08-02T02:08:22-07:00
+  - Completed: 2026-08-10T14:21:00-07:00
+  - Outcome:
+    - fixed the narrow Linux xterm/screen/tmux profile and locale matrix,
+      bounded compiled-terminfo corroboration, conservative one-cell
+      projection, lifecycle/failure-recovery, and exact terminal ownership;
+    - added tested enhanced-key Ctrl-C/Ctrl-Z routing, shell-safe suspend and
+      resume, post-`fg` termios reassertion, authoritative resize/repaint,
+      bounded terminal benchmarks through 1200 by 1200, fuzzing, and
+      race-tested Presenter serialization;
+    - completed consumer-driven Slices 19.5 through 19.10 and directed dialog
+      Slices 19.11 through 19.12 without convening the Panel for routine work;
+      and
+    - completed Slice 19.4 on release `a402cf076358` across native XTerm,
+      tmux, GNU Screen with `altscreen on`, conservative `C` locale, and real
+      OpenSSH loopback TCP/PTY transport, including physical paste, resize,
+      Ctrl-Z/`fg`, post-resume input, Ctrl-C status 130, and exact termios
+      restoration.
+  - Verification:
+    - the exact product revision passed `make verify`, physical visual and
+      interaction rows, terminal benchmarks, and bounded input-decoder and
+      terminfo-parser fuzzing; and
+    - the final records-only phase-close gate repeated the complete project
+      verification before ACP.
+  - Claim boundary: Screen requires `altscreen on`; the SSH row proves the
+    actual loopback transport/PTY stack but not real-network latency or
+    disconnect behavior. Other profiles require their own evidence.
+  - Contracts:
+    - [`Terminal Compatibility v0`](../docs/specifications/terminal-compatibility-v0.md)
+    - [`Terminal Compatibility Verification`](../docs/Terminal-Compatibility-Verification.md)
+  - Follow-up: Phase 20 Release Readiness is active as `EXPL-TASK-037`.
+
 - 2026-08-02 — `EXPL-TASK-033` — Deliver Phase 18 file and directory pickers.
   - Requestor: project operator
   - Owner: Codex

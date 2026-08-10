@@ -590,7 +590,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 19. Terminal Compatibility And Operational Hardening
 
-- Status: `in progress`
+- Status: `complete`
 - Goal: validate terminal capabilities, terminfo integration, input parsing,
   resize, signals, suspension/resume, remote transports, physical rendering,
   bounded concurrency, profiling, and failure recovery.
@@ -601,13 +601,29 @@ ordered backlog and the active-task record; it does not replace either.
   replacement of unsupported display elements, monochrome/color mapping,
   definite direct code-page mappings, conservative black-on-yellow ASCII
   approximation under unknown and remote mappings, cursor placement, paste,
-  modified-key fallback, resize, Ctrl-C, suspend/resume, remote latency, and
-  output failure.
+  modified-key fallback, resize, Ctrl-C, suspend/resume, remote transport, and
+  output failure. Remote-transport evidence is limited to byte preservation;
+  latency and disconnect behavior remain explicit non-claims until separate
+  rows exist.
 - Normal Go tests: PTY lifecycle and raw-input suites, Limited Unicode
   validation/replacement fuzzing and alignment checks, race and sustained-load
   runs, profiling workloads, failure teardown, and the declared real-terminal/
   transport matrix.
-- Consumer-driven Slice 19.5: extend `ListBox` with opt-in word/cell wrapping
+- Directed Slice 19.4 (`complete`): completed the exact-revision physical
+  matrix on release `a402cf076358` with native XTerm 366, XTerm plus tmux
+  3.2a, XTerm plus GNU Screen 4.8.0 with required `altscreen on`, a
+  conservative `C` locale, and an actual OpenSSH 9.9 loopback TCP/PTY
+  transport. Each row passed exact-window style/dialog inspection,
+  terminal-native paste, authoritative resize, Ctrl-Z/`fg`, immediate
+  post-resume keyboard input, Ctrl-C from an open menu with status 130, and
+  caller-visible termios restoration. The conservative row additionally
+  passed aligned DEC/ASCII and black-on-yellow unsupported-content fallback.
+  Loopback proves the actual SSH transport stack and PTY path, not real-
+  network latency or disconnect behavior. The completed matrix, narrow claim,
+  and repeat procedure are recorded in
+  [`Terminal Compatibility Verification`](../docs/Terminal-Compatibility-Verification.md).
+- Consumer-driven Slice 19.5 (`complete`): extended `ListBox` with opt-in
+  word/cell wrapping
   so one stable logical item may occupy multiple visual rows. Description
   continuations use a hanging indent, current/selection styling covers the
   complete logical item, and compact snapshot/automation evidence reports
@@ -643,8 +659,7 @@ ordered backlog and the active-task record; it does not replace either.
   public-consumer tests, and the maintained catalog with exact ASCII,
   multi-byte, replacement, and zero-value coverage. The full ordinary, PTY,
   race, build-mode, catalog self-check, and smoke gate passed at
-  2026-08-07T17:23:42-07:00. Synthetic fixtures only; Slice 19.4 resumes after
-  publication and merge.
+  2026-08-07T17:23:42-07:00. Synthetic fixtures only.
 - Consumer-driven Slice 19.8 (`complete`): corrected the default
   `button.disabled` palette so retained labels have practical resolved color
   contrast while remaining structurally disabled and visually distinct from
@@ -672,7 +687,7 @@ ordered backlog and the active-task record; it does not replace either.
   visibility, clipping, traversal, catalog, and snapshot-copy coverage pass.
   At 2026-08-08T10:31:25-07:00, `make verify` passed the complete ordinary,
   integration, race, build-mode, catalog self-check, and smoke gate for all
-  three slices. Resume Slice 19.4.
+  three slices.
 - Directed Slice 19.11 (`complete`): made white the default foreground for
   Dialog, ModalPanel, standard-dialog, and file-picker body text on the
   established medium-gray `#808080` surface. Record this as the explicitly
@@ -682,7 +697,7 @@ ordered backlog and the active-task record; it does not replace either.
   complete custom Theme still supplied the prior black body foreground. The
   library and maintained public consumer now have exact Theme and rendered-
   cell coverage. The complete gate and a rebuilt temporary attached instance
-  pass, with live `#FFFFFF` on `#808080` at frame 76. Resume Slice 19.4.
+  pass, with live `#FFFFFF` on `#808080` at frame 76.
 - Directed Slice 19.12 (`complete`): relocated the reserved blank interior row
   below standard-dialog bottom Button sections immediately above those
   Buttons. Dialog height, two-row raised Button bounds and shadows, horizontal
@@ -691,15 +706,14 @@ ordered backlog and the active-task record; it does not replace either.
   ProgressDialog. The complete gate passed, and rebuilt attached frame 76
   retained a 126 by 8 MessageBox with two blank rows above OK and its bottom
   border immediately below. Operator-restarted final acceptance repeated that
-  evidence at frame 84 and restored the session at frame 85. Resume Slice
-  19.4.
+  evidence at frame 84 and restored the session at frame 85.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.
 
 ### 20. Release Readiness
 
-- Status: `planned`
+- Status: `in progress`
 - Goal: stabilize the public Go API, documentation, examples, compatibility
   policy, release builds, provenance, security review, and downstream
   consumption.
@@ -711,6 +725,20 @@ ordered backlog and the active-task record; it does not replace either.
   module and dependency checks, vulnerability analysis, downstream external
   consumer tests, release smoke tests, debugger/profiler checks, and
   reproducibility evidence.
+- Slice 20.0 (`active`): inventory the exported API, non-deferred control
+  catalog, specifications, examples, and maintained test surfaces; repair only
+  concrete coverage/documentation gaps found by that mechanical audit.
+- Slice 20.1 (`planned`): verify supported Go/toolchain/target declarations,
+  module hygiene, dependency provenance, and available vulnerability checks.
+- Slice 20.2 (`planned`): verify debug, release, and profiling artifacts,
+  executable metadata, debugger/profiler entry points, provenance, and
+  reproducibility boundaries.
+- Slice 20.3 (`planned`): exercise clean external-consumer builds and complete
+  the maintainable developer crash-course/reference path without duplicating
+  normative specifications.
+- Slice 20.4 (`planned`): run the clean-checkout release gate, reconcile all
+  non-deferred roadmap/catalog state, and prepare the explicit version/tag
+  decision without publishing a tag absent operator authorization.
 - Acceptance gate: project-owned verification passes from a clean checkout;
   every required binary exists and is executable at each documented
   `build/<mode>/<name>` path; all non-deferred controls are documented and

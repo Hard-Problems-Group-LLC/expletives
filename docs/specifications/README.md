@@ -85,8 +85,8 @@ do not use them as retrospective decoration.
   filtering, sorting, Turbo Vision interaction, concurrency, automation, and
   opt-in local-filesystem adapter.
 - [`terminal-compatibility-v0.md`](terminal-compatibility-v0.md) defines the
-  Phase 19 physical profile, locale, capability, job-control, unsupported-
-  claim, and verification-matrix boundaries.
+  completed Phase 19 physical profile, locale, capability, job-control,
+  GNU Screen prerequisite, unsupported-claim, and verification boundaries.
 - [`expletives-test.md`](expletives-test.md) contains directed requirements
   for the secondary interactive product, its human and attached-automation
   modes, frame inspection, event correlation, keyboard/interrupt behavior,

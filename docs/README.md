@@ -77,11 +77,11 @@ Keep durable project documentation here.
   defines the directed Phase 18 provider, filter, sort, interaction,
   concurrency, result, automation, and local-adapter contract.
 - [Terminal Compatibility v0](specifications/terminal-compatibility-v0.md)
-  fixes the Phase 19 supported profile/locale matrix, job-control lifecycle,
-  explicit non-claims, and required physical verification evidence.
+  fixes the completed Phase 19 profile/locale matrix, job-control lifecycle,
+  explicit non-claims, GNU Screen prerequisite, and physical-evidence rules.
 - [Terminal Compatibility Verification](Terminal-Compatibility-Verification.md)
-  records acquired physical rows, the privacy-safe operator checklist, and
-  the exact remaining Phase 19 evidence.
+  records the completed exact-revision native, tmux, GNU Screen,
+  conservative-locale, and OpenSSH rows plus the privacy-safe repeat checklist.
 - [Layouts and Overflow](specifications/layouts-and-overflow.md) defines atomic
   Layout attachment, below-minimum clipping, structured overflow, application
   notification, and deterministic fallback behavior.

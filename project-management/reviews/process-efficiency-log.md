@@ -9,6 +9,36 @@
 
 ## Observed Opportunities
 
+### 42. Make Physical-Matrix Acquisition A Reusable Fixture
+
+The final matrix was reliable but too manually expensive. Repeating XTerm,
+multiplexer, selection ownership, resize, job-control, screenshots, socket
+queries, and teardown one command at a time also made evidence drift likely
+when a late terminal fix changed the tested revision.
+
+Improvement opportunity:
+
+- add one project-local driver that creates a uniquely titled owned XTerm and
+  isolated tmux, GNU Screen, or OpenSSH fixture, then emits a compact
+  structured checklist without retaining secrets or full frames;
+- resolve and capture the exact owned window, keep the selection owner alive
+  through the one intended middle-button paste, and reject ambiguous window
+  matches before sending input;
+- record caller-visible `stty -g` immediately before launch, after suspend,
+  and after exit, because an idle job-control shell may expose different PTY
+  flags than the state it applies to each foreground child;
+- keep setup input distinct from evidence input and never combine
+  `xdotool type` with trailing key arguments that it can consume as literal
+  text;
+- detect the GNU Screen `altscreen` prerequisite before the row, and report
+  an unsupported configuration instead of diagnosing stale cells after the
+  full run; and
+- acquire all rows only after product changes settle, then ACP immediately so
+  every row names one immutable release revision.
+
+This helper should automate orchestration and evidence projection, not claim
+human visual judgment or broaden the supported terminal matrix.
+
 ### 41. Gate Shared Visual Primitives Before Compound Sign-Off
 
 The modal lifecycle and dialog compositions were thoroughly exercised, but

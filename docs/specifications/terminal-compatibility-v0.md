@@ -1,6 +1,6 @@
 # Terminal Compatibility v0
 
-- Status: Phase 19 active contract
+- Status: Phase 19 completed contract
 - Scope: physical terminal profiles, capability policy, lifecycle, and
   verification
 - Authorization: `EXPL-TASK-036` and the directed terminal requirements
@@ -32,6 +32,12 @@ An active locale is UTF-8 only when the first nonempty `LC_ALL`, `LC_CTYPE`,
 or `LANG` value contains `UTF-8` or `UTF8`, case-insensitively. All other
 values select the conservative DEC/ASCII path. A non-UTF-8 locale does not
 prove an upper-half character mapping.
+
+GNU Screen use additionally requires `altscreen on` (or an exactly equivalent
+configuration) so the multiplexer actually preserves a separate alternate
+screen. A Screen instance that advertises alternate-screen capabilities in
+its `$TERM` entry while leaving `altscreen` disabled is outside the supported
+clean-teardown profile.
 
 The current profile contract requires absolute cursor positioning, clearing,
 the ANSI 16-color palette and supported SGR attributes, alternate-screen and
@@ -171,13 +177,16 @@ queued `SIGCONT` notification reasserts interactive termios without emitting a
 duplicate terminal-entry sequence. Physical input must remain immediately
 usable after `fg`.
 
-The initial physical rows to record are a native xterm-family emulator,
-GNU Screen, and tmux on Linux in UTF-8 locale. At least one supported remote
-transport row and one conservative non-UTF-8 row are required before Phase 19
-completion. A row records emulator and version, multiplexer and version,
-transport, `$TERM`, locale variables, geometry, result, observed deviations,
-and the exact project revision. Secrets, hostnames, addresses, and private
-operator/environment identifiers must not be recorded.
+The Phase 19 physical gate requires a native xterm-family emulator, GNU
+Screen, and tmux on Linux in UTF-8 locale, plus one supported remote transport
+and one conservative non-UTF-8 row. Those rows are complete for product
+revision `a402cf0763580328d9ef08d6ee747017ceef7e93` under the exact profiles
+recorded in the linked verification document. A row records emulator and
+version, multiplexer and version, transport, `$TERM`, locale variables,
+geometry, result, observed deviations, prerequisites, and the exact project
+revision. Secrets, hostnames, addresses, and private operator/environment
+identifiers must not be recorded. No completed row broadens the runtime
+matrix beyond its exact profile.
 
 ## Related Contracts
 

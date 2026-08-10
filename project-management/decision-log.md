@@ -41,7 +41,7 @@ boundary.
 
 - [`Modals API v0`](../docs/specifications/modals-api-v0.md)
 - [`Modals`](../docs/Modals.md)
-- [`EXPL-TASK-036`](tasks-in-progress.md)
+- [`EXPL-TASK-036`](completed-tasks.md)
 - Phase 19 Slice 19.11 in
   [`development-roadmap.md`](development-roadmap.md)
 - [`EXPL-BUG-007`](bugs/closed/EXPL-BUG-007-catalog-dialog-contrast-override.md)
@@ -102,7 +102,7 @@ at 2026-08-08T10:31:25-07:00.
 
 ### Related Records
 
-- [`EXPL-TASK-036`](tasks-in-progress.md)
+- [`EXPL-TASK-036`](completed-tasks.md)
 - [`development-roadmap.md`](development-roadmap.md)
 - [`actions-api-v0.md`](../docs/specifications/actions-api-v0.md)
 - radioradio ECR 2026-005
