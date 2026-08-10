@@ -190,3 +190,13 @@ owner, known blockers, and brief status notes.
     current-revision ordinary black-on-yellow content fallback remains open
     because the `C` instance restarted before that fixture, alongside the
     remaining interaction and external-profile rows in `EXPL-REQ-004`.
+  - Dialog contrast/spacing branch audit (completed 2026-08-10): fetched and
+    pruned every configured remote; this checkout has only `origin`. Commit
+    `5e8279c0d54c` contains the complete Slice 19.11 and 19.12 implementation,
+    regression tests, maintained-catalog Theme repair, approved variance,
+    resolved defect, specifications, and acceptance records, and is reachable
+    from local and `origin/main`. No commit outside `main` across local or
+    remote branches, linked worktrees, stashes, reflog-only history, or
+    unreachable objects changes the relevant Theme, standard-dialog, catalog,
+    modal specification, decision, or defect paths. No patch, merge, or
+    cherry-pick is missing.
