@@ -152,6 +152,16 @@ owner, known blockers, and brief status notes.
     Bracketed paste, resize, Ctrl-C, suspend/resume, and teardown remain, along
     with current tmux, conservative-locale, GNU Screen, and remote rows under
     `EXPL-REQ-004`.
+  - Evidence ACP and exact verification (2026-08-08): commit
+    `098195361588` records the current native attached/operator row and is
+    synchronized on `origin/main` with the required author and committer
+    identity. A clean post-ACP `make verify` passed the ordinary, Unix-socket,
+    PTY lifecycle, race, debug/release/profiling build, catalog self-check, and
+    smoke gates. The release `expletives-test` and debug `expletivesctl`
+    binaries both report `098195361588` with `modified=false`. The next live
+    automatable acquisition is the conservative `C`-locale row in the same
+    Terminator profile; user-visible fallback rendering still requires the
+    operator-owned instance.
   - Automation command-inventory consumer repair (started
     2026-08-09T10:19:22-07:00): radioradio's live acceptance exposed
     `EXPL-BUG-008`. The server and protocol specification permit up to
@@ -168,3 +178,15 @@ owner, known blockers, and brief status notes.
     vet, ordinary, Unix-socket, PTY, race, debug, release, and profiling gate
     passes. Publish and merge the permanent feature branch, then update the
     downstream module pin and resume receive-only live acceptance.
+  - Locale projection comparison (completed 2026-08-10): clean release
+    `098195361588` ran at 137x19 under the same Terminator 2.1.5/VTE 0.78.6
+    `xterm-256color` profile with conservative `LC_ALL=C` and ordinary
+    `LANG=en_US.UTF-8` environments. The operator accepted both physical
+    presentations: the conservative row used DEC closest-line art and aligned
+    structural `#` fallbacks, while UTF-8 retained distinct single, double,
+    light, medium, dark, and full-cell Unicode forms. Canonical attached
+    evidence remained distinct in both cases, and the UTF-8 instance returned
+    to clean Home frame 85. The locale structural-rendering block is complete;
+    current-revision ordinary black-on-yellow content fallback remains open
+    because the `C` instance restarted before that fixture, alongside the
+    remaining interaction and external-profile rows in `EXPL-REQ-004`.

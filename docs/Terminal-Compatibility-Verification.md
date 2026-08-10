@@ -2,7 +2,7 @@
 
 - Status: Phase 19 active evidence and operator runbook
 - Contract: [`Terminal Compatibility v0`](specifications/terminal-compatibility-v0.md)
-- Current checkout and automated-evidence revision: `5e8279c0d54c`
+- Current checkout and automated-evidence revision: `098195361588`
 - Historical physical-row baseline revision: `778518ef251d`
 - Toolchain: Go 1.26.5, Linux amd64
 - Evidence refreshed: 2026-08-08
@@ -40,13 +40,16 @@ retries, output failures, partial writes, concurrent Presenter serialization,
 and terminal-profile/terminfo rejection before mutation. These tests prove
 mechanics and byte streams; they do not replace the visual rows below.
 
-The source tree committed as `5e8279c0d54c` passed the complete `make verify`
-gate before publication. On that committed revision, `make
-benchmark-terminal` completed all four ten-iteration workloads, including the
-1200-by-1200 encoder case. Ten-second bounded runs of `FuzzInputDecoder` and
-`FuzzParseTerminfo` also passed without a failing input after 64,065 and 608
-executions respectively. Those counts are host- and corpus-dependent and are
-not compatibility thresholds.
+The clean source tree committed as `098195361588` passed the complete `make
+verify` gate after publication, including ordinary, Unix-socket integration,
+PTY lifecycle, race, all-mode build, catalog self-check, and smoke coverage.
+That commit changes only this evidence and its project-management records, so
+compiled product source is identical to `5e8279c0d54c`. On that code-equivalent
+parent, `make benchmark-terminal` completed all four ten-iteration workloads,
+including the 1200-by-1200 encoder case. Ten-second bounded runs of
+`FuzzInputDecoder` and `FuzzParseTerminfo` also passed without a failing input
+after 64,065 and 608 executions respectively. Those counts are host- and
+corpus-dependent and are not compatibility thresholds.
 
 ## Acquired Physical And Live Attached Evidence
 
@@ -89,8 +92,8 @@ black-on-yellow one-cell `?` approximations; definite ASCII remained direct.
 
 On 2026-08-08, a release-mode live instance reported product revision
 `5e8279c0d54c` and owned a controlling PTY. Its VCS modified marker covered
-only the three pending documentation/project-management records in this
-checkout; no compiled product source differed from that revision.
+only the three documentation/project-management records later committed as
+`098195361588`; no compiled product source differed from either revision.
 
 | Emulator / multiplexer | Transport | `$TERM` and active locale | Geometry | Result |
 | --- | --- | --- | --- | --- |
@@ -125,14 +128,37 @@ Attached automation still cannot prove paste, resize, job-control signals, or
 final teardown through the emulator and shell; those remain explicitly
 pending.
 
+### Current Locale Projection Comparison
+
+On 2026-08-10, clean release revision `098195361588` ran twice under the same
+Terminator 2.1.5/VTE 0.78.6, no-multiplexer, `xterm-256color`, 137x19 local
+profile:
+
+- With `LC_ALL=C`, `LC_CTYPE=C`, and `LANG=C`, the operator observed and
+  accepted the conservative structural projection: DEC closest-line art made
+  the requested single and double forms appear as the available single-line
+  repertoire, while light, medium, dark, and full-cell borders used aligned
+  `#` glyphs with their configured presentation retained.
+- After restart with the ordinary `LANG=en_US.UTF-8` environment, the operator
+  observed and accepted distinct single, double, `░`, `▒`, `▓`, and `█`
+  rendering on the same Visual Styles screen.
+- Attached automation confirmed that both instances continued to request the
+  exact distinct canonical border forms. The UTF-8 instance was restored to
+  Home at frame 85 with no open menu, modal, held input, or focus.
+
+The `C`-locale instance was restarted before its ordinary unsupported-text
+fixture could be displayed. Current-revision physical confirmation of the
+black-on-yellow ASCII/`?` content fallback therefore remains open; the
+structural comparison itself is complete.
+
 ## Rows Still Required For Phase 19
 
 | Required row | Current state | Completion evidence |
 | --- | --- | --- |
-| Native xterm-family, current revision | live attached canonical/controller, frontend rendering, and physical-key interaction pass on Terminator/VTE; completion pending | bracketed paste, resize, Ctrl-C, suspend/continue, and clean teardown |
+| Native xterm-family, current revision | live attached canonical/controller, current-revision frontend rendering, and code-equivalent physical-key interaction pass on Terminator/VTE; completion pending | bracketed paste, resize, Ctrl-C, suspend/continue, and clean teardown |
 | GNU Screen, current revision | pending; `screen` is not installed in the local agent environment | version/profile plus visual and operator-interaction checklist |
 | tmux, current revision | pending refresh | complete visual checklist plus actual keyboard/paste/resize/job-control pass-through |
-| Conservative non-UTF-8 locale, current revision | pending refresh | complete visual-fallback and operator-interaction checklist |
+| Conservative non-UTF-8 locale, current revision | structural fallback rendering pass on Terminator/VTE; completion pending | ordinary black-on-yellow content fallback plus physical key/paste, resize, Ctrl-C, suspend/continue, and clean teardown |
 | Supported remote transport, current revision | pending | one real SSH, mosh, serial, or other declared transport row preserving the supported profile byte stream |
 
 These rows block only the Phase 19 physical-support claim. They do not erase
