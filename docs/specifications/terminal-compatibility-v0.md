@@ -96,6 +96,14 @@ queued `SIGCONT` notification is an idempotent safety pass. Failure to restore,
 stop, reacquire, query geometry, or resize is terminal to the interactive run;
 the ordinary deferred close path performs every remaining safe restoration.
 
+Supported xterm-family enhanced-key modes may encode physical Ctrl-Z as a
+structured Control-plus-`z` sequence instead of the tty's `VSUSP` byte. The
+interactive terminal entry point reserves that exact physical chord and
+enters the same restore, `SIGSTOP`, resume, and repaint lifecycle as a received
+`SIGTSTP`. Ctrl-Alt-Z and Ctrl-Meta-Z are not job-control aliases. Attached
+automation continues through the semantic application-input path and does not
+silently suspend the process that owns its connection.
+
 Headless mode does not intercept `SIGTSTP` or `SIGCONT`. `SIGWINCH` remains a
 notice followed by an authoritative geometry query. `SIGINT` remains the
 configurable semantic interrupt path, while `SIGTERM` and `SIGHUP` request an
@@ -145,7 +153,7 @@ Automated evidence is required at several boundaries:
 | Encoder | ASCII, Unicode, DEC line art, highlighted degradation, colors, attributes, cursor, bounds, and canonical-frame immutability |
 | Presenter | validation-before-mutation, exact termios restore, partial writes, suspend/resume, failed-rollback retry, frame-output failure, read readiness, geometry, and PTY lifecycle |
 | Input | fragmented/coalesced CSI and SS3, enhanced modifiers, Escape timeout, paste, malformed/oversized input, reset, and fuzzing |
-| Real process | controlling PTY resize, fragmented keys, menus, Ctrl-C, quit, `SIGTSTP`/`SIGCONT`, full repaint, and exact final restoration |
+| Real process | controlling PTY resize, fragmented keys, menus, Ctrl-C, quit, direct `SIGTSTP`, enhanced-key Ctrl-Z, `SIGCONT`, full repaint, and exact final restoration |
 | Physical matrix | supported emulator/profile/locale/transport combinations with operator-observed color, line art, cursor, paste, resize, job control, and teardown |
 
 The controlling-PTY test accepts two valid supervisor behaviors: the process

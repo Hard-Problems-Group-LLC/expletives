@@ -55,6 +55,38 @@ type requestCounter struct {
 	next atomic.Uint64
 }
 
+type terminalKeyState struct {
+	control bool
+	alt     bool
+	meta    bool
+}
+
+func (s *terminalKeyState) consume(event expletives.KeyEvent) bool {
+	var held *bool
+	switch event.Key {
+	case expletives.KeyControl:
+		held = &s.control
+	case expletives.KeyAlt:
+		held = &s.alt
+	case expletives.KeyMeta:
+		held = &s.meta
+	}
+	if held != nil {
+		switch event.Kind {
+		case expletives.KeyEventDown:
+			*held = true
+		case expletives.KeyEventUp:
+			*held = false
+		}
+	}
+	return event.Kind == expletives.KeyEventPress && event.Key == "z" &&
+		s.control && !s.alt && !s.meta
+}
+
+func (s *terminalKeyState) reset() {
+	*s = terminalKeyState{}
+}
+
 const signalCommandTimeout = 2 * time.Second
 
 func main() {
@@ -285,6 +317,7 @@ func runInteractive(
 	defer decoder.Reset()
 
 	var presented uint64
+	var keyState terminalKeyState
 	for {
 		snapshot := scene.App.Snapshot()
 		if snapshot.Sequence != presented {
@@ -302,6 +335,9 @@ func runInteractive(
 		for {
 			select {
 			case received := <-signals:
+				if received == syscall.SIGTSTP || received == syscall.SIGCONT {
+					keyState.reset()
+				}
 				repaint, err := handleInteractiveSignal(
 					ctx,
 					scene,
@@ -343,6 +379,28 @@ func runInteractive(
 		for _, event := range events {
 			requestID := counter.id("human")
 			if event.KeyEvent != nil {
+				// XTerm's enhanced-key modes encode Ctrl-Z as a structured
+				// chord, so the terminal driver cannot turn it into SIGTSTP.
+				// Reserve that physical chord for the same safe job-control
+				// lifecycle used by an ordinary VSUSP-generated signal.
+				if keyState.consume(*event.KeyEvent) {
+					keyState.reset()
+					repaint, err := handleInteractiveSignal(
+						ctx,
+						scene,
+						presenter,
+						decoder,
+						syscall.SIGTSTP,
+						counter,
+					)
+					if err != nil {
+						return err
+					}
+					if repaint {
+						presented = 0
+					}
+					continue
+				}
 				if _, err := scene.App.DispatchKey(
 					ctx,
 					"terminal",

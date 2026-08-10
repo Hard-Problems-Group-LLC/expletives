@@ -1831,3 +1831,34 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		t.Fatalf("expletives-test did not exit: %v", ctx.Err())
 	}
 }
+
+func TestTerminalKeyStateRecognizesUnmodifiedCtrlZ(t *testing.T) {
+	var state terminalKeyState
+	if state.consume(expletives.KeyEvent{
+		Kind: expletives.KeyEventDown,
+		Key:  expletives.KeyControl,
+	}) {
+		t.Fatal("Control down requested suspension")
+	}
+	if !state.consume(expletives.KeyEvent{
+		Kind: expletives.KeyEventPress,
+		Key:  "z",
+	}) {
+		t.Fatal("Ctrl-Z did not request suspension")
+	}
+	state.reset()
+	state.consume(expletives.KeyEvent{
+		Kind: expletives.KeyEventDown,
+		Key:  expletives.KeyControl,
+	})
+	state.consume(expletives.KeyEvent{
+		Kind: expletives.KeyEventDown,
+		Key:  expletives.KeyAlt,
+	})
+	if state.consume(expletives.KeyEvent{
+		Kind: expletives.KeyEventPress,
+		Key:  "z",
+	}) {
+		t.Fatal("Ctrl-Alt-Z requested suspension")
+	}
+}

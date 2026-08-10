@@ -226,73 +226,99 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		assertExactTermiosRestoration(t, process)
 	})
 
-	t.Run("suspend and continue restore and reacquire terminal", func(t *testing.T) {
-		process := startDebugPTYProcess(t, binary)
-		defer process.close()
-
-		ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
-		defer cancel()
-
-		waitForInitialFrame(t, ctx, process)
-		assertInteractiveTermios(t, process)
-
-		suspendStart := process.output.mark()
-		if err := process.command.Process.Signal(syscall.SIGTSTP); err != nil {
-			t.Fatalf("send SIGTSTP: %v", err)
-		}
-		if err := process.output.waitContains(
-			ctx,
-			suspendStart,
-			[]byte(processLeaveTerminal),
-		); err != nil {
-			t.Fatalf("wait for suspension terminal leave sequence: %v", err)
-		}
-		stopped, err := waitForSafeSuspension(ctx, process, suspendStart)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Some process supervisors automatically continue stopped descendants.
-		// An extra SIGCONT is harmless and is required when the process remains
-		// stopped under an ordinary shell or CI runner.
-		if err := process.command.Process.Signal(syscall.SIGCONT); err != nil {
-			t.Fatalf("send SIGCONT: %v", err)
-		}
-		if err := process.output.waitContains(
-			ctx,
-			suspendStart,
-			[]byte(processEnterTerminal),
-		); err != nil {
-			t.Fatalf("wait for resumed terminal entry: %v", err)
-		}
-		if err := process.output.waitContains(
-			ctx,
-			suspendStart,
-			[]byte("expletives Toolkit Catalog"),
-		); err != nil {
-			t.Fatalf("wait for full repaint after resume: %v", err)
-		}
-		if stopped {
-			t.Log("PTY runner preserved the process stop until explicit SIGCONT")
-		} else {
-			t.Log("PTY runner automatically continued the safely suspended process")
-		}
-		assertInteractiveTermios(t, process)
-
-		quitStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{0x1b, 'x'})
-		if err := process.wait(ctx); err != nil {
-			t.Fatalf("quit after SIGCONT: %v", err)
-		}
-		if err := process.output.waitContains(
-			ctx,
-			quitStart,
-			[]byte(processLeaveTerminal),
-		); err != nil {
-			t.Fatalf("wait for final terminal restoration: %v", err)
-		}
-		assertExactTermiosRestoration(t, process)
+	t.Run("SIGTSTP restores and reacquires terminal", func(t *testing.T) {
+		testDebugPTYProcessSuspendLifecycle(t, binary, func(
+			t *testing.T,
+			process *debugPTYProcess,
+		) {
+			t.Helper()
+			if err := process.command.Process.Signal(syscall.SIGTSTP); err != nil {
+				t.Fatalf("send SIGTSTP: %v", err)
+			}
+		})
 	})
+
+	t.Run("enhanced Ctrl-Z restores and reacquires terminal", func(t *testing.T) {
+		testDebugPTYProcessSuspendLifecycle(t, binary, func(
+			t *testing.T,
+			process *debugPTYProcess,
+		) {
+			t.Helper()
+			writePTY(t, process.pair.master, []byte("\x1b[122;5u"))
+		})
+	})
+}
+
+func testDebugPTYProcessSuspendLifecycle(
+	t *testing.T,
+	binary string,
+	trigger func(*testing.T, *debugPTYProcess),
+) {
+	t.Helper()
+
+	process := startDebugPTYProcess(t, binary)
+	defer process.close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+	defer cancel()
+
+	waitForInitialFrame(t, ctx, process)
+	assertInteractiveTermios(t, process)
+
+	suspendStart := process.output.mark()
+	trigger(t, process)
+	if err := process.output.waitContains(
+		ctx,
+		suspendStart,
+		[]byte(processLeaveTerminal),
+	); err != nil {
+		t.Fatalf("wait for suspension terminal leave sequence: %v", err)
+	}
+	stopped, err := waitForSafeSuspension(ctx, process, suspendStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Some process supervisors automatically continue stopped descendants.
+	// An extra SIGCONT is harmless and is required when the process remains
+	// stopped under an ordinary shell or CI runner.
+	if err := process.command.Process.Signal(syscall.SIGCONT); err != nil {
+		t.Fatalf("send SIGCONT: %v", err)
+	}
+	if err := process.output.waitContains(
+		ctx,
+		suspendStart,
+		[]byte(processEnterTerminal),
+	); err != nil {
+		t.Fatalf("wait for resumed terminal entry: %v", err)
+	}
+	if err := process.output.waitContains(
+		ctx,
+		suspendStart,
+		[]byte("expletives Toolkit Catalog"),
+	); err != nil {
+		t.Fatalf("wait for full repaint after resume: %v", err)
+	}
+	if stopped {
+		t.Log("PTY runner preserved the process stop until explicit SIGCONT")
+	} else {
+		t.Log("PTY runner automatically continued the safely suspended process")
+	}
+	assertInteractiveTermios(t, process)
+
+	quitStart := process.output.mark()
+	writePTY(t, process.pair.master, []byte{0x1b, 'x'})
+	if err := process.wait(ctx); err != nil {
+		t.Fatalf("quit after SIGCONT: %v", err)
+	}
+	if err := process.output.waitContains(
+		ctx,
+		quitStart,
+		[]byte(processLeaveTerminal),
+	); err != nil {
+		t.Fatalf("wait for final terminal restoration: %v", err)
+	}
+	assertExactTermiosRestoration(t, process)
 }
 
 func waitForSafeSuspension(
