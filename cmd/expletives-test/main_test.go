@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1832,33 +1833,55 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	}
 }
 
-func TestTerminalKeyStateRecognizesUnmodifiedCtrlZ(t *testing.T) {
+func TestTerminalKeyStateRecognizesReservedControlSignals(t *testing.T) {
 	var state terminalKeyState
-	if state.consume(expletives.KeyEvent{
+	if got := state.consume(expletives.KeyEvent{
 		Kind: expletives.KeyEventDown,
 		Key:  expletives.KeyControl,
-	}) {
-		t.Fatal("Control down requested suspension")
+	}); got != nil {
+		t.Fatalf("Control down requested signal %v", got)
 	}
-	if !state.consume(expletives.KeyEvent{
+	if got := state.consume(expletives.KeyEvent{
 		Kind: expletives.KeyEventPress,
-		Key:  "z",
-	}) {
-		t.Fatal("Ctrl-Z did not request suspension")
+		Key:  "c",
+	}); got != syscall.SIGINT {
+		t.Fatalf("Ctrl-C signal = %v, want SIGINT", got)
 	}
 	state.reset()
 	state.consume(expletives.KeyEvent{
 		Kind: expletives.KeyEventDown,
 		Key:  expletives.KeyControl,
 	})
-	state.consume(expletives.KeyEvent{
-		Kind: expletives.KeyEventDown,
-		Key:  expletives.KeyAlt,
-	})
-	if state.consume(expletives.KeyEvent{
+	if got := state.consume(expletives.KeyEvent{
 		Kind: expletives.KeyEventPress,
 		Key:  "z",
-	}) {
-		t.Fatal("Ctrl-Alt-Z requested suspension")
+	}); got != syscall.SIGTSTP {
+		t.Fatalf("Ctrl-Z signal = %v, want SIGTSTP", got)
+	}
+	for _, modifier := range []expletives.Key{
+		expletives.KeyAlt,
+		expletives.KeyMeta,
+		expletives.KeyShift,
+	} {
+		modifier := modifier
+		t.Run(string(modifier), func(t *testing.T) {
+			var modified terminalKeyState
+			modified.consume(expletives.KeyEvent{
+				Kind: expletives.KeyEventDown,
+				Key:  expletives.KeyControl,
+			})
+			modified.consume(expletives.KeyEvent{
+				Kind: expletives.KeyEventDown,
+				Key:  modifier,
+			})
+			for _, key := range []expletives.Key{"c", "z"} {
+				if got := modified.consume(expletives.KeyEvent{
+					Kind: expletives.KeyEventPress,
+					Key:  key,
+				}); got != nil {
+					t.Fatalf("Control-%s-%s requested signal %v", modifier, key, got)
+				}
+			}
+		})
 	}
 }

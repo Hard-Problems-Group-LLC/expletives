@@ -96,13 +96,15 @@ queued `SIGCONT` notification is an idempotent safety pass. Failure to restore,
 stop, reacquire, query geometry, or resize is terminal to the interactive run;
 the ordinary deferred close path performs every remaining safe restoration.
 
-Supported xterm-family enhanced-key modes may encode physical Ctrl-Z as a
-structured Control-plus-`z` sequence instead of the tty's `VSUSP` byte. The
-interactive terminal entry point reserves that exact physical chord and
-enters the same restore, `SIGSTOP`, resume, and repaint lifecycle as a received
-`SIGTSTP`. Ctrl-Alt-Z and Ctrl-Meta-Z are not job-control aliases. Attached
-automation continues through the semantic application-input path and does not
-silently suspend the process that owns its connection.
+Supported xterm-family enhanced-key modes may encode physical Ctrl-C and
+Ctrl-Z as structured Control-plus-key sequences instead of the tty's `VINTR`
+and `VSUSP` bytes. The interactive terminal entry point reserves those exact
+physical chords. Ctrl-C enters the same configurable semantic interrupt path
+as received `SIGINT`, including while a menu, editor, or modal owns ordinary
+input. Ctrl-Z enters the same restore, `SIGSTOP`, resume, and repaint lifecycle
+as received `SIGTSTP`. Adding Alt, Meta, or Shift prevents either alias.
+Attached automation continues through the semantic application-input path and
+does not silently interrupt or suspend the process that owns its connection.
 
 Headless mode does not intercept `SIGTSTP` or `SIGCONT`. `SIGWINCH` remains a
 notice followed by an authoritative geometry query. `SIGINT` remains the

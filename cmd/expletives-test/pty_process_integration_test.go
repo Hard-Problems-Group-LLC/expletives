@@ -193,38 +193,63 @@ func TestDebugBinaryPTYProcessLifecycle(t *testing.T) {
 		assertExactTermiosRestoration(t, process)
 	})
 
-	t.Run("terminal Ctrl-C returns interrupt status", func(t *testing.T) {
-		process := startDebugPTYProcess(t, binary)
-		defer process.close()
+	for _, test := range []struct {
+		name     string
+		input    []byte
+		openMenu bool
+	}{
+		{name: "tty Ctrl-C", input: []byte{3}},
+		{
+			name:     "enhanced Ctrl-C with menu open",
+			input:    []byte("\x1b[27;5;99~"),
+			openMenu: true,
+		},
+	} {
+		test := test
+		t.Run(test.name+" returns interrupt status", func(t *testing.T) {
+			process := startDebugPTYProcess(t, binary)
+			defer process.close()
 
-		ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
-		defer cancel()
+			ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+			defer cancel()
 
-		waitForInitialFrame(t, ctx, process)
-		assertInteractiveTermios(t, process)
+			waitForInitialFrame(t, ctx, process)
+			assertInteractiveTermios(t, process)
+			if test.openMenu {
+				menuStart := process.output.mark()
+				writePTY(t, process.pair.master, []byte{0x1b, 'f'})
+				waitForFrameHeight(
+					t,
+					ctx,
+					process,
+					menuStart,
+					processPTYHeight,
+				)
+			}
 
-		interruptStart := process.output.mark()
-		writePTY(t, process.pair.master, []byte{3})
-		err := process.wait(ctx)
-		var exitError *exec.ExitError
-		if !errors.As(err, &exitError) || exitError.ExitCode() != exitInterrupt {
-			t.Fatalf(
-				"debug expletives-test Ctrl-C exit = %v, want status %d; "+
-					"terminal output tail=%q",
-				err,
-				exitInterrupt,
-				process.output.tail(4096),
-			)
-		}
-		if err := process.output.waitContains(
-			ctx,
-			interruptStart,
-			[]byte(processLeaveTerminal),
-		); err != nil {
-			t.Fatalf("wait for interrupt terminal leave sequence: %v", err)
-		}
-		assertExactTermiosRestoration(t, process)
-	})
+			interruptStart := process.output.mark()
+			writePTY(t, process.pair.master, test.input)
+			err := process.wait(ctx)
+			var exitError *exec.ExitError
+			if !errors.As(err, &exitError) || exitError.ExitCode() != exitInterrupt {
+				t.Fatalf(
+					"debug expletives-test Ctrl-C exit = %v, want status %d; "+
+						"terminal output tail=%q",
+					err,
+					exitInterrupt,
+					process.output.tail(4096),
+				)
+			}
+			if err := process.output.waitContains(
+				ctx,
+				interruptStart,
+				[]byte(processLeaveTerminal),
+			); err != nil {
+				t.Fatalf("wait for interrupt terminal leave sequence: %v", err)
+			}
+			assertExactTermiosRestoration(t, process)
+		})
+	}
 
 	t.Run("SIGTSTP restores and reacquires terminal", func(t *testing.T) {
 		testDebugPTYProcessSuspendLifecycle(t, binary, func(

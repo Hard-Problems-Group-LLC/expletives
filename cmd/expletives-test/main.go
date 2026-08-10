@@ -59,9 +59,10 @@ type terminalKeyState struct {
 	control bool
 	alt     bool
 	meta    bool
+	shift   bool
 }
 
-func (s *terminalKeyState) consume(event expletives.KeyEvent) bool {
+func (s *terminalKeyState) consume(event expletives.KeyEvent) os.Signal {
 	var held *bool
 	switch event.Key {
 	case expletives.KeyControl:
@@ -70,6 +71,8 @@ func (s *terminalKeyState) consume(event expletives.KeyEvent) bool {
 		held = &s.alt
 	case expletives.KeyMeta:
 		held = &s.meta
+	case expletives.KeyShift:
+		held = &s.shift
 	}
 	if held != nil {
 		switch event.Kind {
@@ -79,8 +82,18 @@ func (s *terminalKeyState) consume(event expletives.KeyEvent) bool {
 			*held = false
 		}
 	}
-	return event.Kind == expletives.KeyEventPress && event.Key == "z" &&
-		s.control && !s.alt && !s.meta
+	if event.Kind != expletives.KeyEventPress || !s.control ||
+		s.alt || s.meta || s.shift {
+		return nil
+	}
+	switch event.Key {
+	case "c":
+		return syscall.SIGINT
+	case "z":
+		return syscall.SIGTSTP
+	default:
+		return nil
+	}
 }
 
 func (s *terminalKeyState) reset() {
@@ -379,18 +392,19 @@ func runInteractive(
 		for _, event := range events {
 			requestID := counter.id("human")
 			if event.KeyEvent != nil {
-				// XTerm's enhanced-key modes encode Ctrl-Z as a structured
-				// chord, so the terminal driver cannot turn it into SIGTSTP.
-				// Reserve that physical chord for the same safe job-control
-				// lifecycle used by an ordinary VSUSP-generated signal.
-				if keyState.consume(*event.KeyEvent) {
+				// XTerm's enhanced-key modes encode Ctrl-C and Ctrl-Z as
+				// structured chords, so the terminal driver cannot turn them
+				// into SIGINT and SIGTSTP. Reserve those exact physical chords
+				// for the same configurable interrupt and safe job-control
+				// lifecycles as the corresponding terminal-driver signals.
+				if received := keyState.consume(*event.KeyEvent); received != nil {
 					keyState.reset()
 					repaint, err := handleInteractiveSignal(
 						ctx,
 						scene,
 						presenter,
 						decoder,
-						syscall.SIGTSTP,
+						received,
 						counter,
 					)
 					if err != nil {
