@@ -19,3 +19,15 @@ owner, known blockers, and brief status notes.
   - Status: Slice 20.0 mechanical public-surface, catalog, specification,
     example, and test inventory is active. Slices 20.1 through 20.4 are
     planned in the development roadmap and Ubersight.
+  - Consumer repair (started 2026-08-11T01:26:22-07:00): radioradio exposed
+    `EXPL-BUG-009`. A width-only `MinimumSize` suppresses automatic minimum
+    derivation and leaves a documented one-row `DropDown` at zero height in a
+    vertical-natural Layout. On permanent branch
+    `feature/dropdown-intrinsic-height`, enforce the construction-time
+    one-row minimum for `DropDown` and `ComboBox`, retain caller width, add a
+    layout/frame regression, update the collection contract, and run the full
+    gate before ACP. No physical terminal or downstream domain operation is
+    required.
+  - Consumer repair completed 2026-08-11T01:34:02-07:00: `EXPL-BUG-009` is
+    closed with documented one-row partial-minimum behavior and full gate
+    evidence. Permanent feature-branch ACP and merge to `main` remain.

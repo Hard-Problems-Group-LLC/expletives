@@ -5,6 +5,10 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-11 — [`EXPL-BUG-009`](closed/EXPL-BUG-009-popup-field-intrinsic-height.md)
+  — Preserved the documented one-row DropDown and ComboBox geometry when a
+  caller supplies only a minimum width.
+
 - 2026-08-09 — [`EXPL-BUG-008`](closed/EXPL-BUG-008-automation-command-inventory-bound.md)
   — Aligned client Hello validation with the documented and server-enforced
   `MaxControls` command-inventory bound.

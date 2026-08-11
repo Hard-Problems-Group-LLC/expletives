@@ -128,6 +128,81 @@ func TestDropDownCopiedModelRenderingAndClampedPopup(t *testing.T) {
 	}
 }
 
+func TestPopupFieldsPreserveOneRowMinimumWithWidthOverride(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 28, Height: 2})
+	dropDown, err := NewDropDown(app.Root(), DropDownOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "popup-minimum.dropdown",
+			MinimumSize:   Size{Width: 12},
+		},
+		Items:    []ListItem{{Key: "alpha", Label: "Alpha"}},
+		Selected: "alpha",
+	})
+	if err != nil {
+		t.Fatalf("NewDropDown() error = %v", err)
+	}
+	comboBox, err := NewComboBox(app.Root(), ComboBoxOptions{
+		DropDownOptions: DropDownOptions{
+			PanelOptions: PanelOptions{
+				AutomationKey: "popup-minimum.combo",
+				MinimumSize:   Size{Width: 14},
+			},
+			Items:    []ListItem{{Key: "bravo", Label: "Bravo"}},
+			Selected: "bravo",
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewComboBox() error = %v", err)
+	}
+	if got, want := dropDown.MinimumSize(), (Size{Width: 12, Height: 1}); got != want {
+		t.Fatalf("DropDown minimum = %+v, want %+v", got, want)
+	}
+	if got, want := comboBox.MinimumSize(), (Size{Width: 14, Height: 1}); got != want {
+		t.Fatalf("ComboBox minimum = %+v, want %+v", got, want)
+	}
+
+	layout, err := NewBoxLayout(Vertical, BoxLayoutOptions{
+		AutomationKey: "popup-minimum.layout",
+	})
+	if err != nil {
+		t.Fatalf("NewBoxLayout() error = %v", err)
+	}
+	if err := layout.AddPanel(dropDown, LayoutItemOptions{}); err != nil {
+		t.Fatalf("AddPanel(dropDown) error = %v", err)
+	}
+	if err := layout.AddPanel(comboBox, LayoutItemOptions{}); err != nil {
+		t.Fatalf("AddPanel(comboBox) error = %v", err)
+	}
+	if err := app.Root().SetLayout(layout); err != nil {
+		t.Fatalf("SetLayout() error = %v", err)
+	}
+	if got := dropDown.Bounds(); got.Height != 1 {
+		t.Fatalf("DropDown bounds = %+v, want one row", got)
+	}
+	if got := comboBox.Bounds(); got.Height != 1 {
+		t.Fatalf("ComboBox bounds = %+v, want one row", got)
+	}
+
+	snapshot := app.Snapshot()
+	for _, want := range []struct {
+		x, y     int
+		grapheme string
+		owner    ControlID
+	}{
+		{x: 0, y: 0, grapheme: "A", owner: dropDown.ID()},
+		{x: 0, y: 1, grapheme: "B", owner: comboBox.ID()},
+	} {
+		got := cellAt(t, snapshot, want.x, want.y)
+		if got.Grapheme != want.grapheme || got.Owner != want.owner {
+			t.Fatalf("painted popup cell at (%d,%d) = %+v", want.x, want.y, got)
+		}
+		if got.Foreground == got.Background {
+			t.Fatalf("popup cell at (%d,%d) has no color contrast: %+v", want.x, want.y, got)
+		}
+	}
+}
+
 func TestDropDownPopupNavigationRollbackActivationAndTab(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 28, Height: 8})
