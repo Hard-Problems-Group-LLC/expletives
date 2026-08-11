@@ -623,10 +623,14 @@ are defined by the same input contract.
 
 `TextArea` provides multiline editing over the same validator, password, and
 Limited Unicode policies. Enter inserts LF while editing, Ctrl-Enter commits,
-and Tab commits before group traversal. `TextWrapNone`, `TextWrapWords`, and
-`TextWrapCells` select its private bounded viewport behavior. Shift movement,
-selection replacement/deletion, Ctrl-A, visual-row navigation, and typed
-`ControlDetails.TextArea` evidence are defined by the same input contract.
+and Tab commits before group traversal. Its construction and live atomic
+read-only state retains focus, selection, and viewport navigation while
+refusing user mutation; `text_input.read_only` and
+`text_input.focused_read_only` provide its semantic presentation.
+`TextWrapNone`, `TextWrapWords`, and `TextWrapCells` select its private bounded
+viewport behavior. Shift movement, selection replacement/deletion, Ctrl-A,
+visual-row navigation, and typed `ControlDetails.TextArea` evidence are
+defined by the same input contract.
 
 ## Progress Controls
 
@@ -972,6 +976,7 @@ func (t *Transaction) SetTextPassword(*TextField, bool) error
 func (t *Transaction) SetNumberValue(Control, float64) error
 func (t *Transaction) SetTextAreaValidator(*TextArea, *TextValidator) error
 func (t *Transaction) SetTextAreaPassword(*TextArea, bool) error
+func (t *Transaction) SetTextAreaReadOnly(*TextArea, bool) error
 func (t *Transaction) SetTextAreaWrap(*TextArea, TextWrap) error
 func (t *Transaction) SetProgressBarState(*ProgressBar, ProgressBarState) error
 func (t *Transaction) SetMeterState(*Meter, MeterState) error

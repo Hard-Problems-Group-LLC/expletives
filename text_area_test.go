@@ -231,6 +231,85 @@ func TestTextAreaSettersAreAtomic(t *testing.T) {
 	}
 }
 
+func TestTextAreaReadOnlyNavigationAndLiveMutation(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 20, Height: 6})
+	area, err := NewTextArea(app.Root(), TextAreaOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "area.read-only",
+			Bounds:        Rect{Width: 4, Height: 2},
+		},
+		Text: "abcd\nefgh\nijkl", Wrap: TextWrapCells, ReadOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("NewTextArea() error = %v", err)
+	}
+	if !area.ReadOnly() || area.Editing() {
+		t.Fatalf("initial ReadOnly=%t Editing=%t", area.ReadOnly(), area.Editing())
+	}
+	details := textAreaDetailsByKey(t, app, "area.read-only")
+	if !details.ReadOnly || !details.Enabled || details.Caret != 0 || details.RowOffset != 0 {
+		t.Fatalf("initial read-only details = %#v", details)
+	}
+	if got := cellAt(t, app.Snapshot(), 0, 0); got.Style != "text_input.focused_read_only" {
+		t.Fatalf("focused read-only cell = %#v", got)
+	}
+	completion, err := area.Activate(context.Background(), "read-only-test", "activate")
+	if err != nil ||
+		(completion.Outcome != OutcomeNoOp && completion.Outcome != OutcomeApplied) ||
+		area.Editing() {
+		t.Fatalf("Activate() completion=%#v error=%v Editing=%t", completion, err, area.Editing())
+	}
+	completion, err = app.DispatchTextInput(
+		context.Background(),
+		"read-only-test",
+		"paste",
+		TextInputEvent{Kind: TextInputPaste, Text: "MUTATION"},
+	)
+	if err != nil || completion.Outcome != OutcomeNoOp || area.Text() != "abcd\nefgh\nijkl" {
+		t.Fatalf("read-only paste completion=%#v error=%v Text=%q", completion, err, area.Text())
+	}
+	dispatchTextKey(t, app, "read-only-enter", KeyEnter)
+	if area.Editing() || area.Text() != "abcd\nefgh\nijkl" {
+		t.Fatalf("read-only Enter changed Editing=%t Text=%q", area.Editing(), area.Text())
+	}
+	dispatchTextKey(t, app, "read-only-down", KeyDown)
+	dispatchTextKey(t, app, "read-only-page-down", KeyPageDown)
+	details = textAreaDetailsByKey(t, app, "area.read-only")
+	if details.Caret != 10 || details.RowOffset != 1 || details.Editing {
+		t.Fatalf("read-only navigation details = %#v", details)
+	}
+
+	if err := area.SetText("response\nreplacement"); err != nil {
+		t.Fatalf("read-only SetText() error = %v", err)
+	}
+	details = textAreaDetailsByKey(t, app, "area.read-only")
+	if area.Text() != "response\nreplacement" || details.Caret != 0 || details.RowOffset != 0 {
+		t.Fatalf("programmatic replacement Text=%q details=%#v", area.Text(), details)
+	}
+	if err := area.SetReadOnly(false); err != nil {
+		t.Fatalf("SetReadOnly(false) error = %v", err)
+	}
+	if _, err := area.Activate(context.Background(), "read-only-test", "edit"); err != nil {
+		t.Fatalf("editable Activate() error = %v", err)
+	}
+	completion, err = app.DispatchTextInput(
+		context.Background(),
+		"read-only-test",
+		"append",
+		TextInputEvent{Kind: TextInputCommitted, Text: "!"},
+	)
+	if err != nil || completion.Outcome != OutcomeApplied || !area.Editing() {
+		t.Fatalf("editable input completion=%#v error=%v Editing=%t", completion, err, area.Editing())
+	}
+	if err := area.SetReadOnly(true); err != nil {
+		t.Fatalf("SetReadOnly(true) error = %v", err)
+	}
+	if area.Text() != "response\nreplacement!" || !area.ReadOnly() || area.Editing() {
+		t.Fatalf("live transition Text=%q ReadOnly=%t Editing=%t", area.Text(), area.ReadOnly(), area.Editing())
+	}
+}
+
 func TestCtrlCRemainsConfiguredInterruptWhileTextAreaEdits(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 20, Height: 5})

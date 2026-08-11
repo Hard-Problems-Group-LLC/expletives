@@ -437,6 +437,7 @@ func DefaultTheme() Theme {
 			Foreground: RGB(0x80, 0x80, 0x80),
 			Background: inputNormal.Background,
 		},
+		"text_input.read_only": inputNormal,
 		"text_input.focused": {
 			Foreground: white,
 			Background: black,
@@ -456,6 +457,10 @@ func DefaultTheme() Theme {
 		"text_input.focused_selection": {
 			Foreground: black,
 			Background: RGB(0xAA, 0xAA, 0xAA),
+		},
+		"text_input.focused_read_only": {
+			Foreground: white,
+			Background: black,
 		},
 		"selection.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),

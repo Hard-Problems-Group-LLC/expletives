@@ -656,7 +656,7 @@ func TestSnapshotProjectsAndRedactsTextAreaDetails(t *testing.T) {
 					Width: 12, Height: 3,
 				},
 			},
-			Text: "secret\nvalue", Password: true,
+			Text: "secret\nvalue", Password: true, ReadOnly: true,
 			Wrap: expletives.TextWrapWords,
 			Validator: &expletives.TextValidator{
 				Enforcement: expletives.TextValidationSoft,
@@ -679,7 +679,7 @@ func TestSnapshotProjectsAndRedactsTextAreaDetails(t *testing.T) {
 		}
 	}
 	if details == nil || details.Text != "" || details.Length != 12 ||
-		details.LineCount != 2 || !details.Password || !details.Redacted ||
+		details.LineCount != 2 || !details.Password || !details.ReadOnly || !details.Redacted ||
 		details.Wrap != "words" || details.Validator == nil {
 		t.Fatalf("projected TextAreaDetails = %#v", details)
 	}

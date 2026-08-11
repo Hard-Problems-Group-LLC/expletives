@@ -422,6 +422,11 @@ var (
 		Foreground: expletives.RGB(0x80, 0x80, 0x80),
 		Background: textFieldStyle.Background,
 	}
+	textInputReadOnlyStyle = expletives.Style{
+		ID:         "text_input.read_only",
+		Foreground: textFieldStyle.Foreground,
+		Background: textFieldStyle.Background,
+	}
 	textInputFocusedStyle = expletives.Style{
 		ID:         "text_input.focused",
 		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
@@ -446,6 +451,11 @@ var (
 		ID:         "text_input.focused_selection",
 		Foreground: expletives.RGB(0x00, 0x00, 0x00),
 		Background: expletives.RGB(0xAA, 0xAA, 0xAA),
+	}
+	textInputFocusedReadOnlyStyle = expletives.Style{
+		ID:         "text_input.focused_read_only",
+		Foreground: expletives.RGB(0xFF, 0xFF, 0xFF),
+		Background: expletives.RGB(0x00, 0x00, 0x00),
 	}
 	textInputCatalogSelectedStyle = expletives.Style{
 		ID:         "text_input.catalog_selected",
@@ -615,11 +625,13 @@ func NewWithRootConstraints(
 		textInputInvalidCharacterStyle,
 		textInputSelectionStyle,
 		textInputDisabledStyle,
+		textInputReadOnlyStyle,
 		textInputFocusedStyle,
 		textInputFocusedValidStyle,
 		textInputFocusedInvalidStyle,
 		textInputFocusedInvalidCharacterStyle,
 		textInputFocusedSelectionStyle,
+		textInputFocusedReadOnlyStyle,
 		textInputCatalogSelectedStyle,
 		textInputCatalogEditingStyle,
 		textInputCatalogNormalStyle,

@@ -406,7 +406,8 @@ surface: finite fixed-place decimal values, copied inclusive bounds, invalid
 intermediate edits, explicit commit/cancel behavior, and clamped `[`/`]`
 SpinBox stepping. The implemented TextArea adds normalized line separators,
 word/cell/no-wrap presentation, a private bounded viewport, selection-aware
-multiline navigation, Ctrl-Enter commit, and semantic bounded paste.
+multiline navigation, Ctrl-Enter commit, semantic bounded paste, and a live
+read-only mode that retains focus/navigation while refusing user mutation.
 
 Single-line text and numeric fields default to horizontal stretch and
 one-row natural vertical sizing. They normally appear borderless beside a

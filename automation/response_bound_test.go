@@ -844,6 +844,10 @@ func TestSnapshotRejectsInvalidTextAreaDetails(t *testing.T) {
 			details.DisabledReason = "Disabled"
 			details.Editing = true
 		},
+		"read-only editing": func(details *TextAreaDetails) {
+			details.ReadOnly = true
+			details.Editing = true
+		},
 	}
 	for name, mutate := range tests {
 		t.Run(name, func(t *testing.T) {
