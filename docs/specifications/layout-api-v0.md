@@ -385,8 +385,12 @@ The triggering mutation publishes `pending` before handler disposition.
 
 An absent, default-requesting, panicking, saturated, timed-out, cancelled, or
 shut-down handler selects `default_active`. Interactive rendering shows one
-private black-on-yellow application overlay with `[OK]` when it fits, a `!`
-indicator when it does not, and semantic evidence at zero geometry.
+private black-on-yellow application overlay. Its bounded centered block
+word-wraps `Layout overflow` and places `[OK]` alone on a following centered
+row whenever vertical geometry permits. Explanatory text has priority when
+height is constrained; surfaces narrower than `Overflow` use `!`. The overlay
+never presents an action label without identifying the condition. Zero
+geometry retains semantic evidence without attempting to paint.
 `DismissOverflow` changes the notification to `acknowledged` without falsely
 clearing the underlying overflow. `Enter` or `Escape` while the fallback is
 active, and the built-in automation-visible `overflow.dismiss` command, use

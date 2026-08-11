@@ -707,6 +707,16 @@ ordered backlog and the active-task record; it does not replace either.
   retained a 126 by 8 MessageBox with two blank rows above OK and its bottom
   border immediately below. Operator-restarted final acceptance repeated that
   evidence at frame 84 and restored the session at frame 85.
+- Directed Slice 19.13 (`complete`): repaired `EXPL-BUG-010`, found during the
+  attached native-terminal narrow-resize acceptance. The root-owned overflow
+  fallback must word-wrap a plain explanation, place `[OK]` on its own
+  following centered row when height permits, retain a bounded high-visibility
+  indicator below the explanatory threshold, and preserve the existing
+  structured episode, dismissal, color, ownership, and non-recursive behavior.
+  Focused and complete automated gates pass. Rebuilt native frame 117 at 12
+  by 42 paints centered `Layout`, `overflow`, and `[OK]` rows in the exact
+  root-owned black-on-yellow warning style while retaining the active
+  structured deficit; the operator accepted the visible result.
 - Acceptance gate: the declared PTY and real-terminal matrix passes; teardown
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.

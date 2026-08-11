@@ -10,6 +10,41 @@ For each entry, include:
 - rationale
 - related files, proposals, or backlog items
 
+## EXPL-DEC-017 — Prioritize Meaning In Compact Overflow Warnings
+
+- Date: 2026-08-11
+- Status: Directed and adopted
+- Authority: Direct operator acceptance feedback
+
+### Decision
+
+The root-owned default Layout-overflow warning must not present an action
+label without explaining the condition. It uses a bounded centered block that
+word-wraps `Layout overflow`. When vertical geometry permits, `[OK]` occupies
+its own following centered row rather than sharing the explanatory line.
+
+Explanatory text takes priority when height is constrained. Widths too narrow
+for `Overflow` use the `!` indicator. Enter, Escape, and `overflow.dismiss`
+retain their existing behavior at every geometry, including explanation-only
+and indicator-only surfaces.
+
+### Rationale
+
+A bare `[OK]` states an action but not the condition being acknowledged, while
+placing action and explanation on one long line wastes available vertical
+space and makes the warning unnecessarily fragile under horizontal resize.
+Word wrapping plus a dedicated action row remains readable across useful
+geometries. The keyboard paths remain part of the stable overflow contract and
+structured snapshots retain the exact condition and deficit.
+
+### Related Records
+
+- [`EXPL-BUG-010`](bugs/closed/EXPL-BUG-010-contextless-overflow-warning.md)
+- [`Layout API v0`](../docs/specifications/layout-api-v0.md)
+- [`Layouts and Overflow`](../docs/specifications/layouts-and-overflow.md)
+- Phase 19 Slice 19.13 in
+  [`development-roadmap.md`](development-roadmap.md)
+
 ## EXPL-DEC-016 — Prefer White Default Dialog Body Text
 
 - Date: 2026-08-08

@@ -161,10 +161,13 @@ An absent handler, or a handler that requests the default disposition, cannot
 make overflow silent. The default behavior is:
 
 1. retain the structured overflow state in every applicable snapshot;
-2. present one compact, dismissible application-level warning with an `OK`
-   action when interactive geometry permits;
-3. adapt the warning down to a bounded high-visibility indicator when the
-   surface is too small for the full message; and
+2. present one compact, dismissible application-level warning that word-wraps
+   the `Layout overflow` explanation and places `[OK]` alone on a following
+   centered line when both fit vertically;
+3. prioritize explanatory text before the action when height is constrained,
+   and adapt to a bounded high-visibility `!` indicator when even `Overflow`
+   does not fit horizontally; never present the action label without
+   explanatory text; and
 4. retain semantic and diagnostic evidence even when a zero-sized surface
    makes physical notification impossible.
 

@@ -31,6 +31,28 @@ owner, known blockers, and brief status notes.
   - Consumer repair completed 2026-08-11T01:34:02-07:00: `EXPL-BUG-009` is
     closed with documented one-row partial-minimum behavior and full gate
     evidence. Permanent feature-branch ACP and merge to `main` remain.
+  - Native-terminal acceptance repair started
+    2026-08-11T10:33:38-07:00: `EXPL-BUG-010` records that the foundational
+    Layout-overflow fallback can show a contextless `[OK]` action. The initial
+    Phase 19 Slice 19.13 candidate will add a clear explanation without
+    changing overflow state or input semantics; later acceptance notes record
+    the directed presentation refinement.
+  - Native-terminal acceptance repair automated gate passed
+    2026-08-11T10:40:21-07:00. Focused width/style/dismissal coverage and the
+    complete `make verify` suite pass; the rebuilt native attached display is
+    the only remaining acceptance row.
+  - Native frame 81 showed the first repaired candidate at 29 by 42 with the
+    correct centered `Layout overflow [OK]` text and exact warning style. The
+    operator directed a final presentation refinement: word-wrap the
+    explanation and put `[OK]` on its own line.
+  - Refined candidate automated gate passed 2026-08-11T11:01:46-07:00,
+    including focused wrap/geometry coverage and complete `make verify`.
+    Rebuilt attached native acceptance remains.
+  - Native-terminal acceptance repair completed
+    2026-08-11T11:10:16-07:00. Frame 117 at 12 by 42 proves the centered
+    word-wrapped explanation, separate action row, exact warning style/root
+    ownership, and retained structured overflow; the operator accepted the
+    result. `EXPL-BUG-010` and Phase 19 Slice 19.13 are closed.
   - Consumer contrast repair started 2026-08-11T10:34:45-07:00:
     `EXPL-BUG-011` records that the default root and focused TextArea roles
     share a black background despite the directed distinct-palette contract.
@@ -39,5 +61,5 @@ owner, known blockers, and brief status notes.
     the complete gate before ACP and merge to `main`.
   - Consumer contrast repair completed 2026-08-11T10:41:18-07:00:
     `EXPL-BUG-011` is closed with distinct default editable/read-only focus,
-    exact Theme and rendered-cell coverage, and a passing complete gate.
-    Permanent feature-branch ACP and merge to `main` follow.
+    exact Theme and rendered-cell coverage, and a passing complete gate. It
+    was merged to `main` in `1b189e0` before this synchronization.
