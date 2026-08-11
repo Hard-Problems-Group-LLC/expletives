@@ -728,6 +728,19 @@ ordered backlog and the active-task record; it does not replace either.
 - Slice 20.0 (`active`): inventory the exported API, non-deferred control
   catalog, specifications, examples, and maintained test surfaces; repair only
   concrete coverage/documentation gaps found by that mechanical audit.
+  - Consumer contract repair began at 2026-08-11T01:26:22-07:00 under
+    `EXPL-BUG-009`. A downstream Models selector supplied a width-only
+    `MinimumSize`; `DropDown` retained the zero height, so a vertical-natural
+    Layout allocated no row and the selected label owned no framebuffer
+    cells. Preserve the caller's width while enforcing the directed one-row
+    construction minimum for both `DropDown` and `ComboBox`, prove geometry
+    and painted selected text through a real BoxLayout, then run the complete
+    project gate on a permanent feature branch. No terminal, network service,
+    or downstream domain operation is in scope.
+  - Consumer contract repair completed at 2026-08-11T01:34:02-07:00.
+    `DropDown` and `ComboBox` now preserve one row under partial caller
+    minima; direct sizing, real Layout geometry, selected-label painting,
+    contrast, ordinary/race tests, all build modes, and smoke checks pass.
 - Slice 20.1 (`planned`): verify supported Go/toolchain/target declarations,
   module hygiene, dependency provenance, and available vulnerability checks.
 - Slice 20.2 (`planned`): verify debug, release, and profiling artifacts,

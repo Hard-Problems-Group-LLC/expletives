@@ -234,6 +234,11 @@ offset. Tab and Shift-Tab leave the ListBox focus group.
 editable one-row field. They are separate public controls sharing the same
 private popup-list model.
 
+Construction always preserves a one-row minimum height. A partial
+`PanelOptions.MinimumSize` may override the width or request a greater height,
+but a zero omitted height does not collapse either popup field. Leaving the
+complete minimum at zero retains ordinary intrinsic automatic sizing.
+
 ```go
 type DropDownOptions struct {
     PanelOptions

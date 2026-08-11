@@ -118,6 +118,7 @@ func (t *Transaction) NewDropDown(
 	if err != nil {
 		return nil, err
 	}
+	enforcePopupFieldMinimumHeight(state)
 	control := &DropDown{controlHandle: controlHandle{state: state}}
 	state.control = control
 	return control, nil
@@ -187,9 +188,17 @@ func (t *Transaction) NewComboBox(
 	if err != nil {
 		return nil, err
 	}
+	enforcePopupFieldMinimumHeight(state)
 	control := &ComboBox{controlHandle: controlHandle{state: state}}
 	state.control = control
 	return control, nil
+}
+
+func enforcePopupFieldMinimumHeight(state *controlState) {
+	intrinsic := state.behavior.(intrinsicMinimumBehavior).intrinsicMinimum()
+	if state.minimumSize.Height < intrinsic.Height {
+		state.minimumSize.Height = intrinsic.Height
+	}
 }
 
 func newPopupCollectionBehavior(
