@@ -22,6 +22,60 @@ func textAreaDetailsByKey(
 	return *details
 }
 
+func TestDefaultThemeTextInputFocusContrastsWithCanvasAndField(t *testing.T) {
+	t.Parallel()
+	theme := DefaultTheme()
+	resolved := func(id StyleID) ResolvedStyle {
+		t.Helper()
+		style, found := theme.Resolve(id)
+		if !found {
+			t.Fatalf("DefaultTheme().Resolve(%q) did not find style", id)
+		}
+		return style
+	}
+
+	canvas := resolved("application.root")
+	normal := resolved("text_area")
+	focused := resolved("text_input.focused")
+	focusedReadOnly := resolved("text_input.focused_read_only")
+	for id, style := range map[StyleID]ResolvedStyle{
+		"text_input.focused":                   focused,
+		"text_input.focused_valid":             resolved("text_input.focused_valid"),
+		"text_input.focused_invalid":           resolved("text_input.focused_invalid"),
+		"text_input.focused_invalid_character": resolved("text_input.focused_invalid_character"),
+		"text_input.focused_selection":         resolved("text_input.focused_selection"),
+		"text_input.focused_read_only":         focusedReadOnly,
+	} {
+		if style.Background == canvas.Background {
+			t.Errorf("%s background = %s, matching application.root", id, style.Background)
+		}
+	}
+	if focused.Background == normal.Background {
+		t.Errorf("focused background = %s, matching normal TextArea", focused.Background)
+	}
+	if focusedReadOnly.Background == focused.Background {
+		t.Errorf("focused read-only background = %s, matching editable focus", focusedReadOnly.Background)
+	}
+
+	app, err := NewApp(AppOptions{Size: Size{Width: 8, Height: 3}})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	if _, err := NewTextArea(app.Root(), TextAreaOptions{
+		PanelOptions: PanelOptions{Bounds: Rect{Width: 8, Height: 3}},
+		Text:         "response",
+		ReadOnly:     true,
+	}); err != nil {
+		t.Fatalf("NewTextArea() error = %v", err)
+	}
+	cell := cellAt(t, app.Snapshot(), 0, 0)
+	if cell.Style != "text_input.focused_read_only" ||
+		cell.Foreground != focusedReadOnly.Foreground ||
+		cell.Background != focusedReadOnly.Background {
+		t.Fatalf("rendered focused read-only cell = %#v, want %+v", cell, focusedReadOnly)
+	}
+}
+
 func TestTextAreaNormalizationValidationAndPassword(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 20, Height: 6})

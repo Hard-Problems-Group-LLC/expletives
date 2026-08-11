@@ -75,6 +75,14 @@ func DefaultTheme() Theme {
 		Foreground: white,
 		Background: RGB(0x00, 0x78, 0x78),
 	}
+	inputFocused := ResolvedStyle{
+		Foreground: black,
+		Background: white,
+	}
+	inputFocusedReadOnly := ResolvedStyle{
+		Foreground: black,
+		Background: RGB(0xFF, 0xFF, 0x55),
+	}
 	buttonNormal := ResolvedStyle{
 		Foreground: black,
 		Background: RGB(0x00, 0xAA, 0x00),
@@ -438,30 +446,24 @@ func DefaultTheme() Theme {
 			Background: inputNormal.Background,
 		},
 		"text_input.read_only": inputNormal,
-		"text_input.focused": {
-			Foreground: white,
-			Background: black,
-		},
+		"text_input.focused":   inputFocused,
 		"text_input.focused_valid": {
-			Foreground: RGB(0x00, 0xAA, 0x00),
-			Background: black,
+			Foreground: RGB(0x00, 0x78, 0x00),
+			Background: inputFocused.Background,
 		},
 		"text_input.focused_invalid": {
-			Foreground: RGB(0xAA, 0xAA, 0x00),
-			Background: black,
+			Foreground: RGB(0x78, 0x58, 0x00),
+			Background: inputFocused.Background,
 		},
 		"text_input.focused_invalid_character": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
-			Background: black,
+			Background: inputFocused.Background,
 		},
 		"text_input.focused_selection": {
-			Foreground: black,
-			Background: RGB(0xAA, 0xAA, 0xAA),
-		},
-		"text_input.focused_read_only": {
 			Foreground: white,
-			Background: black,
+			Background: RGB(0x00, 0x00, 0xAA),
 		},
+		"text_input.focused_read_only": inputFocusedReadOnly,
 		"selection.mnemonic": {
 			Foreground: RGB(0xAA, 0x00, 0x00),
 			Background: resolved.Background,

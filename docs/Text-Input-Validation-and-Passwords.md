@@ -126,6 +126,9 @@ the hosting Panel background. The field background fills its complete
 arranged width, including blank cells, and uses one basic-terminal palette
 family while unfocused and another while focused. Both must remain distinct
 from the hosting Panel after terminal color quantization.
+The default Theme uses black on white for editable focus and black on bright
+yellow for focused read-only TextAreas. Typed read-only evidence and cursor
+behavior remain the non-color state cues.
 
 Single-line fields default to horizontal stretch and natural vertical size.
 `TextArea` defaults to stretch in both directions. `BoxLayout` preserves
