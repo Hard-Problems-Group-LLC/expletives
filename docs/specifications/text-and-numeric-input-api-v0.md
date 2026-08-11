@@ -351,6 +351,7 @@ type TextAreaOptions struct {
     Text           string
     Validator      *TextValidator
     Password       bool
+    ReadOnly       bool
     Wrap           TextWrap
     Disabled       bool
     DisabledReason string
@@ -368,6 +369,8 @@ func (a *TextArea) Validator() *TextValidator
 func (a *TextArea) SetValidator(*TextValidator) error
 func (a *TextArea) Password() bool
 func (a *TextArea) SetPassword(bool) error
+func (a *TextArea) ReadOnly() bool
+func (a *TextArea) SetReadOnly(bool) error
 func (a *TextArea) Wrap() TextWrap
 func (a *TextArea) SetWrap(TextWrap) error
 func (a *TextArea) Editing() bool
@@ -378,12 +381,29 @@ func (a *TextArea) Activate(
     source string,
     requestID string,
 ) (Completion, error)
+
+func (t *Transaction) SetTextAreaReadOnly(*TextArea, bool) error
 ```
 
 `TextArea` extends the validator/password rules to explicit line separators.
 CRLF and CR input normalize to LF. Other control characters are rejected.
 Validator `Characters` describes input elements, not newline; newline is
 admitted structurally and is never colored as a validator failure.
+
+`ReadOnly` defaults false. A read-only TextArea remains enabled and focusable
+for Left/Right, Up/Down, Home/End, Ctrl-Home/Ctrl-End, PageUp/PageDown,
+Shift-selection, Ctrl-A, Escape selection clearing, and viewport movement.
+It never enters edit mode and rejects Enter, deletion, printable keys,
+committed-text, and paste mutation as handled no-ops. Programmatic `SetText`
+remains available. `SetReadOnly(true)` during an active edit atomically and
+silently preserves the visible working value as the committed value, exits
+edit mode, and emits no `ChangeCommand`; returning to editable state does not
+enter edit mode until the next ordinary activation. Disabled state continues
+to remove focus eligibility and takes precedence over read-only state.
+
+Read-only presentation uses `text_input.read_only` and focused read-only
+presentation uses `text_input.focused_read_only`. These semantic styles are
+required only when a Theme constructs a read-only TextArea.
 
 The zero `Wrap` value selects `TextWrapNone`. `TextWrapNone`,
 `TextWrapCells`, and `TextWrapWords` have the same meanings as StaticText.
@@ -421,8 +441,9 @@ intrinsic minimum of 8 by 3 cells.
 
 `ControlDetails.TextArea` contains current text (or an empty redacted value),
 element length, logical-line count, caret and selection offsets, visual
-caret row/column, row/column viewport offsets, wrap, edit/valid/password
-state, disabled reason, change command, and copied validator summary.
+caret row/column, row/column viewport offsets, wrap,
+edit/valid/password/read-only state, disabled reason, change command, and
+copied validator summary.
 
 Unlike a single-line editor, `TextArea` defaults to stretch on both axes. In a
 BoxLayout with no explicit positive item `Grow`, all remaining main-axis

@@ -15,13 +15,14 @@ type TextAreaOptions struct {
 	Text           string
 	Validator      *TextValidator
 	Password       bool
+	ReadOnly       bool
 	Wrap           TextWrap
 	Disabled       bool
 	DisabledReason string
 	ChangeCommand  CommandID
 }
 
-// TextArea is a copy-safe focusable multiline editor leaf.
+// TextArea is a copy-safe focusable multiline editor or read-only leaf.
 type TextArea struct{ controlHandle }
 
 type textAreaBehavior struct {
@@ -29,6 +30,7 @@ type textAreaBehavior struct {
 	working         normalizedInputText
 	validator       *normalizedTextValidator
 	password        bool
+	readOnly        bool
 	wrap            TextWrap
 	disabled        bool
 	disabledReason  string
@@ -98,6 +100,10 @@ func (t *Transaction) NewTextArea(
 	if err := validateOptionalCommand(options.ChangeCommand); err != nil {
 		return nil, err
 	}
+	caret := len(value.cells)
+	if options.ReadOnly {
+		caret = 0
+	}
 	state, err := t.newLeafControl(
 		parent,
 		options.PanelOptions,
@@ -107,11 +113,12 @@ func (t *Transaction) NewTextArea(
 			working:         cloneInputText(value),
 			validator:       validator,
 			password:        options.Password,
+			readOnly:        options.ReadOnly,
 			wrap:            wrap,
 			disabled:        options.Disabled,
 			disabledReason:  reason,
 			changeCommand:   options.ChangeCommand,
-			caret:           len(value.cells),
+			caret:           caret,
 			selectionAnchor: -1,
 			preferredColumn: -1,
 		},
@@ -213,7 +220,7 @@ func (textAreaBehavior) intrinsicMinimum() Size {
 }
 
 func (b textAreaBehavior) additionalStyles() []StyleID {
-	return []StyleID{
+	styles := []StyleID{
 		"text_input.valid",
 		"text_input.invalid",
 		"text_input.invalid_character",
@@ -225,6 +232,14 @@ func (b textAreaBehavior) additionalStyles() []StyleID {
 		"text_input.focused_invalid_character",
 		"text_input.focused_selection",
 	}
+	if b.readOnly {
+		styles = append(
+			styles,
+			"text_input.read_only",
+			"text_input.focused_read_only",
+		)
+	}
+	return styles
 }
 
 func (textAreaBehavior) details() ControlDetails {
@@ -244,7 +259,13 @@ func (b textAreaBehavior) paintDecoration(
 	current := b.current()
 	invalid, valid := textAreaValidationMask(current.cells, b.validator)
 	backgroundStyle := state.style
-	if app.focus == state && !b.disabled {
+	switch {
+	case b.disabled:
+	case b.readOnly && app.focus == state:
+		backgroundStyle = "text_input.focused_read_only"
+	case b.readOnly:
+		backgroundStyle = "text_input.read_only"
+	case app.focus == state:
 		backgroundStyle = "text_input.focused"
 	}
 	app.fillStyleLocked(
@@ -280,6 +301,8 @@ func (b textAreaBehavior) paintDecoration(
 				style = "text_input.disabled"
 			case textAreaSelectionContains(b, index):
 				style = "text_input.selection"
+			case b.readOnly:
+				style = "text_input.read_only"
 			case b.validator == nil:
 			case valid:
 				style = "text_input.valid"
@@ -289,7 +312,11 @@ func (b textAreaBehavior) paintDecoration(
 				style = "text_input.invalid"
 			}
 			if app.focus == state && !b.disabled {
-				style = focusedTextInputStyle(style)
+				if b.readOnly && style == "text_input.read_only" {
+					style = "text_input.focused_read_only"
+				} else {
+					style = focusedTextInputStyle(style)
+				}
 			}
 			app.setClippedCellLocked(
 				frame,
@@ -309,7 +336,7 @@ func (b textAreaBehavior) paintDecoration(
 		cursorX = absolute.X + caretColumn
 	}
 	cursorX = min(cursorX, absolute.X+max(0, absolute.Width-1))
-	if app.focus == state && b.editing && !b.disabled &&
+	if app.focus == state && b.editing && !b.disabled && !b.readOnly &&
 		absolute.Width > 0 && absolute.Height > 0 &&
 		cursorX >= clip.X && cursorX < clip.X+clip.Width &&
 		cursorY >= clip.Y && cursorY < clip.Y+clip.Height {
@@ -523,6 +550,9 @@ func (a *App) textAreaInputLocked(
 	if state == nil || state != a.focus || !a.focusEligibleLocked(state) {
 		return "", "", false, false
 	}
+	if behavior.readOnly {
+		return a.readOnlyTextAreaInputLocked(state, behavior, key, held)
+	}
 	if !behavior.editing {
 		if key != KeyEnter || !noHeldModifiers(held) {
 			return "", "", false, false
@@ -681,6 +711,93 @@ func (a *App) textAreaInputLocked(
 	return command, target, handled, changed
 }
 
+func (a *App) readOnlyTextAreaInputLocked(
+	state *controlState,
+	behavior textAreaBehavior,
+	key Key,
+	held map[Key]bool,
+) (command CommandID, target ControlID, handled, changed bool) {
+	if held[KeyAlt] || held[KeyMeta] {
+		return "", "", false, false
+	}
+	if held[KeyControl] && !held[KeyShift] && key == "a" {
+		if len(behavior.committed.cells) == 0 {
+			return "", "", true, false
+		}
+		behavior.selectionAnchor = 0
+		behavior.caret = len(behavior.committed.cells)
+		behavior.preferredColumn = -1
+		state.behavior = behavior
+		return "", "", true, true
+	}
+	if held[KeyControl] && (key == KeyHome || key == KeyEnd) {
+		next := 0
+		if key == KeyEnd {
+			next = len(behavior.committed.cells)
+		}
+		changed = moveTextAreaCaret(&behavior, next, held[KeyShift])
+		behavior.preferredColumn = -1
+	} else if held[KeyControl] {
+		return "", "", false, false
+	} else {
+		handled = true
+		switch key {
+		case KeyLeft:
+			changed = moveTextAreaCaret(
+				&behavior,
+				max(0, behavior.caret-1),
+				held[KeyShift],
+			)
+			behavior.preferredColumn = -1
+		case KeyRight:
+			changed = moveTextAreaCaret(
+				&behavior,
+				min(len(behavior.committed.cells), behavior.caret+1),
+				held[KeyShift],
+			)
+			behavior.preferredColumn = -1
+		case KeyHome, KeyEnd:
+			rows := textAreaVisualRows(
+				behavior.committed.cells,
+				state.bounds.Width,
+				behavior.wrap,
+			)
+			rowIndex, _ := textAreaCaretPosition(rows, behavior.caret)
+			next := rows[rowIndex].start
+			if key == KeyEnd {
+				next = rows[rowIndex].end
+			}
+			changed = moveTextAreaCaret(&behavior, next, held[KeyShift])
+			behavior.preferredColumn = -1
+		case KeyUp, KeyDown, KeyPageUp, KeyPageDown:
+			changed = moveTextAreaVertical(
+				&behavior,
+				key,
+				held[KeyShift],
+				state.bounds.Width,
+				state.bounds.Height,
+			)
+		case KeyEscape:
+			if behavior.selectionAnchor >= 0 {
+				behavior.selectionAnchor = -1
+				changed = true
+			}
+		default:
+			return "", "", true, false
+		}
+	}
+	if changed {
+		_, _, _, behavior.rowOffset, behavior.columnOffset =
+			textAreaViewport(
+				behavior,
+				state.bounds.Width,
+				state.bounds.Height,
+			)
+		state.behavior = behavior
+	}
+	return "", "", true, changed
+}
+
 func insertTextAreaCells(
 	behavior *textAreaBehavior,
 	inserted []string,
@@ -795,6 +912,24 @@ func (a *TextArea) SetPassword(password bool) error {
 	return tx.Commit(context.Background())
 }
 
+// ReadOnly reports whether user input may navigate but not edit the area.
+func (a *TextArea) ReadOnly() bool {
+	behavior, ok := textAreaBehaviorForRead(a.controlState())
+	return ok && behavior.readOnly
+}
+
+// SetReadOnly atomically changes user editability while retaining focusability.
+func (a *TextArea) SetReadOnly(readOnly bool) error {
+	if a == nil || a.controlState() == nil {
+		return ErrInvalidControl
+	}
+	tx := a.controlState().app.NewTransaction()
+	if err := tx.SetTextAreaReadOnly(a, readOnly); err != nil {
+		return err
+	}
+	return tx.Commit(context.Background())
+}
+
 // Wrap returns the current multiline wrapping policy.
 func (a *TextArea) Wrap() TextWrap {
 	behavior, ok := textAreaBehaviorForRead(a.controlState())
@@ -834,7 +969,7 @@ func (a *TextArea) Valid() bool {
 // Focus gives this eligible TextArea keyboard focus.
 func (a *TextArea) Focus() error { return focusSelectionControl(a) }
 
-// Activate focuses this eligible TextArea and enters edit mode.
+// Activate focuses this eligible TextArea and enters edit mode unless read-only.
 func (a *TextArea) Activate(
 	ctx context.Context,
 	source string,
@@ -905,6 +1040,9 @@ func (t *Transaction) SetTextAreaValidator(
 	behavior.working = cloneInputText(behavior.committed)
 	behavior.editing = false
 	behavior.caret = len(behavior.committed.cells)
+	if behavior.readOnly {
+		behavior.caret = 0
+	}
 	behavior.selectionAnchor = -1
 	behavior.rowOffset = 0
 	behavior.columnOffset = 0
@@ -926,6 +1064,31 @@ func (t *Transaction) SetTextAreaPassword(
 		return ErrInvalidControl
 	}
 	behavior.password = password
+	return t.recordTextAreaBehavior(state, behavior)
+}
+
+// SetTextAreaReadOnly records one atomic user-editability replacement.
+func (t *Transaction) SetTextAreaReadOnly(
+	area *TextArea,
+	readOnly bool,
+) error {
+	state, err := t.control(area)
+	if err != nil || state.kind != ControlTextArea {
+		return ErrInvalidControl
+	}
+	behavior, ok := t.recordedControlBehavior(state).(textAreaBehavior)
+	if !ok {
+		return ErrInvalidControl
+	}
+	if readOnly && behavior.editing {
+		behavior.committed = cloneInputText(behavior.working)
+		behavior.editing = false
+		behavior.selectionAnchor = -1
+		behavior.preferredColumn = -1
+	}
+	behavior.readOnly = readOnly
+	behavior.working = cloneInputText(behavior.committed)
+	behavior.caret = min(behavior.caret, len(behavior.committed.cells))
 	return t.recordTextAreaBehavior(state, behavior)
 }
 
@@ -980,7 +1143,7 @@ func (a *App) activateTextArea(
 	}
 	a.focus = state
 	behavior := state.behavior.(textAreaBehavior)
-	if !behavior.editing {
+	if !behavior.editing && !behavior.readOnly {
 		behavior.working = cloneInputText(behavior.committed)
 		behavior.editing = true
 		behavior.caret = len(behavior.working.cells)
@@ -1029,6 +1192,7 @@ func (a *App) textAreaDetailsLocked(
 		Editing:           behavior.editing,
 		Valid:             valid,
 		Password:          behavior.password,
+		ReadOnly:          behavior.readOnly,
 		Redacted:          behavior.password,
 		Enabled:           !behavior.disabled,
 		DisabledReason:    behavior.disabledReason,
@@ -1052,6 +1216,7 @@ func textAreaBehaviorEqual(left, right textAreaBehavior) bool {
 		left.working.text == right.working.text &&
 		textValidatorEqual(left.validator, right.validator) &&
 		left.password == right.password &&
+		left.readOnly == right.readOnly &&
 		left.wrap == right.wrap &&
 		left.disabled == right.disabled &&
 		left.disabledReason == right.disabledReason &&

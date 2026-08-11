@@ -941,7 +941,8 @@ the root package's local snapshot. The client checks:
   step;
 - kind-consistent TextArea details with canonical LF-separated multiline
   text, logical line and element counts, caret/selection, visual caret and
-  private viewport positions, wrapping, validation, and password redaction;
+  private viewport positions, wrapping, validation, password redaction, and
+  explicit read-only state that can never coincide with editing;
 - kind-consistent ProgressBar, Meter, Spinner, and ActivityDots details with
   recognized status, exact bounded numeric state, finite ordered Meter
   ranges, canonical absolute ticks, reduced-motion state, text policy,

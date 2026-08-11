@@ -3426,7 +3426,7 @@ func validTextAreaDetails(
 		details.ColumnOffset < 0 ||
 		details.ColumnOffset > details.VisualCaretColumn ||
 		details.Password != details.Redacted ||
-		(!details.Enabled && details.Editing) ||
+		((!details.Enabled || details.ReadOnly) && details.Editing) ||
 		!validSelectionReason(details.Enabled, details.DisabledReason) ||
 		(details.ChangeCommand != "" &&
 			!validIdentifier(details.ChangeCommand, limits.IdentifierBytes)) {

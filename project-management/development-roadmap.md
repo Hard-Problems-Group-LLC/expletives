@@ -741,6 +741,22 @@ ordered backlog and the active-task record; it does not replace either.
     `DropDown` and `ComboBox` now preserve one row under partial caller
     minima; direct sizing, real Layout geometry, selected-label painting,
     contrast, ordinary/race tests, all build modes, and smoke checks pass.
+  - Downstream-approved `TextArea` read-only work began at
+    2026-08-11T04:30:22-07:00 under `EXPL-TASK-038`. Add a construction-time
+    `ReadOnly` attribute and, because the existing transaction behavior seam
+    supports it directly, atomic live `ReadOnly`/`SetReadOnly` operations.
+    Read-only areas remain focusable for bounded viewport navigation and
+    selection but never enter edit mode or accept mutations. Provide distinct
+    normal/focused semantic styles, versioned snapshot/automation evidence,
+    public API/specification coverage, and full verification on permanent
+    branch `feature/text-area-read-only` before merging to `main`.
+  - `EXPL-TASK-038` completed at 2026-08-11T04:45:44-07:00. Construction and
+    live atomic read-only state, focusable viewport/selection navigation,
+    mutation refusal, normal/focused semantic styles, typed core/automation
+    evidence, and normative specifications are complete. Focused tests and
+    the full formatting, vet, ordinary, integration, race, all-mode build, and
+    smoke gate pass. Permanent feature-branch ACP and merge to `main` follow
+    before downstream consumption.
 - Slice 20.1 (`planned`): verify supported Go/toolchain/target declarations,
   module hygiene, dependency provenance, and available vulnerability checks.
 - Slice 20.2 (`planned`): verify debug, release, and profiling artifacts,

@@ -360,6 +360,9 @@ func (t *Transaction) SetText(control Control, text string) error {
 		behavior.working = cloneInputText(value)
 		behavior.editing = false
 		behavior.caret = len(value.cells)
+		if behavior.readOnly {
+			behavior.caret = 0
+		}
 		behavior.selectionAnchor = -1
 		behavior.rowOffset = 0
 		behavior.columnOffset = 0
@@ -1294,6 +1297,9 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				return err
 			}
 		case textAreaBehavior:
+			if behavior.readOnly && behavior.editing {
+				return errors.New("expletives: read-only TextArea cannot be editing")
+			}
 			textInputBytes += len(behavior.committed.text)
 			if behavior.editing {
 				textInputBytes += len(behavior.working.text)

@@ -4,6 +4,31 @@ Record completed work with newest entries at the top. Use dated bullets and
 include concise outcomes, owners, ISO 8601 completion timestamps, validation
 evidence, important decisions or risk acceptances, and follow-up records.
 
+- 2026-08-11 — `EXPL-TASK-038` — Add a true read-only TextArea contract.
+  - Requestor: radioradio operator
+  - Owner: Codex
+  - Started: 2026-08-11T04:30:22-07:00
+  - Completed: 2026-08-11T04:45:44-07:00
+  - Outcome:
+    - added construction-time `ReadOnly`, live atomic `ReadOnly`,
+      `SetReadOnly`, and transactional mutation through the existing TextArea
+      behavior seam;
+    - retained focus, bounded viewport navigation, and selection while
+      refusing edit activation, keys, paste, and committed-text mutation;
+    - preserved in-progress visible text when atomically changing to
+      read-only, while keeping programmatic `SetText` available; and
+    - added distinct normal/focused semantic styles and versioned typed core
+      plus automation evidence with strict read-only/editing consistency.
+  - Verification: focused behavior and automation tests plus `make verify`
+    pass formatting, vet, ordinary and PTY integration tests, the complete
+    race suite, debug/release/profiling builds, and smoke/self-checks.
+  - Contracts:
+    - [`Text And Numeric Input API v0`](../docs/specifications/text-and-numeric-input-api-v0.md)
+    - [`Go API v0`](../docs/specifications/go-api-v0.md)
+    - [`Automation Protocol v1`](../docs/specifications/automation-protocol-v1.md)
+  - Follow-up: pin the merged immutable revision in radioradio Phase 6 Slice
+    7 and use read-only TextArea for raw model responses.
+
 - 2026-08-10 — `EXPL-TASK-036` — Deliver Phase 19 terminal compatibility and
   operational hardening.
   - Requestor: project operator

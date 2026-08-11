@@ -1057,6 +1057,7 @@ type TextAreaDetails struct {
 	Editing           bool                  `json:"editing"`
 	Valid             bool                  `json:"valid"`
 	Password          bool                  `json:"password"`
+	ReadOnly          bool                  `json:"read_only"`
 	Redacted          bool                  `json:"redacted"`
 	Enabled           bool                  `json:"enabled"`
 	DisabledReason    string                `json:"disabled_reason,omitempty"`

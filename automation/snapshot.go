@@ -556,6 +556,7 @@ type TextAreaDetails struct {
 	Editing           bool                  `json:"editing"`
 	Valid             bool                  `json:"valid"`
 	Password          bool                  `json:"password"`
+	ReadOnly          bool                  `json:"read_only"`
 	Redacted          bool                  `json:"redacted"`
 	Enabled           bool                  `json:"enabled"`
 	DisabledReason    string                `json:"disabled_reason,omitempty"`
@@ -1328,7 +1329,8 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				ColumnOffset:      details.ColumnOffset,
 				Wrap:              TextWrap(details.Wrap),
 				Editing:           details.Editing, Valid: details.Valid,
-				Password: details.Password, Redacted: details.Redacted,
+				Password: details.Password, ReadOnly: details.ReadOnly,
+				Redacted:       details.Redacted,
 				Enabled:        details.Enabled,
 				DisabledReason: details.DisabledReason,
 				ChangeCommand:  string(details.ChangeCommand),
