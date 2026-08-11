@@ -252,6 +252,10 @@ legible over both field backgrounds. Default-theme field backgrounds are
 chosen from terminal palette families distinct from both the hosting canvas
 and the focused field; merely using two RGB shades that commonly quantize to
 the same basic terminal color does not satisfy this requirement.
+The default focused editable field is black on white. The default focused
+read-only TextArea is black on bright yellow, keeping read-only focus distinct
+from the canvas, the normal field, and editable focus without relying on color
+as its only state cue.
 
 These single-line editors default to horizontal stretch and vertical natural
 sizing. Their one-row minimum does not grow merely because a vertical Box has

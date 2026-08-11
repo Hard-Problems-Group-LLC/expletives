@@ -31,3 +31,13 @@ owner, known blockers, and brief status notes.
   - Consumer repair completed 2026-08-11T01:34:02-07:00: `EXPL-BUG-009` is
     closed with documented one-row partial-minimum behavior and full gate
     evidence. Permanent feature-branch ACP and merge to `main` remain.
+  - Consumer contrast repair started 2026-08-11T10:34:45-07:00:
+    `EXPL-BUG-011` records that the default root and focused TextArea roles
+    share a black background despite the directed distinct-palette contract.
+    Repair editable and read-only focused presentation with exact Theme and
+    rendered-cell regressions on `feature/text-input-focus-contrast`, then run
+    the complete gate before ACP and merge to `main`.
+  - Consumer contrast repair completed 2026-08-11T10:41:18-07:00:
+    `EXPL-BUG-011` is closed with distinct default editable/read-only focus,
+    exact Theme and rendered-cell coverage, and a passing complete gate.
+    Permanent feature-branch ACP and merge to `main` follow.

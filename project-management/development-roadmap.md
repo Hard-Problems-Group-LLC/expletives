@@ -757,6 +757,18 @@ ordered backlog and the active-task record; it does not replace either.
     the full formatting, vet, ordinary, integration, race, all-mode build, and
     smoke gate pass. Permanent feature-branch ACP and merge to `main` follow
     before downstream consumption.
+  - Consumer contrast repair began at 2026-08-11T10:34:45-07:00 under
+    `EXPL-BUG-011`. The default Theme violates the directed text-input
+    contract by giving `application.root` and every focused TextArea role the
+    same black background. Give editable focus a white surface, focused
+    read-only state a yellow surface, retain legible validation/selection
+    colors, and prove both Theme resolution and rendered read-only behavior on
+    permanent branch `feature/text-input-focus-contrast` before ACP and merge
+    to `main`.
+  - `EXPL-BUG-011` closed at 2026-08-11T10:41:18-07:00. Default editable
+    focus is black on white, focused read-only TextArea presentation is black
+    on yellow, and validation/selection remain legible and distinct. Exact
+    Theme and rendered-cell regressions plus the complete project gate pass.
 - Slice 20.1 (`planned`): verify supported Go/toolchain/target declarations,
   module hygiene, dependency provenance, and available vulnerability checks.
 - Slice 20.2 (`planned`): verify debug, release, and profiling artifacts,
