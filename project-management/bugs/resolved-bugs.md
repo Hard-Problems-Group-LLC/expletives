@@ -5,6 +5,10 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-11 — [`EXPL-BUG-010`](closed/EXPL-BUG-010-contextless-overflow-warning.md)
+  — Replaced the contextless overflow acknowledgement with a centered,
+  word-wrapped explanation and dedicated action row.
+
 - 2026-08-11 — [`EXPL-BUG-009`](closed/EXPL-BUG-009-popup-field-intrinsic-height.md)
   — Preserved the documented one-row DropDown and ComboBox geometry when a
   caller supplies only a minimum width.

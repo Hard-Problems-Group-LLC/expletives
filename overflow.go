@@ -248,29 +248,58 @@ func (a *App) paintOverflowWarningLocked(
 	if !active || frame.Size.Width == 0 || frame.Size.Height == 0 {
 		return
 	}
-	text := []string{"!"}
-	if frame.Size.Width >= 4 {
-		text = []string{"[", "O", "K", "]"}
-	}
-	x := max(0, (frame.Size.Width-len(text))/2)
-	y := max(0, frame.Size.Height/2)
+	rows := overflowWarningRows(frame.Size.Width, frame.Size.Height)
+	y := max(0, (frame.Size.Height-len(rows))/2)
 	style := StyleID("_overflow.warning")
 	resolved := ResolvedStyle{
 		Foreground: RGB(0, 0, 0),
 		Background: RGB(0xFF, 0xFF, 0),
 		Attributes: StyleBold,
 	}
-	for index, grapheme := range text {
-		a.setCellLocked(
-			frame,
-			x+index,
-			y,
-			grapheme,
-			style,
-			resolved,
-			a.root.state.id,
-		)
+	for rowIndex, row := range rows {
+		x := max(0, (frame.Size.Width-len(row))/2)
+		for cellIndex, grapheme := range row {
+			a.setCellLocked(
+				frame,
+				x+cellIndex,
+				y+rowIndex,
+				grapheme,
+				style,
+				resolved,
+				a.root.state.id,
+			)
+		}
 	}
+}
+
+func overflowWarningRows(width, height int) [][]string {
+	const minimumMessageWidth = len("Overflow")
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	if width < minimumMessageWidth {
+		return [][]string{{"!"}}
+	}
+	rows := wrapTextRows(
+		[][]string{overflowWarningCells("Layout overflow")},
+		width,
+		TextWrapWords,
+	)
+	if len(rows) > height {
+		rows = [][]string{overflowWarningCells("Overflow")}
+	}
+	if len(rows) < height {
+		rows = append(rows, overflowWarningCells("[OK]"))
+	}
+	return rows
+}
+
+func overflowWarningCells(text string) []string {
+	cells := make([]string, 0, len(text))
+	for _, grapheme := range text {
+		cells = append(cells, string(grapheme))
+	}
+	return cells
 }
 
 func defaultOverflowActive(overflows []OverflowSnapshot) bool {

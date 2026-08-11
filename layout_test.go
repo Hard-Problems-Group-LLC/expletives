@@ -3,6 +3,8 @@ package expletives
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -794,6 +796,77 @@ func TestOverflowFallbackDismissRecoveryAndHandler(t *testing.T) {
 		}
 	default:
 		t.Fatal("handled state published without handler observation")
+	}
+}
+
+func TestOverflowWarningWrapsExplanationAndSeparatesAction(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		width  int
+		height int
+		want   []string
+	}{
+		{name: "negative width", width: -1, height: 2},
+		{name: "zero width", width: 0, height: 2},
+		{name: "zero height", width: 29, height: 0},
+		{name: "indicator", width: 1, height: 5, want: []string{"!"}},
+		{name: "below explanation", width: 7, height: 5, want: []string{"!"}},
+		{name: "one row prioritizes explanation", width: 8, height: 1, want: []string{"Overflow"}},
+		{name: "wrapped message", width: 8, height: 2, want: []string{"Layout", "overflow"}},
+		{name: "wrapped message and action", width: 8, height: 3, want: []string{"Layout", "overflow", "[OK]"}},
+		{name: "word boundary", width: 14, height: 3, want: []string{"Layout", "overflow", "[OK]"}},
+		{name: "full message and action", width: 15, height: 2, want: []string{"Layout overflow", "[OK]"}},
+		{name: "wide", width: 80, height: 2, want: []string{"Layout overflow", "[OK]"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gotRows := overflowWarningRows(test.width, test.height)
+			got := make([]string, len(gotRows))
+			for index, row := range gotRows {
+				got[index] = strings.Join(row, "")
+			}
+			if !slices.Equal(got, test.want) {
+				t.Fatalf("overflowWarningRows(%d, %d) = %q, want %q", test.width, test.height, got, test.want)
+			}
+		})
+	}
+}
+
+func TestOverflowWarningPaintsExplanationWithAction(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 29, Height: 4})
+	panel := mustPanel(t, app.Root(), PanelOptions{
+		MinimumSize: Size{Width: 30, Height: 4},
+	})
+	layout, _ := NewBoxLayout(Horizontal, BoxLayoutOptions{})
+	if err := layout.AddPanel(panel, LayoutItemOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Root().SetLayout(layout); err != nil {
+		t.Fatal(err)
+	}
+	waitOverflowState(t, app, "default_active")
+
+	snapshot := app.Snapshot()
+	for _, row := range []struct {
+		y    int
+		x    int
+		text string
+	}{
+		{y: 1, x: 7, text: "Layout overflow"},
+		{y: 2, x: 12, text: "[OK]"},
+	} {
+		for offset, want := range row.text {
+			cell := cellAt(t, snapshot, row.x+offset, row.y)
+			if cell.Grapheme != string(want) ||
+				cell.Style != StyleID("_overflow.warning") ||
+				cell.Foreground != (RGB(0, 0, 0)) ||
+				cell.Background != (RGB(0xFF, 0xFF, 0)) ||
+				cell.Owner != app.Root().ID() {
+				t.Fatalf("overflow warning cell (%d, %d) = %#v, want %q in root-owned warning style", row.x+offset, row.y, cell, string(want))
+			}
+		}
 	}
 }
 
