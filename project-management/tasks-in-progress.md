@@ -41,6 +41,22 @@ owner, known blockers, and brief status notes.
     coverage. The complete `make verify` Phase 21 gate passed on 2026-08-13,
     including vet, ordinary and race tests, the PTY lifecycle integration
     test, and every required build mode. Phase 21 is complete. Slice 22.0 is
-    active on the bounded compatible feature set and optional Columns action
-    band. Later Phases 23 and 24 own per-instance visual roles and dedicated
-    catalog screens, then final integration/acceptance.
+    complete with the bounded copied feature set, optional owned action band,
+    reduced body viewport, semantic focus-part repair, DataGrid edit
+    cancellation, and core/compact automation evidence. Slices 22.1 through
+    22.4 complete the raised Columns action, fixed-tree modal editor, private
+    draft/search/visibility/wrap/order controls, atomic revision-aware apply,
+    schema rebase, explicit stale Reload/Cancel handling, DataGrid pre-open
+    commit, owner/modal lifecycle cleanup, focus restoration, and compact
+    typed evidence. Slice 22.5 completes fixed-tree maximum-schema evidence,
+    compact snapshot validation and response bounds, focused race tests,
+    catalog self-check, and an attached drive/observe edit/apply/cancel/
+    shutdown matrix through `expletivesctl`. The complete `make verify` Phase
+    22 gate passed on 2026-08-13, including vet, ordinary and race tests, the
+    PTY lifecycle integration test, every required build mode, and smoke/
+    self-checks. On 2026-08-13 the operator directed automatic delivery through
+    Phase 23 because its dedicated screens are the practical evaluation
+    surface for the Columns behavior. The attached Phase 22 matrix closes its
+    behavior gate, Phase 22 is complete, and Slice 23.0 is active for
+    per-instance visual roles. Phase 23 owns the integrated visual evaluation;
+    Phase 24 retains final cross-axis integration/acceptance.

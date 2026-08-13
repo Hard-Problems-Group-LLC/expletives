@@ -593,6 +593,14 @@ func (a *App) DispatchKey(
 					control: a.focus,
 					key:     event.Key,
 				}
+			} else if (event.Key == KeyEnter || event.Key == KeySpace) &&
+				noHeldModifiers(held) &&
+				a.tableColumnsActionFocusedEligibleLocked(a.focus) {
+				a.pressed[source] = pressedAction{
+					control: a.focus,
+					key:     event.Key,
+					part:    TableFocusColumnsAction,
+				}
 			}
 		}
 	case KeyEventUp:
@@ -612,7 +620,11 @@ func (a *App) DispatchKey(
 			}
 			result.Outcome = OutcomeApplied
 		}
-		if matchedPress && a.buttonEligibleLocked(press.control) {
+		if matchedPress && press.part == TableFocusColumnsAction &&
+			a.tableColumnsActionFocusedEligibleLocked(press.control) {
+			command, target = CommandTableColumnsOpen, press.control.id
+			router, result, execute = a.resolveCommandLocked(command, true)
+		} else if matchedPress && a.buttonEligibleLocked(press.control) {
 			behavior := press.control.behavior.(buttonBehavior)
 			command = behavior.command
 			target = press.control.id
@@ -666,6 +678,22 @@ func (a *App) DispatchKey(
 						target = control.id
 						router, result, execute =
 							a.resolveCommandLocked(command, true)
+					} else if _, ok := tableBehaviorFromControl(control); ok {
+						changed := false
+						if a.focus != control {
+							a.focus = control
+							changed = true
+						}
+						if a.setTableEntryFocusPartLocked(control, true) {
+							changed = true
+						}
+						a.clearInvalidPressesLocked()
+						if changed {
+							result.Outcome = OutcomeApplied
+						}
+						command, target = CommandTableColumnsOpen, control.id
+						router, result, execute =
+							a.resolveCommandLocked(command, true)
 					} else {
 						var changed bool
 						command, target, changed = a.applySelectionLocked(
@@ -701,8 +729,11 @@ func (a *App) DispatchKey(
 			if committed {
 				result.Outcome = OutcomeApplied
 			}
-			if move && a.moveFocusLocked(held[KeyShift]) {
-				result.Outcome = OutcomeApplied
+			if move {
+				if a.moveTableFocusPartLocked(held[KeyShift]) ||
+					a.moveFocusLocked(held[KeyShift]) {
+					result.Outcome = OutcomeApplied
+				}
 			}
 			if command != "" {
 				router, result, execute = a.resolveCommandLocked(command, true)
@@ -735,6 +766,12 @@ func (a *App) DispatchKey(
 							a.resolveCommandLocked(command, true)
 					}
 				}
+				break
+			}
+			if columnsCommand, columnsTarget, columnsHandled :=
+				a.tableColumnsDialogKeyLocked(a.focus, event.Key, held); columnsHandled {
+				command, target = columnsCommand, columnsTarget
+				router, result, execute = a.resolveCommandLocked(command, true)
 				break
 			}
 			tabCommand := CommandID("")
@@ -1365,6 +1402,9 @@ func (a *App) resolveCommandLocked(
 	if isStandardDialogCommand(command) {
 		return nil, CommandResult{Outcome: OutcomeApplied}, false
 	}
+	if isTableColumnsCommand(command) {
+		return a.routeTableColumnsCommand, CommandResult{}, true
+	}
 	if isFilePickerCommand(command) {
 		return a.routeFilePickerCommand, CommandResult{}, true
 	}
@@ -1381,7 +1421,7 @@ func (a *App) resolveCommandLocked(
 
 func isBuiltInCommand(command CommandID) bool {
 	return command == CommandOverflowDismiss || isStandardDialogCommand(command) ||
-		isFilePickerCommand(command)
+		isFilePickerCommand(command) || isTableColumnsCommand(command)
 }
 
 func isStandardDialogCommand(command CommandID) bool {

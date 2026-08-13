@@ -30,6 +30,7 @@ substitutable for `ListBox`, and `DataGrid` is not exposed as a subclass of
 const (
     MaxCollectionItems          = 4096
     MaxCollectionColumns        = 256
+    MaxTableFeatures            = 16
     MaxCollectionCells          = 16384
     MaxCollectionDepth          = 64
     MaxCollectionAggregateBytes = 1 << 20
@@ -537,6 +538,33 @@ type TableSelectionPolicy struct {
     Extent   string
 }
 
+type TableFeature string
+
+const (
+    TableFeatureColumns TableFeature = "columns"
+)
+
+const (
+    CommandTableColumnsOpen      CommandID = "table.columns.open"
+    CommandTableColumnsSearch    CommandID = "table.columns.search"
+    CommandTableColumnsCurrent   CommandID = "table.columns.current"
+    CommandTableColumnsVisible   CommandID = "table.columns.visible"
+    CommandTableColumnsWrap      CommandID = "table.columns.wrap"
+    CommandTableColumnsMoveLeft  CommandID = "table.columns.move_left"
+    CommandTableColumnsMoveRight CommandID = "table.columns.move_right"
+    CommandTableColumnsReset     CommandID = "table.columns.reset"
+    CommandTableColumnsReload    CommandID = "table.columns.reload"
+    CommandTableColumnsOK        CommandID = "table.columns.ok"
+    CommandTableColumnsCancel    CommandID = "table.columns.cancel"
+)
+
+type TableFocusPart string
+
+const (
+    TableFocusBody          TableFocusPart = "body"
+    TableFocusColumnsAction TableFocusPart = "columns_action"
+)
+
 type TableColumnWrap string
 
 const (
@@ -553,6 +581,7 @@ type TableColumnPresentation struct {
 
 type TableOptions struct {
     ScrollablePanelOptions
+    Features         []TableFeature
     Columns          []Column
     Rows             []TableRow
     CurrentRow       string
@@ -576,6 +605,7 @@ type TableOptions struct {
 type TableState struct {
     Status             CollectionStatus
     StatusMessage      string
+    Features           []TableFeature
     CurrentRow         string
     CurrentRowIndex    int
     CurrentColumn      string
@@ -587,6 +617,8 @@ type TableState struct {
     ColumnPresentation []TableColumnPresentation
     VisibleColumnCount int
     VisualRowCount     int
+    FocusPart          TableFocusPart
+    ColumnsDialogOpen  bool
     FocusMode          TableFocusMode
     SortColumn         string
     SortDirection      SortDirection
@@ -630,6 +662,7 @@ func (t *Table) ReplaceWithPresentation(
 func (t *Table) SetCurrent(row string, column string) error
 func (t *Table) SetSelection([]string) error
 func (t *Table) SetSelectionPolicy(TableSelectionPolicy) error
+func (t *Table) SetFeatures([]TableFeature) error
 func (t *Table) SetColumnPresentation([]TableColumnPresentation) error
 func (t *Table) SetSort(string, SortDirection) error
 func (t *Table) SetStatus(CollectionStatus, string) error
@@ -673,6 +706,7 @@ func (t *Transaction) SetTableSelectionPolicy(
     *Table,
     TableSelectionPolicy,
 ) error
+func (t *Transaction) SetTableFeatures(*Table, []TableFeature) error
 func (t *Transaction) SetTableColumnPresentation(
     *Table,
     []TableColumnPresentation,
@@ -741,8 +775,53 @@ the current row/cell without selecting under None. Shift plus row navigation
 extends Range, with `[` and `]` as portable previous/next-extent routes.
 Ctrl-Home and Ctrl-End move to the first and last enabled row and boundary
 column. Disabled rows remain visible but cannot be current, selected, an
-endpoint, or activated. Tab and Shift-Tab leave the complete Table as one
-focus group.
+endpoint, or activated. Without an eligible internal Columns action, Tab and
+Shift-Tab leave the complete Table as one focus group.
+
+The copied `Features` set is bounded by `MaxTableFeatures`, rejects unknown
+or duplicate values, and normalizes to declaration order. Its only v0 value
+is `TableFeatureColumns`. Enabling it reserves a full-width two-row band
+inside the Table's outer bottom edge while keeping the Table one leaf and one
+ControlID. The body viewport receives the remaining height. With only one
+available band row the action body is allocated without a shadow; with two it
+receives body and shadow; with none it is not visible or actionable. Body is
+the default semantic focus part. ColumnsAction is retained only while that
+feature has visible, enabled geometry; removing or disabling eligibility
+repairs it atomically to Body. `SetFeatures` and its Transaction form replace
+the complete set, and DataGrid cancels an active editor in the same atomic
+mutation.
+
+The raised `Columns...` action is right-justified in the band and reuses the
+Button semantic roles, including mnemonic, focused, pressed, disabled, and
+shadow presentation. Tab traverses Body to ColumnsAction before leaving the
+focus group; Shift-Tab reverses that order. Enter and Space use source-local
+press capture, and Alt-C is a supplemental mnemonic. An empty schema does not
+remove the recovery action. A disabled or fully clipped action is not
+actionable. `ColumnsDialogOpen` reports the exact modal ownership state; while
+it is true the underlying action is not enabled or pressed.
+
+Activation opens one toolkit-owned Dialog containing a searchable, bounded
+ListBox inventory plus fixed visibility, Clip/Wrap/Hang, Move Left, Move
+Right, Reset, OK, Cancel, and conditional Reload controls. Space on the
+inventory toggles visibility; Ctrl-Left and Ctrl-Right supplement the move
+buttons. Hiding the final visible column is rejected with explanatory dialog
+text. All editing occurs in a private copied draft. Reset restores the
+constructor presentation repaired to the current schema. Cancel and Escape
+discard; OK publishes one complete presentation and then routes at most one
+ChangeCommand outside App locks. DataGrid first attempts exactly one active
+cell-editor commit; invalid input leaves the editor active and rejects the
+dialog, while a successful changed commit routes before the modal opens.
+
+The private draft captures schema and presentation revisions. Row-only model
+changes do not conflict. Schema changes deterministically drop removed keys,
+retain surviving draft order/visibility/wrap, and append new canonical keys
+visible with Clip. An external presentation mutation marks the dialog stale,
+disables OK, and exposes Reload; Reload replaces the draft with the latest
+presentation, while Cancel discards it. Concurrent Transactions cannot reuse
+a presentation revision. Owner hide or destroy, feature removal, modal
+invalidation, and App finalization close the dialog and discard its draft.
+Close restores ColumnsAction focus only while it remains eligible, otherwise
+Body or ordinary App focus repair applies.
 
 `SetRows` preserves surviving row current and selection, column presentation,
 the current column, and sort. `SetModel` preserves presentation order,
@@ -765,7 +844,10 @@ retained bytes, logical and visual row counts, current stable row/column and ind
 range endpoints, selection endpoints and digest, sort state, column endpoints
 plus exact core presentation, visible-column count/endpoints and a compact
 presentation digest for automation, and a digest of all derived widths,
-optional commands, and the compact viewport. The intended frame supplies
+the bounded feature identities, semantic focus part, Columns-action
+visibility/enabled/pressed state and allocated bounds, dialog-open state,
+optional commands, and the compact body
+viewport. The intended frame supplies
 exact visible headers, cells, markers, styles, clipping, and sticky-header
 evidence.
 
@@ -774,6 +856,7 @@ evidence.
 ```go
 type DataGridOptions struct {
     ScrollablePanelOptions
+    Features         []TableFeature
     Columns          []Column
     Rows             []TableRow
     CurrentRow       string
@@ -838,6 +921,7 @@ func (g *DataGrid) ReplaceWithPresentation(
 func (g *DataGrid) SetCurrent(string, string) error
 func (g *DataGrid) SetSelection([]string) error
 func (g *DataGrid) SetSelectionPolicy(TableSelectionPolicy) error
+func (g *DataGrid) SetFeatures([]TableFeature) error
 func (g *DataGrid) SetColumnPresentation([]TableColumnPresentation) error
 func (g *DataGrid) SetSort(string, SortDirection) error
 func (g *DataGrid) SetStatus(CollectionStatus, string) error
@@ -881,6 +965,7 @@ func (t *Transaction) SetDataGridSelectionPolicy(
     *DataGrid,
     TableSelectionPolicy,
 ) error
+func (t *Transaction) SetDataGridFeatures(*DataGrid, []TableFeature) error
 func (t *Transaction) SetDataGridColumnPresentation(
     *DataGrid,
     []TableColumnPresentation,

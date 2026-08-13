@@ -315,6 +315,184 @@ func TestDataGridWrappedCommittedGeometryAndSingleLineEditor(t *testing.T) {
 	}
 }
 
+func TestDataGridFeatureMutationCancelsEditorAndAllocatesBand(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 30, Height: 9})
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "grid.features", Bounds: Rect{Width: 22, Height: 8}},
+		}},
+		Columns: []Column{{Key: "value", Header: "Value", Editable: true}},
+		Rows:    []TableRow{{Key: "one", Cells: []TableCell{{Column: "value", Text: "One"}}}},
+	})
+	if err != nil {
+		t.Fatalf("NewDataGrid() error = %v", err)
+	}
+	if err := grid.Focus(); err != nil {
+		t.Fatalf("Focus() error = %v", err)
+	}
+	dispatchTableKey(t, app, "grid-feature-edit", KeyEnter)
+	if !grid.State().Editing {
+		t.Fatal("DataGrid did not begin editing")
+	}
+	features := []TableFeature{TableFeatureColumns}
+	if err := grid.SetFeatures(features); err != nil {
+		t.Fatalf("SetFeatures() error = %v", err)
+	}
+	features[0] = "caller-mutation"
+	state := grid.State()
+	if state.Editing || len(state.Features) != 1 ||
+		state.Features[0] != TableFeatureColumns || state.FocusPart != TableFocusBody {
+		t.Fatalf("feature state = %#v", state)
+	}
+	details := controlByKey(t, app.Snapshot(), "grid.features").Details.DataGrid
+	if details == nil || len(details.Table.Features) != 1 ||
+		!details.Table.ColumnsActionVisible || !details.Table.ColumnsActionEnabled ||
+		details.Table.ColumnsActionBounds.Height != 2 {
+		t.Fatalf("feature details = %#v", details)
+	}
+	tx := app.NewTransaction()
+	if err := tx.SetDataGridFeatures(grid, nil); err != nil {
+		t.Fatalf("SetDataGridFeatures(nil) error = %v", err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	if state = grid.State(); len(state.Features) != 0 || state.FocusPart != TableFocusBody {
+		t.Fatalf("feature removal state = %#v", state)
+	}
+}
+
+func TestDataGridColumnsDialogPreOpenCommitRefusalAndSuccess(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 90, Height: 35}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.RegisterCommand(CommandDefinition{
+		ID: "grid.changed", Label: "Changed", Enabled: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	routed := 0
+	if err := app.SetCommandRouter(func(_ context.Context, command Command) CommandResult {
+		if command.ID == "grid.changed" {
+			routed++
+		}
+		return CommandResult{Outcome: OutcomeApplied}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions:  PanelOptions{AutomationKey: "columns.grid", Bounds: Rect{Width: 34, Height: 9}},
+			ChangeCommand: "grid.changed",
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns: []Column{{
+			Key: "value", Header: "Value", Editable: true,
+			Validator: &TextValidator{
+				Enforcement: TextValidationSoft,
+				Mode:        TextValidationWhitelist,
+				Characters:  "ab",
+			},
+		}},
+		Rows: []TableRow{{
+			Key: "row", Cells: []TableCell{{Column: "value", Text: "a"}},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := grid.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	dispatchTableKey(t, app, "grid-edit-invalid", KeyEnter)
+	dispatchGridText(t, app, "grid-invalid", "!")
+	completion := dispatchTextChord(t, app, "grid-invalid-columns", KeyAlt, Key("c"))
+	if completion.Outcome != OutcomeRejected || completion.Code != "validation_failed" {
+		t.Fatalf("invalid pre-open completion = %#v", completion)
+	}
+	if state := grid.State(); !state.Editing || state.FocusPart != TableFocusBody ||
+		state.ColumnsDialogOpen || routed != 0 {
+		t.Fatalf("invalid pre-open state=%#v routed=%d", state, routed)
+	}
+
+	dispatchTableKey(t, app, "grid-remove-invalid", KeyBackspace)
+	dispatchGridText(t, app, "grid-valid", "b")
+	completion = dispatchTextChord(t, app, "grid-valid-columns", KeyAlt, Key("c"))
+	if completion.Outcome != OutcomeApplied {
+		t.Fatalf("valid pre-open completion = %#v cause=%v", completion, completion.Cause)
+	}
+	if state := grid.State(); state.Editing || !state.ColumnsDialogOpen ||
+		state.FocusPart != TableFocusColumnsAction || routed != 1 ||
+		grid.Rows()[0].Cells[0].Text != "ab" {
+		t.Fatalf("valid pre-open state=%#v rows=%#v routed=%d", state, grid.Rows(), routed)
+	}
+	app.mu.RLock()
+	core := app.tableColumnsDialogs[grid.state]
+	app.mu.RUnlock()
+	if core == nil {
+		t.Fatal("DataGrid Columns dialog did not open")
+	}
+	invokeColumnsCommand(t, app, "grid-columns-cancel", CommandTableColumnsCancel, core.cancel)
+}
+
+func TestDataGridColumnsDialogPreOpenChangeCommandFailure(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 70, Height: 25}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.RegisterCommand(CommandDefinition{
+		ID: "grid.changed", Label: "Changed", Enabled: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{
+				AutomationKey: "failure.grid",
+				Bounds:        Rect{Width: 34, Height: 9},
+			},
+			ChangeCommand: "grid.changed",
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns:  []Column{{Key: "value", Header: "Value", Editable: true}},
+		Rows: []TableRow{{
+			Key: "row", Cells: []TableCell{{Column: "value", Text: "a"}},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SetCommandRouter(func(context.Context, Command) CommandResult {
+		_ = grid.State()
+		return CommandResult{
+			Outcome: OutcomeRejected,
+			Code:    "consumer_rejected",
+			Message: "Consumer rejected the committed edit",
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := grid.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	dispatchTableKey(t, app, "failure-edit", KeyEnter)
+	dispatchGridText(t, app, "failure-input", "b")
+	completion := dispatchTextChord(t, app, "failure-columns", KeyAlt, Key("c"))
+	if completion.Outcome != OutcomeRejected || completion.Code != "consumer_rejected" {
+		t.Fatalf("pre-open ChangeCommand completion = %#v", completion)
+	}
+	state := grid.State()
+	if state.Editing || state.ColumnsDialogOpen ||
+		state.FocusPart != TableFocusColumnsAction ||
+		grid.Rows()[0].Cells[0].Text != "ab" {
+		t.Fatalf("pre-open ChangeCommand state=%#v rows=%#v", state, grid.Rows())
+	}
+}
+
 func TestDataGridSoftHardEditingCommitCancelAndTab(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 48, Height: 10})

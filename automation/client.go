@@ -2322,6 +2322,72 @@ func validTreeViewDetails(
 			expletives.MaxDisplayTextCells+2*expletives.MaxCollectionDepth+12
 }
 
+func validTableFeatureDetails(
+	details *TableDetails,
+	controlWidth int,
+	controlHeight int,
+) (int, bool) {
+	if details == nil || details.FeatureCount != len(details.Features) ||
+		details.FeatureCount < 0 ||
+		details.FeatureCount > expletives.MaxTableFeatures {
+		return 0, false
+	}
+	hasColumns := false
+	for _, feature := range details.Features {
+		if feature != "columns" || hasColumns {
+			return 0, false
+		}
+		hasColumns = true
+	}
+	bandRows := 0
+	if hasColumns && controlWidth > 0 && controlHeight > 0 {
+		bandRows = min(2, controlHeight)
+	}
+	if !hasColumns || bandRows == 0 {
+		return bandRows,
+			details.FocusPart == "body" &&
+				details.ColumnsActionBounds == (Rect{}) &&
+				!details.ColumnsActionVisible &&
+				!details.ColumnsActionEnabled &&
+				!details.ColumnsActionPressed &&
+				!details.ColumnsDialogOpen
+	}
+	action := details.ColumnsActionBounds
+	if action.Width < 1 ||
+		action.Width > expletives.MaxDisplayTextCells+4 ||
+		action.Height != bandRows ||
+		action.X+action.Width != controlWidth ||
+		action.Y != controlHeight-bandRows {
+		return 0, false
+	}
+	if details.FocusPart != "body" && details.FocusPart != "columns_action" {
+		return 0, false
+	}
+	if details.ColumnsActionVisible {
+		if details.ColumnsActionEnabled != (details.Enabled && !details.ColumnsDialogOpen) {
+			return 0, false
+		}
+	} else if details.ColumnsActionEnabled || details.ColumnsActionPressed ||
+		details.ColumnsDialogOpen ||
+		details.FocusPart != "body" {
+		return 0, false
+	}
+	if details.FocusPart == "columns_action" && !details.ColumnsActionEnabled &&
+		!details.ColumnsDialogOpen {
+		return 0, false
+	}
+	if details.ColumnsActionPressed &&
+		(!details.ColumnsActionEnabled || details.FocusPart != "columns_action" ||
+			details.ColumnsDialogOpen) {
+		return 0, false
+	}
+	if details.ColumnsDialogOpen &&
+		(details.FocusPart != "columns_action" || details.ColumnsActionEnabled) {
+		return 0, false
+	}
+	return bandRows, true
+}
+
 func validTableDetails(
 	details *TableDetails,
 	border *BorderDetails,
@@ -2329,7 +2395,13 @@ func validTableDetails(
 	controlHeight int,
 	limits Limits,
 ) bool {
+	bandRows, featuresValid := validTableFeatureDetails(
+		details,
+		controlWidth,
+		controlHeight,
+	)
 	if details == nil || border == nil || border.Title != "" ||
+		!featuresValid ||
 		details.RowCount < 0 || details.RowCount > expletives.MaxCollectionItems ||
 		details.VisualRowCount < 1 || details.VisualRowCount >= expletives.MaxFrameCells ||
 		details.EnabledCount < 0 || details.EnabledCount > details.RowCount ||
@@ -2345,7 +2417,12 @@ func validTableDetails(
 		!validOptionalCommand(details.ChangeCommand, limits) ||
 		!validOptionalCommand(details.ActivateCommand, limits) ||
 		!validOptionalCommand(details.SortCommand, limits) ||
-		!validContentViewportDetails(&details.Viewport, border, controlWidth, controlHeight) {
+		!validContentViewportDetails(
+			&details.Viewport,
+			border,
+			controlWidth,
+			max(0, controlHeight-bandRows),
+		) {
 		return false
 	}
 	switch details.Status {

@@ -50,6 +50,7 @@ type hotkeyBarBehavior struct {
 type pressedAction struct {
 	control *controlState
 	key     Key
+	part    TableFocusPart
 }
 
 // NewButton constructs and atomically inserts a Button.
@@ -468,6 +469,34 @@ func (a *App) localButtonDisabledReasonLocked(
 	state *controlState,
 	behavior buttonBehavior,
 ) string {
+	if behavior.command == CommandTableColumnsOK ||
+		behavior.command == CommandTableColumnsMoveLeft ||
+		behavior.command == CommandTableColumnsMoveRight {
+		modal := modalAncestorState(state)
+		for owner, core := range a.tableColumnsDialogs {
+			if core == nil || core.dialog == nil || core.dialog.state != modal {
+				continue
+			}
+			switch behavior.command {
+			case CommandTableColumnsOK:
+				table, ok := tableBehaviorFromControl(owner)
+				if core.stale.Load() || !ok ||
+					table.presentationRevision != core.presentationRevision.Load() {
+					return "Reload or cancel after an external presentation change"
+				}
+			case CommandTableColumnsMoveLeft:
+				if core.selectedIndex.Load() <= 0 {
+					return "The selected column is already leftmost"
+				}
+			case CommandTableColumnsMoveRight:
+				index, length := core.selectedIndex.Load(), core.draftLength.Load()
+				if index < 0 || index+1 >= length {
+					return "The selected column is already rightmost"
+				}
+			}
+			break
+		}
+	}
 	if behavior.command != CommandDialogCancel {
 		return ""
 	}
@@ -640,6 +669,50 @@ func (a *App) effectiveControlClipLocked(state *controlState) Rect {
 	return Rect{}
 }
 
+func (a *App) controlAbsoluteBoundsLocked(state *controlState) (Rect, bool) {
+	if state == nil {
+		return Rect{}, false
+	}
+	path := make([]*controlState, 0)
+	for current := state; current != nil; current = current.parent {
+		path = append(path, current)
+	}
+	if len(path) == 0 || path[len(path)-1] != a.root.state {
+		return Rect{}, false
+	}
+	parentOrigin := Point{}
+	for index := len(path) - 1; index >= 0; index-- {
+		current := path[index]
+		if current.destroyed || current.aborted {
+			return Rect{}, false
+		}
+		bounds := current.bounds
+		absolute := bounds
+		if isApplicationChrome(current.kind) {
+			switch current.kind {
+			case ControlMenuBar:
+				absolute = menuBarSurfaceRect(a.size)
+			case ControlStatusBar:
+				absolute = statusBarSurfaceRect(a.size)
+			}
+		} else if !current.root {
+			absolute.X += parentOrigin.X
+			absolute.Y += parentOrigin.Y
+		}
+		if current == state {
+			return absolute, true
+		}
+		client := absolute
+		if current.root {
+			client = a.rootContentRectLocked()
+		} else {
+			client = controlClientRect(current, absolute)
+		}
+		parentOrigin = Point{X: client.X, Y: client.Y}
+	}
+	return Rect{}, false
+}
+
 func (a *App) controlReceivesInputLocked(state *controlState) bool {
 	if !a.effectivelyVisibleLocked(state) ||
 		!a.inActiveModalScopeLocked(state) {
@@ -731,9 +804,11 @@ func (a *App) focusEligibleLocked(state *controlState) bool {
 	case treeViewBehavior:
 		return treeViewCanFocus(state, behavior)
 	case tableBehavior:
-		return tableCanFocus(state, behavior)
+		return tableBodyCanFocus(behavior) ||
+			a.tableColumnsActionEligibleLocked(state)
 	case dataGridBehavior:
-		return dataGridCanFocus(state, behavior)
+		return tableBodyCanFocus(behavior.table) ||
+			a.tableColumnsActionEligibleLocked(state)
 	case dropDownBehavior:
 		return popupCanFocus(state, behavior.popup)
 	case comboBoxBehavior:
@@ -875,13 +950,14 @@ func (a *App) tabEntryForFocusGroupLocked(
 }
 
 func (a *App) ensureFocusLocked() bool {
+	changed := a.repairFocusedTablePartLocked()
 	if a.menu != nil {
 		if a.topModalLocked() != nil {
 			a.closeMenuLocked()
 		} else {
 			if a.menu.bar != nil &&
 				a.effectivelyVisibleLocked(a.menu.bar) {
-				changed := a.focus != a.menu.bar
+				changed := changed || a.focus != a.menu.bar
 				a.focus = a.menu.bar
 				return changed
 			}
@@ -889,7 +965,7 @@ func (a *App) ensureFocusLocked() bool {
 		}
 	}
 	if a.focusEligibleLocked(a.focus) {
-		return false
+		return changed
 	}
 	previous := a.focus
 	committed := a.commitOrCancelEditorStateLocked(previous)
@@ -897,12 +973,13 @@ func (a *App) ensureFocusLocked() bool {
 	controls := a.focusableControlsLocked(true)
 	if len(controls) != 0 {
 		a.focus = controls[0]
+		a.setTableEntryFocusPartLocked(a.focus, false)
 	}
 	if previous != a.focus {
 		a.clearInvalidPressesLocked()
 		return true
 	}
-	return committed
+	return changed || committed
 }
 
 func (a *App) moveFocusLocked(reverse bool) bool {
@@ -943,6 +1020,7 @@ func (a *App) moveFocusLocked(reverse bool) bool {
 		return false
 	}
 	a.focus = target
+	a.setTableEntryFocusPartLocked(target, reverse)
 	a.clearInvalidPressesLocked()
 	return true
 }
@@ -1118,6 +1196,18 @@ func (a *App) mnemonicControlLocked(key Key) (*controlState, bool) {
 				found = state
 				return
 			}
+		case tableBehavior:
+			if key == Key("c") && a.tableColumnsActionEligibleLocked(state) {
+				found = state
+				activate = true
+				return
+			}
+		case dataGridBehavior:
+			if key == Key("c") && a.tableColumnsActionEligibleLocked(state) {
+				found = state
+				activate = true
+				return
+			}
 		case textBehavior:
 			if behavior.mnemonic == key &&
 				a.focusEligibleLocked(behavior.target) {
@@ -1136,7 +1226,12 @@ func (a *App) mnemonicControlLocked(key Key) (*controlState, bool) {
 func (a *App) clearInvalidPressesLocked() bool {
 	changed := false
 	for source, press := range a.pressed {
-		if !a.buttonEligibleLocked(press.control) || press.control != a.focus {
+		eligible := a.buttonEligibleLocked(press.control) &&
+			press.control == a.focus
+		if press.part == TableFocusColumnsAction {
+			eligible = a.tableColumnsActionFocusedEligibleLocked(press.control)
+		}
+		if !eligible {
 			delete(a.pressed, source)
 			changed = true
 		}

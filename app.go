@@ -32,40 +32,41 @@ type App struct {
 	dispatchGate chan struct{}
 	handlerSlots chan struct{}
 
-	size            Size
-	rootConstraints RootConstraints
-	scenario        string
-	root            *Panel
-	nextControl     uint64
-	nextLayout      uint64
-	controlsByID    map[ControlID]*controlState
-	controlsByKey   map[string]*controlState
-	layoutsByID     map[LayoutID]*layoutState
-	layoutsByKey    map[string]*layoutState
-	layoutItemCount int
-	styles          map[StyleID]ResolvedStyle
-	cursor          CursorState
-	held            map[string]map[Key]bool
-	focus           *controlState
-	pressed         map[string]pressedAction
-	menu            *menuSession
-	modals          []*controlState
-	bindings        map[string]CommandID
-	commandRouter   CommandRouter
-	legacyRouter    bool
-	commands        map[CommandID]CommandDefinition
-	final           bool
-	sequence        uint64
-	snapshot        Snapshot
-	history         map[uint64]Snapshot
-	historyOrder    []uint64
-	historyCells    int
-	changed         chan struct{}
-	overflowRunning bool
-	overflowGate    chan struct{}
-	overflowHandler OverflowHandler
-	overflows       map[LayoutID]*overflowRecord
-	nextOverflow    uint64
+	size                Size
+	rootConstraints     RootConstraints
+	scenario            string
+	root                *Panel
+	nextControl         uint64
+	nextLayout          uint64
+	controlsByID        map[ControlID]*controlState
+	controlsByKey       map[string]*controlState
+	layoutsByID         map[LayoutID]*layoutState
+	layoutsByKey        map[string]*layoutState
+	layoutItemCount     int
+	styles              map[StyleID]ResolvedStyle
+	cursor              CursorState
+	held                map[string]map[Key]bool
+	focus               *controlState
+	pressed             map[string]pressedAction
+	menu                *menuSession
+	modals              []*controlState
+	tableColumnsDialogs map[*controlState]*tableColumnsDialogCore
+	bindings            map[string]CommandID
+	commandRouter       CommandRouter
+	legacyRouter        bool
+	commands            map[CommandID]CommandDefinition
+	final               bool
+	sequence            uint64
+	snapshot            Snapshot
+	history             map[uint64]Snapshot
+	historyOrder        []uint64
+	historyCells        int
+	changed             chan struct{}
+	overflowRunning     bool
+	overflowGate        chan struct{}
+	overflowHandler     OverflowHandler
+	overflows           map[LayoutID]*overflowRecord
+	nextOverflow        uint64
 }
 
 // NewApp validates and copies options, creates the sole parentless root Panel,
@@ -100,27 +101,28 @@ func NewApp(options AppOptions) (*App, error) {
 	}
 
 	app := &App{
-		size:            options.Size,
-		rootConstraints: options.RootConstraints,
-		scenario:        options.Scenario,
-		nextControl:     2,
-		nextLayout:      1,
-		controlsByID:    make(map[ControlID]*controlState),
-		controlsByKey:   make(map[string]*controlState),
-		layoutsByID:     make(map[LayoutID]*layoutState),
-		layoutsByKey:    make(map[string]*layoutState),
-		styles:          cloneStyleMap(theme.styles),
-		held:            make(map[string]map[Key]bool),
-		pressed:         make(map[string]pressedAction),
-		bindings:        make(map[string]CommandID),
-		commands:        make(map[CommandID]CommandDefinition),
-		mutationGate:    make(chan struct{}, 1),
-		dispatchGate:    make(chan struct{}, 1),
-		handlerSlots:    make(chan struct{}, MaxConcurrentCommandHandlers),
-		history:         make(map[uint64]Snapshot),
-		changed:         make(chan struct{}),
-		overflowGate:    make(chan struct{}, 1),
-		overflows:       make(map[LayoutID]*overflowRecord),
+		size:                options.Size,
+		rootConstraints:     options.RootConstraints,
+		scenario:            options.Scenario,
+		nextControl:         2,
+		nextLayout:          1,
+		controlsByID:        make(map[ControlID]*controlState),
+		controlsByKey:       make(map[string]*controlState),
+		layoutsByID:         make(map[LayoutID]*layoutState),
+		layoutsByKey:        make(map[string]*layoutState),
+		styles:              cloneStyleMap(theme.styles),
+		held:                make(map[string]map[Key]bool),
+		pressed:             make(map[string]pressedAction),
+		bindings:            make(map[string]CommandID),
+		commands:            make(map[CommandID]CommandDefinition),
+		tableColumnsDialogs: make(map[*controlState]*tableColumnsDialogCore),
+		mutationGate:        make(chan struct{}, 1),
+		dispatchGate:        make(chan struct{}, 1),
+		handlerSlots:        make(chan struct{}, MaxConcurrentCommandHandlers),
+		history:             make(map[uint64]Snapshot),
+		changed:             make(chan struct{}),
+		overflowGate:        make(chan struct{}, 1),
+		overflows:           make(map[LayoutID]*overflowRecord),
 	}
 	rootState := &controlState{
 		app:           app,
@@ -157,15 +159,26 @@ func NewApp(options AppOptions) (*App, error) {
 		ModalPolicy: CommandModalAllowed,
 	}
 	for command, label := range map[CommandID]string{
-		CommandDialogOK:          "OK",
-		CommandDialogYes:         "Yes",
-		CommandDialogNo:          "No",
-		CommandDialogCancel:      "Cancel",
-		CommandFilePickerOpen:    "Open",
-		CommandFilePickerSelect:  "Select",
-		CommandFilePickerUp:      "Up",
-		CommandFilePickerRefresh: "Refresh",
-		CommandFilePickerCurrent: "Current",
+		CommandDialogOK:              "OK",
+		CommandDialogYes:             "Yes",
+		CommandDialogNo:              "No",
+		CommandDialogCancel:          "Cancel",
+		CommandFilePickerOpen:        "Open",
+		CommandFilePickerSelect:      "Select",
+		CommandFilePickerUp:          "Up",
+		CommandFilePickerRefresh:     "Refresh",
+		CommandFilePickerCurrent:     "Current",
+		CommandTableColumnsOpen:      "Columns...",
+		CommandTableColumnsSearch:    "Search",
+		CommandTableColumnsCurrent:   "Current column",
+		CommandTableColumnsVisible:   "Visible",
+		CommandTableColumnsWrap:      "Wrap",
+		CommandTableColumnsMoveLeft:  "Move Left",
+		CommandTableColumnsMoveRight: "Move Right",
+		CommandTableColumnsReset:     "Reset",
+		CommandTableColumnsReload:    "Reload",
+		CommandTableColumnsOK:        "OK",
+		CommandTableColumnsCancel:    "Cancel",
 	} {
 		app.commands[command] = CommandDefinition{
 			ID: command, Label: label, Enabled: true,
@@ -526,10 +539,24 @@ func (a *App) paintControlLocked(
 		treeView := treeViewDetails(bounds, behavior)
 		details.TreeView = &treeView
 	case tableBehavior:
-		table := tableDetails(bounds, behavior)
+		actionVisible := visible && !tableColumnsActionBounds(
+			behavior,
+			absolute,
+		).Intersect(clip).Empty()
+		table := tableDetails(
+			bounds,
+			behavior,
+			actionVisible,
+			a.tableColumnsActionPressedLocked(state),
+			a.tableColumnsDialogOpenLocked(state),
+		)
 		details.Table = &table
 	case dataGridBehavior:
-		dataGrid := a.dataGridDetailsLocked(state, behavior)
+		actionVisible := visible && !tableColumnsActionBounds(
+			behavior.table,
+			absolute,
+		).Intersect(clip).Empty()
+		dataGrid := a.dataGridDetailsLocked(state, behavior, actionVisible)
 		details.DataGrid = &dataGrid
 	case dropDownBehavior:
 		dropDown := a.popupDetailsLocked(state, behavior.popup)
@@ -909,6 +936,7 @@ func (a *App) associateLocked(
 				Action: command,
 			})
 		}
+		clear(a.tableColumnsDialogs)
 		a.final = true
 		clear(a.held)
 		clear(a.pressed)

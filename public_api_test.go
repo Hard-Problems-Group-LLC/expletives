@@ -308,6 +308,79 @@ func TestExternalConsumerConfiguresColumnPresentation(t *testing.T) {
 	}
 }
 
+func TestExternalConsumerConfiguresTableFeatures(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 48, Height: 12},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	features := []expletives.TableFeature{expletives.TableFeatureColumns}
+	table, err := expletives.NewTable(app.Root(), expletives.TableOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.features.table",
+				Bounds:        expletives.Rect{Width: 22, Height: 7},
+			}},
+		},
+		Features: features,
+		Columns:  []expletives.Column{{Key: "value", Header: "Value"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, err := expletives.NewDataGrid(app.Root(), expletives.DataGridOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.features.grid",
+				Bounds:        expletives.Rect{X: 24, Width: 22, Height: 7},
+			}},
+		},
+		Columns: []expletives.Column{{Key: "value", Header: "Value"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	features[0] = "caller-mutation"
+	if state := table.State(); len(state.Features) != 1 ||
+		state.Features[0] != expletives.TableFeatureColumns ||
+		state.FocusPart != expletives.TableFocusBody {
+		t.Fatalf("external Table features = %+v", state)
+	}
+	transaction := app.NewTransaction()
+	if err := transaction.SetTableFeatures(table, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.SetDataGridFeatures(
+		grid,
+		[]expletives.TableFeature{expletives.TableFeatureColumns},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(table.State().Features) != 0 ||
+		len(grid.State().Features) != 1 ||
+		grid.State().Features[0] != expletives.TableFeatureColumns {
+		t.Fatalf("external feature mutation: table=%+v grid=%+v", table.State(), grid.State())
+	}
+	for _, control := range app.Snapshot().Controls {
+		switch control.Key {
+		case "external.features.table":
+			if control.Details.Table == nil || control.Details.Table.ColumnsActionVisible {
+				t.Fatalf("external Table feature details = %+v", control.Details)
+			}
+		case "external.features.grid":
+			if control.Details.DataGrid == nil ||
+				!control.Details.DataGrid.Table.ColumnsActionVisible {
+				t.Fatalf("external DataGrid feature details = %+v", control.Details)
+			}
+		}
+	}
+}
+
 func TestExternalConsumerDeclaresAndObservesInputScope(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

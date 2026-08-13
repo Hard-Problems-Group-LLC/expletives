@@ -120,6 +120,8 @@ const (
 	MaxCollectionItems = 4096
 	// MaxCollectionColumns bounds one copied table or data-grid schema.
 	MaxCollectionColumns = 256
+	// MaxTableFeatures bounds one copied Table/DataGrid feature set.
+	MaxTableFeatures = 16
 	// MaxCollectionCells bounds copied table and data-grid cells across an App.
 	MaxCollectionCells = 16384
 	// MaxCollectionDepth bounds one copied TreeView hierarchy.
@@ -1233,45 +1235,52 @@ type TreeViewDetails struct {
 // TableDetails describes compact stable-identity tabular state without
 // duplicating the retained column or row model.
 type TableDetails struct {
-	Status             CollectionStatus          `json:"status"`
-	StatusMessage      string                    `json:"status_message,omitempty"`
-	RowCount           int                       `json:"row_count"`
-	VisualRowCount     int                       `json:"visual_row_count"`
-	EnabledCount       int                       `json:"enabled_count"`
-	ColumnCount        int                       `json:"column_count"`
-	CellCount          int                       `json:"cell_count"`
-	RetainedBytes      int                       `json:"retained_bytes"`
-	CurrentRow         string                    `json:"current_row,omitempty"`
-	CurrentRowIndex    int                       `json:"current_row_index"`
-	CurrentColumn      string                    `json:"current_column,omitempty"`
-	CurrentColumnIndex int                       `json:"current_column_index"`
-	FocusMode          TableFocusMode            `json:"focus_mode"`
-	SelectionMode      CollectionSelectionMode   `json:"selection_mode"`
-	SelectionStyle     TableSelectionStyle       `json:"selection_style"`
-	RequireSelection   bool                      `json:"require_selection"`
-	RangeAnchor        string                    `json:"range_anchor,omitempty"`
-	RangeExtent        string                    `json:"range_extent,omitempty"`
-	SelectedCount      int                       `json:"selected_count"`
-	FirstSelected      string                    `json:"first_selected,omitempty"`
-	LastSelected       string                    `json:"last_selected,omitempty"`
-	SelectionDigest    string                    `json:"selection_digest"`
-	SortColumn         string                    `json:"sort_column,omitempty"`
-	SortDirection      SortDirection             `json:"sort_direction"`
-	FirstColumn        string                    `json:"first_column,omitempty"`
-	LastColumn         string                    `json:"last_column,omitempty"`
-	ColumnPresentation []TableColumnPresentation `json:"column_presentation"`
-	VisibleColumnCount int                       `json:"visible_column_count"`
-	FirstVisibleColumn string                    `json:"first_visible_column,omitempty"`
-	LastVisibleColumn  string                    `json:"last_visible_column,omitempty"`
-	PresentationDigest string                    `json:"presentation_digest"`
-	ColumnWidths       []int                     `json:"column_widths"`
-	ColumnWidthsDigest string                    `json:"column_widths_digest"`
-	Enabled            bool                      `json:"enabled"`
-	DisabledReason     string                    `json:"disabled_reason,omitempty"`
-	ChangeCommand      CommandID                 `json:"change_command,omitempty"`
-	ActivateCommand    CommandID                 `json:"activate_command,omitempty"`
-	SortCommand        CommandID                 `json:"sort_command,omitempty"`
-	Viewport           ScrollableDetails         `json:"viewport"`
+	Status               CollectionStatus          `json:"status"`
+	StatusMessage        string                    `json:"status_message,omitempty"`
+	Features             []TableFeature            `json:"features"`
+	RowCount             int                       `json:"row_count"`
+	VisualRowCount       int                       `json:"visual_row_count"`
+	EnabledCount         int                       `json:"enabled_count"`
+	ColumnCount          int                       `json:"column_count"`
+	CellCount            int                       `json:"cell_count"`
+	RetainedBytes        int                       `json:"retained_bytes"`
+	CurrentRow           string                    `json:"current_row,omitempty"`
+	CurrentRowIndex      int                       `json:"current_row_index"`
+	CurrentColumn        string                    `json:"current_column,omitempty"`
+	CurrentColumnIndex   int                       `json:"current_column_index"`
+	FocusMode            TableFocusMode            `json:"focus_mode"`
+	SelectionMode        CollectionSelectionMode   `json:"selection_mode"`
+	SelectionStyle       TableSelectionStyle       `json:"selection_style"`
+	RequireSelection     bool                      `json:"require_selection"`
+	RangeAnchor          string                    `json:"range_anchor,omitempty"`
+	RangeExtent          string                    `json:"range_extent,omitempty"`
+	SelectedCount        int                       `json:"selected_count"`
+	FirstSelected        string                    `json:"first_selected,omitempty"`
+	LastSelected         string                    `json:"last_selected,omitempty"`
+	SelectionDigest      string                    `json:"selection_digest"`
+	SortColumn           string                    `json:"sort_column,omitempty"`
+	SortDirection        SortDirection             `json:"sort_direction"`
+	FirstColumn          string                    `json:"first_column,omitempty"`
+	LastColumn           string                    `json:"last_column,omitempty"`
+	ColumnPresentation   []TableColumnPresentation `json:"column_presentation"`
+	VisibleColumnCount   int                       `json:"visible_column_count"`
+	FirstVisibleColumn   string                    `json:"first_visible_column,omitempty"`
+	LastVisibleColumn    string                    `json:"last_visible_column,omitempty"`
+	PresentationDigest   string                    `json:"presentation_digest"`
+	FocusPart            TableFocusPart            `json:"focus_part"`
+	ColumnsActionBounds  Rect                      `json:"columns_action_bounds"`
+	ColumnsActionVisible bool                      `json:"columns_action_visible"`
+	ColumnsActionEnabled bool                      `json:"columns_action_enabled"`
+	ColumnsActionPressed bool                      `json:"columns_action_pressed"`
+	ColumnsDialogOpen    bool                      `json:"columns_dialog_open"`
+	ColumnWidths         []int                     `json:"column_widths"`
+	ColumnWidthsDigest   string                    `json:"column_widths_digest"`
+	Enabled              bool                      `json:"enabled"`
+	DisabledReason       string                    `json:"disabled_reason,omitempty"`
+	ChangeCommand        CommandID                 `json:"change_command,omitempty"`
+	ActivateCommand      CommandID                 `json:"activate_command,omitempty"`
+	SortCommand          CommandID                 `json:"sort_command,omitempty"`
+	Viewport             ScrollableDetails         `json:"viewport"`
 }
 
 // DataGridDetails describes one editable Table-compatible collection and its
@@ -1663,6 +1672,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		}
 		if snapshot.Controls[index].Details.Table != nil {
 			table := *snapshot.Controls[index].Details.Table
+			table.Features = append([]TableFeature(nil), table.Features...)
 			table.ColumnPresentation = append(
 				[]TableColumnPresentation(nil),
 				table.ColumnPresentation...,
@@ -1680,6 +1690,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		}
 		if snapshot.Controls[index].Details.DataGrid != nil {
 			dataGrid := *snapshot.Controls[index].Details.DataGrid
+			dataGrid.Table.Features = append(
+				[]TableFeature(nil),
+				dataGrid.Table.Features...,
+			)
 			dataGrid.Table.ColumnPresentation = append(
 				[]TableColumnPresentation(nil),
 				dataGrid.Table.ColumnPresentation...,

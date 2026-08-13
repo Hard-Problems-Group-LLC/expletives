@@ -817,7 +817,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 22. Table Columns Action And Editor
 
-- Status: `active`
+- Status: `complete`
 - Goal: add the optional `&Columns...` command band and revision-aware modal
   column editor while retaining Table/DataGrid leaf ownership.
 - Dependencies: Phase 21 and the existing Button, modal, focus, transaction,
@@ -835,34 +835,39 @@ ordered backlog and the active-task record; it does not replace either.
   ordinary, exact-frame, Transaction, automation-bound, resource/race, and
   phase-owned specification/API documentation work. Slice 22.5 aggregates
   large-schema and attached end-to-end evidence rather than deferring it.
-- Slice 22.0 (`active`): add bounded feature normalization plus the optional
+- Slice 22.0 (`complete`): add bounded feature normalization plus the optional
   full-width band, Body/ColumnsAction semantic focus parts, geometry
   allocation/degradation, and atomic feature/focus repair.
-- Slice 22.1 (`planned`): implement the right-justified raised action's label,
+- Slice 22.1 (`complete`): implement the right-justified raised action's label,
   mnemonic, styles, Enter/Space/Alt-C routes, Tab/Shift-Tab traversal, pressed
   capture, enabled state, and compact semantic evidence.
-- Slice 22.2 (`planned`): build the fixed-tree modal with one bounded
+- Slice 22.2 (`complete`): build the fixed-tree modal with one bounded
   scrolling/searchable inventory and visibility, Clip/Wrap/Hang, Move Left,
   Move Right, Reset, OK, and Cancel behavior over a private copied draft.
-- Slice 22.3 (`planned`): implement atomic apply, last-visible rejection,
+- Slice 22.3 (`complete`): implement atomic apply, last-visible rejection,
   schema/presentation revisions, deterministic schema rebase, stale Reload or
   Cancel handling, and one post-publication ChangeCommand route.
-- Slice 22.4 (`planned`): integrate DataGrid's single pre-open commit attempt,
+- Slice 22.4 (`complete`): integrate DataGrid's single pre-open commit attempt,
   invalid-edit refusal, successful commit ordering, owner hide/destroy,
   feature removal, modal invalidation, shutdown, and focus restoration.
-- Slice 22.5 (`planned`): complete aggregate snapshot/automation integrity,
+- Slice 22.5 (`complete`): complete aggregate snapshot/automation integrity,
   response bounds, large-schema, self-check, and attached drive/observe
   matrices, closing only cross-slice evidence gaps.
-- Slice 22.6 (`planned`): run the complete phase gate, obtain focused operator
-  acceptance for band/dialog behavior, record evidence, and ACP the Columns
-  editor checkpoint.
+- Slice 22.6 (`complete`): the complete `make verify` gate passed on 2026-08-13,
+  including vet, ordinary and race tests, the PTY lifecycle integration test,
+  debug/release/profiling builds, and smoke/self-checks. On 2026-08-13 the
+  operator directed delivery to continue automatically through Phase 23
+  because its dedicated screens are the practical evaluation surface for the
+  band/dialog behavior. The attached drive/observe matrix established the
+  Phase 22 behavior gate; integrated visual evaluation remains owned by the
+  Phase 23 acceptance gate. ACP the Columns editor checkpoint.
 - Acceptance gate: the feature is optional, leaf-owned, keyboard complete,
   revision safe, atomic, bounded for maximum schemas, deterministic on small
   surfaces, and fully observable without exposing the complete draft.
 
 ### 23. Table Visual Roles And Interactive Catalog
 
-- Status: `planned`
+- Status: `active`
 - Goal: add fixed per-instance semantic visual roles and move Table/DataGrid
   demonstrations to dedicated live configuration screens.
 - Dependencies: Phase 22, Theme transactions, Notebook, ScrollablePanel,
@@ -881,7 +886,7 @@ ordered backlog and the active-task record; it does not replace either.
   phase-owned specification/API documentation work. Shared fixture builders,
   transitions, and self-check expectations from earlier phases survive the
   route/Layout migration and are extended rather than recreated.
-- Slice 23.0 (`planned`): define and implement `TableVisualRoles` and
+- Slice 23.0 (`active`): define and implement `TableVisualRoles` and
   `DataGridVisualRoles`, default-role normalization, staged Theme validation,
   exact direct/Transaction replacement, state/detail copying, and compact
   role digests.

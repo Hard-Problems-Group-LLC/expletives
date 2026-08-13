@@ -63,19 +63,27 @@ func TestCommandRegistryIsInspectableAndControlsRouting(t *testing.T) {
 		t.Fatalf("duplicate RegisterCommand() error = %v", err)
 	}
 	definitions := app.Commands()
-	if len(definitions) != 12 ||
-		definitions[0].ID != "a.first" ||
-		definitions[1].ID != CommandDialogCancel ||
-		definitions[2].ID != CommandDialogNo ||
-		definitions[3].ID != CommandDialogOK ||
-		definitions[4].ID != CommandDialogYes ||
-		definitions[5].ID != CommandFilePickerCurrent ||
-		definitions[6].ID != CommandFilePickerOpen ||
-		definitions[7].ID != CommandFilePickerRefresh ||
-		definitions[8].ID != CommandFilePickerSelect ||
-		definitions[9].ID != CommandFilePickerUp ||
-		definitions[10].ID != CommandOverflowDismiss ||
-		definitions[11].ID != "z.last" {
+	wantCommands := []CommandID{
+		"a.first",
+		CommandDialogCancel, CommandDialogNo, CommandDialogOK, CommandDialogYes,
+		CommandFilePickerCurrent, CommandFilePickerOpen, CommandFilePickerRefresh,
+		CommandFilePickerSelect, CommandFilePickerUp,
+		CommandOverflowDismiss,
+		CommandTableColumnsCancel, CommandTableColumnsCurrent,
+		CommandTableColumnsMoveLeft, CommandTableColumnsMoveRight,
+		CommandTableColumnsOK, CommandTableColumnsOpen, CommandTableColumnsReload,
+		CommandTableColumnsReset, CommandTableColumnsSearch,
+		CommandTableColumnsVisible, CommandTableColumnsWrap,
+		"z.last",
+	}
+	commandsMatch := len(definitions) == len(wantCommands)
+	for index := range definitions {
+		if index >= len(wantCommands) || definitions[index].ID != wantCommands[index] {
+			commandsMatch = false
+			break
+		}
+	}
+	if !commandsMatch {
 		t.Fatalf("Commands() = %#v, want sorted inventory", definitions)
 	}
 	if err := app.RemoveCommand(CommandOverflowDismiss); !errors.Is(

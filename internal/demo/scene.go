@@ -3485,6 +3485,7 @@ func NewWithRootConstraints(
 				HorizontalBar: expletives.ScrollBarVisibilityAuto,
 				VerticalBar:   expletives.ScrollBarVisibilityAuto,
 			},
+			Features:         []expletives.TableFeature{expletives.TableFeatureColumns},
 			Columns:          collectionTableColumns(),
 			Rows:             collectionTableRows(),
 			CurrentRow:       "core",
@@ -3619,6 +3620,7 @@ func NewWithRootConstraints(
 				HorizontalBar: expletives.ScrollBarVisibilityAuto,
 				VerticalBar:   expletives.ScrollBarVisibilityAuto,
 			},
+			Features:         []expletives.TableFeature{expletives.TableFeatureColumns},
 			Columns:          collectionDataGridColumns(),
 			Rows:             collectionTableRows(),
 			CurrentRow:       "core",
@@ -8594,10 +8596,13 @@ func SelfCheck() error {
 		treeDetails.SelectedCount != 1 || treeDetails.ExpandedCount != 1 ||
 		tableDetails == nil || tableDetails.RowCount != 4 ||
 		tableDetails.ColumnCount != 3 || tableDetails.CellCount != 11 ||
+		!tableDetails.ColumnsActionVisible || !tableDetails.ColumnsActionEnabled ||
 		tableDetails.CurrentRow != "core" || tableDetails.CurrentColumn != "name" ||
 		tableDetails.SelectedCount != 1 || tableDetails.SortDirection != expletives.SortNone ||
 		dataGridDetails == nil || dataGridDetails.Table.RowCount != 4 ||
 		dataGridDetails.Table.ColumnCount != 3 || dataGridDetails.Table.CellCount != 11 ||
+		!dataGridDetails.Table.ColumnsActionVisible ||
+		!dataGridDetails.Table.ColumnsActionEnabled ||
 		dataGridDetails.Table.CurrentRow != "core" ||
 		dataGridDetails.Table.CurrentColumn != "name" ||
 		dataGridDetails.Table.SelectedCount != 1 || dataGridDetails.Editing ||

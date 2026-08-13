@@ -96,6 +96,839 @@ func TestTableColumnWrapAlgorithms(t *testing.T) {
 	}
 }
 
+func TestTableFeatureValidationCopyBandGeometryAndRepair(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 34, Height: 10})
+	tooMany := make([]TableFeature, MaxTableFeatures+1)
+	for index := range tooMany {
+		tooMany[index] = TableFeatureColumns
+	}
+	if _, err := NewTable(app.Root(), TableOptions{Features: tooMany}); !errors.Is(err, ErrControlCapacity) {
+		t.Fatalf("feature capacity error = %v", err)
+	}
+	for name, features := range map[string][]TableFeature{
+		"unknown":   {"filters"},
+		"duplicate": {TableFeatureColumns, TableFeatureColumns},
+	} {
+		if _, err := NewTable(app.Root(), TableOptions{Features: features}); !errors.Is(err, ErrValidation) {
+			t.Fatalf("%s feature error = %v", name, err)
+		}
+	}
+	features := []TableFeature{TableFeatureColumns}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "table.features", Bounds: Rect{X: 1, Y: 1, Width: 22, Height: 8}},
+		}, BorderForm: BorderSingle},
+		Features: features,
+		Columns:  []Column{{Key: "value", Header: "Value"}},
+		Rows:     []TableRow{{Key: "one"}},
+	})
+	if err != nil {
+		t.Fatalf("NewTable() error = %v", err)
+	}
+	features[0] = "caller-mutation"
+	state := table.State()
+	if len(state.Features) != 1 || state.Features[0] != TableFeatureColumns ||
+		state.FocusPart != TableFocusBody {
+		t.Fatalf("feature state = %#v", state)
+	}
+	state.Features[0] = "getter-mutation"
+	if table.State().Features[0] != TableFeatureColumns {
+		t.Fatal("Table State exposed retained feature storage")
+	}
+	snapshot := app.Snapshot()
+	details := controlByKey(t, snapshot, "table.features").Details.Table
+	if details == nil || len(details.Features) != 1 ||
+		details.Features[0] != TableFeatureColumns ||
+		details.FocusPart != TableFocusBody ||
+		details.ColumnsActionBounds != (Rect{X: 8, Y: 6, Width: 14, Height: 2}) ||
+		!details.ColumnsActionVisible || !details.ColumnsActionEnabled ||
+		details.Viewport.ViewportBounds.Y+details.Viewport.ViewportBounds.Height > 7 {
+		t.Fatalf("feature details = %#v", details)
+	}
+	details.Features[0] = "snapshot-mutation"
+	if table.State().Features[0] != TableFeatureColumns {
+		t.Fatal("snapshot exposed retained feature storage")
+	}
+	if cell := cellAt(t, snapshot, 1, 6); cell.Grapheme != "└" || cell.Owner != table.ID() {
+		t.Fatalf("body bottom border = %#v", cell)
+	}
+	for y := 7; y <= 8; y++ {
+		if cell := cellAt(t, snapshot, 1, y); cell.Grapheme != " " || cell.Owner != table.ID() {
+			t.Fatalf("band cell at row %d = %#v", y, cell)
+		}
+	}
+	if table.MinimumSize().Height < 4 {
+		t.Fatalf("feature minimum = %+v", table.MinimumSize())
+	}
+
+	for name, fixture := range map[string]struct {
+		size    Size
+		rows    int
+		body    int
+		visible bool
+	}{
+		"normal": {Size{Width: 22, Height: 8}, 2, 6, true},
+		"one":    {Size{Width: 22, Height: 1}, 1, 0, true},
+		"zero":   {Size{Width: 22}, 0, 0, false},
+		"narrow": {Size{Width: 3, Height: 2}, 2, 0, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			behavior := tableBehavior{features: []TableFeature{TableFeatureColumns}}
+			if got := tableColumnsBandRows(behavior, fixture.size); got != fixture.rows {
+				t.Fatalf("band rows = %d, want %d", got, fixture.rows)
+			}
+			if got := tableBodySize(behavior, fixture.size).Height; got != fixture.body {
+				t.Fatalf("body height = %d, want %d", got, fixture.body)
+			}
+			if got := tableColumnsActionVisible(
+				behavior,
+				Rect{Width: fixture.size.Width, Height: fixture.size.Height},
+			); got != fixture.visible {
+				t.Fatalf("action visible = %v, want %v", got, fixture.visible)
+			}
+		})
+	}
+
+	app.mu.Lock()
+	behavior := table.state.behavior.(tableBehavior)
+	behavior.focusPart = TableFocusColumnsAction
+	table.state.behavior = behavior
+	app.mu.Unlock()
+	if err := table.SetFeatures(nil); err != nil {
+		t.Fatalf("SetFeatures(nil) error = %v", err)
+	}
+	if state = table.State(); len(state.Features) != 0 || state.FocusPart != TableFocusBody {
+		t.Fatalf("feature removal repair = %#v", state)
+	}
+}
+
+func TestTableColumnsActionRenderingTraversalMnemonicAndPressCapture(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 100, Height: 40}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstParent := mustPanel(t, app.Root(), PanelOptions{
+		AutomationKey: "columns.group", Bounds: Rect{Width: 24, Height: 9},
+	})
+	secondParent := mustPanel(t, app.Root(), PanelOptions{
+		AutomationKey: "next.group", Bounds: Rect{X: 28, Width: 20, Height: 9},
+	})
+	first, err := NewTable(firstParent, TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "columns.table", Bounds: Rect{Width: 22, Height: 8},
+			}},
+			BorderForm: BorderSingle,
+		},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns:  []Column{{Key: "value", Header: "Value"}},
+		Rows:     []TableRow{{Key: "one"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewTable(secondParent, TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "next.table", Bounds: Rect{Width: 18, Height: 6}},
+		}},
+		Columns: []Column{{Key: "value", Header: "Value"}},
+		Rows:    []TableRow{{Key: "next"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	if state := first.State(); state.FocusPart != TableFocusBody {
+		t.Fatalf("initial focus part = %q", state.FocusPart)
+	}
+	dispatchTableKey(t, app, "tab-action", KeyTab)
+	if app.Focused() != first || first.State().FocusPart != TableFocusColumnsAction {
+		t.Fatalf("Tab focus = %#v / %q", app.Focused(), first.State().FocusPart)
+	}
+	snapshot := app.Snapshot()
+	if cell := cellAt(t, snapshot, 10, 6); cell.Grapheme != "C" ||
+		cell.Style != "button.mnemonic" || cell.Owner != first.ID() {
+		t.Fatalf("focused Columns label = %#v", cell)
+	}
+	if cell := cellAt(t, snapshot, 11, 6); cell.Grapheme != "o" ||
+		cell.Style != "button.focused" {
+		t.Fatalf("focused Columns body = %#v", cell)
+	}
+
+	down, err := app.DispatchKey(
+		context.Background(), "columns-press", "columns-down",
+		KeyEvent{Kind: KeyEventDown, Key: KeyEnter},
+	)
+	if err != nil || down.Outcome != OutcomeApplied {
+		t.Fatalf("Enter down = %#v, %v", down, err)
+	}
+	pressed := controlByKey(t, app.Snapshot(), "columns.table").Details.Table
+	if pressed == nil || !pressed.ColumnsActionPressed ||
+		cellAt(t, app.Snapshot(), 12, 6).Style != "button.pressed" {
+		t.Fatalf("pressed action = %#v", pressed)
+	}
+	up, err := app.DispatchKey(
+		context.Background(), "columns-press", "columns-up",
+		KeyEvent{Kind: KeyEventUp, Key: KeyEnter},
+	)
+	if err != nil || up.Outcome != OutcomeApplied {
+		t.Fatalf("Enter up = %#v, cause=%v, err=%v", up, up.Cause, err)
+	}
+	if details := controlByKey(t, app.Snapshot(), "columns.table").Details.Table; details == nil || details.ColumnsActionPressed {
+		t.Fatalf("released action = %#v", details)
+	}
+	if dialog := controlByKey(t, app.Snapshot(), "columns.table.columns-dialog"); dialog.Kind != ControlDialog || !dialog.Details.ModalPanel.Active {
+		t.Fatalf("opened Columns dialog = %#v", dialog)
+	}
+	if owner := controlByKey(t, app.Snapshot(), "columns.table").Details.Table; owner == nil || !owner.ColumnsDialogOpen || owner.ColumnsActionEnabled ||
+		owner.ColumnsActionPressed {
+		t.Fatalf("open owner details = %#v", owner)
+	}
+	if overflows := app.Snapshot().Overflows; len(overflows) != 0 {
+		t.Fatalf("Columns dialog overflow = %#v", overflows)
+	}
+	cancelCompletion := dispatchTableKey(t, app, "cancel-enter-dialog", KeyEscape)
+	if app.Focused() != first || first.State().FocusPart != TableFocusColumnsAction {
+		t.Fatalf("cancel restore = %#v / %q, completion=%#v cause=%v", app.Focused(), first.State().FocusPart, cancelCompletion, cancelCompletion.Cause)
+	}
+	if completion := dispatchTableKey(t, app, "activate-space", KeySpace); completion.Outcome != OutcomeApplied {
+		t.Fatalf("Space action completion = %#v", completion)
+	}
+	dispatchTableKey(t, app, "cancel-space-dialog", KeyEscape)
+
+	dispatchTableKey(t, app, "tab-next", KeyTab)
+	if app.Focused() != second || second.State().FocusPart != TableFocusBody {
+		t.Fatalf("forward exit = %#v / %q", app.Focused(), second.State().FocusPart)
+	}
+	dispatchTextChord(t, app, "reverse-entry", KeyShift, KeyTab)
+	if app.Focused() != first || first.State().FocusPart != TableFocusColumnsAction {
+		t.Fatalf("reverse entry = %#v / %q", app.Focused(), first.State().FocusPart)
+	}
+	dispatchTextChord(t, app, "reverse-body", KeyShift, KeyTab)
+	if app.Focused() != first || first.State().FocusPart != TableFocusBody {
+		t.Fatalf("reverse internal = %#v / %q", app.Focused(), first.State().FocusPart)
+	}
+	if err := second.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	dispatchTextChord(t, app, "columns-mnemonic", KeyAlt, Key("c"))
+	if first.State().FocusPart != TableFocusColumnsAction ||
+		!controlByKey(t, app.Snapshot(), "columns.table.columns-dialog").Details.ModalPanel.Active {
+		t.Fatalf("Alt-C action = %#v / %q", app.Focused(), first.State().FocusPart)
+	}
+	dispatchTableKey(t, app, "cancel-mnemonic-dialog", KeyEscape)
+}
+
+func invokeColumnsCommand(
+	t *testing.T,
+	app *App,
+	request string,
+	command CommandID,
+	target Control,
+) Completion {
+	t.Helper()
+	completion, err := app.InvokeCommand(
+		context.Background(), "columns-test", request, command, target.ID(),
+	)
+	if err != nil {
+		t.Fatalf("InvokeCommand(%s) error = %v", command, err)
+	}
+	return completion
+}
+
+func TestTableColumnsDialogDraftSearchEditResetCancelAndApply(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 100, Height: 40}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.RegisterCommand(CommandDefinition{
+		ID: "table.changed", Label: "Changed", Enabled: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	routed := 0
+	if err := app.SetCommandRouter(func(_ context.Context, command Command) CommandResult {
+		if command.ID == "table.changed" {
+			routed++
+		}
+		return CommandResult{Outcome: OutcomeApplied}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	initial := []TableColumnPresentation{
+		{Column: "a", Visible: true, Wrap: TableColumnClip},
+		{Column: "b", Visible: true, Wrap: TableColumnWrapWords},
+		{Column: "c", Visible: true, Wrap: TableColumnHang},
+	}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions:  PanelOptions{AutomationKey: "editor.table", Bounds: Rect{Width: 36, Height: 10}},
+			ChangeCommand: "table.changed",
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns: []Column{
+			{Key: "a", Header: "Alpha"},
+			{Key: "b", Header: "Beta"},
+			{Key: "c", Header: "Gamma"},
+		},
+		ColumnPresentation: initial,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := func(request string) *tableColumnsDialogCore {
+		if err := table.Focus(); err != nil {
+			t.Fatal(err)
+		}
+		dispatchTableKey(t, app, request+"-focus-action", KeyTab)
+		if completion := dispatchTableKey(t, app, request+"-open", KeySpace); completion.Outcome != OutcomeApplied {
+			t.Fatalf("open completion = %#v", completion)
+		}
+		app.mu.RLock()
+		core := app.tableColumnsDialogs[table.state]
+		app.mu.RUnlock()
+		if core == nil || !table.State().ColumnsDialogOpen {
+			t.Fatalf("Columns dialog core = %#v", core)
+		}
+		return core
+	}
+
+	core := open("draft")
+	if err := core.list.SetCurrent("b"); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "select-b", CommandTableColumnsCurrent, core.list)
+	if err := core.visible.SetState(CheckUnchecked); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "hide-b", CommandTableColumnsVisible, core.visible)
+	if err := core.wrap.SetValue(string(TableColumnHang)); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "hang-b", CommandTableColumnsWrap, core.wrap)
+	invokeColumnsCommand(t, app, "move-b-left", CommandTableColumnsMoveLeft, core.moveLeft)
+	if got := table.ColumnPresentation(); !sameTableColumnPresentation(got, initial) {
+		t.Fatalf("private draft changed Table = %#v", got)
+	}
+	if len(core.draft) != 3 || core.draft[0].Column != "b" ||
+		core.draft[0].Visible || core.draft[0].Wrap != TableColumnHang {
+		t.Fatalf("edited draft = %#v", core.draft)
+	}
+	if err := core.search.SetText("gamma"); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "search-gamma", CommandTableColumnsSearch, core.search)
+	if items := core.list.Items(); len(items) != 1 || items[0].Key != "c" {
+		t.Fatalf("filtered items = %#v", items)
+	}
+	invokeColumnsCommand(t, app, "reset", CommandTableColumnsReset, core.reset)
+	if !sameTableColumnPresentation(core.draft, initial) {
+		t.Fatalf("reset draft = %#v", core.draft)
+	}
+	invokeColumnsCommand(t, app, "cancel", CommandTableColumnsCancel, core.cancel)
+	if table.State().ColumnsDialogOpen || !sameTableColumnPresentation(table.ColumnPresentation(), initial) || routed != 0 {
+		t.Fatalf("cancel state = %#v presentation=%#v routed=%d", table.State(), table.ColumnPresentation(), routed)
+	}
+
+	core = open("apply")
+	if err := core.list.SetCurrent("a"); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "select-a", CommandTableColumnsCurrent, core.list)
+	if err := core.visible.SetState(CheckUnchecked); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "hide-a", CommandTableColumnsVisible, core.visible)
+	invokeColumnsCommand(t, app, "apply", CommandTableColumnsOK, core.ok)
+	want := append([]TableColumnPresentation(nil), initial...)
+	want[0].Visible = false
+	if table.State().ColumnsDialogOpen || !sameTableColumnPresentation(table.ColumnPresentation(), want) || routed != 1 {
+		t.Fatalf("apply state=%#v presentation=%#v routed=%d", table.State(), table.ColumnPresentation(), routed)
+	}
+}
+
+func TestTableColumnsDialogRejectsHidingFinalVisibleColumn(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 80, Height: 30}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "last.table", Bounds: Rect{Width: 30, Height: 8}},
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns:  []Column{{Key: "only", Header: "Only"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := table.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	dispatchTableKey(t, app, "last-action", KeyTab)
+	dispatchTableKey(t, app, "last-open", KeySpace)
+	app.mu.RLock()
+	core := app.tableColumnsDialogs[table.state]
+	app.mu.RUnlock()
+	if core == nil {
+		t.Fatal("Columns dialog did not open")
+	}
+	if err := core.visible.SetState(CheckUnchecked); err != nil {
+		t.Fatal(err)
+	}
+	completion := invokeColumnsCommand(
+		t, app, "hide-last", CommandTableColumnsVisible, core.visible,
+	)
+	if completion.Outcome != OutcomeApplied || !core.draft[0].Visible ||
+		core.visible.State() != CheckChecked ||
+		!strings.Contains(controlByKey(t, app.Snapshot(), "last.table.columns-dialog.information").Details.Text.Text, "At least one") {
+		t.Fatalf("last-visible rejection completion=%#v draft=%#v checkbox=%q", completion, core.draft, core.visible.State())
+	}
+	invokeColumnsCommand(t, app, "last-cancel", CommandTableColumnsCancel, core.cancel)
+}
+
+func TestTableColumnsDialogRevisionRebaseConflictReloadAndShortcuts(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 90, Height: 35}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := []TableColumnPresentation{
+		{Column: "a", Visible: true, Wrap: TableColumnClip},
+		{Column: "b", Visible: true, Wrap: TableColumnClip},
+		{Column: "c", Visible: true, Wrap: TableColumnClip},
+	}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{
+				AutomationKey: "revisions.table",
+				Bounds:        Rect{Width: 36, Height: 10},
+			},
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns: []Column{
+			{Key: "a", Header: "Alpha"},
+			{Key: "b", Header: "Beta"},
+			{Key: "c", Header: "Gamma"},
+		},
+		ColumnPresentation: initial,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := func(request string) *tableColumnsDialogCore {
+		t.Helper()
+		if err := table.Focus(); err != nil {
+			t.Fatal(err)
+		}
+		if table.State().FocusPart == TableFocusBody {
+			dispatchTableKey(t, app, request+"-action", KeyTab)
+		}
+		if completion := dispatchTableKey(t, app, request+"-open", KeySpace); completion.Outcome != OutcomeApplied {
+			t.Fatalf("open completion = %#v", completion)
+		}
+		app.mu.RLock()
+		core := app.tableColumnsDialogs[table.state]
+		app.mu.RUnlock()
+		if core == nil {
+			t.Fatal("Columns dialog did not open")
+		}
+		return core
+	}
+
+	core := open("rebase")
+	if err := core.list.SetCurrent("b"); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "rebase-select-b", CommandTableColumnsCurrent, core.list)
+	if err := core.visible.SetState(CheckUnchecked); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "rebase-hide-b", CommandTableColumnsVisible, core.visible)
+	if err := core.wrap.SetValue(string(TableColumnHang)); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "rebase-hang-b", CommandTableColumnsWrap, core.wrap)
+	invokeColumnsCommand(t, app, "rebase-move-b", CommandTableColumnsMoveLeft, core.moveLeft)
+	beforeRowsRevision := core.schemaRevision
+	if err := table.SetRows([]TableRow{{Key: "row"}}); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "rebase-row-only", CommandTableColumnsCurrent, core.list)
+	if core.schemaRevision != beforeRowsRevision || core.stale.Load() {
+		t.Fatalf("row-only revision state = schema %d stale %t", core.schemaRevision, core.stale.Load())
+	}
+	if err := table.SetModel([]Column{
+		{Key: "a", Header: "Alpha"},
+		{Key: "b", Header: "Beta"},
+		{Key: "d", Header: "Delta"},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "rebase-schema", CommandTableColumnsCurrent, core.list)
+	wantRebased := []TableColumnPresentation{
+		{Column: "b", Visible: false, Wrap: TableColumnHang},
+		{Column: "a", Visible: true, Wrap: TableColumnClip},
+		{Column: "d", Visible: true, Wrap: TableColumnClip},
+	}
+	if core.stale.Load() || core.reload.Visible() ||
+		!sameTableColumnPresentation(core.draft, wantRebased) {
+		t.Fatalf("schema rebase = %#v stale=%t reload=%t", core.draft, core.stale.Load(), core.reload.Visible())
+	}
+	if completion := invokeColumnsCommand(
+		t, app, "rebase-apply", CommandTableColumnsOK, core.ok,
+	); completion.Outcome != OutcomeApplied ||
+		!sameTableColumnPresentation(table.ColumnPresentation(), wantRebased) {
+		t.Fatalf("rebased apply = %#v presentation=%#v", completion, table.ColumnPresentation())
+	}
+
+	core = open("conflict")
+	external := []TableColumnPresentation{
+		{Column: "d", Visible: true, Wrap: TableColumnWrapWords},
+		{Column: "a", Visible: true, Wrap: TableColumnClip},
+		{Column: "b", Visible: true, Wrap: TableColumnHang},
+	}
+	if err := table.SetColumnPresentation(external); err != nil {
+		t.Fatal(err)
+	}
+	okDetails := controlByKey(
+		t, app.Snapshot(), "revisions.table.columns-dialog.ok",
+	).Details.Action
+	if !core.stale.Load() || !core.reload.Visible() || okDetails == nil ||
+		okDetails.Enabled || !strings.Contains(okDetails.DisabledReason, "Reload") {
+		t.Fatalf("stale UI = stale %t reload %t OK %#v", core.stale.Load(), core.reload.Visible(), okDetails)
+	}
+	if completion := invokeColumnsCommand(
+		t, app, "conflict-ok", CommandTableColumnsOK, core.ok,
+	); completion.Outcome != OutcomeRejected || completion.Code != "columns_dialog_stale" ||
+		!sameTableColumnPresentation(table.ColumnPresentation(), external) {
+		t.Fatalf("stale OK = %#v presentation=%#v", completion, table.ColumnPresentation())
+	}
+	if completion := invokeColumnsCommand(
+		t, app, "conflict-reload", CommandTableColumnsReload, core.reload,
+	); completion.Outcome != OutcomeApplied || core.stale.Load() || core.reload.Visible() ||
+		!sameTableColumnPresentation(core.draft, external) {
+		t.Fatalf("Reload = %#v draft=%#v stale=%t reload=%t", completion, core.draft, core.stale.Load(), core.reload.Visible())
+	}
+	if err := core.list.SetCurrent("d"); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "conflict-select-d", CommandTableColumnsCurrent, core.list)
+	if completion := dispatchTableKey(t, app, "conflict-space-toggle", KeySpace); completion.Outcome != OutcomeApplied || core.draft[0].Visible {
+		t.Fatalf("inventory Space = %#v draft=%#v", completion, core.draft)
+	}
+	if completion := dispatchTextChord(t, app, "conflict-move-right", KeyControl, KeyRight); completion.Outcome != OutcomeApplied || core.draft[1].Column != "d" {
+		t.Fatalf("Ctrl-Right = %#v draft=%#v", completion, core.draft)
+	}
+	wantReloaded := []TableColumnPresentation{
+		{Column: "a", Visible: true, Wrap: TableColumnClip},
+		{Column: "d", Visible: false, Wrap: TableColumnWrapWords},
+		{Column: "b", Visible: true, Wrap: TableColumnHang},
+	}
+	if completion := invokeColumnsCommand(
+		t, app, "conflict-apply", CommandTableColumnsOK, core.ok,
+	); completion.Outcome != OutcomeApplied ||
+		!sameTableColumnPresentation(table.ColumnPresentation(), wantReloaded) {
+		t.Fatalf("reloaded apply = %#v presentation=%#v", completion, table.ColumnPresentation())
+	}
+
+	core = open("transaction-conflict")
+	first := app.NewTransaction()
+	second := app.NewTransaction()
+	firstPresentation := append([]TableColumnPresentation(nil), wantReloaded...)
+	firstPresentation[0].Wrap = TableColumnHang
+	secondPresentation := append([]TableColumnPresentation(nil), wantReloaded...)
+	secondPresentation[0].Wrap = TableColumnWrapWords
+	if err := first.SetTableColumnPresentation(table, firstPresentation); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.SetTableColumnPresentation(table, secondPresentation); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	invokeColumnsCommand(t, app, "transaction-reload", CommandTableColumnsReload, core.reload)
+	if err := second.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !core.stale.Load() || !core.reload.Visible() {
+		t.Fatalf("stale transaction was not detected: stale=%t reload=%t", core.stale.Load(), core.reload.Visible())
+	}
+	invokeColumnsCommand(t, app, "transaction-cancel", CommandTableColumnsCancel, core.cancel)
+}
+
+func TestTableColumnsDialogOwnerLifecycleInvalidation(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		change func(*testing.T, *Table)
+	}{
+		{name: "hide", change: func(t *testing.T, table *Table) {
+			t.Helper()
+			if err := table.SetVisible(false); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "remove feature", change: func(t *testing.T, table *Table) {
+			t.Helper()
+			if err := table.SetFeatures(nil); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "destroy", change: func(t *testing.T, table *Table) {
+			t.Helper()
+			if err := table.Destroy(); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			app, err := NewApp(AppOptions{Size: Size{Width: 70, Height: 25}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			table, err := NewTable(app.Root(), TableOptions{
+				ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+					PanelOptions: PanelOptions{
+						AutomationKey: "lifecycle.table",
+						Bounds:        Rect{Width: 30, Height: 8},
+					},
+				}},
+				Features: []TableFeature{TableFeatureColumns},
+				Columns:  []Column{{Key: "value", Header: "Value"}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := table.Focus(); err != nil {
+				t.Fatal(err)
+			}
+			dispatchTableKey(t, app, "lifecycle-action", KeyTab)
+			dispatchTableKey(t, app, "lifecycle-open", KeySpace)
+			app.mu.RLock()
+			core := app.tableColumnsDialogs[table.state]
+			app.mu.RUnlock()
+			if core == nil {
+				t.Fatal("Columns dialog did not open")
+			}
+			test.change(t, table)
+			app.mu.RLock()
+			retained := app.tableColumnsDialogs[table.state]
+			app.mu.RUnlock()
+			if retained != nil || !core.dialog.state.destroyed || core.dialog.Visible() {
+				t.Fatalf("invalidated dialog retained=%#v destroyed=%t visible=%t", retained, core.dialog.state.destroyed, core.dialog.Visible())
+			}
+			if test.name == "remove feature" && table.State().FocusPart != TableFocusBody {
+				t.Fatalf("feature-removal focus part = %q", table.State().FocusPart)
+			}
+		})
+	}
+}
+
+func TestTableColumnsDialogAppFinalizationDiscardsDraft(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 70, Height: 25}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.RegisterCommand(CommandDefinition{
+		ID: "app.quit", Label: "Quit", Enabled: true,
+		ModalPolicy: CommandModalAllowed,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.SetCommandRouter(func(context.Context, Command) CommandResult {
+		return CommandResult{Outcome: OutcomeExited}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{
+				AutomationKey: "final.table",
+				Bounds:        Rect{Width: 30, Height: 8},
+			},
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns:  []Column{{Key: "value", Header: "Value"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := table.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	dispatchTableKey(t, app, "final-action", KeyTab)
+	dispatchTableKey(t, app, "final-open", KeySpace)
+	completion, err := app.InvokeCommand(
+		context.Background(), "columns-test", "final-quit", "app.quit", "",
+	)
+	if err != nil || completion.Outcome != OutcomeExited {
+		t.Fatalf("quit completion = %#v, %v", completion, err)
+	}
+	app.mu.RLock()
+	retained := app.tableColumnsDialogs[table.state]
+	app.mu.RUnlock()
+	details := controlByKey(t, app.Snapshot(), "final.table").Details.Table
+	if retained != nil || details == nil || details.ColumnsDialogOpen ||
+		!app.Snapshot().Final {
+		t.Fatalf("final dialog state retained=%#v details=%#v final=%t", retained, details, app.Snapshot().Final)
+	}
+}
+
+func TestTableColumnsDialogMaximumSchemaUsesFixedControlTree(t *testing.T) {
+	t.Parallel()
+	app, err := NewApp(AppOptions{Size: Size{Width: 100, Height: 40}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	columns := make([]Column, MaxCollectionColumns)
+	for index := range columns {
+		key := fmt.Sprintf("column-%03d", index)
+		columns[index] = Column{Key: key, Header: "Column " + key}
+	}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{
+				AutomationKey: "maximum.table",
+				Bounds:        Rect{Width: 60, Height: 12},
+			},
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+		Columns:  columns,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(app.controlsByID)
+	if err := table.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	dispatchTableKey(t, app, "maximum-action", KeyTab)
+	dispatchTableKey(t, app, "maximum-open", KeySpace)
+	app.mu.RLock()
+	core := app.tableColumnsDialogs[table.state]
+	after := len(app.controlsByID)
+	app.mu.RUnlock()
+	if core == nil {
+		t.Fatal("maximum-schema Columns dialog did not open")
+	}
+	if after-before > 24 || len(core.list.Items()) != MaxCollectionColumns {
+		t.Fatalf("fixed tree: controls=%d inventory=%d", after-before, len(core.list.Items()))
+	}
+	if err := core.search.SetText("column-255"); err != nil {
+		t.Fatal(err)
+	}
+	if completion := invokeColumnsCommand(
+		t, app, "maximum-search", CommandTableColumnsSearch, core.search,
+	); completion.Outcome != OutcomeApplied {
+		t.Fatalf("maximum search completion = %#v", completion)
+	}
+	items := core.list.Items()
+	if len(items) != 1 || items[0].Key != "column-255" {
+		t.Fatalf("maximum filtered inventory = %#v", items)
+	}
+	invokeColumnsCommand(t, app, "maximum-cancel", CommandTableColumnsCancel, core.cancel)
+}
+
+func TestTableColumnsActionDisabledAndOneRowDegradation(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 20, Height: 3})
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "columns.disabled", Bounds: Rect{Width: 14, Height: 1}},
+			Disabled:     true, DisabledReason: "Unavailable",
+		}},
+		Features: []TableFeature{TableFeatureColumns},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	details := controlByKey(t, app.Snapshot(), "columns.disabled").Details.Table
+	if details == nil || !details.ColumnsActionVisible || details.ColumnsActionEnabled ||
+		details.ColumnsActionBounds != (Rect{Width: 14, Height: 1}) {
+		t.Fatalf("disabled one-row details = %#v", details)
+	}
+	if cell := cellAt(t, app.Snapshot(), 2, 0); cell.Grapheme != "C" ||
+		cell.Style != "button.disabled" || cell.Owner != table.ID() {
+		t.Fatalf("disabled one-row label = %#v", cell)
+	}
+}
+
+func TestTableColumnsActionEmptyModelAndFullClipEligibility(t *testing.T) {
+	t.Parallel()
+	t.Run("empty model", func(t *testing.T) {
+		app := mustApp(t, Size{Width: 24, Height: 5})
+		table, err := NewTable(app.Root(), TableOptions{
+			ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+				PanelOptions: PanelOptions{AutomationKey: "columns.empty", Bounds: Rect{Width: 22, Height: 4}},
+			}},
+			Features: []TableFeature{TableFeatureColumns},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if app.Focused() != table || table.State().FocusPart != TableFocusBody {
+			t.Fatalf("empty initial focus = %#v / %q", app.Focused(), table.State().FocusPart)
+		}
+		dispatchTableKey(t, app, "empty-action", KeyTab)
+		if app.Focused() != table || table.State().FocusPart != TableFocusColumnsAction {
+			t.Fatalf("empty action focus = %#v / %q", app.Focused(), table.State().FocusPart)
+		}
+	})
+
+	t.Run("fully clipped", func(t *testing.T) {
+		app := mustApp(t, Size{Width: 48, Height: 8})
+		clippedParent := mustPanel(t, app.Root(), PanelOptions{
+			AutomationKey: "clipped.group", Bounds: Rect{Width: 24, Height: 5},
+		})
+		nextParent := mustPanel(t, app.Root(), PanelOptions{
+			AutomationKey: "visible.group", Bounds: Rect{X: 28, Width: 18, Height: 6},
+		})
+		clipped, err := NewTable(clippedParent, TableOptions{
+			ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+				PanelOptions: PanelOptions{AutomationKey: "columns.clipped", Bounds: Rect{Width: 22, Height: 8}},
+			}},
+			Features: []TableFeature{TableFeatureColumns},
+			Columns:  []Column{{Key: "value", Header: "Value"}},
+			Rows:     []TableRow{{Key: "one"}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		next, err := NewTable(nextParent, TableOptions{
+			ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+				PanelOptions: PanelOptions{AutomationKey: "visible.table", Bounds: Rect{Width: 16, Height: 5}},
+			}},
+			Columns: []Column{{Key: "value", Header: "Value"}},
+			Rows:    []TableRow{{Key: "next"}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := clipped.Focus(); err != nil {
+			t.Fatal(err)
+		}
+		details := controlByKey(t, app.Snapshot(), "columns.clipped").Details.Table
+		if details == nil || details.ColumnsActionVisible || details.ColumnsActionEnabled {
+			t.Fatalf("clipped action details = %#v", details)
+		}
+		dispatchTableKey(t, app, "clipped-tab", KeyTab)
+		if app.Focused() != next {
+			t.Fatalf("clipped action retained traversal: focus = %#v", app.Focused())
+		}
+	})
+}
+
 func dispatchTableKey(t *testing.T, app *App, request string, key Key) Completion {
 	t.Helper()
 	completion, err := app.DispatchKey(context.Background(), "table-test", request, KeyEvent{Kind: KeyEventPress, Key: key})

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -1121,7 +1122,7 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = expletives.NewTable(app.Root(), expletives.TableOptions{
+	table, err := expletives.NewTable(app.Root(), expletives.TableOptions{
 		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
 			ScrollViewOptions: expletives.ScrollViewOptions{
 				PanelOptions: expletives.PanelOptions{
@@ -1131,6 +1132,7 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 			},
 			BorderForm: expletives.BorderSingle,
 		},
+		Features: []expletives.TableFeature{expletives.TableFeatureColumns},
 		Columns: []expletives.Column{
 			{Key: "name", Header: "Name", Grow: 1, Sortable: true},
 			{Key: "state", Header: "State", Width: 8},
@@ -1152,6 +1154,21 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := table.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.DispatchKey(
+		context.Background(), "automation-test", "table-action-focus",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: expletives.KeyTab},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.DispatchKey(
+		context.Background(), "automation-test", "table-action-down",
+		expletives.KeyEvent{Kind: expletives.KeyEventDown, Key: expletives.KeyEnter},
+	); err != nil {
+		t.Fatal(err)
+	}
 	projected := snapshotFromCore(app.Snapshot())
 	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
 		t.Fatalf("validateSnapshot() error = %v", err)
@@ -1165,6 +1182,11 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 	}
 	if details == nil || details.Status != "ready" ||
 		details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
+		details.FeatureCount != 1 || len(details.Features) != 1 ||
+		details.Features[0] != "columns" || details.FocusPart != "columns_action" ||
+		details.ColumnsActionBounds != (Rect{X: 18, Y: 5, Width: 14, Height: 2}) ||
+		!details.ColumnsActionVisible || !details.ColumnsActionEnabled ||
+		!details.ColumnsActionPressed ||
 		details.RowCount != 2 || details.EnabledCount != 2 ||
 		details.ColumnCount != 2 || details.CellCount != 4 || details.RetainedBytes <= 0 ||
 		details.CurrentRow != "two" || details.CurrentRowIndex != 1 ||
@@ -1192,8 +1214,108 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 		t.Fatal("clone has no Table details")
 	}
 	clonedDetails.Status = "mutated"
-	if details.Status == "mutated" {
+	clonedDetails.Features[0] = "mutated"
+	if details.Status == "mutated" || details.Features[0] == "mutated" {
 		t.Fatal("cloneSnapshot exposed TableDetails storage")
+	}
+}
+
+func TestSnapshotProjectsMaximumColumnsDialogCompactly(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 100, Height: 40},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	columns := make([]expletives.Column, expletives.MaxCollectionColumns)
+	for index := range columns {
+		key := fmt.Sprintf("column-%03d", index)
+		columns[index] = expletives.Column{Key: key, Header: "Column " + key}
+	}
+	table, err := expletives.NewTable(app.Root(), expletives.TableOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "maximum.table",
+				Bounds:        expletives.Rect{Width: 60, Height: 12},
+			}},
+		},
+		Features: []expletives.TableFeature{expletives.TableFeatureColumns},
+		Columns:  columns,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := table.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	for request, key := range []expletives.Key{expletives.KeyTab, expletives.KeySpace} {
+		completion, dispatchErr := app.DispatchKey(
+			context.Background(),
+			"automation-test",
+			fmt.Sprintf("maximum-dialog-%d", request),
+			expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: key},
+		)
+		if dispatchErr != nil || completion.Outcome != expletives.OutcomeApplied {
+			t.Fatalf("dispatch %q = %#v, %v", key, completion, dispatchErr)
+		}
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		var diagnostic *TableDetails
+		var diagnosticControl *ControlSnapshot
+		for index := range projected.Controls {
+			if projected.Controls[index].Key == "maximum.table" {
+				diagnosticControl = &projected.Controls[index]
+				diagnostic = projected.Controls[index].Details.Table
+			}
+		}
+		bandRows, featuresValid := validTableFeatureDetails(
+			diagnostic,
+			diagnosticControl.Bounds.Width,
+			diagnosticControl.Bounds.Height,
+		)
+		viewportValid := validContentViewportDetails(
+			&diagnostic.Viewport,
+			diagnosticControl.Details.Border,
+			diagnosticControl.Bounds.Width,
+			diagnosticControl.Bounds.Height-bandRows,
+		)
+		t.Fatalf(
+			"validateSnapshot(maximum Columns dialog) error = %v; features=%t viewport=%t bounds=%#v border=%#v table=%#v",
+			err,
+			featuresValid,
+			viewportValid,
+			diagnosticControl.Bounds,
+			diagnosticControl.Details.Border,
+			diagnostic,
+		)
+	}
+	var tableDetails *TableDetails
+	var inventoryDetails *ListBoxDetails
+	for index := range projected.Controls {
+		control := &projected.Controls[index]
+		switch control.Key {
+		case "maximum.table":
+			tableDetails = control.Details.Table
+		case "maximum.table.columns-dialog.inventory":
+			inventoryDetails = control.Details.ListBox
+		}
+	}
+	if tableDetails == nil || !tableDetails.ColumnsDialogOpen ||
+		tableDetails.ColumnsActionEnabled || tableDetails.ColumnCount != expletives.MaxCollectionColumns ||
+		inventoryDetails == nil || inventoryDetails.ItemCount != expletives.MaxCollectionColumns ||
+		len(projected.Controls) > 32 {
+		t.Fatalf(
+			"maximum dialog projection: table=%#v inventory=%#v controls=%d",
+			tableDetails,
+			inventoryDetails,
+			len(projected.Controls),
+		)
+	}
+	cloned := cloneSnapshot(projected)
+	if err := validateSnapshot(&cloned, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot(cloned maximum dialog) error = %v", err)
 	}
 }
 
@@ -1258,6 +1380,7 @@ func TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet(t *testing.T) {
 			}},
 			BorderForm: expletives.BorderSingle,
 		},
+		Features: []expletives.TableFeature{expletives.TableFeatureColumns},
 		Columns: []expletives.Column{{
 			Key: "value", Header: "Value", Editable: true,
 			Validator: &expletives.TextValidator{
@@ -1305,7 +1428,10 @@ func TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet(t *testing.T) {
 		details.Table.RangeAnchor != "row" || details.Table.RangeExtent != "row" ||
 		details.Table.SelectedCount != 1 ||
 		details.ValidationEnforcement != "soft" ||
-		details.ValidationMode != "whitelist" || details.Table.FocusMode != "cell" {
+		details.ValidationMode != "whitelist" || details.Table.FocusMode != "cell" ||
+		details.Table.FeatureCount != 1 || len(details.Table.Features) != 1 ||
+		details.Table.Features[0] != "columns" || details.Table.FocusPart != "body" ||
+		!details.Table.ColumnsActionVisible || !details.Table.ColumnsActionEnabled {
 		t.Fatalf("projected DataGrid details = %#v", details)
 	}
 	encoded, err := json.Marshal(details)
@@ -1319,9 +1445,10 @@ func TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet(t *testing.T) {
 	for index := range cloned.Controls {
 		if cloned.Controls[index].Key == "data-grid" {
 			cloned.Controls[index].Details.DataGrid.EditRow = "mutated"
+			cloned.Controls[index].Details.DataGrid.Table.Features[0] = "mutated"
 		}
 	}
-	if details.EditRow == "mutated" {
+	if details.EditRow == "mutated" || details.Table.Features[0] == "mutated" {
 		t.Fatal("cloneSnapshot exposed DataGridDetails storage")
 	}
 }

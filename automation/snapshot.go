@@ -761,44 +761,52 @@ type TreeViewDetails struct {
 // TableDetails is a compact stable-identity tabular observation that omits
 // the retained column and row models and exact status/reason text.
 type TableDetails struct {
-	Status              string                 `json:"status"`
-	StatusMessageBytes  int                    `json:"status_message_bytes"`
-	StatusMessageDigest string                 `json:"status_message_digest,omitempty"`
-	RowCount            int                    `json:"row_count"`
-	VisualRowCount      int                    `json:"visual_row_count"`
-	EnabledCount        int                    `json:"enabled_count"`
-	ColumnCount         int                    `json:"column_count"`
-	CellCount           int                    `json:"cell_count"`
-	RetainedBytes       int                    `json:"retained_bytes"`
-	CurrentRow          string                 `json:"current_row,omitempty"`
-	CurrentRowIndex     int                    `json:"current_row_index"`
-	CurrentColumn       string                 `json:"current_column,omitempty"`
-	CurrentColumnIndex  int                    `json:"current_column_index"`
-	FocusMode           string                 `json:"focus_mode"`
-	SelectionMode       string                 `json:"selection_mode"`
-	SelectionStyle      string                 `json:"selection_style"`
-	RequireSelection    bool                   `json:"require_selection"`
-	RangeAnchor         string                 `json:"range_anchor,omitempty"`
-	RangeExtent         string                 `json:"range_extent,omitempty"`
-	SelectedCount       int                    `json:"selected_count"`
-	FirstSelected       string                 `json:"first_selected,omitempty"`
-	LastSelected        string                 `json:"last_selected,omitempty"`
-	SelectionDigest     string                 `json:"selection_digest"`
-	SortColumn          string                 `json:"sort_column,omitempty"`
-	SortDirection       string                 `json:"sort_direction"`
-	FirstColumn         string                 `json:"first_column,omitempty"`
-	LastColumn          string                 `json:"last_column,omitempty"`
-	VisibleColumnCount  int                    `json:"visible_column_count"`
-	FirstVisibleColumn  string                 `json:"first_visible_column,omitempty"`
-	LastVisibleColumn   string                 `json:"last_visible_column,omitempty"`
-	PresentationDigest  string                 `json:"presentation_digest"`
-	ColumnWidthsDigest  string                 `json:"column_widths_digest"`
-	Enabled             bool                   `json:"enabled"`
-	DisabledReasonBytes int                    `json:"disabled_reason_bytes"`
-	ChangeCommand       string                 `json:"change_command,omitempty"`
-	ActivateCommand     string                 `json:"activate_command,omitempty"`
-	SortCommand         string                 `json:"sort_command,omitempty"`
-	Viewport            ContentViewportDetails `json:"viewport"`
+	Status               string                 `json:"status"`
+	StatusMessageBytes   int                    `json:"status_message_bytes"`
+	StatusMessageDigest  string                 `json:"status_message_digest,omitempty"`
+	FeatureCount         int                    `json:"feature_count"`
+	Features             []string               `json:"features,omitempty"`
+	RowCount             int                    `json:"row_count"`
+	VisualRowCount       int                    `json:"visual_row_count"`
+	EnabledCount         int                    `json:"enabled_count"`
+	ColumnCount          int                    `json:"column_count"`
+	CellCount            int                    `json:"cell_count"`
+	RetainedBytes        int                    `json:"retained_bytes"`
+	CurrentRow           string                 `json:"current_row,omitempty"`
+	CurrentRowIndex      int                    `json:"current_row_index"`
+	CurrentColumn        string                 `json:"current_column,omitempty"`
+	CurrentColumnIndex   int                    `json:"current_column_index"`
+	FocusMode            string                 `json:"focus_mode"`
+	SelectionMode        string                 `json:"selection_mode"`
+	SelectionStyle       string                 `json:"selection_style"`
+	RequireSelection     bool                   `json:"require_selection"`
+	RangeAnchor          string                 `json:"range_anchor,omitempty"`
+	RangeExtent          string                 `json:"range_extent,omitempty"`
+	SelectedCount        int                    `json:"selected_count"`
+	FirstSelected        string                 `json:"first_selected,omitempty"`
+	LastSelected         string                 `json:"last_selected,omitempty"`
+	SelectionDigest      string                 `json:"selection_digest"`
+	SortColumn           string                 `json:"sort_column,omitempty"`
+	SortDirection        string                 `json:"sort_direction"`
+	FirstColumn          string                 `json:"first_column,omitempty"`
+	LastColumn           string                 `json:"last_column,omitempty"`
+	VisibleColumnCount   int                    `json:"visible_column_count"`
+	FirstVisibleColumn   string                 `json:"first_visible_column,omitempty"`
+	LastVisibleColumn    string                 `json:"last_visible_column,omitempty"`
+	PresentationDigest   string                 `json:"presentation_digest"`
+	FocusPart            string                 `json:"focus_part"`
+	ColumnsActionBounds  Rect                   `json:"columns_action_bounds"`
+	ColumnsActionVisible bool                   `json:"columns_action_visible"`
+	ColumnsActionEnabled bool                   `json:"columns_action_enabled"`
+	ColumnsActionPressed bool                   `json:"columns_action_pressed"`
+	ColumnsDialogOpen    bool                   `json:"columns_dialog_open"`
+	ColumnWidthsDigest   string                 `json:"column_widths_digest"`
+	Enabled              bool                   `json:"enabled"`
+	DisabledReasonBytes  int                    `json:"disabled_reason_bytes"`
+	ChangeCommand        string                 `json:"change_command,omitempty"`
+	ActivateCommand      string                 `json:"activate_command,omitempty"`
+	SortCommand          string                 `json:"sort_command,omitempty"`
+	Viewport             ContentViewportDetails `json:"viewport"`
 }
 
 // DataGridDetails is a compact editable-table observation. It omits retained
@@ -1543,43 +1551,51 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 		if details := control.Details.Table; details != nil {
 			statusBytes, statusDigest := compactTextEvidence(details.StatusMessage)
 			projectedControl.Details.Table = &TableDetails{
-				Status:              string(details.Status),
-				StatusMessageBytes:  statusBytes,
-				StatusMessageDigest: statusDigest,
-				RowCount:            details.RowCount,
-				VisualRowCount:      details.VisualRowCount,
-				EnabledCount:        details.EnabledCount,
-				ColumnCount:         details.ColumnCount,
-				CellCount:           details.CellCount,
-				RetainedBytes:       details.RetainedBytes,
-				CurrentRow:          details.CurrentRow,
-				CurrentRowIndex:     details.CurrentRowIndex,
-				CurrentColumn:       details.CurrentColumn,
-				CurrentColumnIndex:  details.CurrentColumnIndex,
-				FocusMode:           string(details.FocusMode),
-				SelectionMode:       string(details.SelectionMode),
-				SelectionStyle:      string(details.SelectionStyle),
-				RequireSelection:    details.RequireSelection,
-				RangeAnchor:         details.RangeAnchor,
-				RangeExtent:         details.RangeExtent,
-				SelectedCount:       details.SelectedCount,
-				FirstSelected:       details.FirstSelected,
-				LastSelected:        details.LastSelected,
-				SelectionDigest:     details.SelectionDigest,
-				SortColumn:          details.SortColumn,
-				SortDirection:       string(details.SortDirection),
-				FirstColumn:         details.FirstColumn,
-				LastColumn:          details.LastColumn,
-				VisibleColumnCount:  details.VisibleColumnCount,
-				FirstVisibleColumn:  details.FirstVisibleColumn,
-				LastVisibleColumn:   details.LastVisibleColumn,
-				PresentationDigest:  details.PresentationDigest,
-				ColumnWidthsDigest:  details.ColumnWidthsDigest,
-				Enabled:             details.Enabled,
-				DisabledReasonBytes: len(details.DisabledReason),
-				ChangeCommand:       string(details.ChangeCommand),
-				ActivateCommand:     string(details.ActivateCommand),
-				SortCommand:         string(details.SortCommand),
+				Status:               string(details.Status),
+				StatusMessageBytes:   statusBytes,
+				StatusMessageDigest:  statusDigest,
+				FeatureCount:         len(details.Features),
+				Features:             tableFeaturesFromCore(details.Features),
+				RowCount:             details.RowCount,
+				VisualRowCount:       details.VisualRowCount,
+				EnabledCount:         details.EnabledCount,
+				ColumnCount:          details.ColumnCount,
+				CellCount:            details.CellCount,
+				RetainedBytes:        details.RetainedBytes,
+				CurrentRow:           details.CurrentRow,
+				CurrentRowIndex:      details.CurrentRowIndex,
+				CurrentColumn:        details.CurrentColumn,
+				CurrentColumnIndex:   details.CurrentColumnIndex,
+				FocusMode:            string(details.FocusMode),
+				SelectionMode:        string(details.SelectionMode),
+				SelectionStyle:       string(details.SelectionStyle),
+				RequireSelection:     details.RequireSelection,
+				RangeAnchor:          details.RangeAnchor,
+				RangeExtent:          details.RangeExtent,
+				SelectedCount:        details.SelectedCount,
+				FirstSelected:        details.FirstSelected,
+				LastSelected:         details.LastSelected,
+				SelectionDigest:      details.SelectionDigest,
+				SortColumn:           details.SortColumn,
+				SortDirection:        string(details.SortDirection),
+				FirstColumn:          details.FirstColumn,
+				LastColumn:           details.LastColumn,
+				VisibleColumnCount:   details.VisibleColumnCount,
+				FirstVisibleColumn:   details.FirstVisibleColumn,
+				LastVisibleColumn:    details.LastVisibleColumn,
+				PresentationDigest:   details.PresentationDigest,
+				FocusPart:            string(details.FocusPart),
+				ColumnsActionBounds:  rectFromCore(details.ColumnsActionBounds),
+				ColumnsActionVisible: details.ColumnsActionVisible,
+				ColumnsActionEnabled: details.ColumnsActionEnabled,
+				ColumnsActionPressed: details.ColumnsActionPressed,
+				ColumnsDialogOpen:    details.ColumnsDialogOpen,
+				ColumnWidthsDigest:   details.ColumnWidthsDigest,
+				Enabled:              details.Enabled,
+				DisabledReasonBytes:  len(details.DisabledReason),
+				ChangeCommand:        string(details.ChangeCommand),
+				ActivateCommand:      string(details.ActivateCommand),
+				SortCommand:          string(details.SortCommand),
 				Viewport: contentViewportDetailsFromCore(
 					&details.Viewport,
 				),
@@ -1590,43 +1606,51 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			statusBytes, statusDigest := compactTextEvidence(table.StatusMessage)
 			projected := &DataGridDetails{
 				Table: TableDetails{
-					Status:              string(table.Status),
-					StatusMessageBytes:  statusBytes,
-					StatusMessageDigest: statusDigest,
-					RowCount:            table.RowCount,
-					VisualRowCount:      table.VisualRowCount,
-					EnabledCount:        table.EnabledCount,
-					ColumnCount:         table.ColumnCount,
-					CellCount:           table.CellCount,
-					RetainedBytes:       table.RetainedBytes,
-					CurrentRow:          table.CurrentRow,
-					CurrentRowIndex:     table.CurrentRowIndex,
-					CurrentColumn:       table.CurrentColumn,
-					CurrentColumnIndex:  table.CurrentColumnIndex,
-					FocusMode:           string(table.FocusMode),
-					SelectionMode:       string(table.SelectionMode),
-					SelectionStyle:      string(table.SelectionStyle),
-					RequireSelection:    table.RequireSelection,
-					RangeAnchor:         table.RangeAnchor,
-					RangeExtent:         table.RangeExtent,
-					SelectedCount:       table.SelectedCount,
-					FirstSelected:       table.FirstSelected,
-					LastSelected:        table.LastSelected,
-					SelectionDigest:     table.SelectionDigest,
-					SortColumn:          table.SortColumn,
-					SortDirection:       string(table.SortDirection),
-					FirstColumn:         table.FirstColumn,
-					LastColumn:          table.LastColumn,
-					VisibleColumnCount:  table.VisibleColumnCount,
-					FirstVisibleColumn:  table.FirstVisibleColumn,
-					LastVisibleColumn:   table.LastVisibleColumn,
-					PresentationDigest:  table.PresentationDigest,
-					ColumnWidthsDigest:  table.ColumnWidthsDigest,
-					Enabled:             table.Enabled,
-					DisabledReasonBytes: len(table.DisabledReason),
-					ChangeCommand:       string(table.ChangeCommand),
-					ActivateCommand:     string(table.ActivateCommand),
-					SortCommand:         string(table.SortCommand),
+					Status:               string(table.Status),
+					StatusMessageBytes:   statusBytes,
+					StatusMessageDigest:  statusDigest,
+					FeatureCount:         len(table.Features),
+					Features:             tableFeaturesFromCore(table.Features),
+					RowCount:             table.RowCount,
+					VisualRowCount:       table.VisualRowCount,
+					EnabledCount:         table.EnabledCount,
+					ColumnCount:          table.ColumnCount,
+					CellCount:            table.CellCount,
+					RetainedBytes:        table.RetainedBytes,
+					CurrentRow:           table.CurrentRow,
+					CurrentRowIndex:      table.CurrentRowIndex,
+					CurrentColumn:        table.CurrentColumn,
+					CurrentColumnIndex:   table.CurrentColumnIndex,
+					FocusMode:            string(table.FocusMode),
+					SelectionMode:        string(table.SelectionMode),
+					SelectionStyle:       string(table.SelectionStyle),
+					RequireSelection:     table.RequireSelection,
+					RangeAnchor:          table.RangeAnchor,
+					RangeExtent:          table.RangeExtent,
+					SelectedCount:        table.SelectedCount,
+					FirstSelected:        table.FirstSelected,
+					LastSelected:         table.LastSelected,
+					SelectionDigest:      table.SelectionDigest,
+					SortColumn:           table.SortColumn,
+					SortDirection:        string(table.SortDirection),
+					FirstColumn:          table.FirstColumn,
+					LastColumn:           table.LastColumn,
+					VisibleColumnCount:   table.VisibleColumnCount,
+					FirstVisibleColumn:   table.FirstVisibleColumn,
+					LastVisibleColumn:    table.LastVisibleColumn,
+					PresentationDigest:   table.PresentationDigest,
+					FocusPart:            string(table.FocusPart),
+					ColumnsActionBounds:  rectFromCore(table.ColumnsActionBounds),
+					ColumnsActionVisible: table.ColumnsActionVisible,
+					ColumnsActionEnabled: table.ColumnsActionEnabled,
+					ColumnsActionPressed: table.ColumnsActionPressed,
+					ColumnsDialogOpen:    table.ColumnsDialogOpen,
+					ColumnWidthsDigest:   table.ColumnWidthsDigest,
+					Enabled:              table.Enabled,
+					DisabledReasonBytes:  len(table.DisabledReason),
+					ChangeCommand:        string(table.ChangeCommand),
+					ActivateCommand:      string(table.ActivateCommand),
+					SortCommand:          string(table.SortCommand),
 					Viewport: contentViewportDetailsFromCore(
 						&table.Viewport,
 					),
@@ -1789,6 +1813,14 @@ func compactTextEvidence(value string) (int, string) {
 	}
 	hash := sha256.Sum256([]byte(value))
 	return len(value), fmt.Sprintf("%x", hash)
+}
+
+func tableFeaturesFromCore(features []expletives.TableFeature) []string {
+	result := make([]string, len(features))
+	for index, feature := range features {
+		result[index] = string(feature)
+	}
+	return result
 }
 
 func textFieldDetailsFromCore(
@@ -2114,10 +2146,15 @@ func cloneSnapshot(snapshot SnapshotV1) SnapshotV1 {
 		}
 		if snapshot.Controls[index].Details.Table != nil {
 			table := *snapshot.Controls[index].Details.Table
+			table.Features = append([]string(nil), table.Features...)
 			cloned.Controls[index].Details.Table = &table
 		}
 		if snapshot.Controls[index].Details.DataGrid != nil {
 			dataGrid := *snapshot.Controls[index].Details.DataGrid
+			dataGrid.Table.Features = append(
+				[]string(nil),
+				dataGrid.Table.Features...,
+			)
 			cloned.Controls[index].Details.DataGrid = &dataGrid
 		}
 		if snapshot.Controls[index].Details.DropDown != nil {

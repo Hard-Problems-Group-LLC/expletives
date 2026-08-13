@@ -71,6 +71,24 @@ type TableSelectionPolicy struct {
 	Extent   string
 }
 
+// TableFeature selects one optional compatible Table or DataGrid behavior.
+type TableFeature string
+
+const (
+	TableFeatureColumns TableFeature = "columns"
+)
+
+const tableColumnsActionWidth = 14
+
+// TableFocusPart identifies the internally focused semantic portion of one
+// Table or DataGrid without introducing a child Control identity.
+type TableFocusPart string
+
+const (
+	TableFocusBody          TableFocusPart = "body"
+	TableFocusColumnsAction TableFocusPart = "columns_action"
+)
+
 // TableColumnWrap selects the body-text presentation for one Table or
 // DataGrid column. The zero value normalizes to TableColumnClip.
 type TableColumnWrap string
@@ -105,6 +123,7 @@ const (
 // clamped while keeping the current row and, in cell mode, column visible.
 type TableOptions struct {
 	ScrollablePanelOptions
+	Features           []TableFeature
 	Columns            []Column
 	Rows               []TableRow
 	CurrentRow         string
@@ -129,6 +148,7 @@ type TableOptions struct {
 type TableState struct {
 	Status             CollectionStatus
 	StatusMessage      string
+	Features           []TableFeature
 	CurrentRow         string
 	CurrentRowIndex    int
 	CurrentColumn      string
@@ -140,6 +160,8 @@ type TableState struct {
 	ColumnPresentation []TableColumnPresentation
 	VisibleColumnCount int
 	VisualRowCount     int
+	FocusPart          TableFocusPart
+	ColumnsDialogOpen  bool
 	FocusMode          TableFocusMode
 	SortColumn         string
 	SortDirection      SortDirection
@@ -171,33 +193,39 @@ type normalizedTableRow struct {
 }
 
 type tableBehavior struct {
-	scroll             scrollViewBehavior
-	columns            []normalizedTableColumn
-	rows               []normalizedTableRow
-	displayOrder       []int
-	columnWidths       []int
-	rowHeights         []int
-	rowStarts          []int
-	geometryRevision   uint64
-	geometryCachedAt   uint64
-	geometryCacheSize  Size
-	currentRow         string
-	currentColumn      string
-	selected           []string
-	selectionMode      CollectionSelectionMode
-	selectionStyle     TableSelectionStyle
-	requireSelection   bool
-	rangeAnchor        string
-	rangeExtent        string
-	columnPresentation []TableColumnPresentation
-	focusMode          TableFocusMode
-	sortColumn         string
-	sortDirection      SortDirection
-	status             CollectionStatus
-	statusMessage      normalizedDisplayText
-	changeCommand      CommandID
-	activateCommand    CommandID
-	sortCommand        CommandID
+	scroll               scrollViewBehavior
+	columns              []normalizedTableColumn
+	rows                 []normalizedTableRow
+	displayOrder         []int
+	columnWidths         []int
+	rowHeights           []int
+	rowStarts            []int
+	features             []TableFeature
+	focusPart            TableFocusPart
+	schemaRevision       uint64
+	presentationRevision uint64
+	presentationMutation bool
+	geometryRevision     uint64
+	geometryCachedAt     uint64
+	geometryCacheSize    Size
+	currentRow           string
+	currentColumn        string
+	selected             []string
+	selectionMode        CollectionSelectionMode
+	selectionStyle       TableSelectionStyle
+	requireSelection     bool
+	rangeAnchor          string
+	rangeExtent          string
+	columnPresentation   []TableColumnPresentation
+	initialPresentation  []TableColumnPresentation
+	focusMode            TableFocusMode
+	sortColumn           string
+	sortDirection        SortDirection
+	status               CollectionStatus
+	statusMessage        normalizedDisplayText
+	changeCommand        CommandID
+	activateCommand      CommandID
+	sortCommand          CommandID
 }
 
 type tablePaintCell struct {
@@ -313,6 +341,10 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 	if err != nil {
 		return tableBehavior{}, err
 	}
+	features, err := normalizeTableFeatures(options.Features)
+	if err != nil {
+		return tableBehavior{}, err
+	}
 	focusMode, err := normalizeTableFocusMode(options.FocusMode)
 	if err != nil {
 		return tableBehavior{}, err
@@ -337,20 +369,28 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 		return tableBehavior{}, err
 	}
 	behavior := tableBehavior{
-		scroll:             scroll,
-		columns:            columns,
-		rows:               rows,
-		selectionMode:      mode,
-		selectionStyle:     selectionStyle,
-		requireSelection:   options.RequireSelection,
-		columnPresentation: presentation,
-		geometryRevision:   1,
-		focusMode:          focusMode,
-		status:             status,
-		statusMessage:      message,
-		changeCommand:      scrollOptions.ChangeCommand,
-		activateCommand:    options.ActivateCommand,
-		sortCommand:        options.SortCommand,
+		scroll:               scroll,
+		columns:              columns,
+		rows:                 rows,
+		features:             features,
+		focusPart:            TableFocusBody,
+		schemaRevision:       1,
+		presentationRevision: 1,
+		selectionMode:        mode,
+		selectionStyle:       selectionStyle,
+		requireSelection:     options.RequireSelection,
+		columnPresentation:   presentation,
+		initialPresentation: append(
+			[]TableColumnPresentation(nil),
+			presentation...,
+		),
+		geometryRevision: 1,
+		focusMode:        focusMode,
+		status:           status,
+		statusMessage:    message,
+		changeCommand:    scrollOptions.ChangeCommand,
+		activateCommand:  options.ActivateCommand,
+		sortCommand:      options.SortCommand,
 	}
 	if err := setExactTableSort(&behavior, options.SortColumn, options.SortDirection); err != nil {
 		return tableBehavior{}, err
@@ -367,6 +407,323 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 	}
 	repairTableCurrentColumn(&behavior, behavior.columnPresentation)
 	return behavior, nil
+}
+
+func normalizeTableFeatures(features []TableFeature) ([]TableFeature, error) {
+	if len(features) > MaxTableFeatures {
+		return nil, fmt.Errorf(
+			"%w: Table exceeds %d features",
+			ErrControlCapacity,
+			MaxTableFeatures,
+		)
+	}
+	requested := make(map[TableFeature]bool, len(features))
+	for _, feature := range features {
+		if feature != TableFeatureColumns || requested[feature] {
+			return nil, fmt.Errorf(
+				"%w: unknown or duplicate Table feature %q",
+				ErrValidation,
+				feature,
+			)
+		}
+		requested[feature] = true
+	}
+	result := make([]TableFeature, 0, len(requested))
+	for _, feature := range []TableFeature{TableFeatureColumns} {
+		if requested[feature] {
+			result = append(result, feature)
+		}
+	}
+	return result, nil
+}
+
+func tableHasFeature(behavior tableBehavior, feature TableFeature) bool {
+	for _, current := range behavior.features {
+		if current == feature {
+			return true
+		}
+	}
+	return false
+}
+
+func tableColumnsBandRows(behavior tableBehavior, size Size) int {
+	if !tableHasFeature(behavior, TableFeatureColumns) ||
+		size.Width <= 0 || size.Height <= 0 {
+		return 0
+	}
+	return min(2, size.Height)
+}
+
+func tableBodySize(behavior tableBehavior, size Size) Size {
+	size.Height = max(0, size.Height-tableColumnsBandRows(behavior, size))
+	return size
+}
+
+func tableBodyRect(behavior tableBehavior, bounds Rect) Rect {
+	result := bounds
+	result.Height = tableBodySize(behavior, bounds.Size()).Height
+	return result
+}
+
+func tableColumnsActionBounds(behavior tableBehavior, bounds Rect) Rect {
+	rows := tableColumnsBandRows(behavior, bounds.Size())
+	if rows == 0 {
+		return Rect{}
+	}
+	return Rect{
+		X:      bounds.X + bounds.Width - tableColumnsActionWidth,
+		Y:      bounds.Y + bounds.Height - rows,
+		Width:  tableColumnsActionWidth,
+		Height: rows,
+	}
+}
+
+func tableColumnsActionVisible(behavior tableBehavior, bounds Rect) bool {
+	return !tableColumnsActionBounds(behavior, bounds).Intersect(bounds).Empty()
+}
+
+func tableBehaviorFromControl(state *controlState) (tableBehavior, bool) {
+	if state == nil {
+		return tableBehavior{}, false
+	}
+	switch behavior := state.behavior.(type) {
+	case tableBehavior:
+		return behavior, true
+	case dataGridBehavior:
+		return behavior.table, true
+	default:
+		return tableBehavior{}, false
+	}
+}
+
+func setTableBehaviorOnControl(state *controlState, table tableBehavior) bool {
+	if state == nil {
+		return false
+	}
+	switch behavior := state.behavior.(type) {
+	case tableBehavior:
+		state.behavior = table
+		return true
+	case dataGridBehavior:
+		behavior.table = table
+		state.behavior = behavior
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *App) tableColumnsActionEligibleLocked(state *controlState) bool {
+	behavior, ok := tableBehaviorFromControl(state)
+	if !ok || behavior.scroll.disabled ||
+		!tableHasFeature(behavior, TableFeatureColumns) ||
+		!a.controlReceivesInputLocked(state) {
+		return false
+	}
+	absolute, found := a.controlAbsoluteBoundsLocked(state)
+	if !found {
+		return false
+	}
+	action := tableColumnsActionBounds(behavior, absolute)
+	return !action.Intersect(a.effectiveControlClipLocked(state)).Empty()
+}
+
+func tableBodyCanFocus(behavior tableBehavior) bool {
+	return !behavior.scroll.disabled && behavior.status == CollectionReady &&
+		behavior.currentRow != "" &&
+		(behavior.focusMode == TableFocusRow || behavior.currentColumn != "")
+}
+
+func (a *App) repairFocusedTablePartLocked() bool {
+	behavior, ok := tableBehaviorFromControl(a.focus)
+	if !ok || behavior.focusPart != TableFocusColumnsAction ||
+		a.tableColumnsActionEligibleLocked(a.focus) {
+		return false
+	}
+	behavior.focusPart = TableFocusBody
+	setTableBehaviorOnControl(a.focus, behavior)
+	a.clearInvalidPressesLocked()
+	return true
+}
+
+func (a *App) tableColumnsActionFocusedEligibleLocked(state *controlState) bool {
+	behavior, ok := tableBehaviorFromControl(state)
+	return ok && a.focus == state &&
+		behavior.focusPart == TableFocusColumnsAction &&
+		a.tableColumnsActionEligibleLocked(state)
+}
+
+func (a *App) tableColumnsActionPressedLocked(state *controlState) bool {
+	for _, press := range a.pressed {
+		if press.control == state && press.part == TableFocusColumnsAction {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) setTableEntryFocusPartLocked(
+	state *controlState,
+	reverse bool,
+) bool {
+	behavior, ok := tableBehaviorFromControl(state)
+	if !ok {
+		return false
+	}
+	part := TableFocusBody
+	if reverse && a.tableColumnsActionEligibleLocked(state) {
+		part = TableFocusColumnsAction
+	}
+	if behavior.focusPart == part {
+		return false
+	}
+	behavior.focusPart = part
+	return setTableBehaviorOnControl(state, behavior)
+}
+
+func (a *App) moveTableFocusPartLocked(reverse bool) bool {
+	behavior, ok := tableBehaviorFromControl(a.focus)
+	if !ok || !a.tableColumnsActionEligibleLocked(a.focus) {
+		return false
+	}
+	part := behavior.focusPart
+	if (!reverse && part != TableFocusBody) ||
+		(reverse && part != TableFocusColumnsAction) {
+		return false
+	}
+	if reverse {
+		behavior.focusPart = TableFocusBody
+	} else {
+		behavior.focusPart = TableFocusColumnsAction
+	}
+	setTableBehaviorOnControl(a.focus, behavior)
+	a.clearInvalidPressesLocked()
+	return true
+}
+
+func paintTableColumnsBand(
+	app *App,
+	frame *IntendedFrame,
+	state *controlState,
+	behavior tableBehavior,
+	absolute Rect,
+	clip Rect,
+) {
+	rows := tableColumnsBandRows(behavior, absolute.Size())
+	if rows == 0 {
+		return
+	}
+	band := Rect{
+		X: absolute.X, Y: absolute.Y + absolute.Height - rows,
+		Width: absolute.Width, Height: rows,
+	}.Intersect(clip)
+	for y := band.Y; y < band.Y+band.Height; y++ {
+		for x := band.X; x < band.X+band.Width; x++ {
+			app.setCellLocked(
+				frame, x, y, " ", state.style, app.styles[state.style], state.id,
+			)
+		}
+	}
+}
+
+func paintTableColumnsAction(
+	app *App,
+	frame *IntendedFrame,
+	state *controlState,
+	behavior tableBehavior,
+	absolute Rect,
+	clip Rect,
+) {
+	action := tableColumnsActionBounds(behavior, absolute)
+	if action.Intersect(clip).Empty() {
+		return
+	}
+	enabled := !behavior.scroll.disabled
+	focused := enabled && app.focus == state &&
+		behavior.focusPart == TableFocusColumnsAction
+	pressed := focused && app.tableColumnsActionPressedLocked(state)
+	bodyStyle := StyleID("button")
+	mnemonicStyle := StyleID("button.mnemonic")
+	switch {
+	case !enabled:
+		bodyStyle, mnemonicStyle = "button.disabled", "button.disabled"
+	case pressed:
+		bodyStyle = "button.pressed"
+	case focused:
+		bodyStyle = "button.focused"
+	}
+	paint := func(x, y int, grapheme string, style StyleID) {
+		app.setClippedCellLocked(
+			frame, clip, x, y, grapheme, style, app.styles[style], state.id,
+		)
+	}
+	label := []string{"C", "o", "l", "u", "m", "n", "s", ".", ".", "."}
+	paintLabel := func(left, right, y int) {
+		if right <= left || y < action.Y || y >= action.Y+action.Height {
+			return
+		}
+		start := left + max(0, (right-left-len(label))/2)
+		for index, grapheme := range label {
+			x := start + index
+			if x >= right {
+				break
+			}
+			style := bodyStyle
+			if enabled && index == 0 {
+				style = mnemonicStyle
+			}
+			paint(x, y, grapheme, style)
+		}
+	}
+	if action.Height < 2 || action.Width < 3 {
+		for y := action.Y; y < action.Y+action.Height; y++ {
+			for x := action.X; x < action.X+action.Width; x++ {
+				paint(x, y, " ", bodyStyle)
+			}
+		}
+		paintLabel(action.X, action.X+action.Width, action.Y+(action.Height-1)/2)
+		return
+	}
+	left, right := action.X, action.X+action.Width-1
+	bottom := action.Y + action.Height - 1
+	bodyLeft, bodyRight := left+1, right
+	if pressed {
+		bodyLeft, bodyRight = left+2, right+1
+	}
+	for y := action.Y; y < bottom; y++ {
+		for x := left; x <= right; x++ {
+			paint(x, y, " ", bodyStyle)
+		}
+		paint(left, y, " ", "button.shadow")
+		if pressed {
+			paint(left+1, y, " ", "button.shadow")
+		} else {
+			paint(right, y, "▄", "button.shadow")
+		}
+	}
+	for x := left; x <= right; x++ {
+		paint(x, bottom, " ", "button.shadow")
+	}
+	if !pressed {
+		for x := left + 2; x <= right; x++ {
+			paint(x, bottom, "▀", "button.shadow")
+		}
+	}
+	paintLabel(bodyLeft, bodyRight, action.Y+action.Height/2-1)
+}
+
+func repairTableFocusPart(behavior *tableBehavior, size Size) {
+	if behavior == nil {
+		return
+	}
+	if behavior.focusPart == "" {
+		behavior.focusPart = TableFocusBody
+	}
+	localBounds := Rect{Width: size.Width, Height: size.Height}
+	if behavior.focusPart == TableFocusColumnsAction &&
+		(!tableColumnsActionVisible(*behavior, localBounds) || behavior.scroll.disabled) {
+		behavior.focusPart = TableFocusBody
+	}
 }
 
 func normalizeTableSelectionStyle(
@@ -541,6 +898,36 @@ func repairTableColumnPresentation(
 		}
 	}
 	return result
+}
+
+func tableSchemaEqual(
+	left []normalizedTableColumn,
+	right []normalizedTableColumn,
+) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if !tableColumnEqual(left[index], right[index]) {
+			return false
+		}
+	}
+	return true
+}
+
+func tablePresentationEqual(
+	left []TableColumnPresentation,
+	right []TableColumnPresentation,
+) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func tableColumnPresentationIndex(
@@ -1111,10 +1498,15 @@ func cloneTableBehavior(behavior tableBehavior) tableBehavior {
 	cloned.columnWidths = append([]int(nil), behavior.columnWidths...)
 	cloned.rowHeights = append([]int(nil), behavior.rowHeights...)
 	cloned.rowStarts = append([]int(nil), behavior.rowStarts...)
+	cloned.features = append([]TableFeature(nil), behavior.features...)
 	cloned.selected = append([]string(nil), behavior.selected...)
 	cloned.columnPresentation = append(
 		[]TableColumnPresentation(nil),
 		behavior.columnPresentation...,
+	)
+	cloned.initialPresentation = append(
+		[]TableColumnPresentation(nil),
+		behavior.initialPresentation...,
 	)
 	cloned.statusMessage.lines = cloneTextRows(behavior.statusMessage.lines)
 	return cloned
@@ -1126,6 +1518,9 @@ func tableBehaviorEqual(left, right tableBehavior) bool {
 		left.selectionMode != right.selectionMode || left.selectionStyle != right.selectionStyle ||
 		left.requireSelection != right.requireSelection ||
 		left.rangeAnchor != right.rangeAnchor || left.rangeExtent != right.rangeExtent ||
+		left.focusPart != right.focusPart ||
+		left.schemaRevision != right.schemaRevision ||
+		left.presentationRevision != right.presentationRevision ||
 		left.focusMode != right.focusMode || left.sortColumn != right.sortColumn ||
 		left.sortDirection != right.sortDirection || left.status != right.status ||
 		left.statusMessage.text != right.statusMessage.text || left.changeCommand != right.changeCommand ||
@@ -1134,9 +1529,18 @@ func tableBehaviorEqual(left, right tableBehavior) bool {
 		len(left.displayOrder) != len(right.displayOrder) ||
 		len(left.columnWidths) != len(right.columnWidths) || len(left.selected) != len(right.selected) ||
 		len(left.columnPresentation) != len(right.columnPresentation) ||
+		len(left.initialPresentation) != len(right.initialPresentation) ||
 		len(left.rowHeights) != len(right.rowHeights) ||
 		len(left.rowStarts) != len(right.rowStarts) {
 		return false
+	}
+	if len(left.features) != len(right.features) {
+		return false
+	}
+	for index := range left.features {
+		if left.features[index] != right.features[index] {
+			return false
+		}
 	}
 	for index := range left.columns {
 		if !tableColumnEqual(left.columns[index], right.columns[index]) ||
@@ -1161,6 +1565,11 @@ func tableBehaviorEqual(left, right tableBehavior) bool {
 	}
 	for index := range left.columnPresentation {
 		if left.columnPresentation[index] != right.columnPresentation[index] {
+			return false
+		}
+	}
+	for index := range left.initialPresentation {
+		if left.initialPresentation[index] != right.initialPresentation[index] {
 			return false
 		}
 	}
@@ -1205,18 +1614,21 @@ func (b tableBehavior) controlBorder() borderBehavior { return b.scroll.border }
 func (b tableBehavior) clientInset() int { return b.scroll.clientInset() }
 
 func (b tableBehavior) controlClientRect(bounds Rect) Rect {
-	return b.scroll.controlClientRect(bounds)
+	return b.scroll.controlClientRect(tableBodyRect(b, bounds))
 }
 
 func (b tableBehavior) intrinsicMinimum() Size {
 	minimum := b.scroll.intrinsicMinimum()
 	minimum.Height++
+	if tableHasFeature(b, TableFeatureColumns) {
+		minimum.Height += 2
+	}
 	return minimum
 }
 
 func (b tableBehavior) additionalStyles() []StyleID {
 	styles := append([]StyleID{}, b.scroll.additionalStyles()...)
-	return append(styles,
+	styles = append(styles,
 		"table.header",
 		"table.header_current",
 		"table.sort",
@@ -1229,6 +1641,17 @@ func (b tableBehavior) additionalStyles() []StyleID {
 		"collection.loading",
 		"collection.error",
 	)
+	if tableHasFeature(b, TableFeatureColumns) {
+		styles = append(styles,
+			"button",
+			"button.focused",
+			"button.pressed",
+			"button.disabled",
+			"button.mnemonic",
+			"button.shadow",
+		)
+	}
+	return styles
 }
 
 func (b tableBehavior) details() ControlDetails {
@@ -1245,20 +1668,26 @@ func (b tableBehavior) paintDecoration(
 	absolute Rect,
 	clip Rect,
 ) {
-	b.scroll.paintDecoration(app, frame, state, absolute, clip)
-	geometry := calculateScrollViewGeometry(absolute.Size(), b.scroll)
-	viewport := translatedRect(geometry.viewport, absolute.X, absolute.Y)
+	paintTableColumnsBand(app, frame, state, b, absolute, clip)
+	paintTableColumnsAction(app, frame, state, b, absolute, clip)
+	body := tableBodyRect(b, absolute)
+	if !body.Empty() {
+		b.scroll.paintDecoration(app, frame, state, body, clip)
+	}
+	geometry := calculateScrollViewGeometry(body.Size(), b.scroll)
+	viewport := translatedRect(geometry.viewport, body.X, body.Y)
 	visible := viewport.Intersect(clip)
 	if visible.Width <= 0 || visible.Height <= 0 {
 		return
 	}
 	for y := visible.Y; y < visible.Y+visible.Height; y++ {
 		var cells []tablePaintCell
+		bodyFocused := app.focus == state && b.focusPart == TableFocusBody
 		if y == viewport.Y {
-			cells = b.headerCells(app.focus == state)
+			cells = b.headerCells(bodyFocused)
 		} else {
 			sourceRow := b.scroll.state.Offset.Y + y - viewport.Y - 1
-			cells = b.bodyCells(sourceRow, app.focus == state)
+			cells = b.bodyCells(sourceRow, bodyFocused)
 		}
 		for x := visible.X; x < visible.X+visible.Width; x++ {
 			sourceX := b.scroll.state.Offset.X + x - viewport.X
@@ -1686,8 +2115,10 @@ func invalidateTableGeometry(behavior *tableBehavior) {
 }
 
 func reflowTable(behavior tableBehavior, size Size) tableBehavior {
+	repairTableFocusPart(&behavior, size)
+	bodySize := tableBodySize(behavior, size)
 	if behavior.geometryCachedAt != behavior.geometryRevision ||
-		behavior.geometryCacheSize != size {
+		behavior.geometryCacheSize != bodySize {
 		behavior.displayOrder = nil
 		behavior.displayOrder = deriveTableDisplayOrder(behavior)
 		baseWidths := tableBaseColumnWidths(behavior)
@@ -1697,7 +2128,7 @@ func reflowTable(behavior tableBehavior, size Size) tableBehavior {
 			Width: tableTotalWidth(behavior, behavior.columnWidths), Height: bodyRows + 1,
 		}
 		for range 4 {
-			geometry := calculateScrollViewGeometry(size, behavior.scroll)
+			geometry := calculateScrollViewGeometry(bodySize, behavior.scroll)
 			next := growTableColumnWidths(behavior, baseWidths, geometry.viewport.Width)
 			nextWidth := tableTotalWidth(behavior, next)
 			behavior.columnWidths = next
@@ -1711,9 +2142,9 @@ func reflowTable(behavior tableBehavior, size Size) tableBehavior {
 			behavior.scroll.state.ContentSize.Height = nextHeight
 		}
 		behavior.geometryCachedAt = behavior.geometryRevision
-		behavior.geometryCacheSize = size
+		behavior.geometryCacheSize = bodySize
 	}
-	geometry := calculateScrollViewGeometry(size, behavior.scroll)
+	geometry := calculateScrollViewGeometry(bodySize, behavior.scroll)
 	behavior.scroll.state = clampViewportState(behavior.scroll.state, geometry)
 	if behavior.status == CollectionReady {
 		current := tableDisplayRowIndex(behavior, behavior.currentRow)
@@ -1778,9 +2209,14 @@ func reconcileTableLocked(state *controlState) bool {
 }
 
 func tableCanFocus(state *controlState, behavior tableBehavior) bool {
-	return state != nil && !behavior.scroll.disabled && behavior.status == CollectionReady &&
-		behavior.currentRow != "" &&
-		(behavior.focusMode == TableFocusRow || behavior.currentColumn != "")
+	if state == nil || behavior.scroll.disabled {
+		return false
+	}
+	action := tableColumnsActionVisible(
+		behavior,
+		Rect{Width: state.bounds.Width, Height: state.bounds.Height},
+	)
+	return tableBodyCanFocus(behavior) || action
 }
 
 func enabledTableRowCount(rows []normalizedTableRow) int {
@@ -1846,8 +2282,14 @@ func tableColumnPresentationDigest(presentation []TableColumnPresentation) strin
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func tableDetails(bounds Rect, behavior tableBehavior) TableDetails {
-	viewport := scrollViewDetails(bounds, behavior.scroll)
+func tableDetails(
+	bounds Rect,
+	behavior tableBehavior,
+	actionVisible bool,
+	actionPressed bool,
+	dialogOpen bool,
+) TableDetails {
+	viewport := scrollViewDetails(tableBodyRect(behavior, bounds), behavior.scroll)
 	viewport.Content = ""
 	viewport.ContentKey = ""
 	firstSelected, lastSelected := "", ""
@@ -1863,8 +2305,11 @@ func tableDetails(bounds Rect, behavior tableBehavior) TableDetails {
 	firstVisibleColumn, lastVisibleColumn := visibleTableColumnRange(
 		behavior.columnPresentation,
 	)
+	localBounds := Rect{Width: bounds.Width, Height: bounds.Height}
+	actionBounds := tableColumnsActionBounds(behavior, localBounds)
 	return TableDetails{
 		Status: behavior.status, StatusMessage: behavior.statusMessage.text,
+		Features: append([]TableFeature(nil), behavior.features...),
 		RowCount: len(behavior.rows), VisualRowCount: tableVisualRowCount(behavior),
 		EnabledCount: enabledTableRowCount(behavior.rows),
 		ColumnCount:  len(behavior.columns), CellCount: tableCellCount(behavior.rows),
@@ -1884,13 +2329,19 @@ func tableDetails(bounds Rect, behavior tableBehavior) TableDetails {
 			[]TableColumnPresentation(nil),
 			behavior.columnPresentation...,
 		),
-		VisibleColumnCount: visibleTableColumnCount(behavior.columnPresentation),
-		FirstVisibleColumn: firstVisibleColumn,
-		LastVisibleColumn:  lastVisibleColumn,
-		PresentationDigest: tableColumnPresentationDigest(behavior.columnPresentation),
-		ColumnWidths:       visibleTableColumnWidths(behavior),
-		ColumnWidthsDigest: integerSequenceDigest(visibleTableColumnWidths(behavior)),
-		Enabled:            !behavior.scroll.disabled, DisabledReason: behavior.scroll.disabledReason,
+		VisibleColumnCount:   visibleTableColumnCount(behavior.columnPresentation),
+		FirstVisibleColumn:   firstVisibleColumn,
+		LastVisibleColumn:    lastVisibleColumn,
+		PresentationDigest:   tableColumnPresentationDigest(behavior.columnPresentation),
+		FocusPart:            behavior.focusPart,
+		ColumnsActionBounds:  actionBounds,
+		ColumnsActionVisible: actionVisible,
+		ColumnsActionEnabled: actionVisible && !behavior.scroll.disabled && !dialogOpen,
+		ColumnsActionPressed: actionPressed,
+		ColumnsDialogOpen:    dialogOpen,
+		ColumnWidths:         visibleTableColumnWidths(behavior),
+		ColumnWidthsDigest:   integerSequenceDigest(visibleTableColumnWidths(behavior)),
+		Enabled:              !behavior.scroll.disabled, DisabledReason: behavior.scroll.disabledReason,
 		ChangeCommand: behavior.changeCommand, ActivateCommand: behavior.activateCommand,
 		SortCommand: behavior.sortCommand, Viewport: viewport,
 	}
@@ -1952,6 +2403,7 @@ func (t *Table) State() TableState {
 	}
 	return TableState{
 		Status: behavior.status, StatusMessage: behavior.statusMessage.text,
+		Features:           append([]TableFeature(nil), behavior.features...),
 		CurrentRow:         behavior.currentRow,
 		CurrentRowIndex:    tableDisplayRowIndex(behavior, behavior.currentRow),
 		CurrentColumn:      behavior.currentColumn,
@@ -1966,6 +2418,8 @@ func (t *Table) State() TableState {
 		),
 		VisibleColumnCount: visibleTableColumnCount(behavior.columnPresentation),
 		VisualRowCount:     tableVisualRowCount(behavior),
+		FocusPart:          behavior.focusPart,
+		ColumnsDialogOpen:  t.state.app.tableColumnsDialogOpenLocked(t.state),
 		SortColumn:         behavior.sortColumn, SortDirection: behavior.sortDirection,
 		Offset: behavior.scroll.state.Offset, RowCount: len(behavior.rows),
 		EnabledCount: enabledTableRowCount(behavior.rows), ColumnCount: len(behavior.columns),
@@ -2042,6 +2496,13 @@ func (t *Table) SetSelection(selected []string) error {
 func (t *Table) SetSelectionPolicy(policy TableSelectionPolicy) error {
 	return commitTableMutation(t, func(tx *Transaction) error {
 		return tx.SetTableSelectionPolicy(t, policy)
+	})
+}
+
+// SetFeatures atomically replaces the complete optional Table feature set.
+func (t *Table) SetFeatures(features []TableFeature) error {
+	return commitTableMutation(t, func(tx *Transaction) error {
+		return tx.SetTableFeatures(t, features)
 	})
 }
 
@@ -2157,10 +2618,19 @@ func (a *App) tableKeyLocked(
 	if !ok || !tableCanFocus(state, behavior) {
 		return "", "", false, false
 	}
+	if behavior.focusPart == TableFocusColumnsAction {
+		if !control && !shift && (key == KeyEnter || key == KeySpace) {
+			return CommandTableColumnsOpen, state.id, true, false
+		}
+		return "", "", false, false
+	}
 	before := cloneTableBehavior(behavior)
 	handled, selectionChanged, activate, sortChanged := true, false, false, false
 	current := tableDisplayRowIndex(behavior, behavior.currentRow)
-	geometry := calculateScrollViewGeometry(state.bounds.Size(), behavior.scroll)
+	geometry := calculateScrollViewGeometry(
+		tableBodySize(behavior, state.bounds.Size()),
+		behavior.scroll,
+	)
 	if shift {
 		selectionChanged, handled = extendTableRangeSelection(&behavior, key, geometry)
 	} else if control && (key == KeyHome || key == KeyEnd) {
@@ -2476,6 +2946,12 @@ func tableStorageBytes(behavior tableBehavior) int {
 	for _, entry := range behavior.columnPresentation {
 		total += len(entry.Column) + len(entry.Wrap)
 	}
+	for _, entry := range behavior.initialPresentation {
+		total += len(entry.Column) + len(entry.Wrap)
+	}
+	for _, feature := range behavior.features {
+		total += len(feature)
+	}
 	// Derived integer caches remain bounded by the same aggregate collection
 	// budget as their source model. Eight bytes is a conservative per-int
 	// accounting on supported targets.
@@ -2510,7 +2986,18 @@ func (t *Transaction) recordTable(state *controlState, behavior tableBehavior) e
 	if err := t.reserveOperation(); err != nil {
 		return err
 	}
-	t.mutations = append(t.mutations, transactionMutation{kind: mutationTable, state: state, behavior: behavior})
+	basePresentation := behavior.presentationRevision
+	if behavior.presentationMutation {
+		basePresentation--
+	}
+	mutation := transactionMutation{
+		kind: mutationTable, state: state,
+		tablePresentationMutation:     behavior.presentationMutation,
+		tableBasePresentationRevision: basePresentation,
+	}
+	behavior.presentationMutation = false
+	mutation.behavior = behavior
+	t.mutations = append(t.mutations, mutation)
 	return nil
 }
 
@@ -2549,11 +3036,19 @@ func (t *Transaction) SetTableModel(control *Table, columns []Column, rows []Tab
 	if err != nil {
 		return err
 	}
+	schemaChanged := !tableSchemaEqual(behavior.columns, normalizedColumns)
 	behavior.columns, behavior.rows = normalizedColumns, normalizedRows
 	behavior.columnPresentation = repairTableColumnPresentation(
 		previousPresentation,
 		behavior.columns,
 	)
+	if schemaChanged {
+		behavior.initialPresentation = repairTableColumnPresentation(
+			behavior.initialPresentation,
+			behavior.columns,
+		)
+		behavior.schemaRevision++
+	}
 	behavior.displayOrder = nil
 	invalidateTableGeometry(&behavior)
 	if tableColumnIndex(behavior.columns, behavior.sortColumn) < 0 ||
@@ -2582,10 +3077,12 @@ func (t *Transaction) ReplaceTable(
 		return err
 	}
 	previousPresentation := behavior.columnPresentation
-	behavior.columns, err = normalizeTableColumns(columns)
+	normalizedColumns, err := normalizeTableColumns(columns)
 	if err != nil {
 		return err
 	}
+	schemaChanged := !tableSchemaEqual(behavior.columns, normalizedColumns)
+	behavior.columns = normalizedColumns
 	behavior.rows, err = normalizeTableRows(behavior.columns, rows)
 	if err != nil {
 		return err
@@ -2594,6 +3091,13 @@ func (t *Transaction) ReplaceTable(
 		previousPresentation,
 		behavior.columns,
 	)
+	if schemaChanged {
+		behavior.initialPresentation = repairTableColumnPresentation(
+			behavior.initialPresentation,
+			behavior.columns,
+		)
+		behavior.schemaRevision++
+	}
 	behavior.displayOrder = nil
 	invalidateTableGeometry(&behavior)
 	if err := setExactTableSort(&behavior, sortColumn, sortDirection); err != nil {
@@ -2625,13 +3129,26 @@ func (t *Transaction) ReplaceTableWithPresentation(
 		return err
 	}
 	previousPresentation := behavior.columnPresentation
-	behavior.columns, err = normalizeTableColumns(columns)
+	normalizedColumns, err := normalizeTableColumns(columns)
 	if err != nil {
 		return err
 	}
+	schemaChanged := !tableSchemaEqual(behavior.columns, normalizedColumns)
+	behavior.columns = normalizedColumns
 	behavior.rows, err = normalizeTableRows(behavior.columns, rows)
 	if err != nil {
 		return err
+	}
+	if schemaChanged {
+		behavior.initialPresentation = repairTableColumnPresentation(
+			behavior.initialPresentation,
+			behavior.columns,
+		)
+		behavior.schemaRevision++
+	}
+	if !tablePresentationEqual(previousPresentation, behavior.columnPresentation) {
+		behavior.presentationRevision++
+		behavior.presentationMutation = true
 	}
 	behavior.columnPresentation, err = normalizeTableColumnPresentation(
 		behavior.columns,
@@ -2729,6 +3246,26 @@ func (t *Transaction) SetTableSelectionPolicy(
 	return t.recordTable(target, behavior)
 }
 
+// SetTableFeatures records one exact copied optional Table feature set.
+func (t *Transaction) SetTableFeatures(
+	control *Table,
+	features []TableFeature,
+) error {
+	target, behavior, err := t.selectedTable(control)
+	if err != nil {
+		return err
+	}
+	normalized, err := normalizeTableFeatures(features)
+	if err != nil {
+		return err
+	}
+	behavior.features = normalized
+	invalidateTableGeometry(&behavior)
+	repairTableFocusPart(&behavior, target.bounds.Size())
+	behavior = reflowTable(behavior, target.bounds.Size())
+	return t.recordTable(target, behavior)
+}
+
 // SetTableColumnPresentation records one exact copied column presentation.
 func (t *Transaction) SetTableColumnPresentation(
 	control *Table,
@@ -2747,6 +3284,10 @@ func (t *Transaction) SetTableColumnPresentation(
 	}
 	previous := behavior.columnPresentation
 	behavior.columnPresentation = normalized
+	if !tablePresentationEqual(previous, normalized) {
+		behavior.presentationRevision++
+		behavior.presentationMutation = true
+	}
 	invalidateTableGeometry(&behavior)
 	repairTableCurrentColumn(&behavior, previous)
 	behavior = reflowTable(behavior, target.bounds.Size())

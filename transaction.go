@@ -81,6 +81,9 @@ type transactionMutation struct {
 	text     string
 	behavior controlBehavior
 
+	tablePresentationMutation     bool
+	tableBasePresentationRevision uint64
+
 	selectionValue   string
 	selectionOptions []SelectionOption
 	focusGuidance    focusGuidanceConfig
@@ -787,10 +790,44 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 			mutation.behavior = behavior
 			stagedMutationBehaviors[mutation.state] = behavior
+		case mutationTable:
+			current := base.(tableBehavior)
+			next := mutation.behavior.(tableBehavior)
+			next.schemaRevision = current.schemaRevision
+			if !tableSchemaEqual(current.columns, next.columns) {
+				next.schemaRevision++
+			}
+			next.presentationRevision = current.presentationRevision
+			if !tablePresentationEqual(current.columnPresentation, next.columnPresentation) &&
+				(mutation.tablePresentationMutation ||
+					current.presentationRevision != mutation.tableBasePresentationRevision) {
+				next.presentationRevision++
+			}
+			next.presentationMutation = false
+			mutation.behavior = next
+			stagedMutationBehaviors[mutation.state] = next
+		case mutationDataGrid:
+			current := base.(dataGridBehavior)
+			next := mutation.behavior.(dataGridBehavior)
+			next.table.schemaRevision = current.table.schemaRevision
+			if !tableSchemaEqual(current.table.columns, next.table.columns) {
+				next.table.schemaRevision++
+			}
+			next.table.presentationRevision = current.table.presentationRevision
+			if !tablePresentationEqual(
+				current.table.columnPresentation,
+				next.table.columnPresentation,
+			) && (mutation.tablePresentationMutation ||
+				current.table.presentationRevision != mutation.tableBasePresentationRevision) {
+				next.table.presentationRevision++
+			}
+			next.table.presentationMutation = false
+			mutation.behavior = next
+			stagedMutationBehaviors[mutation.state] = next
 		case mutationTextField, mutationNumberField, mutationTextArea,
 			mutationProgress, mutationScrollBar, mutationTabbedPanel,
 			mutationScrollView, mutationMarkdownView, mutationLogView,
-			mutationListBox, mutationTreeView, mutationTable, mutationDataGrid,
+			mutationListBox, mutationTreeView,
 			mutationPopupCollection:
 			stagedMutationBehaviors[mutation.state] = mutation.behavior
 		case mutationCheckState, mutationRadioValue,
@@ -1812,6 +1849,9 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 			}
 		}
 	}
+	if t.app.reconcileTableColumnsDialogsLocked() {
+		changed = true
+	}
 	if t.app.repairRadioGroupsLocked() {
 		changed = true
 	}
@@ -1848,6 +1888,7 @@ func (t *Transaction) Commit(ctx context.Context) (resultErr error) {
 				changed = true
 			}
 			t.app.focus = t.focus
+			t.app.setTableEntryFocusPartLocked(t.focus, false)
 			t.app.clearInvalidPressesLocked()
 			changed = true
 		}
