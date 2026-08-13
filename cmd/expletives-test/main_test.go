@@ -56,7 +56,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 	// many correlated snapshot-bearing round trips. Race instrumentation can
 	// make the aggregate run substantially slower even though each request
 	// remains within the protocol's independent deadline.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	var client *automation.Client
 	for client == nil {
@@ -139,8 +139,10 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 					control.ResolvedStyle.Background == "#003878"
 		case "screen.panels.core", "screen.panels.styles",
 			"screen.layouts.box", "screen.layouts.grid",
-			"screen.text", "screen.actions", "screen.selection", "screen.input",
+			"screen.text", "screen.tables", "screen.data-grid",
+			"screen.actions", "screen.selection", "screen.input",
 			"screen.progress", "screen.navigation", "screen.scrolling",
+			"screen.collections",
 			"screen.menus", "screen.status", "screen.headers_footers",
 			"screen.about":
 			screenEvidence[control.Key] = !control.Visible
@@ -161,7 +163,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 			menuEvidence =
 				control.Kind == "menu_bar" &&
 					control.Details.MenuBar != nil &&
-					len(control.Details.MenuBar.Entries) == 62 &&
+					len(control.Details.MenuBar.Entries) == 64 &&
 					len(control.Details.MenuBar.OpenPath) == 0 &&
 					control.Bounds == (automation.Rect{
 						Width:  observe.Snapshot.Frame.Size.Width,
@@ -477,7 +479,7 @@ func TestHeadlessAutomationShutdownDeliversFinalCompletion(t *testing.T) {
 		len(progressEvidence) != 11 ||
 		len(navigationEvidence) != 4 ||
 		len(contentEvidence) != 4 ||
-		len(screenEvidence) != 16 ||
+		len(screenEvidence) != 19 ||
 		len(chromeEvidence) != 5 {
 		t.Fatalf(
 			"catalog evidence: menu=%t status=%t screens=%#v chrome=%#v display=%#v action=%#v input=%#v progress=%#v navigation=%#v content=%#v",

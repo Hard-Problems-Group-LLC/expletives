@@ -771,26 +771,41 @@ func (v *TreeView) Focus() error
 func (v *TreeView) Activate(context.Context, string, string) (Completion, error)
 func NewTable(Container, TableOptions) (*Table, error)
 func (t *Table) Columns() []Column
+func (t *Table) ColumnPresentation() []TableColumnPresentation
 func (t *Table) Rows() []TableRow
 func (t *Table) State() TableState
 func (t *Table) SetRows([]TableRow) error
 func (t *Table) SetModel([]Column, []TableRow) error
 func (t *Table) Replace([]Column, []TableRow, string, string, []string, string, SortDirection) error
+func (t *Table) ReplaceWithPresentation([]Column, []TableRow, []TableColumnPresentation, string, string, []string, string, SortDirection) error
 func (t *Table) SetCurrent(string, string) error
 func (t *Table) SetSelection([]string) error
+func (t *Table) SetSelectionPolicy(TableSelectionPolicy) error
+func (t *Table) SetFeatures([]TableFeature) error
+func (t *Table) SetColumnPresentation([]TableColumnPresentation) error
+func (t *Table) VisualRoles() TableVisualRoles
+func (t *Table) SetVisualRoles(TableVisualRoles) error
+func (t *Table) SetFocusMode(TableFocusMode) error
 func (t *Table) SetSort(string, SortDirection) error
 func (t *Table) SetStatus(CollectionStatus, string) error
 func (t *Table) Focus() error
 func (t *Table) Activate(context.Context, string, string) (Completion, error)
 func NewDataGrid(Container, DataGridOptions) (*DataGrid, error)
 func (g *DataGrid) Columns() []Column
+func (g *DataGrid) ColumnPresentation() []TableColumnPresentation
 func (g *DataGrid) Rows() []TableRow
 func (g *DataGrid) State() DataGridState
 func (g *DataGrid) SetRows([]TableRow) error
 func (g *DataGrid) SetModel([]Column, []TableRow) error
 func (g *DataGrid) Replace([]Column, []TableRow, string, string, []string, string, SortDirection) error
+func (g *DataGrid) ReplaceWithPresentation([]Column, []TableRow, []TableColumnPresentation, string, string, []string, string, SortDirection) error
 func (g *DataGrid) SetCurrent(string, string) error
 func (g *DataGrid) SetSelection([]string) error
+func (g *DataGrid) SetSelectionPolicy(TableSelectionPolicy) error
+func (g *DataGrid) SetFeatures([]TableFeature) error
+func (g *DataGrid) SetColumnPresentation([]TableColumnPresentation) error
+func (g *DataGrid) VisualRoles() DataGridVisualRoles
+func (g *DataGrid) SetVisualRoles(DataGridVisualRoles) error
 func (g *DataGrid) SetSort(string, SortDirection) error
 func (g *DataGrid) SetStatus(CollectionStatus, string) error
 func (g *DataGrid) Focus() error
@@ -1011,15 +1026,26 @@ func (t *Transaction) SetTreeStatus(*TreeView, CollectionStatus, string) error
 func (t *Transaction) SetTableRows(*Table, []TableRow) error
 func (t *Transaction) SetTableModel(*Table, []Column, []TableRow) error
 func (t *Transaction) ReplaceTable(*Table, []Column, []TableRow, string, string, []string, string, SortDirection) error
+func (t *Transaction) ReplaceTableWithPresentation(*Table, []Column, []TableRow, []TableColumnPresentation, string, string, []string, string, SortDirection) error
 func (t *Transaction) SetTableCurrent(*Table, string, string) error
 func (t *Transaction) SetTableSelection(*Table, []string) error
+func (t *Transaction) SetTableSelectionPolicy(*Table, TableSelectionPolicy) error
+func (t *Transaction) SetTableFeatures(*Table, []TableFeature) error
+func (t *Transaction) SetTableColumnPresentation(*Table, []TableColumnPresentation) error
+func (t *Transaction) SetTableVisualRoles(*Table, TableVisualRoles) error
+func (t *Transaction) SetTableFocusMode(*Table, TableFocusMode) error
 func (t *Transaction) SetTableSort(*Table, string, SortDirection) error
 func (t *Transaction) SetTableStatus(*Table, CollectionStatus, string) error
 func (t *Transaction) SetDataGridRows(*DataGrid, []TableRow) error
 func (t *Transaction) SetDataGridModel(*DataGrid, []Column, []TableRow) error
 func (t *Transaction) ReplaceDataGrid(*DataGrid, []Column, []TableRow, string, string, []string, string, SortDirection) error
+func (t *Transaction) ReplaceDataGridWithPresentation(*DataGrid, []Column, []TableRow, []TableColumnPresentation, string, string, []string, string, SortDirection) error
 func (t *Transaction) SetDataGridCurrent(*DataGrid, string, string) error
 func (t *Transaction) SetDataGridSelection(*DataGrid, []string) error
+func (t *Transaction) SetDataGridSelectionPolicy(*DataGrid, TableSelectionPolicy) error
+func (t *Transaction) SetDataGridFeatures(*DataGrid, []TableFeature) error
+func (t *Transaction) SetDataGridColumnPresentation(*DataGrid, []TableColumnPresentation) error
+func (t *Transaction) SetDataGridVisualRoles(*DataGrid, DataGridVisualRoles) error
 func (t *Transaction) SetDataGridSort(*DataGrid, string, SortDirection) error
 func (t *Transaction) SetDataGridStatus(*DataGrid, CollectionStatus, string) error
 func (t *Transaction) SetDropDownItems(Control, []ListItem) error

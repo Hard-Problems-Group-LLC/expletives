@@ -61,6 +61,16 @@ const (
 	CommandContentAppend        expletives.CommandID = "content.append"
 	CommandContentFollow        expletives.CommandID = "content.follow"
 	CommandCollections          expletives.CommandID = "catalog.controls.collections"
+	CommandTables               expletives.CommandID = "catalog.controls.tables"
+	CommandDataGrid             expletives.CommandID = "catalog.controls.data_grid"
+	CommandTableOptionsChanged  expletives.CommandID = "catalog.tables.options.changed"
+	CommandGridOptionsChanged   expletives.CommandID = "catalog.data_grid.options.changed"
+	CommandTableColorChanged    expletives.CommandID = "catalog.tables.color.changed"
+	CommandGridColorChanged     expletives.CommandID = "catalog.data_grid.color.changed"
+	CommandTableReset           expletives.CommandID = "catalog.tables.reset"
+	CommandGridReset            expletives.CommandID = "catalog.data_grid.reset"
+	CommandTableColumnsReset    expletives.CommandID = "catalog.tables.columns.reset"
+	CommandGridColumnsReset     expletives.CommandID = "catalog.data_grid.columns.reset"
 	CommandCollectionChanged    expletives.CommandID = "collection.changed"
 	CommandCollectionActivate   expletives.CommandID = "collection.activate"
 	CommandCollectionExpand     expletives.CommandID = "collection.expand"
@@ -255,6 +265,8 @@ var catalogScreens = []struct {
 	{CommandNavigation, "Navigation"},
 	{CommandScrolling, "Scrolling / Content"},
 	{CommandCollections, "Collections"},
+	{CommandTables, "Tables"},
+	{CommandDataGrid, "DataGrid"},
 	{CommandViewMenus, "Menu Bar"},
 	{CommandViewAbout, "About"},
 }
@@ -530,6 +542,8 @@ type Scene struct {
 	collectionTree          *expletives.TreeView
 	collectionTable         *expletives.Table
 	collectionDataGrid      *expletives.DataGrid
+	tableCatalog            *tableCatalogControl
+	dataGridCatalog         *tableCatalogControl
 	collectionDropDown      *expletives.DropDown
 	collectionCombo         *expletives.ComboBox
 	lastProgressDialog      *expletives.ProgressDialog
@@ -1229,6 +1243,23 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
+	tableCatalogRoles, _, tableCatalogRoleDefinitions, tableCatalogRoleStyles, err :=
+		newCatalogTableRoles(theme, "catalog.tables", false)
+	if err != nil {
+		return nil, err
+	}
+	_, dataGridCatalogRoles, dataGridCatalogRoleDefinitions, dataGridCatalogRoleStyles, err :=
+		newCatalogTableRoles(theme, "catalog.data-grid", true)
+	if err != nil {
+		return nil, err
+	}
+	allThemeStyles := theme.Styles()
+	allThemeStyles = append(allThemeStyles, tableCatalogRoleStyles...)
+	allThemeStyles = append(allThemeStyles, dataGridCatalogRoleStyles...)
+	theme, err = expletives.NewTheme(allThemeStyles...)
+	if err != nil {
+		return nil, err
+	}
 	app, err := expletives.NewApp(expletives.AppOptions{
 		Size:            size,
 		RootConstraints: constraints,
@@ -1497,6 +1528,30 @@ func NewWithRootConstraints(
 		content,
 		expletives.PanelOptions{
 			AutomationKey: "screen.collections",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	tablesScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.tables",
+			Style:         canvasStyle.ID,
+			Hidden:        true,
+			InputScope:    expletives.InputScopeConfined,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	dataGridScreen, err := transaction.NewPanel(
+		content,
+		expletives.PanelOptions{
+			AutomationKey: "screen.data-grid",
 			Style:         canvasStyle.ID,
 			Hidden:        true,
 			InputScope:    expletives.InputScopeConfined,
@@ -3355,7 +3410,7 @@ func NewWithRootConstraints(
 				MinimumSize:   expletives.Size{Width: 24, Height: 12},
 				Style:         canvasStyle.ID,
 			},
-			Title:       "Stable lists, trees, tables, and grids",
+			Title:       "Stable lists and trees",
 			BorderStyle: borderStyle.ID,
 			BorderForm:  expletives.BorderSingle,
 		},
@@ -3383,16 +3438,6 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	collectionTablePanel, err := transaction.NewPanel(
-		collectionListGroup,
-		expletives.PanelOptions{
-			AutomationKey: "collections.panel.table",
-			Style:         canvasStyle.ID,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
 	collectionChoiceGroup, err := transaction.NewGroupBox(
 		collectionsScreen,
 		expletives.GroupBoxOptions{
@@ -3401,7 +3446,7 @@ func NewWithRootConstraints(
 				MinimumSize:   expletives.Size{Width: 24, Height: 9},
 				Style:         canvasStyle.ID,
 			},
-			Title:       "Popup fields and editable grid",
+			Title:       "Popup fields",
 			BorderStyle: borderStyle.ID,
 			BorderForm:  expletives.BorderSingle,
 		},
@@ -3464,38 +3509,6 @@ func NewWithRootConstraints(
 			Selected:        []string{"workspace"},
 			ActivateCommand: CommandCollectionActivate,
 			ExpandCommand:   CommandCollectionExpand,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	collectionTable, err := transaction.NewTable(
-		collectionTablePanel,
-		expletives.TableOptions{
-			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
-				ScrollViewOptions: expletives.ScrollViewOptions{
-					PanelOptions: expletives.PanelOptions{
-						AutomationKey: "collections.table",
-						Style:         "table",
-					},
-					ChangeCommand: CommandCollectionChanged,
-				},
-				BorderStyle:   "table.border",
-				BorderForm:    expletives.BorderNone,
-				HorizontalBar: expletives.ScrollBarVisibilityAuto,
-				VerticalBar:   expletives.ScrollBarVisibilityAuto,
-			},
-			Features:         []expletives.TableFeature{expletives.TableFeatureColumns},
-			Columns:          collectionTableColumns(),
-			Rows:             collectionTableRows(),
-			CurrentRow:       "core",
-			CurrentColumn:    "name",
-			Selected:         []string{"core"},
-			SelectionStyle:   expletives.TableSelectionMultiple,
-			RequireSelection: true,
-			FocusMode:        expletives.TableFocusCell,
-			ActivateCommand:  CommandCollectionActivate,
-			SortCommand:      CommandCollectionSort,
 		},
 	)
 	if err != nil {
@@ -3594,52 +3607,9 @@ func NewWithRootConstraints(
 	if err != nil {
 		return nil, err
 	}
-	collectionDataGridPanel, err := transaction.NewPanel(
-		collectionChoiceGroup,
-		expletives.PanelOptions{
-			AutomationKey: "collections.panel.data-grid",
-			Style:         canvasStyle.ID,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	collectionDataGrid, err := transaction.NewDataGrid(
-		collectionDataGridPanel,
-		expletives.DataGridOptions{
-			ScrollablePanelOptions: expletives.ScrollablePanelOptions{
-				ScrollViewOptions: expletives.ScrollViewOptions{
-					PanelOptions: expletives.PanelOptions{
-						AutomationKey: "collections.data-grid",
-						Style:         "data_grid",
-					},
-					ChangeCommand: CommandCollectionChanged,
-				},
-				BorderStyle:   "data_grid.border",
-				BorderForm:    expletives.BorderNone,
-				HorizontalBar: expletives.ScrollBarVisibilityAuto,
-				VerticalBar:   expletives.ScrollBarVisibilityAuto,
-			},
-			Features:         []expletives.TableFeature{expletives.TableFeatureColumns},
-			Columns:          collectionDataGridColumns(),
-			Rows:             collectionTableRows(),
-			CurrentRow:       "core",
-			CurrentColumn:    "name",
-			Selected:         []string{"core"},
-			SelectionStyle:   expletives.TableSelectionMultiple,
-			RequireSelection: true,
-			ActivateCommand:  CommandCollectionActivate,
-			SortCommand:      CommandCollectionSort,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
 	for _, control := range []expletives.Control{
 		collectionList,
 		collectionTree,
-		collectionTable,
-		collectionDataGrid,
 		collectionDropDown,
 		collectionCombo,
 	} {
@@ -3653,6 +3623,32 @@ func NewWithRootConstraints(
 			return nil, err
 		}
 	}
+	tableCatalog, err := buildTableCatalog(
+		transaction,
+		tablesScreen,
+		tableCatalogRoles,
+		expletives.DataGridVisualRoles{},
+		tableCatalogRoleDefinitions,
+		tableCatalogRoleStyles,
+		false,
+	)
+	if err != nil {
+		return nil, err
+	}
+	dataGridCatalog, err := buildTableCatalog(
+		transaction,
+		dataGridScreen,
+		expletives.TableVisualRoles{},
+		dataGridCatalogRoles,
+		dataGridCatalogRoleDefinitions,
+		dataGridCatalogRoleStyles,
+		true,
+	)
+	if err != nil {
+		return nil, err
+	}
+	collectionTable := tableCatalog.table
+	collectionDataGrid := dataGridCatalog.grid
 
 	hotkeyBar, err := transaction.NewHotkeyBar(
 		recentFooter,
@@ -3719,6 +3715,8 @@ func NewWithRootConstraints(
 		{"navigation", navigationScreen},
 		{"scrolling", scrollingScreen},
 		{"collections", collectionsScreen},
+		{"tables", tablesScreen},
+		{"data-grid", dataGridScreen},
 		{"menus", menusScreen},
 		{"status", statusScreen},
 		{"headers_footers", chromeScreen},
@@ -3865,12 +3863,6 @@ func NewWithRootConstraints(
 	); err != nil {
 		return nil, err
 	}
-	if err := collectionListLayout.AddPanel(
-		collectionTablePanel,
-		expletives.LayoutItemOptions{Grow: 2},
-	); err != nil {
-		return nil, err
-	}
 	for _, entry := range []struct {
 		key     string
 		owner   expletives.Container
@@ -3878,8 +3870,6 @@ func NewWithRootConstraints(
 	}{
 		{"list", collectionListPanel, collectionList},
 		{"tree", collectionTreePanel, collectionTree},
-		{"table", collectionTablePanel, collectionTable},
-		{"data-grid", collectionDataGridPanel, collectionDataGrid},
 	} {
 		layout, layoutErr := expletives.NewBoxLayout(
 			expletives.Vertical,
@@ -3924,12 +3914,6 @@ func NewWithRootConstraints(
 		); err != nil {
 			return nil, err
 		}
-	}
-	if err := collectionChoiceLayout.AddPanel(
-		collectionDataGridPanel,
-		expletives.LayoutItemOptions{Grow: 1},
-	); err != nil {
-		return nil, err
 	}
 	menusLayout, err := expletives.NewBoxLayout(
 		expletives.Vertical,
@@ -4996,6 +4980,8 @@ func NewWithRootConstraints(
 	if err := transaction.Commit(context.Background()); err != nil {
 		return nil, err
 	}
+	tableCatalog.indexColorBindings()
+	dataGridCatalog.indexColorBindings()
 
 	scene := &Scene{
 		App:                     app,
@@ -5039,6 +5025,8 @@ func NewWithRootConstraints(
 		collectionTree:          collectionTree,
 		collectionTable:         collectionTable,
 		collectionDataGrid:      collectionDataGrid,
+		tableCatalog:            tableCatalog,
+		dataGridCatalog:         dataGridCatalog,
 		collectionDropDown:      collectionDropDown,
 		collectionCombo:         collectionCombo,
 		activeScreen:            CommandViewHome,
@@ -5070,6 +5058,8 @@ func NewWithRootConstraints(
 			CommandNavigation:      navigationScreen,
 			CommandScrolling:       scrollingScreen,
 			CommandCollections:     collectionsScreen,
+			CommandTables:          tablesScreen,
+			CommandDataGrid:        dataGridScreen,
 			CommandViewMenus:       menusScreen,
 			CommandViewAbout:       aboutScreen,
 		},
@@ -5311,6 +5301,46 @@ func initialCommandDefinitions(
 		{
 			ID: CommandCollectionSort, Label: "Sort Collection Column",
 			Description: "Report a user-originated table or grid sort change",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandTableOptionsChanged, Label: "Table Options Changed",
+			Description: "Apply a live Table option change",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandGridOptionsChanged, Label: "DataGrid Options Changed",
+			Description: "Apply a live DataGrid option change",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandTableColorChanged, Label: "Table Color Changed",
+			Description: "Apply a Table visual-role color",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandGridColorChanged, Label: "DataGrid Color Changed",
+			Description: "Apply a DataGrid visual-role color",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandTableReset, Label: "Reset Demo",
+			Description: "Reset the Table demonstration",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandGridReset, Label: "Reset Demo",
+			Description: "Reset the DataGrid demonstration",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandTableColumnsReset, Label: "Reset Columns",
+			Description: "Restore the Table column presentation",
+			Enabled:     true, Automation: true,
+		},
+		{
+			ID: CommandGridColumnsReset, Label: "Reset Columns",
+			Description: "Restore the DataGrid column presentation",
 			Enabled:     true, Automation: true,
 		},
 		unavailableCatalogDefinition(
@@ -5668,7 +5698,15 @@ func catalogMenuItems() ([]expletives.MenuItem, error) {
 		Items: []expletives.MenuItem{
 			{
 				Key: "menu.controls.text", Kind: expletives.MenuItemCommand,
-				Command: CommandViewText, Mnemonic: "t",
+				Command: CommandViewText, Mnemonic: "d",
+			},
+			{
+				Key: "menu.controls.tables", Kind: expletives.MenuItemCommand,
+				Command: CommandTables, Mnemonic: "t",
+			},
+			{
+				Key: "menu.controls.data-grid", Kind: expletives.MenuItemCommand,
+				Command: CommandDataGrid, Mnemonic: "g",
 			},
 			{
 				Key: "menu.controls.actions", Kind: expletives.MenuItemCommand,
@@ -6216,16 +6254,23 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
-		if err := transaction.SetTableColumnPresentation(
+		if err := transaction.SetTableFeatures(
 			s.collectionTable,
-			nil,
+			[]expletives.TableFeature{expletives.TableFeatureColumns},
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
-		if err := transaction.ReplaceTable(
+		if err := transaction.SetTableFocusMode(
 			s.collectionTable,
-			collectionTableColumns(),
-			collectionTableRows(),
+			expletives.TableFocusCell,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.ReplaceTableWithPresentation(
+			s.collectionTable,
+			catalogTableColumns(false),
+			catalogTableRows(),
+			catalogTablePresentation(),
 			"core",
 			"name",
 			[]string{"core"},
@@ -6243,22 +6288,67 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
-		if err := transaction.SetDataGridColumnPresentation(
+		if err := transaction.SetDataGridFeatures(
 			s.collectionDataGrid,
-			nil,
+			[]expletives.TableFeature{expletives.TableFeatureColumns},
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
-		if err := transaction.ReplaceDataGrid(
+		if err := transaction.ReplaceDataGridWithPresentation(
 			s.collectionDataGrid,
-			collectionDataGridColumns(),
-			collectionTableRows(),
+			catalogTableColumns(true),
+			catalogTableRows(),
+			catalogTablePresentation(),
 			"core",
 			"name",
 			[]string{"core"},
 			"",
 			expletives.SortNone,
 		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		catalogStyles := make(map[expletives.StyleID]expletives.ResolvedStyle)
+		for _, catalog := range []*tableCatalogControl{s.tableCatalog, s.dataGridCatalog} {
+			for id, style := range catalog.styles {
+				catalogStyles[id] = style
+			}
+			if err := transaction.SetCheckState(
+				catalog.columns,
+				expletives.CheckChecked,
+			); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+			if err := transaction.SetRadioValue(catalog.selection, "multiple"); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+			if err := transaction.SetCheckState(
+				catalog.require,
+				expletives.CheckChecked,
+			); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+			if catalog.focus != nil {
+				if err := transaction.SetRadioValue(catalog.focus, "cell"); err != nil {
+					return expletives.OutcomeFailed, err
+				}
+			}
+			if err := transaction.SetSelectedTab(catalog.notebook, "options"); err != nil {
+				return expletives.OutcomeFailed, err
+			}
+			for _, binding := range catalog.bindings {
+				if err := transaction.SetDropDownSelection(
+					binding.dropdown,
+					binding.initialKey,
+				); err != nil {
+					return expletives.OutcomeFailed, err
+				}
+			}
+		}
+		resetTheme, err := catalogThemeWithStyles(s.App.Theme(), catalogStyles)
+		if err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetTheme(resetTheme); err != nil {
 			return expletives.OutcomeFailed, err
 		}
 		if err := transaction.SetDropDownSelection(
@@ -6356,8 +6446,25 @@ func (s *Scene) handleCommand(
 		CommandViewLayoutBox, CommandViewLayoutGrid, CommandViewText,
 		CommandViewActions, CommandSelection, CommandTextInput, CommandProgress,
 		CommandNavigation, CommandScrolling, CommandCollections,
+		CommandTables, CommandDataGrid,
 		CommandViewMenus, CommandViewAbout:
 		return s.switchScreenLocked(command.ID)
+	case CommandTableOptionsChanged:
+		return s.applyTableCatalogOptionsLocked(s.tableCatalog, command.Target)
+	case CommandGridOptionsChanged:
+		return s.applyTableCatalogOptionsLocked(s.dataGridCatalog, command.Target)
+	case CommandTableColorChanged:
+		return s.applyTableCatalogColorLocked(s.tableCatalog, command.Target)
+	case CommandGridColorChanged:
+		return s.applyTableCatalogColorLocked(s.dataGridCatalog, command.Target)
+	case CommandTableReset:
+		return s.resetTableCatalogLocked(s.tableCatalog)
+	case CommandGridReset:
+		return s.resetTableCatalogLocked(s.dataGridCatalog)
+	case CommandTableColumnsReset:
+		return s.resetTableCatalogColumnsLocked(s.tableCatalog)
+	case CommandGridColumnsReset:
+		return s.resetTableCatalogColumnsLocked(s.dataGridCatalog)
 	case CommandProgressTick:
 		return s.progressTickLocked()
 	case CommandProgressReset:
@@ -7288,6 +7395,34 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 	setGridCurrent := func(row string) error {
 		return s.collectionDataGrid.SetCurrent(row, "name")
 	}
+	dismissOverflow := func(label string) error {
+		for index := 0; index < 16; index++ {
+			completion, err := s.App.InvokeCommand(
+				context.Background(), "selection-matrix",
+				fmt.Sprintf("%s-overflow-%d", label, index),
+				expletives.CommandOverflowDismiss, "",
+			)
+			if err != nil {
+				return err
+			}
+			if completion.Outcome == expletives.OutcomeNoOp {
+				return nil
+			}
+			if completion.Outcome != expletives.OutcomeApplied {
+				return fmt.Errorf("overflow dismissal = %+v", completion)
+			}
+		}
+		return errors.New("selection matrix overflow dismissal did not converge")
+	}
+	if _, err := s.App.InvokeCommand(
+		context.Background(), "selection-matrix", "show-tables",
+		CommandTables, "",
+	); err != nil {
+		return err
+	}
+	if err := dismissOverflow("tables"); err != nil {
+		return err
+	}
 
 	if err := setTableCurrent("core"); err != nil {
 		return err
@@ -7297,11 +7432,14 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 	); err != nil {
 		return err
 	}
+	if err := dismissOverflow("data-grid"); err != nil {
+		return err
+	}
 	if err := s.collectionTable.Focus(); err != nil {
 		return err
 	}
 	if err := verify(
-		"collections.table", s.collectionTable.State(),
+		"tables.control", s.collectionTable.State(),
 		expletives.TableSelectionNone, false, nil, "", "",
 	); err != nil {
 		return err
@@ -7324,7 +7462,7 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return err
 	}
 	if err := verify(
-		"collections.table", s.collectionTable.State(),
+		"tables.control", s.collectionTable.State(),
 		expletives.TableSelectionSingle, false, []string{"terminal"}, "", "",
 	); err != nil {
 		return err
@@ -7335,7 +7473,7 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return fmt.Errorf("Table Single Space = %+v, %v", completion, err)
 	}
 	if err := verify(
-		"collections.table", s.collectionTable.State(),
+		"tables.control", s.collectionTable.State(),
 		expletives.TableSelectionSingle, false, []string{"core"}, "", "",
 	); err != nil {
 		return err
@@ -7355,7 +7493,7 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return fmt.Errorf("Table Range ] = %+v, %v", completion, err)
 	}
 	if err := verify(
-		"collections.table", s.collectionTable.State(),
+		"tables.control", s.collectionTable.State(),
 		expletives.TableSelectionRange, true,
 		[]string{"core", "terminal"}, "core", "terminal",
 	); err != nil {
@@ -7374,12 +7512,18 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return err
 	}
 	if err := verify(
-		"collections.table", s.collectionTable.State(),
+		"tables.control", s.collectionTable.State(),
 		expletives.TableSelectionMultiple, true, []string{"core"}, "", "",
 	); err != nil {
 		return err
 	}
 
+	if _, err := s.App.InvokeCommand(
+		context.Background(), "selection-matrix", "show-data-grid",
+		CommandDataGrid, "",
+	); err != nil {
+		return err
+	}
 	if err := setGridCurrent("core"); err != nil {
 		return err
 	}
@@ -7392,7 +7536,7 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return err
 	}
 	if err := verify(
-		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		"data-grid.control", s.collectionDataGrid.State().TableState,
 		expletives.TableSelectionNone, false, nil, "", "",
 	); err != nil {
 		return err
@@ -7410,7 +7554,7 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return err
 	}
 	if err := verify(
-		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		"data-grid.control", s.collectionDataGrid.State().TableState,
 		expletives.TableSelectionSingle, false, []string{"core"}, "", "",
 	); err != nil {
 		return err
@@ -7429,7 +7573,7 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return fmt.Errorf("DataGrid Range ] = %+v, %v", completion, err)
 	}
 	if err := verify(
-		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		"data-grid.control", s.collectionDataGrid.State().TableState,
 		expletives.TableSelectionRange, true,
 		[]string{"core", "terminal"}, "core", "terminal",
 	); err != nil {
@@ -7453,8 +7597,14 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 		return err
 	}
 	if err := verify(
-		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		"data-grid.control", s.collectionDataGrid.State().TableState,
 		expletives.TableSelectionMultiple, true, []string{"core"}, "", "",
+	); err != nil {
+		return err
+	}
+	if _, err := s.App.InvokeCommand(
+		context.Background(), "selection-matrix", "restore-collections",
+		CommandCollections, "",
 	); err != nil {
 		return err
 	}
@@ -7503,11 +7653,15 @@ func (s *Scene) exerciseCollectionPresentationMatrix() error {
 		{Column: "tests", Visible: true, Wrap: expletives.TableColumnHang},
 		{Column: "state", Visible: false, Wrap: expletives.TableColumnClip},
 		{Column: "name", Visible: true, Wrap: expletives.TableColumnWrapWords},
+		{Column: "summary", Visible: false, Wrap: expletives.TableColumnHang},
+		{Column: "owner", Visible: false, Wrap: expletives.TableColumnWrapWords},
 	}
 	gridPresentation := []expletives.TableColumnPresentation{
 		{Column: "state", Visible: true, Wrap: expletives.TableColumnWrapWords},
 		{Column: "tests", Visible: false, Wrap: expletives.TableColumnHang},
 		{Column: "name", Visible: true, Wrap: expletives.TableColumnClip},
+		{Column: "summary", Visible: false, Wrap: expletives.TableColumnHang},
+		{Column: "owner", Visible: false, Wrap: expletives.TableColumnWrapWords},
 	}
 	transaction := s.App.NewTransaction()
 	if err := transaction.SetTableColumnPresentation(
@@ -7526,24 +7680,30 @@ func (s *Scene) exerciseCollectionPresentationMatrix() error {
 		return err
 	}
 	if err := verify(
-		"collections.table",
+		"tables.control",
 		s.collectionTable.State(),
 		tablePresentation,
 	); err != nil {
 		return err
 	}
 	if err := verify(
-		"collections.data-grid",
+		"data-grid.control",
 		s.collectionDataGrid.State().TableState,
 		gridPresentation,
 	); err != nil {
 		return err
 	}
 	transaction = s.App.NewTransaction()
-	if err := transaction.SetTableColumnPresentation(s.collectionTable, nil); err != nil {
+	if err := transaction.SetTableColumnPresentation(
+		s.collectionTable,
+		catalogTablePresentation(),
+	); err != nil {
 		return err
 	}
-	if err := transaction.SetDataGridColumnPresentation(s.collectionDataGrid, nil); err != nil {
+	if err := transaction.SetDataGridColumnPresentation(
+		s.collectionDataGrid,
+		catalogTablePresentation(),
+	); err != nil {
 		return err
 	}
 	if err := transaction.Commit(context.Background()); err != nil {
@@ -7600,6 +7760,8 @@ func SelfCheck() error {
 		"screen.navigation",
 		"screen.scrolling",
 		"screen.collections",
+		"screen.tables",
+		"screen.data-grid",
 		"screen.menus",
 		"screen.status",
 		"screen.headers_footers",
@@ -7717,16 +7879,27 @@ func SelfCheck() error {
 		"collections.group.list",
 		"collections.panel.list",
 		"collections.panel.tree",
-		"collections.panel.table",
-		"collections.panel.data-grid",
 		"collections.list",
 		"collections.tree",
-		"collections.table",
-		"collections.data-grid",
 		"collections.group.popup",
 		"collections.drop-down",
 		"collections.combo",
 		"collections.drop-down.disabled",
+		"tables.control",
+		"tables.notebook",
+		"tables.options",
+		"tables.colors",
+		"tables.options.columns",
+		"tables.options.selection",
+		"tables.options.require",
+		"tables.options.focus",
+		"data-grid.control",
+		"data-grid.notebook",
+		"data-grid.options",
+		"data-grid.colors",
+		"data-grid.options.columns",
+		"data-grid.options.selection",
+		"data-grid.options.require",
 		"layer.back",
 		"layer.front",
 	} {
@@ -7735,7 +7908,7 @@ func SelfCheck() error {
 		}
 	}
 	menu := controls["menu.main"].Details.MenuBar
-	if menu == nil || len(menu.Entries) != 62 ||
+	if menu == nil || len(menu.Entries) != 64 ||
 		len(menu.OpenPath) != 0 {
 		return errors.New("MenuBar typed evidence is incomplete")
 	}
@@ -7758,6 +7931,8 @@ func SelfCheck() error {
 		"menu.layouts.box":                  "Box Layout",
 		"menu.layouts.grid":                 "Grid Layout",
 		"menu.controls.selection":           "Selection",
+		"menu.controls.tables":              "Tables",
+		"menu.controls.data-grid":           "DataGrid",
 		"menu.controls.input":               "Text / Numeric Input",
 		"menu.controls.progress":            "Progress",
 		"menu.controls.navigation":          "Navigation",
@@ -7855,6 +8030,8 @@ func SelfCheck() error {
 		controls["screen.navigation"].Visible ||
 		controls["screen.scrolling"].Visible ||
 		controls["screen.collections"].Visible ||
+		controls["screen.tables"].Visible ||
+		controls["screen.data-grid"].Visible ||
 		controls["screen.menus"].Visible ||
 		controls["screen.status"].Visible ||
 		controls["screen.headers_footers"].Visible ||
@@ -8578,8 +8755,6 @@ func SelfCheck() error {
 	}
 	listDetails := controls["collections.list"].Details.ListBox
 	treeDetails := controls["collections.tree"].Details.TreeView
-	tableDetails := controls["collections.table"].Details.Table
-	dataGridDetails := controls["collections.data-grid"].Details.DataGrid
 	dropDownDetails := controls["collections.drop-down"].Details.DropDown
 	comboDetails := controls["collections.combo"].Details.ComboBox
 	disabledDropDown :=
@@ -8594,23 +8769,51 @@ func SelfCheck() error {
 		treeDetails == nil || treeDetails.NodeCount != 7 ||
 		treeDetails.VisibleCount != 4 || treeDetails.Current != "workspace" ||
 		treeDetails.SelectedCount != 1 || treeDetails.ExpandedCount != 1 ||
-		tableDetails == nil || tableDetails.RowCount != 4 ||
-		tableDetails.ColumnCount != 3 || tableDetails.CellCount != 11 ||
-		!tableDetails.ColumnsActionVisible || !tableDetails.ColumnsActionEnabled ||
-		tableDetails.CurrentRow != "core" || tableDetails.CurrentColumn != "name" ||
-		tableDetails.SelectedCount != 1 || tableDetails.SortDirection != expletives.SortNone ||
-		dataGridDetails == nil || dataGridDetails.Table.RowCount != 4 ||
-		dataGridDetails.Table.ColumnCount != 3 || dataGridDetails.Table.CellCount != 11 ||
-		!dataGridDetails.Table.ColumnsActionVisible ||
-		!dataGridDetails.Table.ColumnsActionEnabled ||
-		dataGridDetails.Table.CurrentRow != "core" ||
-		dataGridDetails.Table.CurrentColumn != "name" ||
-		dataGridDetails.Table.SelectedCount != 1 || dataGridDetails.Editing ||
 		dropDownDetails == nil || dropDownDetails.Selected != "medium" ||
 		comboDetails == nil || comboDetails.Popup.Selected != "alpha" ||
 		comboDetails.Editor.Text != "Alpha" ||
 		disabledDropDown == nil || disabledDropDown.Enabled {
 		return errors.New("Collections catalog typed evidence is incomplete")
+	}
+	if err := invoke("show-tables", CommandTables); err != nil {
+		return err
+	}
+	tableDetails := controls["tables.control"].Details.Table
+	if !controls["screen.tables"].Visible || tableDetails == nil ||
+		tableDetails.RowCount != 10 || tableDetails.ColumnCount != 5 ||
+		tableDetails.VisibleColumnCount != 5 ||
+		tableDetails.ColumnsActionBounds == (expletives.Rect{}) ||
+		tableDetails.CurrentRow != "core" || tableDetails.CurrentColumn != "name" ||
+		tableDetails.SelectedCount != 1 ||
+		len(tableDetails.VisualRolesDigest) != 64 ||
+		controls["tables.notebook"].Details.TabbedPanel == nil ||
+		controls["tables.notebook"].Details.TabbedPanel.Selected != "options" {
+		return fmt.Errorf(
+			"Tables catalog typed evidence is incomplete: table=%+v notebook=%+v",
+			tableDetails,
+			controls["tables.notebook"].Details.TabbedPanel,
+		)
+	}
+	if err := invoke("show-data-grid", CommandDataGrid); err != nil {
+		return err
+	}
+	dataGridDetails := controls["data-grid.control"].Details.DataGrid
+	if !controls["screen.data-grid"].Visible || dataGridDetails == nil ||
+		dataGridDetails.Table.RowCount != 10 ||
+		dataGridDetails.Table.ColumnCount != 5 ||
+		dataGridDetails.Table.VisibleColumnCount != 5 ||
+		dataGridDetails.Table.ColumnsActionBounds == (expletives.Rect{}) ||
+		dataGridDetails.Table.CurrentRow != "core" ||
+		dataGridDetails.Table.CurrentColumn != "name" ||
+		dataGridDetails.Table.SelectedCount != 1 || dataGridDetails.Editing ||
+		len(dataGridDetails.VisualRolesDigest) != 64 ||
+		controls["data-grid.notebook"].Details.TabbedPanel == nil ||
+		controls["data-grid.notebook"].Details.TabbedPanel.Selected != "options" {
+		return fmt.Errorf(
+			"DataGrid catalog typed evidence is incomplete: grid=%+v notebook=%+v",
+			dataGridDetails,
+			controls["data-grid.notebook"].Details.TabbedPanel,
+		)
 	}
 	pressCollectionKey := func(request string, key expletives.Key) (
 		expletives.Completion,
@@ -8622,6 +8825,25 @@ func SelfCheck() error {
 			request,
 			expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: key},
 		)
+	}
+	dismissCollectionOverflows := func(prefix string) error {
+		for index := 0; index < 16; index++ {
+			completion, dismissErr := scene.App.InvokeCommand(
+				context.Background(), "self-check",
+				fmt.Sprintf("%s-overflow-%d", prefix, index),
+				expletives.CommandOverflowDismiss, "",
+			)
+			if dismissErr != nil {
+				return dismissErr
+			}
+			if completion.Outcome == expletives.OutcomeNoOp {
+				return nil
+			}
+			if completion.Outcome != expletives.OutcomeApplied {
+				return fmt.Errorf("overflow dismissal = %+v", completion)
+			}
+		}
+		return errors.New("collection overflow dismissal did not converge")
 	}
 	if err := scene.exerciseCollectionSelectionMatrix(pressCollectionKey); err != nil {
 		return fmt.Errorf("Table/DataGrid selection matrix: %w", err)
@@ -8677,6 +8899,12 @@ func SelfCheck() error {
 		len(state.Expanded) != 2 || state.Expanded[1] != "source" {
 		return fmt.Errorf("TreeView interactive State = %+v", state)
 	}
+	if err := invoke("show-tables-interactive", CommandTables); err != nil {
+		return err
+	}
+	if err := dismissCollectionOverflows("tables-interactive"); err != nil {
+		return err
+	}
 	if err := scene.collectionTable.Focus(); err != nil {
 		return fmt.Errorf("Table focus: %w", err)
 	}
@@ -8707,6 +8935,12 @@ func SelfCheck() error {
 		state.Selected[0] != "core" || state.Selected[1] != "terminal" ||
 		state.SortColumn != "name" || state.SortDirection != expletives.SortAscending {
 		return fmt.Errorf("Table interactive State = %+v", state)
+	}
+	if err := invoke("show-data-grid-interactive", CommandDataGrid); err != nil {
+		return err
+	}
+	if err := dismissCollectionOverflows("data-grid-interactive"); err != nil {
+		return err
 	}
 	if err := scene.collectionDataGrid.Focus(); err != nil {
 		return fmt.Errorf("DataGrid focus: %w", err)
@@ -8743,6 +8977,7 @@ func SelfCheck() error {
 		key     expletives.Key
 	}{
 		{"collection-grid-column", expletives.KeyRight},
+		{"collection-grid-column-state", expletives.KeyRight},
 		{"collection-grid-f2", expletives.KeyF2},
 	} {
 		completion, inputErr := pressCollectionKey(input.request, input.key)
@@ -8770,6 +9005,9 @@ func SelfCheck() error {
 		expletives.KeyEscape,
 	); inputErr != nil || completion.Outcome != expletives.OutcomeApplied {
 		return fmt.Errorf("DataGrid cancel dispatch = %+v, %v", completion, inputErr)
+	}
+	if err := invoke("restore-collections-interactive", CommandCollections); err != nil {
+		return err
 	}
 	if err := scene.collectionDropDown.Focus(); err != nil {
 		return fmt.Errorf("DropDown focus: %w", err)

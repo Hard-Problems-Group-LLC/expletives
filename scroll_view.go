@@ -63,6 +63,7 @@ type scrollViewBehavior struct {
 	horizontalPolicy ScrollBarVisibility
 	verticalPolicy   ScrollBarVisibility
 	integratedBars   bool
+	barRoles         scrollBarVisualRoles
 }
 
 type scrollViewGeometry struct {
@@ -364,14 +365,7 @@ func (b scrollViewBehavior) additionalStyles() []StyleID {
 			b.verticalPolicy == ScrollBarVisibilityNever) {
 		return nil
 	}
-	return []StyleID{
-		"scrollbar.page",
-		"scrollbar.arrow",
-		"scrollbar.thumb",
-		"scrollbar.focused",
-		"scrollbar.disabled",
-		"scrollbar.corner",
-	}
+	return b.barRoles.ids(true)
 }
 
 func (b scrollViewBehavior) details() ControlDetails {
@@ -412,6 +406,7 @@ func (b scrollViewBehavior) paintDecoration(
 			disabled:       b.disabled,
 			disabledReason: b.disabledReason,
 			changeCommand:  b.changeCommand,
+			roles:          b.barRoles,
 		}
 		scroll.paintDecoration(app, frame, control, bar, clip)
 	}
@@ -429,6 +424,7 @@ func (b scrollViewBehavior) paintDecoration(
 			disabled:       b.disabled,
 			disabledReason: b.disabledReason,
 			changeCommand:  b.changeCommand,
+			roles:          b.barRoles,
 		}
 		scroll.paintDecoration(app, frame, control, bar, clip)
 	}
@@ -437,7 +433,7 @@ func (b scrollViewBehavior) paintDecoration(
 		app.fillStyleLocked(
 			frame,
 			corner.Intersect(clip),
-			"scrollbar.corner",
+			b.barRoles.normalized().corner,
 			control.id,
 		)
 	}
@@ -907,7 +903,8 @@ func scrollViewBehaviorEqual(left, right scrollViewBehavior) bool {
 		left.content == right.content &&
 		left.horizontalPolicy == right.horizontalPolicy &&
 		left.verticalPolicy == right.verticalPolicy &&
-		left.integratedBars == right.integratedBars
+		left.integratedBars == right.integratedBars &&
+		left.barRoles == right.barRoles
 }
 
 func colorPointersEqual(left, right *Color) bool {

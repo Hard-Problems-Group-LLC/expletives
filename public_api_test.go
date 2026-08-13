@@ -381,6 +381,106 @@ func TestExternalConsumerConfiguresTableFeatures(t *testing.T) {
 	}
 }
 
+func TestExternalConsumerConfiguresTableVisualRolesAndFocus(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 42, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	columns := []expletives.Column{{
+		Key: "value", Header: "Value", Editable: true,
+	}}
+	rows := []expletives.TableRow{{
+		Key: "one", Cells: []expletives.TableCell{{Column: "value", Text: "One"}},
+	}}
+	table, err := expletives.NewTable(app.Root(), expletives.TableOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.roles.table", Bounds: expletives.Rect{Width: 19, Height: 6},
+			}},
+		},
+		Columns: columns, Rows: rows,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, err := expletives.NewDataGrid(app.Root(), expletives.DataGridOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.roles.grid", Bounds: expletives.Rect{X: 21, Width: 19, Height: 6},
+			}},
+		},
+		Columns: columns, Rows: rows,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tableRoles := table.VisualRoles()
+	tableRoles.Body = "collection.current"
+	tableRoles.Header = "collection.current_selected"
+	gridRoles := grid.VisualRoles()
+	gridRoles.Editable = "text_input.valid"
+	gridRoles.FocusedEdit = "text_input.focused"
+	transaction := app.NewTransaction()
+	if err := transaction.SetTableVisualRoles(table, tableRoles); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.SetTableFocusMode(table, expletives.TableFocusRow); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.SetDataGridVisualRoles(grid, gridRoles); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if table.VisualRoles() != tableRoles || table.State().VisualRoles != tableRoles ||
+		table.State().FocusMode != expletives.TableFocusRow {
+		t.Fatalf("external Table roles/focus = %+v", table.State())
+	}
+	if grid.VisualRoles() != gridRoles || grid.State().VisualRoles != gridRoles ||
+		grid.State().TableState.VisualRoles != gridRoles.TableVisualRoles {
+		t.Fatalf("external DataGrid roles = %+v", grid.State())
+	}
+	for _, control := range app.Snapshot().Controls {
+		switch control.Key {
+		case "external.roles.table":
+			if control.Details.Table == nil ||
+				control.Details.Table.VisualRoles != tableRoles ||
+				len(control.Details.Table.VisualRolesDigest) != 64 {
+				t.Fatalf("external Table role details = %+v", control.Details)
+			}
+		case "external.roles.grid":
+			if control.Details.DataGrid == nil ||
+				control.Details.DataGrid.VisualRoles != gridRoles ||
+				len(control.Details.DataGrid.VisualRolesDigest) != 64 {
+				t.Fatalf("external DataGrid role details = %+v", control.Details)
+			}
+		}
+	}
+
+	updated := table.VisualRoles()
+	updated.Body = "collection.current_selected"
+	if err := table.SetVisualRoles(updated); err != nil {
+		t.Fatal(err)
+	}
+	if err := table.SetFocusMode(expletives.TableFocusCell); err != nil {
+		t.Fatal(err)
+	}
+	gridUpdated := grid.VisualRoles()
+	gridUpdated.InvalidEdit = "text_input.focused_invalid"
+	if err := grid.SetVisualRoles(gridUpdated); err != nil {
+		t.Fatal(err)
+	}
+	if table.VisualRoles() != updated || table.State().FocusMode != expletives.TableFocusCell ||
+		grid.VisualRoles() != gridUpdated {
+		t.Fatalf("external direct roles/focus: table=%+v grid=%+v", table.State(), grid.State())
+	}
+}
+
 func TestExternalConsumerDeclaresAndObservesInputScope(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

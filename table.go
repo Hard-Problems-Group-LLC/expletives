@@ -135,6 +135,7 @@ type TableOptions struct {
 	RangeAnchor        string
 	RangeExtent        string
 	ColumnPresentation []TableColumnPresentation
+	VisualRoles        TableVisualRoles
 	FocusMode          TableFocusMode
 	SortColumn         string
 	SortDirection      SortDirection
@@ -155,6 +156,7 @@ type TableState struct {
 	CurrentColumnIndex int
 	Selected           []string
 	SelectionStyle     TableSelectionStyle
+	RequireSelection   bool
 	RangeAnchor        string
 	RangeExtent        string
 	ColumnPresentation []TableColumnPresentation
@@ -171,6 +173,7 @@ type TableState struct {
 	ColumnCount        int
 	CellCount          int
 	ColumnWidths       []int
+	VisualRoles        TableVisualRoles
 }
 
 // Table is a copy-safe focusable stable-identity read-only table leaf.
@@ -218,6 +221,7 @@ type tableBehavior struct {
 	rangeExtent          string
 	columnPresentation   []TableColumnPresentation
 	initialPresentation  []TableColumnPresentation
+	visualRoles          TableVisualRoles
 	focusMode            TableFocusMode
 	sortColumn           string
 	sortDirection        SortDirection
@@ -332,7 +336,26 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 	if err != nil {
 		return tableBehavior{}, err
 	}
+	bodyDefault := options.Style
+	if bodyDefault == "" {
+		bodyDefault = "table"
+	}
+	borderDefault := options.BorderStyle
+	if borderDefault == "" {
+		borderDefault = "table.border"
+	}
+	visualRoles, err := normalizeTableVisualRoles(
+		options.VisualRoles,
+		defaultTableVisualRoles(tableRoleDefaultOptions{
+			body: bodyDefault, border: borderDefault,
+		}),
+	)
+	if err != nil {
+		return tableBehavior{}, err
+	}
+	border.borderStyle = visualRoles.Border
 	scroll.border = border
+	scroll.barRoles = scrollBarRolesFromTable(visualRoles)
 	scroll.state.Offset = requestedOffset
 	selectionStyle, mode, err := normalizeTableSelectionStyle(
 		options.SelectionStyle,
@@ -384,6 +407,7 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 			[]TableColumnPresentation(nil),
 			presentation...,
 		),
+		visualRoles:      visualRoles,
 		geometryRevision: 1,
 		focusMode:        focusMode,
 		status:           status,
@@ -620,7 +644,8 @@ func paintTableColumnsBand(
 	for y := band.Y; y < band.Y+band.Height; y++ {
 		for x := band.X; x < band.X+band.Width; x++ {
 			app.setCellLocked(
-				frame, x, y, " ", state.style, app.styles[state.style], state.id,
+				frame, x, y, " ", behavior.visualRoles.ColumnsBand,
+				app.styles[behavior.visualRoles.ColumnsBand], state.id,
 			)
 		}
 	}
@@ -642,15 +667,16 @@ func paintTableColumnsAction(
 	focused := enabled && app.focus == state &&
 		behavior.focusPart == TableFocusColumnsAction
 	pressed := focused && app.tableColumnsActionPressedLocked(state)
-	bodyStyle := StyleID("button")
-	mnemonicStyle := StyleID("button.mnemonic")
+	bodyStyle := behavior.visualRoles.ColumnsAction
+	mnemonicStyle := behavior.visualRoles.ColumnsActionMnemonic
 	switch {
 	case !enabled:
-		bodyStyle, mnemonicStyle = "button.disabled", "button.disabled"
+		bodyStyle = behavior.visualRoles.ColumnsActionDisabled
+		mnemonicStyle = bodyStyle
 	case pressed:
-		bodyStyle = "button.pressed"
+		bodyStyle = behavior.visualRoles.ColumnsActionPressed
 	case focused:
-		bodyStyle = "button.focused"
+		bodyStyle = behavior.visualRoles.ColumnsActionFocused
 	}
 	paint := func(x, y int, grapheme string, style StyleID) {
 		app.setClippedCellLocked(
@@ -694,19 +720,19 @@ func paintTableColumnsAction(
 		for x := left; x <= right; x++ {
 			paint(x, y, " ", bodyStyle)
 		}
-		paint(left, y, " ", "button.shadow")
+		paint(left, y, " ", behavior.visualRoles.ColumnsActionShadow)
 		if pressed {
-			paint(left+1, y, " ", "button.shadow")
+			paint(left+1, y, " ", behavior.visualRoles.ColumnsActionShadow)
 		} else {
-			paint(right, y, "▄", "button.shadow")
+			paint(right, y, "▄", behavior.visualRoles.ColumnsActionShadow)
 		}
 	}
 	for x := left; x <= right; x++ {
-		paint(x, bottom, " ", "button.shadow")
+		paint(x, bottom, " ", behavior.visualRoles.ColumnsActionShadow)
 	}
 	if !pressed {
 		for x := left + 2; x <= right; x++ {
-			paint(x, bottom, "▀", "button.shadow")
+			paint(x, bottom, "▀", behavior.visualRoles.ColumnsActionShadow)
 		}
 	}
 	paintLabel(bodyLeft, bodyRight, action.Y+action.Height/2-1)
@@ -1521,6 +1547,7 @@ func tableBehaviorEqual(left, right tableBehavior) bool {
 		left.focusPart != right.focusPart ||
 		left.schemaRevision != right.schemaRevision ||
 		left.presentationRevision != right.presentationRevision ||
+		left.visualRoles != right.visualRoles ||
 		left.focusMode != right.focusMode || left.sortColumn != right.sortColumn ||
 		left.sortDirection != right.sortDirection || left.status != right.status ||
 		left.statusMessage.text != right.statusMessage.text || left.changeCommand != right.changeCommand ||
@@ -1627,31 +1654,7 @@ func (b tableBehavior) intrinsicMinimum() Size {
 }
 
 func (b tableBehavior) additionalStyles() []StyleID {
-	styles := append([]StyleID{}, b.scroll.additionalStyles()...)
-	styles = append(styles,
-		"table.header",
-		"table.header_current",
-		"table.sort",
-		"table.cell_current",
-		"table.row_selected",
-		"collection.current",
-		"collection.current_selected",
-		"collection.disabled",
-		"collection.empty",
-		"collection.loading",
-		"collection.error",
-	)
-	if tableHasFeature(b, TableFeatureColumns) {
-		styles = append(styles,
-			"button",
-			"button.focused",
-			"button.pressed",
-			"button.disabled",
-			"button.mnemonic",
-			"button.shadow",
-		)
-	}
-	return styles
+	return tableVisualRoleIDs(b.visualRoles)
 }
 
 func (b tableBehavior) details() ControlDetails {
@@ -1691,7 +1694,7 @@ func (b tableBehavior) paintDecoration(
 		}
 		for x := visible.X; x < visible.X+visible.Width; x++ {
 			sourceX := b.scroll.state.Offset.X + x - viewport.X
-			cell := tablePaintCell{grapheme: " ", style: "table"}
+			cell := tablePaintCell{grapheme: " ", style: b.visualRoles.Body}
 			if sourceX >= 0 && sourceX < len(cells) {
 				cell = cells[sourceX]
 			}
@@ -1702,15 +1705,15 @@ func (b tableBehavior) paintDecoration(
 
 func (b tableBehavior) headerCells(focused bool) []tablePaintCell {
 	if len(b.columns) == 0 {
-		return tableTextPaintCells("", "table.header")
+		return tableTextPaintCells("", b.visualRoles.Header)
 	}
-	result := tableTextPaintCells("    ", "table.header")
+	result := tableTextPaintCells("    ", b.visualRoles.Header)
 	visibleColumns := visibleTableColumns(b)
 	for visibleIndex, columnIndex := range visibleColumns {
 		column := b.columns[columnIndex]
-		style := StyleID("table.header")
+		style := b.visualRoles.Header
 		if focused && b.focusMode == TableFocusCell && column.column.Key == b.currentColumn {
-			style = "table.header_current"
+			style = b.visualRoles.CurrentHeader
 		}
 		content := append([]string(nil), column.header.lines[0]...)
 		content = alignedTableCells(content, b.columnWidths[columnIndex], TextAlignStart)
@@ -1724,12 +1727,12 @@ func (b tableBehavior) headerCells(focused bool) []tablePaintCell {
 		for cellIndex, grapheme := range content {
 			cellStyle := style
 			if column.column.Key == b.sortColumn && cellIndex == len(content)-1 {
-				cellStyle = "table.sort"
+				cellStyle = b.visualRoles.SortMarker
 			}
 			result = append(result, tablePaintCell{grapheme: grapheme, style: cellStyle})
 		}
 		if visibleIndex+1 < len(visibleColumns) {
-			result = append(result, tablePaintCell{grapheme: "│", style: "table.header"})
+			result = append(result, tablePaintCell{grapheme: "│", style: b.visualRoles.Header})
 		}
 	}
 	return result
@@ -1741,12 +1744,12 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 	}
 	switch b.status {
 	case CollectionLoading:
-		return tableTextPaintCells("[loading] "+b.statusMessage.text, "collection.loading")
+		return tableTextPaintCells("[loading] "+b.statusMessage.text, b.visualRoles.Loading)
 	case CollectionError:
-		return tableTextPaintCells("[error] "+b.statusMessage.text, "collection.error")
+		return tableTextPaintCells("[error] "+b.statusMessage.text, b.visualRoles.Error)
 	}
 	if len(b.rows) == 0 {
-		return tableTextPaintCells("[empty]", "collection.empty")
+		return tableTextPaintCells("[empty]", b.visualRoles.Empty)
 	}
 	displayIndex, within, ok := tableVisualRowAt(b, index)
 	order := tableDisplayOrder(b)
@@ -1756,15 +1759,15 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 	row := b.rows[order[displayIndex]]
 	current := row.row.Key == b.currentRow
 	selected := listSelectionContains(b.selected, row.row.Key)
-	rowStyle := StyleID("table")
+	rowStyle := b.visualRoles.Body
 	if row.row.Disabled {
-		rowStyle = "collection.disabled"
+		rowStyle = b.visualRoles.Disabled
 	} else if focused && current && b.focusMode == TableFocusRow && selected {
-		rowStyle = "collection.current_selected"
+		rowStyle = b.visualRoles.CurrentSelectedRow
 	} else if focused && current && b.focusMode == TableFocusRow {
-		rowStyle = "collection.current"
+		rowStyle = b.visualRoles.CurrentRow
 	} else if selected {
-		rowStyle = "table.row_selected"
+		rowStyle = b.visualRoles.SelectedRow
 	}
 	marker := " "
 	if within == 0 && focused && current {
@@ -1817,7 +1820,7 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 		cellStyle := rowStyle
 		if !row.row.Disabled && focused && current && b.focusMode == TableFocusCell &&
 			column.column.Key == b.currentColumn {
-			cellStyle = "table.cell_current"
+			cellStyle = b.visualRoles.CurrentCell
 		}
 		for _, grapheme := range aligned {
 			result = append(result, tablePaintCell{grapheme: grapheme, style: cellStyle})
@@ -2341,6 +2344,8 @@ func tableDetails(
 		ColumnsDialogOpen:    dialogOpen,
 		ColumnWidths:         visibleTableColumnWidths(behavior),
 		ColumnWidthsDigest:   integerSequenceDigest(visibleTableColumnWidths(behavior)),
+		VisualRoles:          behavior.visualRoles,
+		VisualRolesDigest:    tableVisualRoleDigest(behavior.visualRoles),
 		Enabled:              !behavior.scroll.disabled, DisabledReason: behavior.scroll.disabledReason,
 		ChangeCommand: behavior.changeCommand, ActivateCommand: behavior.activateCommand,
 		SortCommand: behavior.sortCommand, Viewport: viewport,
@@ -2409,9 +2414,10 @@ func (t *Table) State() TableState {
 		CurrentColumn:      behavior.currentColumn,
 		CurrentColumnIndex: tableVisibleColumnIndex(behavior, behavior.currentColumn),
 		Selected:           append([]string(nil), behavior.selected...), FocusMode: behavior.focusMode,
-		SelectionStyle: behavior.selectionStyle,
-		RangeAnchor:    behavior.rangeAnchor,
-		RangeExtent:    behavior.rangeExtent,
+		SelectionStyle:   behavior.selectionStyle,
+		RequireSelection: behavior.requireSelection,
+		RangeAnchor:      behavior.rangeAnchor,
+		RangeExtent:      behavior.rangeExtent,
 		ColumnPresentation: append(
 			[]TableColumnPresentation(nil),
 			behavior.columnPresentation...,
@@ -2424,7 +2430,22 @@ func (t *Table) State() TableState {
 		Offset: behavior.scroll.state.Offset, RowCount: len(behavior.rows),
 		EnabledCount: enabledTableRowCount(behavior.rows), ColumnCount: len(behavior.columns),
 		CellCount: tableCellCount(behavior.rows), ColumnWidths: visibleTableColumnWidths(behavior),
+		VisualRoles: behavior.visualRoles,
 	}
+}
+
+// VisualRoles returns the complete normalized per-instance semantic role set.
+func (t *Table) VisualRoles() TableVisualRoles {
+	if t == nil || t.state == nil || t.state.app == nil {
+		return TableVisualRoles{}
+	}
+	t.state.app.mu.RLock()
+	defer t.state.app.mu.RUnlock()
+	behavior, ok := t.state.behavior.(tableBehavior)
+	if !ok || t.state.destroyed || t.state.aborted {
+		return TableVisualRoles{}
+	}
+	return behavior.visualRoles
 }
 
 // SetRows replaces the canonical row model while preserving surviving state.
@@ -2513,6 +2534,21 @@ func (t *Table) SetColumnPresentation(
 ) error {
 	return commitTableMutation(t, func(tx *Transaction) error {
 		return tx.SetTableColumnPresentation(t, presentation)
+	})
+}
+
+// SetVisualRoles atomically replaces the complete per-instance semantic role
+// set. Empty fields select compatible built-in roles.
+func (t *Table) SetVisualRoles(roles TableVisualRoles) error {
+	return commitTableMutation(t, func(tx *Transaction) error {
+		return tx.SetTableVisualRoles(t, roles)
+	})
+}
+
+// SetFocusMode atomically selects row or row-and-column current navigation.
+func (t *Table) SetFocusMode(mode TableFocusMode) error {
+	return commitTableMutation(t, func(tx *Transaction) error {
+		return tx.SetTableFocusMode(t, mode)
 	})
 }
 
@@ -3290,6 +3326,49 @@ func (t *Transaction) SetTableColumnPresentation(
 	}
 	invalidateTableGeometry(&behavior)
 	repairTableCurrentColumn(&behavior, previous)
+	behavior = reflowTable(behavior, target.bounds.Size())
+	return t.recordTable(target, behavior)
+}
+
+// SetTableVisualRoles records one exact per-instance semantic role
+// replacement. Theme membership is validated against the staged Theme when
+// the Transaction commits.
+func (t *Transaction) SetTableVisualRoles(
+	control *Table,
+	roles TableVisualRoles,
+) error {
+	target, behavior, err := t.selectedTable(control)
+	if err != nil {
+		return err
+	}
+	normalized, err := normalizeTableVisualRoles(
+		roles,
+		defaultTableVisualRoles(tableRoleDefaultOptions{}),
+	)
+	if err != nil {
+		return err
+	}
+	behavior.visualRoles = normalized
+	behavior.scroll.border.borderStyle = normalized.Border
+	behavior.scroll.barRoles = scrollBarRolesFromTable(normalized)
+	return t.recordTable(target, behavior)
+}
+
+// SetTableFocusMode records one exact row or cell focus-mode replacement.
+func (t *Transaction) SetTableFocusMode(
+	control *Table,
+	mode TableFocusMode,
+) error {
+	target, behavior, err := t.selectedTable(control)
+	if err != nil {
+		return err
+	}
+	normalized, err := normalizeTableFocusMode(mode)
+	if err != nil {
+		return err
+	}
+	behavior.focusMode = normalized
+	repairTableCurrentColumn(&behavior, behavior.columnPresentation)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
 }

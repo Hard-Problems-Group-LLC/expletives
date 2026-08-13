@@ -2513,7 +2513,8 @@ func validTableDetails(
 	if !validCompactKeyRange(details.SelectedCount, details.FirstSelected, details.LastSelected, limits) ||
 		!validLowerSHA256(details.SelectionDigest) ||
 		!validLowerSHA256(details.PresentationDigest) ||
-		!validLowerSHA256(details.ColumnWidthsDigest) {
+		!validLowerSHA256(details.ColumnWidthsDigest) ||
+		!validLowerSHA256(details.VisualRolesDigest) {
 		return false
 	}
 	emptyDigest := "e3b0c44298fc1c149afbf4c8996fb924" +
@@ -2549,6 +2550,9 @@ func validDataGridDetails(
 	controlHeight int,
 	limits Limits,
 ) bool {
+	if details == nil || !validLowerSHA256(details.VisualRolesDigest) {
+		return false
+	}
 	if details == nil ||
 		!validTableDetails(
 			&details.Table,

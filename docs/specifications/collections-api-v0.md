@@ -579,6 +579,23 @@ type TableColumnPresentation struct {
     Wrap    TableColumnWrap
 }
 
+type TableVisualRoles struct {
+    Body, Border, Header, CurrentHeader, SortMarker StyleID
+    CurrentCell, SelectedRow, CurrentRow StyleID
+    CurrentSelectedRow, Disabled, Empty, Loading, Error StyleID
+    ScrollbarPage, ScrollbarArrow, ScrollbarThumb StyleID
+    ScrollbarFocusedThumb, ScrollbarDisabled, ScrollbarCorner StyleID
+    ColumnsBand, ColumnsAction, ColumnsActionDefault StyleID
+    ColumnsActionFocused, ColumnsActionPressed StyleID
+    ColumnsActionDisabled, ColumnsActionMnemonic, ColumnsActionShadow StyleID
+}
+
+type DataGridVisualRoles struct {
+    TableVisualRoles
+    Editable, FocusedEdit, InvalidEdit StyleID
+    InvalidCharacter, TextSelection StyleID
+}
+
 type TableOptions struct {
     ScrollablePanelOptions
     Features         []TableFeature
@@ -593,6 +610,7 @@ type TableOptions struct {
     RangeAnchor      string
     RangeExtent      string
     ColumnPresentation []TableColumnPresentation
+    VisualRoles      TableVisualRoles
     FocusMode        TableFocusMode
     SortColumn       string
     SortDirection    SortDirection
@@ -612,6 +630,7 @@ type TableState struct {
     CurrentColumnIndex int
     Selected           []string
     SelectionStyle     TableSelectionStyle
+    RequireSelection   bool
     RangeAnchor        string
     RangeExtent        string
     ColumnPresentation []TableColumnPresentation
@@ -628,6 +647,7 @@ type TableState struct {
     ColumnCount         int
     CellCount           int
     ColumnWidths        []int
+    VisualRoles         TableVisualRoles
 }
 
 type Table struct { /* copy-safe Panel-derived leaf */ }
@@ -664,6 +684,9 @@ func (t *Table) SetSelection([]string) error
 func (t *Table) SetSelectionPolicy(TableSelectionPolicy) error
 func (t *Table) SetFeatures([]TableFeature) error
 func (t *Table) SetColumnPresentation([]TableColumnPresentation) error
+func (t *Table) VisualRoles() TableVisualRoles
+func (t *Table) SetVisualRoles(TableVisualRoles) error
+func (t *Table) SetFocusMode(TableFocusMode) error
 func (t *Table) SetSort(string, SortDirection) error
 func (t *Table) SetStatus(CollectionStatus, string) error
 func (t *Table) Focus() error
@@ -711,6 +734,8 @@ func (t *Transaction) SetTableColumnPresentation(
     *Table,
     []TableColumnPresentation,
 ) error
+func (t *Transaction) SetTableVisualRoles(*Table, TableVisualRoles) error
+func (t *Transaction) SetTableFocusMode(*Table, TableFocusMode) error
 func (t *Transaction) SetTableSort(*Table, string, SortDirection) error
 func (t *Transaction) SetTableStatus(
     *Table,
@@ -756,6 +781,14 @@ presentation atomically. Presentation order and visibility govern header/body
 painting, width allocation, horizontal geometry, cell navigation, and
 DataGrid editable-cell traversal without changing canonical `Columns()` or
 `Rows()`.
+
+Visual roles are a copied, fixed semantic-role mapping for one control.
+Empty fields normalize to compatible built-in Table roles. Every normalized
+StyleID must exist in the Theme selected by the same Transaction, allowing a
+Theme and role mapping to change atomically without retaining raw colors in
+control state. Role changes are instance local. `SetFocusMode` provides the
+same atomic runtime row/cell selection as construction and repairs current
+column state without routing application commands.
 
 Clip paints one body line truncated to the derived width. Wrap breaks body
 text at word boundaries and falls back to cell boundaries for an overlong
@@ -868,6 +901,7 @@ type DataGridOptions struct {
     RangeAnchor      string
     RangeExtent      string
     ColumnPresentation []TableColumnPresentation
+    VisualRoles      DataGridVisualRoles
     SortColumn       string
     SortDirection    SortDirection
     Status           CollectionStatus
@@ -878,6 +912,7 @@ type DataGridOptions struct {
 
 type DataGridState struct {
     TableState
+    VisualRoles DataGridVisualRoles
     Editing    bool
     EditRow    string
     EditColumn string
@@ -923,6 +958,8 @@ func (g *DataGrid) SetSelection([]string) error
 func (g *DataGrid) SetSelectionPolicy(TableSelectionPolicy) error
 func (g *DataGrid) SetFeatures([]TableFeature) error
 func (g *DataGrid) SetColumnPresentation([]TableColumnPresentation) error
+func (g *DataGrid) VisualRoles() DataGridVisualRoles
+func (g *DataGrid) SetVisualRoles(DataGridVisualRoles) error
 func (g *DataGrid) SetSort(string, SortDirection) error
 func (g *DataGrid) SetStatus(CollectionStatus, string) error
 func (g *DataGrid) Focus() error
@@ -970,6 +1007,10 @@ func (t *Transaction) SetDataGridColumnPresentation(
     *DataGrid,
     []TableColumnPresentation,
 ) error
+func (t *Transaction) SetDataGridVisualRoles(
+    *DataGrid,
+    DataGridVisualRoles,
+) error
 func (t *Transaction) SetDataGridSort(
     *DataGrid,
     string,
@@ -987,6 +1028,11 @@ row, sort, selection, and viewport semantics privately. It always uses cell
 focus. A column is editable only when `Editable` is true. V0 cells are
 single-line text editors using the optional copied `TextValidator`; richer
 typed editors can be added without changing the row model.
+
+Its visual-role mapping embeds the complete Table mapping and adds editable,
+focused-edit, invalid-edit, invalid-character, and text-selection roles.
+Changing the complete mapping cancels an active editor in the same atomic
+transition and validates all roles against the staged Theme.
 
 Enter or F2 begins editing the current editable cell. Enter commits, Escape
 cancels, and Tab or Shift-Tab commits then moves to the next or previous
@@ -1084,8 +1130,14 @@ details follow the project
 
 Automation may drive the complete raw key lifecycle, including modifier
 chords, popup commit/cancel, selection, expansion, sorting, and DataGrid edit
-commit. Stable catalog keys are `collections.list`, `collections.combo`,
-`collections.tree`, `collections.table`, and `collections.data-grid`.
+commit. Stable collection-catalog keys are `collections.list`,
+`collections.combo`, and `collections.tree`. Table and DataGrid have dedicated
+Controls-menu screens with roots `tables.control` and `data-grid.control`.
+Their right-hand Notebooks expose scrollable Options and Colors pages. Options
+changes the Columns feature, exact selection policy, requirement, and Table
+focus mode live. Colors changes one instance-local foreground/background role
+through named-palette DropDowns and an atomic Theme replacement. Both screens
+provide exact reset commands and retain a 3:1 post-minimum horizontal split.
 
 ## Acceptance
 
@@ -1104,5 +1156,6 @@ Phase 16 is complete when:
 - aggregate models and automation responses remain within proved bounds;
 - ordinary, fuzz, concurrent, race, PTY, attached-automation, and all-mode
   build gates pass; and
-- `expletives-test` exposes every implemented behavior on purpose-specific
-  collection pages reachable from Controls/Collections.
+- `expletives-test` exposes ListBox, TreeView, DropDown, and ComboBox on
+  Controls/Collections, and exposes Table and DataGrid on their dedicated
+  Controls/Tables and Controls/DataGrid interactive screens.

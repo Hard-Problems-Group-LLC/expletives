@@ -252,8 +252,17 @@ table, err := expletives.NewTable(panel, expletives.TableOptions{
             {Column: "count", Text: "3"},
         }},
     },
+    Features: []expletives.TableFeature{expletives.TableFeatureColumns},
+    SelectionStyle:  expletives.TableSelectionRange,
     FocusMode:        expletives.TableFocusCell,
     RequireSelection: true,
+    RangeAnchor:      "build",
+    RangeExtent:      "build",
+    ColumnPresentation: []expletives.TableColumnPresentation{
+        {Column: "name", Visible: true, Wrap: expletives.TableColumnHang},
+        {Column: "state", Visible: true, Wrap: expletives.TableColumnClip},
+        {Column: "count", Visible: true, Wrap: expletives.TableColumnClip},
+    },
     ActivateCommand:  "jobs.open",
     SortCommand:      "jobs.sort.changed",
 })
@@ -266,19 +275,37 @@ and Ctrl-Home/Ctrl-End move to the first/last enabled row and boundary column.
 Press `S` on a sortable current column to cycle ascending, descending, and
 canonical model order. Sorting is stable and never changes `Rows()` order.
 
+Choose exactly one `SelectionStyle`: None, Single, Range, or Multiple. Range
+retains stable anchor/extent row keys and derives the continuous enabled
+displayed interval; Shift-navigation and `[`/`]` extend it. None leaves
+current navigation and activation available without retaining selection.
+`SetSelectionPolicy` replaces style, requirement, selected keys, and endpoints
+atomically.
+
+`ColumnPresentation` independently owns complete display order, visibility,
+and Clip/Wrap/Hang body presentation without changing canonical `Columns()`
+or `Rows()`. Wrap breaks words and Hang indents continuations by one space.
+`SetColumnPresentation` replaces the exact copied presentation. With
+`TableFeatureColumns`, a right-justified `&Columns...` action opens the
+keyboard-complete modal editor for these choices.
+
 Use `SetRows` for ordinary controller refreshes. Use `SetModel` when the
 column schema changes while surviving identities should be preserved, or
-`Replace` when the view model owns exact current, selection, and sort state.
+`Replace` when the view model owns exact current, selection, and sort state;
+use `ReplaceWithPresentation` when it also owns exact presentation.
 All direct methods are concurrency-safe and Transaction forms publish related
 view-model changes in one frame. Programmatic updates are silent; only actual
 keyboard selection, activation, and sort changes route their respective
 commands.
 
-The catalog Table is `collections.table`. Its typed automation record is
+The dedicated catalog Table is `tables.control` under Controls / Tables. Its
+Options and Colors Notebook pages exercise live policies, presentation,
+per-instance semantic roles, and reset. Its typed automation record is
 compact: exact model content stays available through the in-process copied
 `Columns` and `Rows` APIs, while automation reports counts, identities,
-digests, sort, commands, and viewport state. Pull the frame to inspect exact
-visible headers, cells, markers, styles, sticky placement, and clipping.
+presentation/width/role digests, sort, Columns state, commands, and viewport.
+Pull the frame to inspect exact visible headers, cells, wrapping, markers,
+styles, sticky placement, and clipping.
 
 ## Editable Data Grids
 
@@ -335,8 +362,10 @@ Every programmatic mutation cancels the active editor and is silent. A user
 commit updates the grid's copied model before `ChangeCommand` is invoked
 outside the App lock, so an MVC/MVVM controller can call `Rows`/`State`,
 persist or reject the edit, and atomically publish a replacement. The same
-command also reports row-selection changes. The catalog fixture is
-`collections.data-grid`.
+command also reports row-selection changes. Programmatic role replacement
+also cancels the editor and validates the complete embedded Table plus
+DataGrid editor-role mapping against the staged Theme. The dedicated catalog
+fixture is `data-grid.control` under Controls / DataGrid.
 
 ## Layout, Theme, And Automation
 
@@ -361,6 +390,12 @@ Theme roles are `list_box`, `list_box.border`, `tree_view`,
 `collection.error`. Non-color row markers preserve current and selection
 meaning.
 
+Table and DataGrid may replace those defaults with a fixed per-instance
+`TableVisualRoles` or `DataGridVisualRoles` value. Empty fields normalize to
+compatible defaults; nonempty StyleIDs must exist in the Theme selected by
+the same Transaction. Theme remains the resolved-color owner, and role
+changes never affect an unrelated control instance.
+
 Core typed details expose exact bounded state. Automation intentionally omits
 retained item, recursive node, table/grid models, active grid edit text, and
 grid validator character sets. ListBox, TreeView, Table, and DataGrid
@@ -369,7 +404,9 @@ selection and expansion digests. DropDown exposes compact popup geometry and
 stable identities; ComboBox adds the exact bounded editor record. Pull the
 intended frame for exact visible labels, markers, and semantic styles. Raw
 automation key events exercise the same current, provisional selection,
-expansion, commit/cancel, editing, scrolling, and activation paths as a
-terminal user. The catalog page is reachable at Controls / Collections with
-stable keys `collections.list`, `collections.tree`, `collections.table`,
-`collections.data-grid`, `collections.drop-down`, and `collections.combo`.
+expansion, commit/cancel, editing, scrolling, Columns dialog, and activation
+paths as a terminal user. Controls / Collections retains stable keys
+`collections.list`, `collections.tree`, `collections.drop-down`, and
+`collections.combo`; Controls / Tables and Controls / DataGrid use
+`tables.control` and `data-grid.control` with their own stable Notebook,
+Options, and Colors descendants.

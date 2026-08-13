@@ -28,7 +28,9 @@ var enabledCatalogMenuPaths = []enabledMenuPath{
 	{"menu.layouts.grid", []expletives.Key{"a", "g"}, CommandViewLayoutGrid, expletives.OutcomeApplied, CommandViewLayoutGrid, nil},
 	{"menu.stack.layer.raise", []expletives.Key{"a", "s", "r"}, CommandLayerRaise, expletives.OutcomeApplied, CommandViewLayoutBox, []string{"menu.layouts.stacking"}},
 	{"menu.stack.layer.lower", []expletives.Key{"a", "s", "l"}, CommandLayerLower, expletives.OutcomeApplied, CommandViewLayoutBox, []string{"menu.layouts.stacking"}},
-	{"menu.controls.text", []expletives.Key{"c", "t"}, CommandViewText, expletives.OutcomeApplied, CommandViewText, nil},
+	{"menu.controls.text", []expletives.Key{"c", "d"}, CommandViewText, expletives.OutcomeApplied, CommandViewText, nil},
+	{"menu.controls.tables", []expletives.Key{"c", "t"}, CommandTables, expletives.OutcomeApplied, CommandTables, nil},
+	{"menu.controls.data-grid", []expletives.Key{"c", "g"}, CommandDataGrid, expletives.OutcomeApplied, CommandDataGrid, nil},
 	{"menu.controls.actions", []expletives.Key{"c", "a"}, CommandViewActions, expletives.OutcomeApplied, CommandViewActions, nil},
 	{"menu.controls.selection", []expletives.Key{"c", "e"}, CommandSelection, expletives.OutcomeApplied, CommandSelection, nil},
 	{"menu.controls.input", []expletives.Key{"c", "n"}, CommandTextInput, expletives.OutcomeApplied, CommandTextInput, nil},
@@ -232,6 +234,8 @@ func TestCollectionSelectionPoliciesAndReset(t *testing.T) {
 			{Column: "tests", Visible: true},
 			{Column: "state", Visible: false},
 			{Column: "name", Visible: true},
+			{Column: "summary", Visible: false},
+			{Column: "owner", Visible: false},
 		},
 	); err != nil {
 		t.Fatal(err)
@@ -241,6 +245,8 @@ func TestCollectionSelectionPoliciesAndReset(t *testing.T) {
 			{Column: "state", Visible: true},
 			{Column: "tests", Visible: false},
 			{Column: "name", Visible: true},
+			{Column: "summary", Visible: false},
+			{Column: "owner", Visible: false},
 		},
 	); err != nil {
 		t.Fatal(err)
@@ -263,12 +269,253 @@ func TestCollectionSelectionPoliciesAndReset(t *testing.T) {
 			state.CurrentRow != "core" || state.CurrentColumn != "name" ||
 			len(state.Selected) != 1 || state.Selected[0] != "core" ||
 			state.RangeAnchor != "" || state.RangeExtent != "" ||
-			state.VisibleColumnCount != 3 ||
-			len(state.ColumnPresentation) != 3 ||
+			state.VisibleColumnCount != 5 ||
+			len(state.ColumnPresentation) != 5 ||
 			state.ColumnPresentation[0].Column != "name" ||
 			state.ColumnPresentation[0].Wrap != expletives.TableColumnClip {
 			t.Fatalf("reset %s state = %+v", name, state)
 		}
+	}
+}
+
+func TestDedicatedTableCatalogLiveOptionsColorsAndReset(t *testing.T) {
+	t.Parallel()
+	scene, err := New(expletives.Size{Width: 140, Height: 40}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name         string
+		command      expletives.CommandID
+		options      expletives.CommandID
+		color        expletives.CommandID
+		columnsReset expletives.CommandID
+		reset        expletives.CommandID
+		catalog      *tableCatalogControl
+		screenKey    string
+		controlKey   string
+		layoutKey    string
+	}{
+		{"Table", CommandTables, CommandTableOptionsChanged, CommandTableColorChanged, CommandTableColumnsReset, CommandTableReset, scene.tableCatalog, "screen.tables", "tables.control", "layout.tables"},
+		{"DataGrid", CommandDataGrid, CommandGridOptionsChanged, CommandGridColorChanged, CommandGridColumnsReset, CommandGridReset, scene.dataGridCatalog, "screen.data-grid", "data-grid.control", "layout.data-grid"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			completion, invokeErr := scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "show-"+test.name,
+				test.command, "",
+			)
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied {
+				t.Fatalf("show completion = %+v, %v", completion, invokeErr)
+			}
+			snapshot := scene.App.Snapshot()
+			if len(snapshot.Overflows) != 0 {
+				t.Fatalf("wide dedicated screen overflow = %+v", snapshot.Overflows)
+			}
+			controls := make(map[string]expletives.ControlSnapshot)
+			for _, control := range snapshot.Controls {
+				controls[control.Key] = control
+			}
+			if !controls[test.screenKey].Visible || !controls[test.controlKey].Visible {
+				t.Fatalf("dedicated screen is not visible")
+			}
+			if _, exists := controls["collections.table"]; exists {
+				t.Fatal("legacy Table remained on Collections")
+			}
+			if _, exists := controls["collections.data-grid"]; exists {
+				t.Fatal("legacy DataGrid remained on Collections")
+			}
+			var layout *expletives.LayoutSnapshot
+			for index := range snapshot.Layouts {
+				if snapshot.Layouts[index].Key == test.layoutKey {
+					layout = &snapshot.Layouts[index]
+					break
+				}
+			}
+			if layout == nil || len(layout.Items) != 2 {
+				t.Fatalf("3:1 screen Layout = %+v", layout)
+			}
+			leftExtra := layout.Items[0].Bounds.Width - layout.Items[0].Minimum.Width
+			rightExtra := layout.Items[1].Bounds.Width - layout.Items[1].Minimum.Width
+			if leftExtra < 0 || rightExtra < 0 ||
+				leftExtra < 3*rightExtra-3 || leftExtra > 3*rightExtra+3 {
+				t.Fatalf("post-minimum growth = %d:%d, want 3:1", leftExtra, rightExtra)
+			}
+
+			if err := test.catalog.columns.SetState(expletives.CheckUnchecked); err != nil {
+				t.Fatal(err)
+			}
+			completion, invokeErr = scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "columns-off-"+test.name,
+				test.options, test.catalog.columns.ID(),
+			)
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+				len(catalogTableState(test.catalog).Features) != 0 {
+				t.Fatalf("Columns option completion = %+v, %v", completion, invokeErr)
+			}
+			if err := test.catalog.columns.SetState(expletives.CheckChecked); err != nil {
+				t.Fatal(err)
+			}
+			completion, invokeErr = scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "columns-on-"+test.name,
+				test.options, test.catalog.columns.ID(),
+			)
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+				len(catalogTableState(test.catalog).Features) != 1 {
+				t.Fatalf("Columns restore completion = %+v, %v", completion, invokeErr)
+			}
+			if test.catalog.focus != nil {
+				if err := test.catalog.focus.SetValue("row"); err != nil {
+					t.Fatal(err)
+				}
+				completion, invokeErr = scene.App.InvokeCommand(
+					context.Background(), "catalog-live-test", "focus-row-"+test.name,
+					test.options, test.catalog.focus.ID(),
+				)
+				if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+					catalogTableState(test.catalog).FocusMode != expletives.TableFocusRow {
+					t.Fatalf("focus option completion = %+v, %v", completion, invokeErr)
+				}
+			}
+
+			if err := test.catalog.selection.SetValue("none"); err != nil {
+				t.Fatal(err)
+			}
+			completion, invokeErr = scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "selection-none-"+test.name,
+				test.options, test.catalog.selection.ID(),
+			)
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+				catalogTableState(test.catalog).SelectionStyle != expletives.TableSelectionNone {
+				t.Fatalf("selection option completion = %+v, %v; state=%+v", completion, invokeErr, catalogTableState(test.catalog))
+			}
+			if err := test.catalog.require.SetState(expletives.CheckChecked); err != nil {
+				t.Fatal(err)
+			}
+			completion, invokeErr = scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "reject-require-"+test.name,
+				test.options, test.catalog.require.ID(),
+			)
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeRejected ||
+				test.catalog.require.State() != expletives.CheckUnchecked {
+				t.Fatalf("incompatible option completion = %+v, %v", completion, invokeErr)
+			}
+
+			presentation := catalogTablePresentation()
+			presentation[4].Visible = false
+			if test.catalog.grid != nil {
+				if err := test.catalog.grid.SetColumnPresentation(presentation); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := test.catalog.table.SetColumnPresentation(presentation); err != nil {
+				t.Fatal(err)
+			}
+			completion, invokeErr = scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "columns-reset-"+test.name,
+				test.columnsReset, "",
+			)
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+				catalogTableState(test.catalog).VisibleColumnCount != 5 {
+				t.Fatalf("column reset completion = %+v, %v", completion, invokeErr)
+			}
+			if err := test.catalog.notebook.SetSelected("colors"); err != nil ||
+				test.catalog.notebook.Selected() != "colors" {
+				t.Fatalf("Colors page selection = %q, %v", test.catalog.notebook.Selected(), err)
+			}
+
+			body := catalogTableState(test.catalog).VisualRoles.Body
+			var colorTarget expletives.ControlID
+			var colorDropDown *expletives.DropDown
+			for target, binding := range test.catalog.bindings {
+				if binding.role == body && binding.foreground {
+					colorTarget, colorDropDown = target, binding.dropdown
+					break
+				}
+			}
+			if colorDropDown == nil {
+				t.Fatal("Body foreground color binding is absent")
+			}
+			unrelatedBefore, _ := scene.App.Theme().Resolve("list_box")
+			if err := colorDropDown.SetSelection("yellow"); err != nil {
+				t.Fatal(err)
+			}
+			completion, invokeErr = scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "body-yellow-"+test.name,
+				test.color, colorTarget,
+			)
+			resolved, found := scene.App.Theme().Resolve(body)
+			unrelatedAfter, _ := scene.App.Theme().Resolve("list_box")
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+				!found || resolved.Foreground != expletives.RGB(0xFF, 0xFF, 0x55) ||
+				unrelatedAfter != unrelatedBefore {
+				t.Fatalf("color completion = %+v, %v; role=%+v", completion, invokeErr, resolved)
+			}
+
+			completion, invokeErr = scene.App.InvokeCommand(
+				context.Background(), "catalog-live-test", "reset-"+test.name,
+				test.reset, "",
+			)
+			state := catalogTableState(test.catalog)
+			original := test.catalog.styles[body]
+			resolved, _ = scene.App.Theme().Resolve(body)
+			if invokeErr != nil || completion.Outcome != expletives.OutcomeApplied ||
+				state.SelectionStyle != expletives.TableSelectionMultiple ||
+				!state.RequireSelection || len(state.Features) != 1 ||
+				state.VisibleColumnCount != 5 || resolved != original ||
+				test.catalog.notebook.Selected() != "options" {
+				t.Fatalf("reset completion = %+v, %v; state=%+v role=%+v", completion, invokeErr, state, resolved)
+			}
+		})
+	}
+}
+
+func TestDedicatedTableCatalogMinimumUsefulNarrowLayouts(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		command    expletives.CommandID
+		controlKey string
+		notebook   string
+		options    string
+	}{
+		{"Table", CommandTables, "tables.control", "tables.notebook", "tables.options"},
+		{"DataGrid", CommandDataGrid, "data-grid.control", "data-grid.notebook", "data-grid.options"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			scene, err := New(expletives.Size{Width: 84, Height: 24}, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			completion, err := scene.App.InvokeCommand(
+				context.Background(), "catalog-narrow-test", "show-"+test.name,
+				test.command, "",
+			)
+			if err != nil || completion.Outcome != expletives.OutcomeApplied {
+				t.Fatalf("show completion = %+v, %v", completion, err)
+			}
+			snapshot := scene.App.Snapshot()
+			if len(snapshot.Overflows) != 0 {
+				t.Fatalf("minimum-useful layout overflow = %+v", snapshot.Overflows)
+			}
+			controls := make(map[string]expletives.ControlSnapshot)
+			for _, control := range snapshot.Controls {
+				controls[control.Key] = control
+			}
+			if controls[test.controlKey].Bounds.Width != 43 ||
+				controls[test.controlKey].Bounds.Height != 14 ||
+				controls[test.notebook].Bounds.Width != 34 ||
+				controls[test.notebook].Bounds.Height != 14 {
+				t.Fatalf(
+					"narrow control=%+v notebook=%+v",
+					controls[test.controlKey].Bounds,
+					controls[test.notebook].Bounds,
+				)
+			}
+			options := controls[test.options].Details.Scrollable
+			if options == nil || !options.HorizontalVisible ||
+				!options.VerticalVisible || options.State.ContentSize.Width != 40 {
+				t.Fatalf("narrow Options viewport = %+v", options)
+			}
+		})
 	}
 }
 
@@ -333,8 +580,8 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 	details := catalogMenuDetails(t, scene.App.Snapshot())
-	if got := len(details.Entries); got != 62 {
-		t.Fatalf("menu entries = %d, want 62", got)
+	if got := len(details.Entries); got != 64 {
+		t.Fatalf("menu entries = %d, want 64", got)
 	}
 
 	coveredCommands := make(map[string]bool)
@@ -367,7 +614,7 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 			t.Errorf("entry %q has unknown kind %q", entry.Key, entry.Kind)
 		}
 	}
-	if len(coveredCommands) != 40 || len(separatorKeys) != 10 ||
+	if len(coveredCommands) != 42 || len(separatorKeys) != 10 ||
 		len(submenuKeys) != 12 {
 		t.Fatalf(
 			"coverage commands=%d separators=%d submenus=%d",
@@ -385,7 +632,7 @@ func TestCatalogMenuStructureAndSeparatorTraversal(t *testing.T) {
 		{"file", "f", []string{"menu.file.home", "menu.file.automation_notice", "menu.file.quit"}},
 		{"panels", "n", []string{"menu.panels.core", "menu.panels.styles", "menu.panels.stacking", "menu.panels.scrollbars"}},
 		{"layouts", "a", []string{"menu.layouts.box", "menu.layouts.grid", "menu.layouts.stacking", "menu.layouts.absolute"}},
-		{"controls", "c", []string{"menu.controls.text", "menu.controls.actions", "menu.controls.selection", "menu.controls.input", "menu.controls.progress", "menu.controls.navigation", "menu.controls.scrolling", "menu.controls.collections"}},
+		{"controls", "c", []string{"menu.controls.text", "menu.controls.tables", "menu.controls.data-grid", "menu.controls.actions", "menu.controls.selection", "menu.controls.input", "menu.controls.progress", "menu.controls.navigation", "menu.controls.scrolling", "menu.controls.collections"}},
 		{"sections", "s", []string{"menu.sections.status", "menu.sections.headers", "menu.sections.footers"}},
 		{"menus", "m", []string{"menu.menus.overview", "menu.menus.panel", "menu.menus.context"}},
 		{"dialogs", "d", []string{"menu.dialogs.message", "menu.dialogs.confirm", "menu.dialogs.input", "menu.dialogs.progress", "menu.dialogs.file_picker", "menu.dialogs.file_picker_multiple", "menu.dialogs.directory_picker"}},

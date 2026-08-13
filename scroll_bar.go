@@ -36,6 +36,49 @@ type scrollBarBehavior struct {
 	disabled       bool
 	disabledReason string
 	changeCommand  CommandID
+	roles          scrollBarVisualRoles
+}
+
+type scrollBarVisualRoles struct {
+	page     StyleID
+	arrow    StyleID
+	thumb    StyleID
+	focused  StyleID
+	disabled StyleID
+	corner   StyleID
+}
+
+func (roles scrollBarVisualRoles) normalized() scrollBarVisualRoles {
+	if roles.page == "" {
+		roles.page = "scrollbar.page"
+	}
+	if roles.arrow == "" {
+		roles.arrow = "scrollbar.arrow"
+	}
+	if roles.thumb == "" {
+		roles.thumb = "scrollbar.thumb"
+	}
+	if roles.focused == "" {
+		roles.focused = "scrollbar.focused"
+	}
+	if roles.disabled == "" {
+		roles.disabled = "scrollbar.disabled"
+	}
+	if roles.corner == "" {
+		roles.corner = "scrollbar.corner"
+	}
+	return roles
+}
+
+func (roles scrollBarVisualRoles) ids(includeCorner bool) []StyleID {
+	roles = roles.normalized()
+	result := []StyleID{
+		roles.page, roles.arrow, roles.thumb, roles.focused, roles.disabled,
+	}
+	if includeCorner {
+		result = append(result, roles.corner)
+	}
+	return result
 }
 
 type scrollBarGeometry struct {
@@ -176,14 +219,8 @@ func (b scrollBarBehavior) intrinsicMinimum() Size {
 	return Size{Width: 3, Height: 1}
 }
 
-func (scrollBarBehavior) additionalStyles() []StyleID {
-	return []StyleID{
-		"scrollbar.page",
-		"scrollbar.arrow",
-		"scrollbar.thumb",
-		"scrollbar.focused",
-		"scrollbar.disabled",
-	}
+func (b scrollBarBehavior) additionalStyles() []StyleID {
+	return b.roles.ids(false)
 }
 
 func (scrollBarBehavior) details() ControlDetails {
@@ -205,15 +242,16 @@ func (b scrollBarBehavior) paintDecoration(
 		axis = absolute.Height
 	}
 	geometry := calculateScrollBarGeometry(axis, b.state)
-	baseStyle := StyleID("scrollbar.page")
-	arrowStyle := StyleID("scrollbar.arrow")
-	thumbStyle := StyleID("scrollbar.thumb")
+	roles := b.roles.normalized()
+	baseStyle := roles.page
+	arrowStyle := roles.arrow
+	thumbStyle := roles.thumb
 	if b.disabled {
-		baseStyle = "scrollbar.disabled"
+		baseStyle = roles.disabled
 		arrowStyle = baseStyle
 		thumbStyle = baseStyle
 	} else if app.focus == control {
-		thumbStyle = "scrollbar.focused"
+		thumbStyle = roles.focused
 	}
 
 	for position := 0; position < axis; position++ {

@@ -1199,7 +1199,7 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 		details.SortDirection != "ascending" || details.VisibleColumnCount != 1 ||
 		details.FirstVisibleColumn != "state" || details.LastVisibleColumn != "state" ||
 		len(details.SelectionDigest) != 64 || len(details.PresentationDigest) != 64 ||
-		len(details.ColumnWidthsDigest) != 64 {
+		len(details.ColumnWidthsDigest) != 64 || len(details.VisualRolesDigest) != 64 {
 		t.Fatalf("projected Table details = %#v", details)
 	}
 	cloned := cloneSnapshot(projected)
@@ -1431,7 +1431,8 @@ func TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet(t *testing.T) {
 		details.ValidationMode != "whitelist" || details.Table.FocusMode != "cell" ||
 		details.Table.FeatureCount != 1 || len(details.Table.Features) != 1 ||
 		details.Table.Features[0] != "columns" || details.Table.FocusPart != "body" ||
-		!details.Table.ColumnsActionVisible || !details.Table.ColumnsActionEnabled {
+		!details.Table.ColumnsActionVisible || !details.Table.ColumnsActionEnabled ||
+		len(details.Table.VisualRolesDigest) != 64 || len(details.VisualRolesDigest) != 64 {
 		t.Fatalf("projected DataGrid details = %#v", details)
 	}
 	encoded, err := json.Marshal(details)

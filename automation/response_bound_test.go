@@ -1911,6 +1911,7 @@ func TestSnapshotRejectsInvalidTableDetails(t *testing.T) {
 			control.Details.Table.PresentationDigest = strings.Repeat("G", 64)
 		}},
 		{"width digest", func(control *ControlSnapshot) { control.Details.Table.ColumnWidthsDigest = strings.Repeat("G", 64) }},
+		{"visual roles digest", func(control *ControlSnapshot) { control.Details.Table.VisualRolesDigest = strings.Repeat("G", 64) }},
 		{"sort implication", func(control *ControlSnapshot) { control.Details.Table.SortColumn = "name" }},
 		{"viewport state", func(control *ControlSnapshot) { control.Details.Table.Viewport.State.ContentSize.Height++ }},
 		{"invalid command", func(control *ControlSnapshot) { control.Details.Table.SortCommand = "bad command" }},
@@ -1979,6 +1980,9 @@ func TestSnapshotRejectsInvalidDataGridDetails(t *testing.T) {
 		}},
 		{"editor without editing", func(control *ControlSnapshot) {
 			control.Details.DataGrid.EditLength = 1
+		}},
+		{"visual roles digest", func(control *ControlSnapshot) {
+			control.Details.DataGrid.VisualRolesDigest = strings.Repeat("G", 64)
 		}},
 		{"detail union", func(control *ControlSnapshot) {
 			control.Details.Table = &TableDetails{}
@@ -3389,6 +3393,7 @@ func maximumCompletionJSONBytes(
 			ColumnsActionPressed: false,
 			ColumnsDialogOpen:    true,
 			ColumnWidthsDigest:   strings.Repeat("f", sha256HexBytes),
+			VisualRolesDigest:    strings.Repeat("f", sha256HexBytes),
 			DisabledReasonBytes:  math.MaxInt,
 			ChangeCommand:        string(controlValue.ID),
 			ActivateCommand:      string(controlValue.ID),
@@ -3402,6 +3407,7 @@ func maximumCompletionJSONBytes(
 		Border:  tableControl.Details.Border,
 		DataGrid: &DataGridDetails{
 			Table:                 *tableControl.Details.Table,
+			VisualRolesDigest:     strings.Repeat("f", sha256HexBytes),
 			Editing:               true,
 			EditRow:               string(controlValue.ID),
 			EditColumn:            string(controlValue.ID),

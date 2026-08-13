@@ -999,11 +999,16 @@ the root package's local snapshot. The client checks:
 - kind-consistent Table details with ready/loading/error evidence, bounded
   row/column/cell/enabled/retained counts, stable current row and column
   identities/indices, exact selection cardinality/endpoints/SHA-256 digest,
-  row/cell focus mode, single-column sort state, column endpoints and derived
-  width digest, enabled and command policy, and compact sticky-header viewport
-  geometry without retained columns, rows, cells, validators, or status text;
+  exact None/Single/Range/Multiple style and range endpoints, row/cell focus
+  mode, bounded feature identities, single-column sort state, visible-column
+  endpoints, presentation/derived-width/per-instance-visual-role SHA-256
+  digests, Columns-action focus/geometry/state and dialog-open state, enabled
+  and command policy, and compact sticky-header viewport geometry without
+  retained columns, presentation arrays, rows, cells, validators, roles, or
+  status text;
 - kind-consistent DataGrid details with the same compact Table evidence,
-  mandatory cell focus, exact active edit row/column and bounded
+  its complete extended visual-role SHA-256 digest, mandatory cell focus,
+  exact active edit row/column and bounded
   length/caret/view-offset/validity, and optional validation enforcement/mode
   without retained model text, active edit text, validator character sets, or
   status text;

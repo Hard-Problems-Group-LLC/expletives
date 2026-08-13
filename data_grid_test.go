@@ -8,6 +8,56 @@ import (
 	"testing"
 )
 
+func TestDataGridVisualRolesExtendTableRolesAndCancelEditing(t *testing.T) {
+	t.Parallel()
+	editable := Style{
+		ID: "test.grid.editable", Foreground: RGB(0xFF, 0xFF, 0x55),
+		Background: RGB(0x00, 0x00, 0x55),
+	}
+	theme := themeWithTestStyles(t, editable)
+	app, err := NewApp(AppOptions{Size: Size{Width: 32, Height: 10}, Theme: theme})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "grid.roles", Bounds: Rect{X: 1, Y: 1, Width: 24, Height: 7},
+			}},
+			BorderForm: BorderNone,
+		},
+		Columns:    []Column{{Key: "value", Header: "Value", Width: 10, Editable: true}},
+		Rows:       []TableRow{{Key: "one", Cells: []TableCell{{Column: "value", Text: "One"}}}},
+		CurrentRow: "one", CurrentColumn: "value",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := grid.Activate(context.Background(), "test", "edit"); err != nil {
+		t.Fatal(err)
+	}
+	if !grid.State().Editing {
+		t.Fatal("DataGrid did not enter edit mode")
+	}
+	roles := grid.VisualRoles()
+	roles.Editable = editable.ID
+	if err := grid.SetVisualRoles(roles); err != nil {
+		t.Fatal(err)
+	}
+	state := grid.State()
+	if state.Editing || state.VisualRoles != roles ||
+		state.TableState.VisualRoles != roles.TableVisualRoles {
+		t.Fatalf("DataGrid visual-role State = %+v", state)
+	}
+	details := controlByKey(t, app.Snapshot(), "grid.roles").Details.DataGrid
+	if details == nil || details.VisualRoles != roles ||
+		len(details.VisualRolesDigest) != 64 ||
+		details.Table.VisualRoles != roles.TableVisualRoles ||
+		len(details.Table.VisualRolesDigest) != 64 {
+		t.Fatalf("DataGrid visual-role Details = %+v", details)
+	}
+}
+
 func sampleDataGridColumns() []Column {
 	alphanumeric := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	return []Column{

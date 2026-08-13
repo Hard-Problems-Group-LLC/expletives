@@ -1275,6 +1275,8 @@ type TableDetails struct {
 	ColumnsDialogOpen    bool                      `json:"columns_dialog_open"`
 	ColumnWidths         []int                     `json:"column_widths"`
 	ColumnWidthsDigest   string                    `json:"column_widths_digest"`
+	VisualRoles          TableVisualRoles          `json:"visual_roles"`
+	VisualRolesDigest    string                    `json:"visual_roles_digest"`
 	Enabled              bool                      `json:"enabled"`
 	DisabledReason       string                    `json:"disabled_reason,omitempty"`
 	ChangeCommand        CommandID                 `json:"change_command,omitempty"`
@@ -1286,11 +1288,13 @@ type TableDetails struct {
 // DataGridDetails describes one editable Table-compatible collection and its
 // optional active single-line cell editor.
 type DataGridDetails struct {
-	Table      TableDetails      `json:"table"`
-	Editing    bool              `json:"editing"`
-	EditRow    string            `json:"edit_row,omitempty"`
-	EditColumn string            `json:"edit_column,omitempty"`
-	Editor     *TextFieldDetails `json:"editor,omitempty"`
+	Table             TableDetails        `json:"table"`
+	VisualRoles       DataGridVisualRoles `json:"visual_roles"`
+	VisualRolesDigest string              `json:"visual_roles_digest"`
+	Editing           bool                `json:"editing"`
+	EditRow           string              `json:"edit_row,omitempty"`
+	EditColumn        string              `json:"edit_column,omitempty"`
+	Editor            *TextFieldDetails   `json:"editor,omitempty"`
 }
 
 // DropDownDetails describes one collapsed field and its optional transient

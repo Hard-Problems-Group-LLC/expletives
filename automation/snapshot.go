@@ -801,6 +801,7 @@ type TableDetails struct {
 	ColumnsActionPressed bool                   `json:"columns_action_pressed"`
 	ColumnsDialogOpen    bool                   `json:"columns_dialog_open"`
 	ColumnWidthsDigest   string                 `json:"column_widths_digest"`
+	VisualRolesDigest    string                 `json:"visual_roles_digest"`
 	Enabled              bool                   `json:"enabled"`
 	DisabledReasonBytes  int                    `json:"disabled_reason_bytes"`
 	ChangeCommand        string                 `json:"change_command,omitempty"`
@@ -813,6 +814,7 @@ type TableDetails struct {
 // model text, active editor text, and validator character sets.
 type DataGridDetails struct {
 	Table                 TableDetails `json:"table"`
+	VisualRolesDigest     string       `json:"visual_roles_digest"`
 	Editing               bool         `json:"editing"`
 	EditRow               string       `json:"edit_row,omitempty"`
 	EditColumn            string       `json:"edit_column,omitempty"`
@@ -1591,6 +1593,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				ColumnsActionPressed: details.ColumnsActionPressed,
 				ColumnsDialogOpen:    details.ColumnsDialogOpen,
 				ColumnWidthsDigest:   details.ColumnWidthsDigest,
+				VisualRolesDigest:    details.VisualRolesDigest,
 				Enabled:              details.Enabled,
 				DisabledReasonBytes:  len(details.DisabledReason),
 				ChangeCommand:        string(details.ChangeCommand),
@@ -1605,6 +1608,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 			table := details.Table
 			statusBytes, statusDigest := compactTextEvidence(table.StatusMessage)
 			projected := &DataGridDetails{
+				VisualRolesDigest: details.VisualRolesDigest,
 				Table: TableDetails{
 					Status:               string(table.Status),
 					StatusMessageBytes:   statusBytes,
@@ -1646,6 +1650,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					ColumnsActionPressed: table.ColumnsActionPressed,
 					ColumnsDialogOpen:    table.ColumnsDialogOpen,
 					ColumnWidthsDigest:   table.ColumnWidthsDigest,
+					VisualRolesDigest:    table.VisualRolesDigest,
 					Enabled:              table.Enabled,
 					DisabledReasonBytes:  len(table.DisabledReason),
 					ChangeCommand:        string(table.ChangeCommand),

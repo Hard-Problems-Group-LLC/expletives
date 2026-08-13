@@ -57,6 +57,16 @@ owner, known blockers, and brief status notes.
     self-checks. On 2026-08-13 the operator directed automatic delivery through
     Phase 23 because its dedicated screens are the practical evaluation
     surface for the Columns behavior. The attached Phase 22 matrix closes its
-    behavior gate, Phase 22 is complete, and Slice 23.0 is active for
-    per-instance visual roles. Phase 23 owns the integrated visual evaluation;
-    Phase 24 retains final cross-axis integration/acceptance.
+    behavior gate and Phase 22 is complete. Phase 23 is now complete: fixed
+    per-instance visual roles, staged-Theme validation, exact core and compact
+    automation evidence, dedicated Table/DataGrid routes, 3:1 live-control/
+    Notebook screens, scrollable Options and Colors pages, named palette
+    changes, comprehensive fixtures, and atomic reset are delivered. The
+    exact final worktree passed `make verify`; attached automation passed the
+    wide and 84-by-24 layouts, live Columns toggle, Columns modal focus/close,
+    representative DataGrid Body color change, instance isolation, reset, and
+    final-snapshot shutdown. The operator's automatic-delivery direction
+    closes Phase 23's delegated acceptance. The deterministic 17-row Phase 24
+    covering array and targeted Range/edit/dialog matrices are recorded in
+    `table-improvements-phase-24-matrix.md`. Phase 24 remains planned for final
+    cross-axis integration and acceptance.

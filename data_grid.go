@@ -27,6 +27,7 @@ type DataGridOptions struct {
 	RangeAnchor        string
 	RangeExtent        string
 	ColumnPresentation []TableColumnPresentation
+	VisualRoles        DataGridVisualRoles
 	SortColumn         string
 	SortDirection      SortDirection
 	Status             CollectionStatus
@@ -38,22 +39,24 @@ type DataGridOptions struct {
 // DataGridState is one complete copied semantic, viewport, and editor state.
 type DataGridState struct {
 	TableState
-	Editing    bool
-	EditRow    string
-	EditColumn string
-	EditText   string
-	EditCaret  int
-	EditValid  bool
+	VisualRoles DataGridVisualRoles
+	Editing     bool
+	EditRow     string
+	EditColumn  string
+	EditText    string
+	EditCaret   int
+	EditValid   bool
 }
 
 // DataGrid is a copy-safe focusable stable-identity editable table leaf.
 type DataGrid struct{ controlHandle }
 
 type dataGridBehavior struct {
-	table      tableBehavior
-	editor     textFieldBehavior
-	editRow    string
-	editColumn string
+	table       tableBehavior
+	visualRoles DataGridVisualRoles
+	editor      textFieldBehavior
+	editRow     string
+	editColumn  string
 }
 
 // NewDataGrid constructs and atomically inserts a DataGrid.
@@ -101,6 +104,21 @@ func (t *Transaction) NewDataGrid(
 }
 
 func newDataGridBehavior(options DataGridOptions) (dataGridBehavior, error) {
+	bodyDefault := options.Style
+	if bodyDefault == "" {
+		bodyDefault = "data_grid"
+	}
+	borderDefault := options.BorderStyle
+	if borderDefault == "" {
+		borderDefault = "data_grid.border"
+	}
+	visualRoles, err := normalizeDataGridVisualRoles(
+		options.VisualRoles,
+		defaultDataGridVisualRoles(bodyDefault, borderDefault),
+	)
+	if err != nil {
+		return dataGridBehavior{}, err
+	}
 	tableOptions := TableOptions{
 		ScrollablePanelOptions: options.ScrollablePanelOptions,
 		Features:               options.Features,
@@ -115,6 +133,7 @@ func newDataGridBehavior(options DataGridOptions) (dataGridBehavior, error) {
 		RangeAnchor:            options.RangeAnchor,
 		RangeExtent:            options.RangeExtent,
 		ColumnPresentation:     options.ColumnPresentation,
+		VisualRoles:            visualRoles.TableVisualRoles,
 		FocusMode:              TableFocusCell,
 		SortColumn:             options.SortColumn,
 		SortDirection:          options.SortDirection,
@@ -132,8 +151,9 @@ func newDataGridBehavior(options DataGridOptions) (dataGridBehavior, error) {
 	}
 	table.focusMode = TableFocusCell
 	return dataGridBehavior{
-		table:  table,
-		editor: textFieldBehavior{selectionAnchor: -1},
+		table:       table,
+		visualRoles: visualRoles,
+		editor:      textFieldBehavior{selectionAnchor: -1},
 	}, nil
 }
 
@@ -146,6 +166,7 @@ func cloneDataGridBehavior(behavior dataGridBehavior) dataGridBehavior {
 
 func dataGridBehaviorEqual(left, right dataGridBehavior) bool {
 	return tableBehaviorEqual(left.table, right.table) &&
+		left.visualRoles == right.visualRoles &&
 		textFieldBehaviorEqual(left.editor, right.editor) &&
 		left.editRow == right.editRow && left.editColumn == right.editColumn
 }
@@ -165,13 +186,7 @@ func (b dataGridBehavior) intrinsicMinimum() Size {
 }
 
 func (b dataGridBehavior) additionalStyles() []StyleID {
-	styles := append([]StyleID{}, b.table.additionalStyles()...)
-	return append(styles,
-		"data_grid.edit",
-		"data_grid.edit_focused",
-		"data_grid.edit_invalid",
-		"data_grid.edit_invalid_character",
-	)
+	return dataGridVisualRoleIDs(b.visualRoles)
 }
 
 func (b dataGridBehavior) details() ControlDetails {
@@ -211,7 +226,7 @@ func (b dataGridBehavior) paintDecoration(
 		}
 		for x := visible.X; x < visible.X+visible.Width; x++ {
 			sourceX := b.table.scroll.state.Offset.X + x - viewport.X
-			cell := tablePaintCell{grapheme: " ", style: "data_grid"}
+			cell := tablePaintCell{grapheme: " ", style: b.visualRoles.Body}
 			if sourceX >= 0 && sourceX < len(cells) {
 				cell = cells[sourceX]
 			}
@@ -242,11 +257,11 @@ func (b dataGridBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 		column := b.table.columns[columnIndex]
 		width := b.table.columnWidths[columnIndex]
 		if column.column.Editable {
-			style := StyleID("data_grid.edit")
+			style := b.visualRoles.Editable
 			current := row.row.Key == b.table.currentRow &&
 				column.column.Key == b.table.currentColumn
 			if focused && current {
-				style = "data_grid.edit_focused"
+				style = b.visualRoles.FocusedEdit
 			}
 			for cellIndex := start; cellIndex < start+width && cellIndex < len(cells); cellIndex++ {
 				cells[cellIndex].style = style
@@ -264,9 +279,9 @@ func (b dataGridBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 func (b dataGridBehavior) paintEditorCells(cells []tablePaintCell, start, width int) {
 	current := b.editor.current()
 	invalid, valid := textValidationMask(current.cells, b.editor.validator)
-	background := StyleID("data_grid.edit_focused")
+	background := b.visualRoles.FocusedEdit
 	if !valid {
-		background = "data_grid.edit_invalid"
+		background = b.visualRoles.InvalidEdit
 	}
 	for column := 0; column < width && start+column < len(cells); column++ {
 		cells[start+column] = tablePaintCell{grapheme: " ", style: background}
@@ -276,9 +291,9 @@ func (b dataGridBehavior) paintEditorCells(cells []tablePaintCell, start, width 
 		}
 		style := background
 		if !valid && invalid[index] {
-			style = "data_grid.edit_invalid_character"
+			style = b.visualRoles.InvalidCharacter
 		} else if textSelectionContains(b.editor, index) {
-			style = "text_input.focused_selection"
+			style = b.visualRoles.TextSelection
 		}
 		cells[start+column] = tablePaintCell{grapheme: current.cells[index], style: style}
 	}
@@ -368,9 +383,11 @@ func (a *App) dataGridDetailsLocked(
 			a.tableColumnsActionPressedLocked(state),
 			a.tableColumnsDialogOpenLocked(state),
 		),
-		Editing:    behavior.editor.editing,
-		EditRow:    behavior.editRow,
-		EditColumn: behavior.editColumn,
+		VisualRoles:       behavior.visualRoles,
+		VisualRolesDigest: dataGridVisualRoleDigest(behavior.visualRoles),
+		Editing:           behavior.editor.editing,
+		EditRow:           behavior.editRow,
+		EditColumn:        behavior.editColumn,
 	}
 	details.Table.RetainedBytes = dataGridStorageBytes(behavior)
 	if behavior.editor.editing {
@@ -444,12 +461,13 @@ func (g *DataGrid) State() DataGridState {
 	state := tableState(behavior.table)
 	state.ColumnsDialogOpen = g.state.app.tableColumnsDialogOpenLocked(g.state)
 	result := DataGridState{
-		TableState: state,
-		Editing:    behavior.editor.editing,
-		EditRow:    behavior.editRow,
-		EditColumn: behavior.editColumn,
-		EditCaret:  behavior.editor.caret,
-		EditValid:  true,
+		TableState:  state,
+		VisualRoles: behavior.visualRoles,
+		Editing:     behavior.editor.editing,
+		EditRow:     behavior.editRow,
+		EditColumn:  behavior.editColumn,
+		EditCaret:   behavior.editor.caret,
+		EditValid:   true,
 	}
 	if behavior.editor.editing {
 		result.EditText = behavior.editor.working.text
@@ -467,9 +485,10 @@ func tableState(behavior tableBehavior) TableState {
 		CurrentColumn:      behavior.currentColumn,
 		CurrentColumnIndex: tableVisibleColumnIndex(behavior, behavior.currentColumn),
 		Selected:           append([]string(nil), behavior.selected...), FocusMode: behavior.focusMode,
-		SelectionStyle: behavior.selectionStyle,
-		RangeAnchor:    behavior.rangeAnchor,
-		RangeExtent:    behavior.rangeExtent,
+		SelectionStyle:   behavior.selectionStyle,
+		RequireSelection: behavior.requireSelection,
+		RangeAnchor:      behavior.rangeAnchor,
+		RangeExtent:      behavior.rangeExtent,
 		ColumnPresentation: append(
 			[]TableColumnPresentation(nil),
 			behavior.columnPresentation...,
@@ -481,7 +500,22 @@ func tableState(behavior tableBehavior) TableState {
 		Offset: behavior.scroll.state.Offset, RowCount: len(behavior.rows),
 		EnabledCount: enabledTableRowCount(behavior.rows), ColumnCount: len(behavior.columns),
 		CellCount: tableCellCount(behavior.rows), ColumnWidths: visibleTableColumnWidths(behavior),
+		VisualRoles: behavior.visualRoles,
 	}
+}
+
+// VisualRoles returns the complete normalized per-instance DataGrid role set.
+func (g *DataGrid) VisualRoles() DataGridVisualRoles {
+	if g == nil || g.state == nil || g.state.app == nil {
+		return DataGridVisualRoles{}
+	}
+	g.state.app.mu.RLock()
+	defer g.state.app.mu.RUnlock()
+	behavior, ok := g.state.behavior.(dataGridBehavior)
+	if !ok || g.state.destroyed || g.state.aborted {
+		return DataGridVisualRoles{}
+	}
+	return behavior.visualRoles
 }
 
 // SetRows replaces the canonical row model while preserving surviving state.
@@ -579,6 +613,14 @@ func (g *DataGrid) SetColumnPresentation(
 ) error {
 	return commitDataGridMutation(g, func(tx *Transaction) error {
 		return tx.SetDataGridColumnPresentation(g, presentation)
+	})
+}
+
+// SetVisualRoles atomically replaces the complete per-instance semantic role
+// set and cancels an active cell editor.
+func (g *DataGrid) SetVisualRoles(roles DataGridVisualRoles) error {
+	return commitDataGridMutation(g, func(tx *Transaction) error {
+		return tx.SetDataGridVisualRoles(g, roles)
 	})
 }
 
@@ -1368,6 +1410,32 @@ func (t *Transaction) SetDataGridColumnPresentation(
 	invalidateTableGeometry(&behavior.table)
 	repairTableCurrentColumn(&behavior.table, previous)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
+	return t.recordDataGrid(target, behavior)
+}
+
+// SetDataGridVisualRoles records one exact per-instance semantic role
+// replacement and cancels an active editor. Theme membership is validated
+// against the staged Theme when the Transaction commits.
+func (t *Transaction) SetDataGridVisualRoles(
+	control *DataGrid,
+	roles DataGridVisualRoles,
+) error {
+	target, behavior, err := t.selectedDataGrid(control)
+	if err != nil {
+		return err
+	}
+	normalized, err := normalizeDataGridVisualRoles(
+		roles,
+		defaultDataGridVisualRoles("", ""),
+	)
+	if err != nil {
+		return err
+	}
+	cancelDataGridEditBehavior(&behavior)
+	behavior.visualRoles = normalized
+	behavior.table.visualRoles = normalized.TableVisualRoles
+	behavior.table.scroll.border.borderStyle = normalized.Border
+	behavior.table.scroll.barRoles = scrollBarRolesFromTable(normalized.TableVisualRoles)
 	return t.recordDataGrid(target, behavior)
 }
 

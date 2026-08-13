@@ -129,6 +129,7 @@ VisualRoles        TableVisualRoles // DataGridVisualRoles for DataGrid
 ```go
 Features              []TableFeature
 SelectionStyle        TableSelectionStyle
+RequireSelection      bool
 RangeAnchor           string
 RangeExtent           string
 ColumnPresentation    []TableColumnPresentation
@@ -136,10 +137,11 @@ VisibleColumnCount    int
 VisualRowCount        int
 FocusPart             TableFocusPart
 ColumnsDialogOpen     bool
+VisualRoles           TableVisualRoles
 ```
 
-`DataGridState` embeds the extended TableState and retains its current editor
-fields.
+`DataGridState` embeds the extended TableState, adds its exact
+`DataGridVisualRoles`, and retains its current editor fields.
 
 Every slice returned from state or a getter is caller owned. Constructors,
 direct mutations, Transactions, state getters, core snapshots, and automation
@@ -154,6 +156,7 @@ func (t *Table) SetFeatures([]TableFeature) error
 func (t *Table) SetSelectionPolicy(TableSelectionPolicy) error
 func (t *Table) SetColumnPresentation([]TableColumnPresentation) error
 func (t *Table) SetVisualRoles(TableVisualRoles) error
+func (t *Table) SetFocusMode(TableFocusMode) error
 
 func (g *DataGrid) SetFeatures([]TableFeature) error
 func (g *DataGrid) SetSelectionPolicy(TableSelectionPolicy) error
@@ -168,6 +171,7 @@ func (tx *Transaction) SetTableColumnPresentation(
     *Table, []TableColumnPresentation,
 ) error
 func (tx *Transaction) SetTableVisualRoles(*Table, TableVisualRoles) error
+func (tx *Transaction) SetTableFocusMode(*Table, TableFocusMode) error
 
 func (tx *Transaction) SetDataGridFeatures(*DataGrid, []TableFeature) error
 func (tx *Transaction) SetDataGridSelectionPolicy(

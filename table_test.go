@@ -45,6 +45,124 @@ func tableWrappedLineText(line tableWrappedLine) string {
 	return strings.Repeat(" ", line.indent) + strings.Join(line.cells, "")
 }
 
+func themeWithTestStyles(t *testing.T, styles ...Style) Theme {
+	t.Helper()
+	definitions := DefaultTheme().Styles()
+	definitions = append(definitions, styles...)
+	theme, err := NewTheme(definitions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return theme
+}
+
+func TestTableVisualRolesAreInstanceLocalAtomicAndThemeOwned(t *testing.T) {
+	t.Parallel()
+	originalBody := Style{
+		ID: "test.table.body", Foreground: RGB(0x11, 0x22, 0x33),
+		Background: RGB(0x44, 0x55, 0x66),
+	}
+	nextBody := Style{
+		ID: "test.table.body.next", Foreground: RGB(0xEE, 0xDD, 0xCC),
+		Background: RGB(0x10, 0x20, 0x30), Attributes: StyleBold,
+	}
+	theme := themeWithTestStyles(t, originalBody, nextBody)
+	app, err := NewApp(AppOptions{Size: Size{Width: 46, Height: 12}, Theme: theme})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "table.roles", Bounds: Rect{X: 1, Y: 1, Width: 20, Height: 8},
+			}},
+			BorderForm: BorderNone,
+		},
+		Columns:    []Column{{Key: "value", Header: "Value", Width: 8}},
+		Rows:       []TableRow{{Key: "one", Cells: []TableCell{{Column: "value", Text: "One"}}}},
+		CurrentRow: "one", CurrentColumn: "value",
+		VisualRoles: TableVisualRoles{Body: originalBody.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unrelated, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "table.roles.unrelated", Bounds: Rect{X: 23, Y: 1, Width: 20, Height: 8},
+			}},
+			BorderForm: BorderNone,
+		},
+		Columns: []Column{{Key: "value", Header: "Value", Width: 8}},
+		Rows:    []TableRow{{Key: "one"}}, CurrentRow: "one", CurrentColumn: "value",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := table.VisualRoles(); got.Body != originalBody.ID ||
+		table.State().VisualRoles != got {
+		t.Fatalf("initial visual roles = %+v", got)
+	}
+	roles := table.VisualRoles()
+	roles.Body = nextBody.ID
+	tx := app.NewTransaction()
+	if err := tx.SetTableVisualRoles(table, roles); err != nil {
+		t.Fatal(err)
+	}
+	stagedStyles := app.Theme().Styles()
+	for index := range stagedStyles {
+		if stagedStyles[index].ID == nextBody.ID {
+			stagedStyles[index].Foreground = RGB(0xAA, 0xBB, 0xCC)
+		}
+	}
+	stagedTheme, err := NewTheme(stagedStyles...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SetTheme(stagedTheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if table.VisualRoles().Body != nextBody.ID ||
+		unrelated.VisualRoles().Body != "table" {
+		t.Fatalf("instance-local roles = %+v, %+v", table.VisualRoles(), unrelated.VisualRoles())
+	}
+	details := controlByKey(t, app.Snapshot(), "table.roles").Details.Table
+	if details == nil || details.VisualRoles != table.VisualRoles() ||
+		len(details.VisualRolesDigest) != 64 {
+		t.Fatalf("visual-role details = %+v", details)
+	}
+	foundBody := false
+	for _, cell := range app.Snapshot().Frame.Cells {
+		if cell.Owner == table.ID() && cell.Style == nextBody.ID {
+			foundBody = true
+			if cell.Foreground != (RGB(0xAA, 0xBB, 0xCC)) ||
+				cell.Background != nextBody.Background || cell.Attributes != StyleBold {
+				t.Fatalf("resolved body cell = %+v", cell)
+			}
+			break
+		}
+	}
+	if !foundBody {
+		t.Fatal("custom body role was not painted")
+	}
+	missing := table.VisualRoles()
+	missing.Header = "test.table.missing"
+	before := app.Snapshot().Sequence
+	if err := table.SetVisualRoles(missing); !errors.Is(err, ErrStyleMissing) {
+		t.Fatalf("missing role error = %v", err)
+	}
+	if app.Snapshot().Sequence != before || table.VisualRoles() != roles {
+		t.Fatal("failed visual-role replacement published state")
+	}
+	if err := table.SetFocusMode(TableFocusRow); err != nil ||
+		table.State().FocusMode != TableFocusRow {
+		t.Fatalf("SetFocusMode() = %+v, %v", table.State(), err)
+	}
+}
+
 func TestTableColumnWrapAlgorithms(t *testing.T) {
 	t.Parallel()
 	cells := []string{"a", "l", "p", "h", "a", " ", "b", "e", "t", "a"}

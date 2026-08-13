@@ -524,7 +524,8 @@ ordered backlog and the active-task record; it does not replace either.
   multiple selection, popup selection, tree expansion, row/cell focus,
   sorting, sticky headers, and approved DataGrid editing behavior.
 - `expletives-test` scenarios: `collections.list`, `collections.combo`,
-  `collections.tree`, `collections.table`, and `collections.data-grid`.
+  `collections.tree`, `tables.control`, and `data-grid.control` (the latter
+  two moved to dedicated screens in Phase 23).
 - Normal Go tests: focus and selection across insert/remove/sort, popup
   commit/cancel, tree mutation, table paging/column clipping/sort stability,
   DataGrid validation, large-model bounds, and fuzzed model updates.
@@ -867,7 +868,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 23. Table Visual Roles And Interactive Catalog
 
-- Status: `active`
+- Status: `complete`
 - Goal: add fixed per-instance semantic visual roles and move Table/DataGrid
   demonstrations to dedicated live configuration screens.
 - Dependencies: Phase 22, Theme transactions, Notebook, ScrollablePanel,
@@ -886,25 +887,26 @@ ordered backlog and the active-task record; it does not replace either.
   phase-owned specification/API documentation work. Shared fixture builders,
   transitions, and self-check expectations from earlier phases survive the
   route/Layout migration and are extended rather than recreated.
-- Slice 23.0 (`active`): define and implement `TableVisualRoles` and
+- Slice 23.0 (`complete`): define and implement `TableVisualRoles` and
   `DataGridVisualRoles`, default-role normalization, staged Theme validation,
   exact direct/Transaction replacement, state/detail copying, and compact
   role digests.
-- Slice 23.1 (`planned`): add dedicated menu routes and screens, adjust
+- Slice 23.1 (`complete`): add dedicated menu routes and screens, adjust
   accelerators, move Table/DataGrid out of Collections, and construct the
   left control/right Notebook Layout with usable minima and stable keys.
-- Slice 23.2 (`planned`): build the scrollable Options page and wire feature,
+- Slice 23.2 (`complete`): build the scrollable Options page and wire feature,
   selection, requirement, focus, presentation, and reset controls to atomic
   public mutations with normalized-state resynchronization.
-- Slice 23.3 (`planned`): build the scrollable Colors page with `Visual role`,
+- Slice 23.3 (`complete`): build the scrollable Colors page with `Visual role`,
   `Foreground`, and `Background` rows, bounded named-palette DropDowns,
   screen-local StyleIDs, and atomic Theme replacement preserving attributes
   and unrelated controls.
-- Slice 23.4 (`planned`): complete long/wrapped, disabled, sorted, scrolling,
+- Slice 23.4 (`complete`): complete long/wrapped, disabled, sorted, scrolling,
   editable/read-only, soft/hard validation, dialog, and color fixtures plus
   the aggregate catalog state matrix, self-check, and attached automation
   paths.
-- Slice 23.5 (`planned`): run the complete phase gate, obtain operator
+- Slice 23.5 (`complete`): run the complete phase gate under the operator's
+  direction to complete Phase 23 automatically, obtain delegated automated
   acceptance for wide/narrow layouts and representative color states, record
   a deterministic Phase 24 pairwise factor/value matrix (or seeded covering
   array) with expected outcomes and explicit exclusions, record evidence, and
@@ -912,6 +914,10 @@ ordered backlog and the active-task record; it does not replace either.
 - Acceptance gate: both controls have complete public-API-only interactive
   screens; every important state is reachable and self-checked; color changes
   are instance-local and Theme-owned; menu and keyboard paths remain unique.
+- Phase 24 matrix:
+  [`table-improvements-phase-24-matrix.md`](table-improvements-phase-24-matrix.md).
+- Completion evidence:
+  [`table-improvements-phase-23-evidence.md`](table-improvements-phase-23-evidence.md).
 
 ### 24. Table Improvements Integration And Acceptance
 
