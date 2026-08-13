@@ -29,8 +29,18 @@ owner, known blockers, and brief status notes.
     coverage, a reusable catalog selection matrix, explicit catalog policy,
     and atomic reset are complete. The complete `make verify` phase gate
     passed on 2026-08-13, including vet, ordinary and race tests, the PTY
-    lifecycle integration test, and all required build modes. Slice 21.0 is
-    now active, beginning the copied column-presentation model and exact
-    Table/DataGrid mutation surface. Later Phases 22 through 24 own the
-    Columns action/dialog, per-instance visual roles and dedicated catalog
-    screens, and final integration/acceptance.
+    lifecycle integration test, and all required build modes. Slices 21.0 and
+    21.1 are complete: copied presentation state, exact direct/Transaction and
+    complete-replacement APIs, stable schema repair, visible-order rendering,
+    width, navigation, hidden sorting, DataGrid edit traversal, compact
+    automation evidence, reusable catalog checks, and reset behavior have
+    focused ordinary/race evidence. Slices 21.2 through 21.5 add exact
+    Clip/Wrap/Hang frames and one-cell Unicode handling, cached variable-height
+    geometry and visual-distance paging, single-line DataGrid edit/commit
+    reflow, fuzzing, compact automation validation, and reusable catalog
+    coverage. The complete `make verify` Phase 21 gate passed on 2026-08-13,
+    including vet, ordinary and race tests, the PTY lifecycle integration
+    test, and every required build mode. Phase 21 is complete. Slice 22.0 is
+    active on the bounded compatible feature set and optional Columns action
+    band. Later Phases 23 and 24 own per-instance visual roles and dedicated
+    catalog screens, then final integration/acceptance.

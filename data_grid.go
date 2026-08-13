@@ -15,22 +15,23 @@ import (
 // reserved and follow Table's contract.
 type DataGridOptions struct {
 	ScrollablePanelOptions
-	Columns          []Column
-	Rows             []TableRow
-	CurrentRow       string
-	CurrentColumn    string
-	Selected         []string
-	SelectionMode    CollectionSelectionMode
-	SelectionStyle   TableSelectionStyle
-	RequireSelection bool
-	RangeAnchor      string
-	RangeExtent      string
-	SortColumn       string
-	SortDirection    SortDirection
-	Status           CollectionStatus
-	StatusMessage    string
-	ActivateCommand  CommandID
-	SortCommand      CommandID
+	Columns            []Column
+	Rows               []TableRow
+	CurrentRow         string
+	CurrentColumn      string
+	Selected           []string
+	SelectionMode      CollectionSelectionMode
+	SelectionStyle     TableSelectionStyle
+	RequireSelection   bool
+	RangeAnchor        string
+	RangeExtent        string
+	ColumnPresentation []TableColumnPresentation
+	SortColumn         string
+	SortDirection      SortDirection
+	Status             CollectionStatus
+	StatusMessage      string
+	ActivateCommand    CommandID
+	SortCommand        CommandID
 }
 
 // DataGridState is one complete copied semantic, viewport, and editor state.
@@ -111,6 +112,7 @@ func newDataGridBehavior(options DataGridOptions) (dataGridBehavior, error) {
 		RequireSelection:       options.RequireSelection,
 		RangeAnchor:            options.RangeAnchor,
 		RangeExtent:            options.RangeExtent,
+		ColumnPresentation:     options.ColumnPresentation,
 		FocusMode:              TableFocusCell,
 		SortColumn:             options.SortColumn,
 		SortDirection:          options.SortDirection,
@@ -218,16 +220,18 @@ func (b dataGridBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 	if b.table.status != CollectionReady || index < 0 {
 		return cells
 	}
+	displayIndex, within, ok := tableVisualRowAt(b.table, index)
 	order := tableDisplayOrder(b.table)
-	if index >= len(order) {
+	if !ok || displayIndex < 0 || displayIndex >= len(order) {
 		return cells
 	}
-	row := b.table.rows[order[index]]
+	row := b.table.rows[order[displayIndex]]
 	if row.row.Disabled {
 		return cells
 	}
 	start := 4
-	for columnIndex, column := range b.table.columns {
+	for _, columnIndex := range visibleTableColumns(b.table) {
+		column := b.table.columns[columnIndex]
 		width := b.table.columnWidths[columnIndex]
 		if column.column.Editable {
 			style := StyleID("data_grid.edit")
@@ -239,7 +243,7 @@ func (b dataGridBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 			for cellIndex := start; cellIndex < start+width && cellIndex < len(cells); cellIndex++ {
 				cells[cellIndex].style = style
 			}
-			if b.editor.editing && row.row.Key == b.editRow &&
+			if within == 0 && b.editor.editing && row.row.Key == b.editRow &&
 				column.column.Key == b.editColumn {
 				b.paintEditorCells(cells, start, width)
 			}
@@ -279,7 +283,8 @@ func (b dataGridBehavior) paintCursor(
 	clip Rect,
 ) {
 	row := tableDisplayRowIndex(b.table, b.editRow)
-	if row < 0 {
+	rowStart := tableDisplayRowVisualStart(b.table, row)
+	if rowStart < 0 {
 		return
 	}
 	start, _ := tableColumnInterval(b.table, b.editColumn)
@@ -290,7 +295,7 @@ func (b dataGridBehavior) paintCursor(
 	width := b.table.columnWidths[column]
 	x := viewport.X + start - b.table.scroll.state.Offset.X +
 		min(max(0, b.editor.caret-b.editor.viewOffset), max(0, width-1))
-	y := viewport.Y + 1 + row - b.table.scroll.state.Offset.Y
+	y := viewport.Y + 1 + rowStart - b.table.scroll.state.Offset.Y
 	if width > 0 && x >= viewport.X && x < viewport.X+viewport.Width &&
 		y > viewport.Y && y < viewport.Y+viewport.Height &&
 		x >= clip.X && x < clip.X+clip.Width && y >= clip.Y && y < clip.Y+clip.Height {
@@ -327,6 +332,11 @@ func reconcileDataGridLocked(state *controlState) bool {
 	}
 	next := reflowDataGrid(behavior, state.bounds.Size())
 	if dataGridBehaviorEqual(behavior, next) {
+		if behavior.table.geometryRevision != next.table.geometryRevision ||
+			behavior.table.geometryCachedAt != next.table.geometryCachedAt ||
+			behavior.table.geometryCacheSize != next.table.geometryCacheSize {
+			state.behavior = next
+		}
 		return false
 	}
 	state.behavior = next
@@ -371,6 +381,24 @@ func (g *DataGrid) Columns() []Column {
 		return nil
 	}
 	return copyTableColumns(behavior.table.columns)
+}
+
+// ColumnPresentation returns a caller-owned copy in display order, including
+// hidden columns.
+func (g *DataGrid) ColumnPresentation() []TableColumnPresentation {
+	if g == nil || g.state == nil || g.state.app == nil {
+		return nil
+	}
+	g.state.app.mu.RLock()
+	defer g.state.app.mu.RUnlock()
+	behavior, ok := g.state.behavior.(dataGridBehavior)
+	if !ok || g.state.destroyed || g.state.aborted {
+		return nil
+	}
+	return append(
+		[]TableColumnPresentation(nil),
+		behavior.table.columnPresentation...,
+	)
 }
 
 // Rows returns a caller-owned copy of the canonical unsorted row model.
@@ -420,15 +448,21 @@ func tableState(behavior tableBehavior) TableState {
 		CurrentRow:         behavior.currentRow,
 		CurrentRowIndex:    tableDisplayRowIndex(behavior, behavior.currentRow),
 		CurrentColumn:      behavior.currentColumn,
-		CurrentColumnIndex: tableColumnIndex(behavior.columns, behavior.currentColumn),
+		CurrentColumnIndex: tableVisibleColumnIndex(behavior, behavior.currentColumn),
 		Selected:           append([]string(nil), behavior.selected...), FocusMode: behavior.focusMode,
 		SelectionStyle: behavior.selectionStyle,
 		RangeAnchor:    behavior.rangeAnchor,
 		RangeExtent:    behavior.rangeExtent,
-		SortColumn:     behavior.sortColumn, SortDirection: behavior.sortDirection,
+		ColumnPresentation: append(
+			[]TableColumnPresentation(nil),
+			behavior.columnPresentation...,
+		),
+		VisibleColumnCount: visibleTableColumnCount(behavior.columnPresentation),
+		VisualRowCount:     tableVisualRowCount(behavior),
+		SortColumn:         behavior.sortColumn, SortDirection: behavior.sortDirection,
 		Offset: behavior.scroll.state.Offset, RowCount: len(behavior.rows),
 		EnabledCount: enabledTableRowCount(behavior.rows), ColumnCount: len(behavior.columns),
-		CellCount: tableCellCount(behavior.rows), ColumnWidths: append([]int(nil), behavior.columnWidths...),
+		CellCount: tableCellCount(behavior.rows), ColumnWidths: visibleTableColumnWidths(behavior),
 	}
 }
 
@@ -461,6 +495,34 @@ func (g *DataGrid) Replace(
 	})
 }
 
+// ReplaceWithPresentation atomically replaces the model, exact column
+// presentation, current coordinate, selection, and sort, cancelling an active
+// cell editor.
+func (g *DataGrid) ReplaceWithPresentation(
+	columns []Column,
+	rows []TableRow,
+	presentation []TableColumnPresentation,
+	currentRow string,
+	currentColumn string,
+	selected []string,
+	sortColumn string,
+	sortDirection SortDirection,
+) error {
+	return commitDataGridMutation(g, func(tx *Transaction) error {
+		return tx.ReplaceDataGridWithPresentation(
+			g,
+			columns,
+			rows,
+			presentation,
+			currentRow,
+			currentColumn,
+			selected,
+			sortColumn,
+			sortDirection,
+		)
+	})
+}
+
 // SetCurrent changes current by stable enabled row and known column keys.
 func (g *DataGrid) SetCurrent(row, column string) error {
 	return commitDataGridMutation(g, func(tx *Transaction) error {
@@ -480,6 +542,17 @@ func (g *DataGrid) SetSelection(selected []string) error {
 func (g *DataGrid) SetSelectionPolicy(policy TableSelectionPolicy) error {
 	return commitDataGridMutation(g, func(tx *Transaction) error {
 		return tx.SetDataGridSelectionPolicy(g, policy)
+	})
+}
+
+// SetColumnPresentation atomically changes the exact display order,
+// visibility, and body wrapping policy for every column, cancelling an active
+// cell editor.
+func (g *DataGrid) SetColumnPresentation(
+	presentation []TableColumnPresentation,
+) error {
+	return commitDataGridMutation(g, func(tx *Transaction) error {
+		return tx.SetDataGridColumnPresentation(g, presentation)
 	})
 }
 
@@ -788,6 +861,7 @@ func setDataGridCellText(table *tableBehavior, rowKey, columnKey, value string) 
 	}
 	table.rows = normalizedRows
 	table.displayOrder = nil
+	invalidateTableGeometry(table)
 	refreshTableSelection(table)
 	return nil
 }
@@ -891,11 +965,12 @@ func nextEditableDataGridCell(
 ) (string, string, bool) {
 	order := tableDisplayOrder(behavior.table)
 	currentRow := tableDisplayRowIndex(behavior.table, behavior.table.currentRow)
-	currentColumn := tableColumnIndex(behavior.table.columns, behavior.table.currentColumn)
+	currentColumn := tableVisibleColumnIndex(behavior.table, behavior.table.currentColumn)
 	if currentRow < 0 || currentColumn < 0 {
 		return "", "", false
 	}
-	totalColumns := len(behavior.table.columns)
+	visibleColumns := visibleTableColumns(behavior.table)
+	totalColumns := len(visibleColumns)
 	current := currentRow*totalColumns + currentColumn
 	delta, end := 1, len(order)*totalColumns
 	if reverse {
@@ -908,7 +983,7 @@ func nextEditableDataGridCell(
 			break
 		}
 		row := behavior.table.rows[order[rowPosition]]
-		column := behavior.table.columns[columnPosition]
+		column := behavior.table.columns[visibleColumns[columnPosition]]
 		if !row.row.Disabled && column.column.Editable {
 			return row.row.Key, column.column.Key, true
 		}
@@ -957,6 +1032,7 @@ func (t *Transaction) SetDataGridRows(control *DataGrid, rows []TableRow) error 
 	oldPositions := tableIdentityPositionsFor(behavior.table)
 	behavior.table.rows = normalized
 	behavior.table.displayOrder = nil
+	invalidateTableGeometry(&behavior.table)
 	repairTableIdentity(&behavior.table, oldPositions)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
@@ -974,6 +1050,7 @@ func (t *Transaction) SetDataGridModel(
 	}
 	cancelDataGridEditBehavior(&behavior)
 	oldPositions := tableIdentityPositionsFor(behavior.table)
+	previousPresentation := behavior.table.columnPresentation
 	normalizedColumns, err := normalizeTableColumns(columns)
 	if err != nil {
 		return err
@@ -983,17 +1060,17 @@ func (t *Transaction) SetDataGridModel(
 		return err
 	}
 	behavior.table.columns, behavior.table.rows = normalizedColumns, normalizedRows
+	behavior.table.columnPresentation = repairTableColumnPresentation(
+		previousPresentation,
+		behavior.table.columns,
+	)
 	behavior.table.displayOrder = nil
+	invalidateTableGeometry(&behavior.table)
 	if index := tableColumnIndex(behavior.table.columns, behavior.table.sortColumn); index < 0 ||
 		(behavior.table.sortColumn != "" && !behavior.table.columns[index].column.Sortable) {
 		behavior.table.sortColumn, behavior.table.sortDirection = "", SortNone
 	}
-	if tableColumnIndex(behavior.table.columns, behavior.table.currentColumn) < 0 {
-		behavior.table.currentColumn = ""
-		if len(behavior.table.columns) > 0 {
-			behavior.table.currentColumn = behavior.table.columns[0].column.Key
-		}
-	}
+	repairTableCurrentColumn(&behavior.table, previousPresentation)
 	repairTableIdentity(&behavior.table, oldPositions)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
@@ -1015,6 +1092,7 @@ func (t *Transaction) ReplaceDataGrid(
 		return err
 	}
 	cancelDataGridEditBehavior(&behavior)
+	previousPresentation := behavior.table.columnPresentation
 	behavior.table.columns, err = normalizeTableColumns(columns)
 	if err != nil {
 		return err
@@ -1023,7 +1101,12 @@ func (t *Transaction) ReplaceDataGrid(
 	if err != nil {
 		return err
 	}
+	behavior.table.columnPresentation = repairTableColumnPresentation(
+		previousPresentation,
+		behavior.table.columns,
+	)
 	behavior.table.displayOrder = nil
+	invalidateTableGeometry(&behavior.table)
 	if err := setExactTableSort(&behavior.table, sortColumn, sortDirection); err != nil {
 		return err
 	}
@@ -1037,6 +1120,62 @@ func (t *Transaction) ReplaceDataGrid(
 	); err != nil {
 		return err
 	}
+	repairTableCurrentColumn(&behavior.table, previousPresentation)
+	behavior = reflowDataGrid(behavior, target.bounds.Size())
+	return t.recordDataGrid(target, behavior)
+}
+
+// ReplaceDataGridWithPresentation records one exact complete DataGrid
+// replacement, including copied column presentation, and cancels an active
+// cell editor.
+func (t *Transaction) ReplaceDataGridWithPresentation(
+	control *DataGrid,
+	columns []Column,
+	rows []TableRow,
+	presentation []TableColumnPresentation,
+	currentRow string,
+	currentColumn string,
+	selected []string,
+	sortColumn string,
+	sortDirection SortDirection,
+) error {
+	target, behavior, err := t.selectedDataGrid(control)
+	if err != nil {
+		return err
+	}
+	cancelDataGridEditBehavior(&behavior)
+	previousPresentation := behavior.table.columnPresentation
+	behavior.table.columns, err = normalizeTableColumns(columns)
+	if err != nil {
+		return err
+	}
+	behavior.table.rows, err = normalizeTableRows(behavior.table.columns, rows)
+	if err != nil {
+		return err
+	}
+	behavior.table.columnPresentation, err = normalizeTableColumnPresentation(
+		behavior.table.columns,
+		presentation,
+	)
+	if err != nil {
+		return err
+	}
+	behavior.table.displayOrder = nil
+	invalidateTableGeometry(&behavior.table)
+	if err := setExactTableSort(&behavior.table, sortColumn, sortDirection); err != nil {
+		return err
+	}
+	if err := setExactTableIdentity(
+		&behavior.table,
+		currentRow,
+		currentColumn,
+		selected,
+		"",
+		"",
+	); err != nil {
+		return err
+	}
+	repairTableCurrentColumn(&behavior.table, previousPresentation)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
 }
@@ -1060,7 +1199,8 @@ func (t *Transaction) SetDataGridCurrent(control *DataGrid, row, column string) 
 		if len(behavior.table.columns) > 0 {
 			return fmt.Errorf("%w: DataGrid requires current column", ErrValidation)
 		}
-	} else if tableColumnIndex(behavior.table.columns, column) < 0 {
+	} else if tableColumnIndex(behavior.table.columns, column) < 0 ||
+		!tableColumnIsVisible(behavior.table, column) {
 		return fmt.Errorf("%w: invalid DataGrid current column", ErrValidation)
 	}
 	behavior.table.currentRow, behavior.table.currentColumn = row, column
@@ -1114,6 +1254,32 @@ func (t *Transaction) SetDataGridSelectionPolicy(
 	return t.recordDataGrid(target, behavior)
 }
 
+// SetDataGridColumnPresentation records one exact copied column presentation
+// and cancels an active cell editor.
+func (t *Transaction) SetDataGridColumnPresentation(
+	control *DataGrid,
+	presentation []TableColumnPresentation,
+) error {
+	target, behavior, err := t.selectedDataGrid(control)
+	if err != nil {
+		return err
+	}
+	cancelDataGridEditBehavior(&behavior)
+	normalized, err := normalizeTableColumnPresentation(
+		behavior.table.columns,
+		presentation,
+	)
+	if err != nil {
+		return err
+	}
+	previous := behavior.table.columnPresentation
+	behavior.table.columnPresentation = normalized
+	invalidateTableGeometry(&behavior.table)
+	repairTableCurrentColumn(&behavior.table, previous)
+	behavior = reflowDataGrid(behavior, target.bounds.Size())
+	return t.recordDataGrid(target, behavior)
+}
+
 // SetDataGridSort records an exact optional single-column sort.
 func (t *Transaction) SetDataGridSort(
 	control *DataGrid,
@@ -1129,6 +1295,7 @@ func (t *Transaction) SetDataGridSort(
 		return err
 	}
 	behavior.table.displayOrder = nil
+	invalidateTableGeometry(&behavior.table)
 	refreshTableSelection(&behavior.table)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
@@ -1150,6 +1317,7 @@ func (t *Transaction) SetDataGridStatus(
 		return err
 	}
 	behavior.table.status, behavior.table.statusMessage = status, normalized
+	invalidateTableGeometry(&behavior.table)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
 }

@@ -765,6 +765,7 @@ type TableDetails struct {
 	StatusMessageBytes  int                    `json:"status_message_bytes"`
 	StatusMessageDigest string                 `json:"status_message_digest,omitempty"`
 	RowCount            int                    `json:"row_count"`
+	VisualRowCount      int                    `json:"visual_row_count"`
 	EnabledCount        int                    `json:"enabled_count"`
 	ColumnCount         int                    `json:"column_count"`
 	CellCount           int                    `json:"cell_count"`
@@ -787,6 +788,10 @@ type TableDetails struct {
 	SortDirection       string                 `json:"sort_direction"`
 	FirstColumn         string                 `json:"first_column,omitempty"`
 	LastColumn          string                 `json:"last_column,omitempty"`
+	VisibleColumnCount  int                    `json:"visible_column_count"`
+	FirstVisibleColumn  string                 `json:"first_visible_column,omitempty"`
+	LastVisibleColumn   string                 `json:"last_visible_column,omitempty"`
+	PresentationDigest  string                 `json:"presentation_digest"`
 	ColumnWidthsDigest  string                 `json:"column_widths_digest"`
 	Enabled             bool                   `json:"enabled"`
 	DisabledReasonBytes int                    `json:"disabled_reason_bytes"`
@@ -1542,6 +1547,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				StatusMessageBytes:  statusBytes,
 				StatusMessageDigest: statusDigest,
 				RowCount:            details.RowCount,
+				VisualRowCount:      details.VisualRowCount,
 				EnabledCount:        details.EnabledCount,
 				ColumnCount:         details.ColumnCount,
 				CellCount:           details.CellCount,
@@ -1564,6 +1570,10 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				SortDirection:       string(details.SortDirection),
 				FirstColumn:         details.FirstColumn,
 				LastColumn:          details.LastColumn,
+				VisibleColumnCount:  details.VisibleColumnCount,
+				FirstVisibleColumn:  details.FirstVisibleColumn,
+				LastVisibleColumn:   details.LastVisibleColumn,
+				PresentationDigest:  details.PresentationDigest,
 				ColumnWidthsDigest:  details.ColumnWidthsDigest,
 				Enabled:             details.Enabled,
 				DisabledReasonBytes: len(details.DisabledReason),
@@ -1584,6 +1594,7 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					StatusMessageBytes:  statusBytes,
 					StatusMessageDigest: statusDigest,
 					RowCount:            table.RowCount,
+					VisualRowCount:      table.VisualRowCount,
 					EnabledCount:        table.EnabledCount,
 					ColumnCount:         table.ColumnCount,
 					CellCount:           table.CellCount,
@@ -1606,6 +1617,10 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					SortDirection:       string(table.SortDirection),
 					FirstColumn:         table.FirstColumn,
 					LastColumn:          table.LastColumn,
+					VisibleColumnCount:  table.VisibleColumnCount,
+					FirstVisibleColumn:  table.FirstVisibleColumn,
+					LastVisibleColumn:   table.LastVisibleColumn,
+					PresentationDigest:  table.PresentationDigest,
 					ColumnWidthsDigest:  table.ColumnWidthsDigest,
 					Enabled:             table.Enabled,
 					DisabledReasonBytes: len(table.DisabledReason),

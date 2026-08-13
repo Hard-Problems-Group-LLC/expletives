@@ -1139,11 +1139,15 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 			{Key: "two", Cells: []expletives.TableCell{{Column: "name", Text: "Two"}, {Column: "state", Text: "Ready"}}},
 			{Key: "one", Cells: []expletives.TableCell{{Column: "name", Text: "One"}, {Column: "state", Text: "Ready"}}},
 		},
-		CurrentRow: "two", CurrentColumn: "name",
+		CurrentRow: "two", CurrentColumn: "state",
 		FocusMode:     expletives.TableFocusCell,
 		SelectionMode: expletives.CollectionSelectionMultiple,
 		Selected:      []string{"one", "two"},
 		SortColumn:    "name", SortDirection: expletives.SortAscending,
+		ColumnPresentation: []expletives.TableColumnPresentation{
+			{Column: "state", Visible: true, Wrap: expletives.TableColumnHang},
+			{Column: "name", Visible: false, Wrap: expletives.TableColumnWrapWords},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1164,13 +1168,15 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 		details.RowCount != 2 || details.EnabledCount != 2 ||
 		details.ColumnCount != 2 || details.CellCount != 4 || details.RetainedBytes <= 0 ||
 		details.CurrentRow != "two" || details.CurrentRowIndex != 1 ||
-		details.CurrentColumn != "name" || details.CurrentColumnIndex != 0 ||
+		details.CurrentColumn != "state" || details.CurrentColumnIndex != 0 ||
 		details.FocusMode != "cell" || details.SelectionMode != "multiple" ||
 		details.SelectionStyle != "multiple" || details.RangeAnchor != "" ||
 		details.RangeExtent != "" ||
 		details.SelectedCount != 2 || details.FirstSelected != "one" ||
 		details.LastSelected != "two" || details.SortColumn != "name" ||
-		details.SortDirection != "ascending" || len(details.SelectionDigest) != 64 ||
+		details.SortDirection != "ascending" || details.VisibleColumnCount != 1 ||
+		details.FirstVisibleColumn != "state" || details.LastVisibleColumn != "state" ||
+		len(details.SelectionDigest) != 64 || len(details.PresentationDigest) != 64 ||
 		len(details.ColumnWidthsDigest) != 64 {
 		t.Fatalf("projected Table details = %#v", details)
 	}

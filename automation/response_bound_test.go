@@ -1876,8 +1876,17 @@ func TestSnapshotRejectsInvalidTableDetails(t *testing.T) {
 	}{
 		{"status", func(control *ControlSnapshot) { control.Details.Table.Status = "unknown" }},
 		{"row count", func(control *ControlSnapshot) { control.Details.Table.RowCount = expletives.MaxCollectionItems + 1 }},
+		{"visual row count", func(control *ControlSnapshot) {
+			control.Details.Table.VisualRowCount = expletives.MaxFrameCells
+		}},
 		{"column count", func(control *ControlSnapshot) {
 			control.Details.Table.ColumnCount = expletives.MaxCollectionColumns + 1
+		}},
+		{"visible column count", func(control *ControlSnapshot) {
+			control.Details.Table.VisibleColumnCount = control.Details.Table.ColumnCount + 1
+		}},
+		{"visible column range", func(control *ControlSnapshot) {
+			control.Details.Table.FirstVisibleColumn = ""
 		}},
 		{"cell count", func(control *ControlSnapshot) { control.Details.Table.CellCount = expletives.MaxCollectionCells + 1 }},
 		{"current row", func(control *ControlSnapshot) { control.Details.Table.CurrentRowIndex = 2 }},
@@ -1886,6 +1895,9 @@ func TestSnapshotRejectsInvalidTableDetails(t *testing.T) {
 		{"selection style", func(control *ControlSnapshot) { control.Details.Table.SelectionStyle = "free" }},
 		{"multiple range endpoint", func(control *ControlSnapshot) { control.Details.Table.RangeAnchor = "one" }},
 		{"selection digest", func(control *ControlSnapshot) { control.Details.Table.SelectionDigest = strings.Repeat("G", 64) }},
+		{"presentation digest", func(control *ControlSnapshot) {
+			control.Details.Table.PresentationDigest = strings.Repeat("G", 64)
+		}},
 		{"width digest", func(control *ControlSnapshot) { control.Details.Table.ColumnWidthsDigest = strings.Repeat("G", 64) }},
 		{"sort implication", func(control *ControlSnapshot) { control.Details.Table.SortColumn = "name" }},
 		{"viewport state", func(control *ControlSnapshot) { control.Details.Table.Viewport.State.ContentSize.Height++ }},
@@ -3332,6 +3344,7 @@ func maximumCompletionJSONBytes(
 			StatusMessageBytes:  math.MaxInt,
 			StatusMessageDigest: strings.Repeat("f", sha256HexBytes),
 			RowCount:            math.MaxInt,
+			VisualRowCount:      math.MaxInt,
 			EnabledCount:        math.MaxInt,
 			ColumnCount:         math.MaxInt,
 			CellCount:           math.MaxInt,
@@ -3351,6 +3364,10 @@ func maximumCompletionJSONBytes(
 			SortDirection:       "descending",
 			FirstColumn:         string(controlValue.ID),
 			LastColumn:          string(controlValue.ID),
+			VisibleColumnCount:  math.MaxInt,
+			FirstVisibleColumn:  string(controlValue.ID),
+			LastVisibleColumn:   string(controlValue.ID),
+			PresentationDigest:  strings.Repeat("f", sha256HexBytes),
 			ColumnWidthsDigest:  strings.Repeat("f", sha256HexBytes),
 			DisabledReasonBytes: math.MaxInt,
 			ChangeCommand:       string(controlValue.ID),

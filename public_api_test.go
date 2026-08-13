@@ -218,6 +218,96 @@ func TestExternalConsumerConfiguresTableSelectionPolicies(t *testing.T) {
 	}
 }
 
+func TestExternalConsumerConfiguresColumnPresentation(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 42, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	columns := []expletives.Column{
+		{Key: "name", Header: "Name", Editable: true},
+		{Key: "notes", Header: "Notes", Editable: true},
+	}
+	rows := []expletives.TableRow{{
+		Key: "one", Cells: []expletives.TableCell{
+			{Column: "name", Text: "One"},
+			{Column: "notes", Text: "Long notes"},
+		},
+	}}
+	presentation := []expletives.TableColumnPresentation{
+		{Column: "notes", Visible: true, Wrap: expletives.TableColumnHang},
+		{Column: "name", Visible: false, Wrap: expletives.TableColumnWrapWords},
+	}
+	table, err := expletives.NewTable(app.Root(), expletives.TableOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.presentation.table", Bounds: expletives.Rect{Width: 19, Height: 6},
+			}},
+		},
+		Columns: columns, Rows: rows, CurrentColumn: "name",
+		ColumnPresentation: presentation,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, err := expletives.NewDataGrid(app.Root(), expletives.DataGridOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.presentation.grid", Bounds: expletives.Rect{X: 21, Width: 19, Height: 6},
+			}},
+		},
+		Columns: columns, Rows: rows,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentation[0].Column = "caller-mutation"
+	if state := table.State(); state.CurrentColumn != "notes" ||
+		state.VisibleColumnCount != 1 || state.ColumnPresentation[0].Column != "notes" {
+		t.Fatalf("external Table presentation = %+v", state)
+	}
+
+	transaction := app.NewTransaction()
+	if err := transaction.SetTableColumnPresentation(table, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.SetDataGridColumnPresentation(grid, []expletives.TableColumnPresentation{
+		{Column: "name", Visible: false},
+		{Column: "notes", Visible: true, Wrap: expletives.TableColumnWrapWords},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := table.ColumnPresentation(); len(got) != 2 || got[0].Column != "name" ||
+		got[0].Wrap != expletives.TableColumnClip {
+		t.Fatalf("external canonical Table presentation = %+v", got)
+	}
+	if got := grid.ColumnPresentation(); len(got) != 2 || got[0].Visible ||
+		got[1].Wrap != expletives.TableColumnWrapWords || grid.State().CurrentColumn != "notes" {
+		t.Fatalf("external DataGrid presentation = %+v state=%+v", got, grid.State())
+	}
+	for _, control := range app.Snapshot().Controls {
+		switch control.Key {
+		case "external.presentation.table":
+			if control.Details.Table == nil ||
+				len(control.Details.Table.ColumnPresentation) != 2 ||
+				control.Details.Table.VisibleColumnCount != 2 {
+				t.Fatalf("external Table details = %+v", control.Details)
+			}
+		case "external.presentation.grid":
+			if control.Details.DataGrid == nil ||
+				control.Details.DataGrid.Table.VisibleColumnCount != 1 ||
+				len(control.Details.DataGrid.Table.PresentationDigest) != 64 {
+				t.Fatalf("external DataGrid details = %+v", control.Details)
+			}
+		}
+	}
+}
+
 func TestExternalConsumerDeclaresAndObservesInputScope(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

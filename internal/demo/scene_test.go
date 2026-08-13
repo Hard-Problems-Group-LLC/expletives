@@ -211,6 +211,9 @@ func TestCollectionSelectionPoliciesAndReset(t *testing.T) {
 	if err := scene.exerciseCollectionSelectionMatrix(press); err != nil {
 		t.Fatalf("selection matrix error = %v", err)
 	}
+	if err := scene.exerciseCollectionPresentationMatrix(); err != nil {
+		t.Fatalf("presentation matrix error = %v", err)
+	}
 	if err := scene.collectionTable.SetSelectionPolicy(
 		expletives.TableSelectionPolicy{Style: expletives.TableSelectionNone},
 	); err != nil {
@@ -220,6 +223,24 @@ func TestCollectionSelectionPoliciesAndReset(t *testing.T) {
 		expletives.TableSelectionPolicy{
 			Style:  expletives.TableSelectionRange,
 			Anchor: "terminal", Extent: "automation",
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := scene.collectionTable.SetColumnPresentation(
+		[]expletives.TableColumnPresentation{
+			{Column: "tests", Visible: true},
+			{Column: "state", Visible: false},
+			{Column: "name", Visible: true},
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := scene.collectionDataGrid.SetColumnPresentation(
+		[]expletives.TableColumnPresentation{
+			{Column: "state", Visible: true},
+			{Column: "tests", Visible: false},
+			{Column: "name", Visible: true},
 		},
 	); err != nil {
 		t.Fatal(err)
@@ -241,7 +262,11 @@ func TestCollectionSelectionPoliciesAndReset(t *testing.T) {
 		if state.SelectionStyle != expletives.TableSelectionMultiple ||
 			state.CurrentRow != "core" || state.CurrentColumn != "name" ||
 			len(state.Selected) != 1 || state.Selected[0] != "core" ||
-			state.RangeAnchor != "" || state.RangeExtent != "" {
+			state.RangeAnchor != "" || state.RangeExtent != "" ||
+			state.VisibleColumnCount != 3 ||
+			len(state.ColumnPresentation) != 3 ||
+			state.ColumnPresentation[0].Column != "name" ||
+			state.ColumnPresentation[0].Wrap != expletives.TableColumnClip {
 			t.Fatalf("reset %s state = %+v", name, state)
 		}
 	}

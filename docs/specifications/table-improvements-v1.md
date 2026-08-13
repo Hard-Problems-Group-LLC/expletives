@@ -181,6 +181,12 @@ func (tx *Transaction) SetDataGridVisualRoles(
 ) error
 ```
 
+`Table.ReplaceWithPresentation` and
+`Transaction.ReplaceTableWithPresentation`, plus the corresponding DataGrid
+forms, add the exact presentation slice to the existing complete replacement
+arguments. The existing `Replace` forms preserve compatible surviving
+presentation.
+
 Direct methods delegate to Transactions. Multiple Transaction operations may
 atomically combine model, policy, presentation, role, and other control
 changes. Each operation selects the previously staged behavior, so later

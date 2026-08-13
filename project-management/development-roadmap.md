@@ -772,7 +772,7 @@ ordered backlog and the active-task record; it does not replace either.
 
 ### 21. Table Column Presentation And Wrapped Geometry
 
-- Status: `active`
+- Status: `complete`
 - Goal: add stable-keyed column visibility/order and deterministic body
   Clip/Wrap/Hang presentation without mutating canonical schema or row data.
 - Dependencies: Phase 20 and the Table Improvements v1 presentation/wrapping
@@ -789,34 +789,35 @@ ordered backlog and the active-task record; it does not replace either.
   ordinary, exact-frame, Transaction, automation-bound, resource/race, and
   phase-owned specification/API documentation work. Slice 21.5 aggregates
   cross-slice proofs rather than deferring them.
-- Slice 21.0 (`active`): add the complete `TableColumnPresentation` model,
+- Slice 21.0 (`complete`): add the complete `TableColumnPresentation` model,
   nil/default normalization, one-visible-column invariant, copied getters,
   state, and exact direct/Transaction mutations for Table and DataGrid.
-- Slice 21.1 (`planned`): implement display order and visibility in header,
+- Slice 21.1 (`complete`): implement display order and visibility in header,
   body, width, navigation, sorting, editing, schema replacement, and
   current-column repair while preserving canonical `Columns()`/`Rows()`.
-- Slice 21.2 (`planned`): implement pure Clip/Wrap/Hang body-line measurement
+- Slice 21.2 (`complete`): implement pure Clip/Wrap/Hang body-line measurement
   and painting, including width-one Hang degradation, alignment, markers,
   separators, and complete-row semantic styling.
-- Slice 21.3 (`planned`): add bounded visual-row heights and prefix starts,
+- Slice 21.3 (`complete`): add bounded visual-row heights and prefix starts,
   binary-search viewport mapping, logical-row navigation, visual-distance
   paging, visibility clamping, and precise cache invalidation.
-- Slice 21.4 (`planned`): integrate variable-height committed DataGrid cells
+- Slice 21.4 (`complete`): integrate variable-height committed DataGrid cells
   with the existing single-line editor, hidden editable-column traversal,
   validation, sorted commits, and geometry repair.
-- Slice 21.5 (`planned`): complete the aggregate core/automation integrity,
+- Slice 21.5 (`complete`): complete the aggregate core/automation integrity,
   response-bound, fuzz/race, and maintained catalog matrices for presentation
   and wrapping, closing only cross-slice evidence gaps.
-- Slice 21.6 (`planned`): run the complete phase gate, benchmark representative
-  large/narrow models where useful, record evidence, and ACP the presentation
-  checkpoint.
+- Slice 21.6 (`complete`): the complete `make verify` gate passed on
+  2026-08-13, including vet, ordinary and race tests, the PTY lifecycle
+  integration test, and debug, release, and profiling builds. ACP the
+  presentation checkpoint before Phase 22 delivery.
 - Acceptance gate: visibility/order/wrap remain copied, bounded, atomic, and
   stable under schema, sort, edit, scroll, and resize changes; exact intended
   frames and typed evidence agree without a flattened wrapped-row model.
 
 ### 22. Table Columns Action And Editor
 
-- Status: `planned`
+- Status: `active`
 - Goal: add the optional `&Columns...` command band and revision-aware modal
   column editor while retaining Table/DataGrid leaf ownership.
 - Dependencies: Phase 21 and the existing Button, modal, focus, transaction,
@@ -834,7 +835,7 @@ ordered backlog and the active-task record; it does not replace either.
   ordinary, exact-frame, Transaction, automation-bound, resource/race, and
   phase-owned specification/API documentation work. Slice 22.5 aggregates
   large-schema and attached end-to-end evidence rather than deferring it.
-- Slice 22.0 (`planned`): add bounded feature normalization plus the optional
+- Slice 22.0 (`active`): add bounded feature normalization plus the optional
   full-width band, Body/ColumnsAction semantic focus parts, geometry
   allocation/degradation, and atomic feature/focus repair.
 - Slice 22.1 (`planned`): implement the right-justified raised action's label,

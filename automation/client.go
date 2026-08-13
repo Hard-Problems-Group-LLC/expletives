@@ -2331,8 +2331,10 @@ func validTableDetails(
 ) bool {
 	if details == nil || border == nil || border.Title != "" ||
 		details.RowCount < 0 || details.RowCount > expletives.MaxCollectionItems ||
+		details.VisualRowCount < 1 || details.VisualRowCount >= expletives.MaxFrameCells ||
 		details.EnabledCount < 0 || details.EnabledCount > details.RowCount ||
 		details.ColumnCount < 0 || details.ColumnCount > expletives.MaxCollectionColumns ||
+		details.VisibleColumnCount < 0 || details.VisibleColumnCount > details.ColumnCount ||
 		details.CellCount < 0 || details.CellCount > expletives.MaxCollectionCells ||
 		details.RetainedBytes < 0 || details.RetainedBytes > expletives.MaxCollectionAggregateBytes ||
 		((details.RowCount > 0 || details.ColumnCount > 0 || details.StatusMessageBytes > 0) && details.RetainedBytes == 0) ||
@@ -2349,13 +2351,15 @@ func validTableDetails(
 	switch details.Status {
 	case "ready":
 		if details.StatusMessageBytes != 0 || details.StatusMessageDigest != "" ||
-			details.Viewport.State.ContentSize.Height != max(2, details.RowCount+1) {
+			details.Viewport.State.ContentSize.Height != details.VisualRowCount+1 ||
+			(details.RowCount == 0 && details.VisualRowCount != 1) ||
+			(details.RowCount > 0 && details.VisualRowCount < details.RowCount) {
 			return false
 		}
 	case "loading", "error":
 		if details.StatusMessageBytes < 1 || details.StatusMessageBytes > expletives.MaxDisplayTextBytes ||
 			!validLowerSHA256(details.StatusMessageDigest) ||
-			details.Viewport.State.ContentSize.Height != 2 {
+			details.VisualRowCount != 1 || details.Viewport.State.ContentSize.Height != 2 {
 			return false
 		}
 	default:
@@ -2409,24 +2413,36 @@ func validTableDetails(
 	}
 	if details.ColumnCount == 0 {
 		if details.CurrentColumn != "" || details.CurrentColumnIndex != -1 ||
-			details.FirstColumn != "" || details.LastColumn != "" {
+			details.FirstColumn != "" || details.LastColumn != "" ||
+			details.VisibleColumnCount != 0 || details.FirstVisibleColumn != "" ||
+			details.LastVisibleColumn != "" {
 			return false
 		}
 	} else if !validIdentifier(details.CurrentColumn, limits.IdentifierBytes) ||
-		details.CurrentColumnIndex < 0 || details.CurrentColumnIndex >= details.ColumnCount ||
-		!validCompactKeyRange(details.ColumnCount, details.FirstColumn, details.LastColumn, limits) {
+		details.CurrentColumnIndex < 0 || details.CurrentColumnIndex >= details.VisibleColumnCount ||
+		!validCompactKeyRange(details.ColumnCount, details.FirstColumn, details.LastColumn, limits) ||
+		details.VisibleColumnCount < 1 ||
+		!validCompactKeyRange(
+			details.VisibleColumnCount,
+			details.FirstVisibleColumn,
+			details.LastVisibleColumn,
+			limits,
+		) {
 		return false
 	}
 	if details.FocusMode == "cell" && details.EnabledCount > 0 && details.ColumnCount == 0 {
 		return false
 	}
 	if !validCompactKeyRange(details.SelectedCount, details.FirstSelected, details.LastSelected, limits) ||
-		!validLowerSHA256(details.SelectionDigest) || !validLowerSHA256(details.ColumnWidthsDigest) {
+		!validLowerSHA256(details.SelectionDigest) ||
+		!validLowerSHA256(details.PresentationDigest) ||
+		!validLowerSHA256(details.ColumnWidthsDigest) {
 		return false
 	}
 	emptyDigest := "e3b0c44298fc1c149afbf4c8996fb924" +
 		"27ae41e4649b934ca495991b7852b855"
 	if (details.SelectedCount == 0 && details.SelectionDigest != emptyDigest) ||
+		(details.ColumnCount == 0 && details.PresentationDigest != emptyDigest) ||
 		(details.ColumnCount == 0 && details.ColumnWidthsDigest != emptyDigest) {
 		return false
 	}
@@ -2442,12 +2458,9 @@ func validTableDetails(
 	default:
 		return false
 	}
-	bodyHeight := max(0, details.Viewport.ViewportBounds.Height-1)
-	if details.Status == "ready" && details.CurrentRowIndex >= 0 && bodyHeight > 0 &&
-		(details.CurrentRowIndex < details.Viewport.State.Offset.Y ||
-			details.CurrentRowIndex >= details.Viewport.State.Offset.Y+bodyHeight) {
-		return false
-	}
+	// CurrentRowIndex is logical while vertical offsets are visual once any
+	// body column wraps, so their relationship is proven by the intended frame
+	// and core snapshot rather than inferred from compact automation state.
 	return details.Viewport.State.ContentSize.Width >= 1 &&
 		details.Viewport.State.ContentSize.Width <= expletives.MaxFrameCells
 }

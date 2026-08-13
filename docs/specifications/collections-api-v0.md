@@ -537,6 +537,20 @@ type TableSelectionPolicy struct {
     Extent   string
 }
 
+type TableColumnWrap string
+
+const (
+    TableColumnClip      TableColumnWrap = "clip"
+    TableColumnWrapWords TableColumnWrap = "wrap"
+    TableColumnHang      TableColumnWrap = "hang"
+)
+
+type TableColumnPresentation struct {
+    Column  string
+    Visible bool
+    Wrap    TableColumnWrap
+}
+
 type TableOptions struct {
     ScrollablePanelOptions
     Columns          []Column
@@ -549,6 +563,7 @@ type TableOptions struct {
     RequireSelection bool
     RangeAnchor      string
     RangeExtent      string
+    ColumnPresentation []TableColumnPresentation
     FocusMode        TableFocusMode
     SortColumn       string
     SortDirection    SortDirection
@@ -569,6 +584,9 @@ type TableState struct {
     SelectionStyle     TableSelectionStyle
     RangeAnchor        string
     RangeExtent        string
+    ColumnPresentation []TableColumnPresentation
+    VisibleColumnCount int
+    VisualRowCount     int
     FocusMode          TableFocusMode
     SortColumn         string
     SortDirection      SortDirection
@@ -585,6 +603,7 @@ type Table struct { /* copy-safe Panel-derived leaf */ }
 func NewTable(Container, TableOptions) (*Table, error)
 func (t *Transaction) NewTable(Container, TableOptions) (*Table, error)
 func (t *Table) Columns() []Column
+func (t *Table) ColumnPresentation() []TableColumnPresentation
 func (t *Table) Rows() []TableRow
 func (t *Table) State() TableState
 func (t *Table) SetRows([]TableRow) error
@@ -598,9 +617,20 @@ func (t *Table) Replace(
     sortColumn string,
     sortDirection SortDirection,
 ) error
+func (t *Table) ReplaceWithPresentation(
+    []Column,
+    []TableRow,
+    []TableColumnPresentation,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
 func (t *Table) SetCurrent(row string, column string) error
 func (t *Table) SetSelection([]string) error
 func (t *Table) SetSelectionPolicy(TableSelectionPolicy) error
+func (t *Table) SetColumnPresentation([]TableColumnPresentation) error
 func (t *Table) SetSort(string, SortDirection) error
 func (t *Table) SetStatus(CollectionStatus, string) error
 func (t *Table) Focus() error
@@ -626,11 +656,26 @@ func (t *Transaction) ReplaceTable(
     sortColumn string,
     sortDirection SortDirection,
 ) error
+func (t *Transaction) ReplaceTableWithPresentation(
+    *Table,
+    []Column,
+    []TableRow,
+    []TableColumnPresentation,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
 func (t *Transaction) SetTableCurrent(*Table, string, string) error
 func (t *Transaction) SetTableSelection(*Table, []string) error
 func (t *Transaction) SetTableSelectionPolicy(
     *Table,
     TableSelectionPolicy,
+) error
+func (t *Transaction) SetTableColumnPresentation(
+    *Table,
+    []TableColumnPresentation,
 ) error
 func (t *Transaction) SetTableSort(*Table, string, SortDirection) error
 func (t *Transaction) SetTableStatus(
@@ -644,8 +689,8 @@ Column and row keys are unique. Each row contains at most one cell for a
 known column; omitted cells are empty. The App-wide cell count is bounded by
 `MaxCollectionCells`. Zero column width measures the maximum header/cell
 width; explicit minimum/maximum constraints clamp it; positive Grow values
-share spare viewport width in stable column order. Text does not wrap in v0.
-The header is always one sticky row and never participates in vertical
+on visible columns share spare viewport width in stable presentation order.
+The header is always one sticky clipped row and never participates in vertical
 scrolling. A column validator requires `Editable`; hard validation rejects
 incompatible copied model cells now so the same schema remains valid when the
 later DataGrid editor uses it. Table itself never enters edit mode.
@@ -665,7 +710,31 @@ replacement never reorders the caller's canonical model; `Rows` always
 returns canonical model order while current indices, selection order, the
 frame, and automation reflect derived display order.
 
-Up/Down/Page/Home/End move rows. In cell mode Left/Right move columns; in row
+Column presentation is copied state independent of canonical schema and row
+data. Its slice order is display order and contains every canonical column
+key exactly once, including hidden entries. Nil means canonical order, all
+visible, and Clip. A non-nil exact presentation rejects missing, unknown, or
+duplicate keys, unknown wrap values, and a nonempty schema with no visible
+column. The zero wrap value normalizes to Clip. State,
+`ColumnPresentation()`, core snapshots, and mutations return or retain only
+caller-owned copies. `SetColumnPresentation` publishes the complete validated
+presentation atomically. Presentation order and visibility govern header/body
+painting, width allocation, horizontal geometry, cell navigation, and
+DataGrid editable-cell traversal without changing canonical `Columns()` or
+`Rows()`.
+
+Clip paints one body line truncated to the derived width. Wrap breaks body
+text at word boundaries and falls back to cell boundaries for an overlong
+word. Hang uses the same rules with one ASCII-space continuation indent and
+degrades to Wrap at width one. Headers never wrap. Each logical row has the
+maximum line count of its visible cells; markers occur only on its first
+line, while row/cell styles and separators span every visual line. Alignment
+applies per line and, for Hang continuations, within the post-indent width.
+`VisualRowCount`, vertical content size, offsets, current visibility, and Page
+movement use these visual rows without flattening the canonical row model.
+
+Up/Down/Home/End move logical rows; Page movement uses approximately one body
+viewport of visual-row distance. In cell mode Left/Right move visible columns; in row
 mode they scroll horizontally. Space applies the exact selection style; None
 is a handled no-op and Range establishes a one-row interval. Enter activates
 the current row/cell without selecting under None. Shift plus row navigation
@@ -675,19 +744,27 @@ column. Disabled rows remain visible but cannot be current, selected, an
 endpoint, or activated. Tab and Shift-Tab leave the complete Table as one
 focus group.
 
-`SetRows` preserves surviving row current and selection, the current column,
-and sort. `SetModel` additionally preserves a surviving current column and
-sortable sort column; otherwise it repairs to the first column and clears
-sort. `Replace` supplies the exact copied schema, canonical rows, current
-coordinate, selection, and sort. Current-row repair starts at the former
-displayed index under the resulting sort, then scans forward and backward.
+`SetRows` preserves surviving row current and selection, column presentation,
+the current column, and sort. `SetModel` preserves presentation order,
+visibility, and wrap for every surviving key, removes absent keys, and appends
+new keys in canonical order as visible/Clip. If repair would leave no visible
+column, it makes the first canonical column visible. A hidden or removed
+current column repairs from its former presentation index by scanning right,
+then left. Sort remains active when its column is merely hidden. `Replace`
+preserves compatible surviving presentation while supplying the exact copied
+schema, canonical rows, current coordinate, selection, and sort;
+`ReplaceWithPresentation` and its Transaction form supply the complete exact
+presentation in that same atomic replacement. Current-row
+repair starts at the former displayed row index under the resulting sort,
+then scans forward and backward.
 
 Core typed details expose exact bounded status text and derived column widths.
 Automation omits the retained columns, rows, cells, validators, and exact
 status/disabled-reason text. It reports row/column/cell/enabled counts,
-retained bytes, current stable row/column and indices, exact selection style,
+retained bytes, logical and visual row counts, current stable row/column and indices, exact selection style,
 range endpoints, selection endpoints and digest, sort state, column endpoints
-and a digest of all derived widths,
+plus exact core presentation, visible-column count/endpoints and a compact
+presentation digest for automation, and a digest of all derived widths,
 optional commands, and the compact viewport. The intended frame supplies
 exact visible headers, cells, markers, styles, clipping, and sticky-header
 evidence.
@@ -707,6 +784,7 @@ type DataGridOptions struct {
     RequireSelection bool
     RangeAnchor      string
     RangeExtent      string
+    ColumnPresentation []TableColumnPresentation
     SortColumn       string
     SortDirection    SortDirection
     Status           CollectionStatus
@@ -733,6 +811,7 @@ func (t *Transaction) NewDataGrid(
     DataGridOptions,
 ) (*DataGrid, error)
 func (g *DataGrid) Columns() []Column
+func (g *DataGrid) ColumnPresentation() []TableColumnPresentation
 func (g *DataGrid) Rows() []TableRow
 func (g *DataGrid) State() DataGridState
 func (g *DataGrid) SetRows([]TableRow) error
@@ -746,9 +825,20 @@ func (g *DataGrid) Replace(
     sortColumn string,
     sortDirection SortDirection,
 ) error
+func (g *DataGrid) ReplaceWithPresentation(
+    []Column,
+    []TableRow,
+    []TableColumnPresentation,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
 func (g *DataGrid) SetCurrent(string, string) error
 func (g *DataGrid) SetSelection([]string) error
 func (g *DataGrid) SetSelectionPolicy(TableSelectionPolicy) error
+func (g *DataGrid) SetColumnPresentation([]TableColumnPresentation) error
 func (g *DataGrid) SetSort(string, SortDirection) error
 func (g *DataGrid) SetStatus(CollectionStatus, string) error
 func (g *DataGrid) Focus() error
@@ -774,11 +864,26 @@ func (t *Transaction) ReplaceDataGrid(
     sortColumn string,
     sortDirection SortDirection,
 ) error
+func (t *Transaction) ReplaceDataGridWithPresentation(
+    *DataGrid,
+    []Column,
+    []TableRow,
+    []TableColumnPresentation,
+    currentRow string,
+    currentColumn string,
+    selected []string,
+    sortColumn string,
+    sortDirection SortDirection,
+) error
 func (t *Transaction) SetDataGridCurrent(*DataGrid, string, string) error
 func (t *Transaction) SetDataGridSelection(*DataGrid, []string) error
 func (t *Transaction) SetDataGridSelectionPolicy(
     *DataGrid,
     TableSelectionPolicy,
+) error
+func (t *Transaction) SetDataGridColumnPresentation(
+    *DataGrid,
+    []TableColumnPresentation,
 ) error
 func (t *Transaction) SetDataGridSort(
     *DataGrid,
@@ -803,12 +908,17 @@ cancels, and Tab or Shift-Tab commits then moves to the next or previous
 editable cell. The field has the same unfocused, focused, invalid-soft, and
 invalid-character semantic styles as TextField. Hard validation ignores
 disallowed input; soft validation permits it but rejects commit until valid.
-Programmatic model replacement cancels an active edit before applying stable
-identity repair.
+Programmatic model, selection-policy, or column-presentation replacement
+cancels an active edit before applying stable identity repair. The editor
+remains a single horizontally scrolling line on the first visual line of a
+wrapped cell. Its committed value continues to determine logical-row height
+during editing; a successful commit invalidates and recomputes the affected
+wrapped geometry once.
 
 Tab and Shift-Tab keep edit traversal inside the DataGrid while a following or
-preceding editable cell exists, commit the current valid value, move stable
-current to that cell, and begin its editor. At the forward or reverse boundary
+preceding editable visible cell exists in presentation order, commit the
+current valid value, move stable current to that cell, and begin its editor.
+At the forward or reverse boundary
 they commit and leave the DataGrid focus group. A soft-invalid value blocks
 both Enter and Tab commit and retains the visible editor. Generic focus loss,
 menu entry, and every programmatic DataGrid mutation cancel an active edit;

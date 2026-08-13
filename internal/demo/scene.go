@@ -6214,6 +6214,12 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.SetTableColumnPresentation(
+			s.collectionTable,
+			nil,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.ReplaceTable(
 			s.collectionTable,
 			collectionTableColumns(),
@@ -6232,6 +6238,12 @@ func (s *Scene) handleCommand(
 				Style: expletives.TableSelectionMultiple, Require: true,
 				Selected: []string{"core"},
 			},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetDataGridColumnPresentation(
+			s.collectionDataGrid,
+			nil,
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -7447,6 +7459,97 @@ func (s *Scene) exerciseCollectionSelectionMatrix(
 	return s.collectionList.Focus()
 }
 
+// exerciseCollectionPresentationMatrix is route/Layout independent so Phase
+// 23 can retain the behavior assertions when it moves these fixtures to
+// dedicated Table and DataGrid screens.
+func (s *Scene) exerciseCollectionPresentationMatrix() error {
+	verify := func(
+		key string,
+		state expletives.TableState,
+		want []expletives.TableColumnPresentation,
+	) error {
+		if state.VisibleColumnCount != 2 || len(state.ColumnWidths) != 2 ||
+			len(state.ColumnPresentation) != len(want) {
+			return fmt.Errorf("%s presentation State = %+v", key, state)
+		}
+		for index := range want {
+			if state.ColumnPresentation[index] != want[index] {
+				return fmt.Errorf("%s presentation State = %+v", key, state)
+			}
+		}
+		var details *expletives.TableDetails
+		for _, control := range s.App.Snapshot().Controls {
+			if control.Key != key {
+				continue
+			}
+			if control.Details.Table != nil {
+				details = control.Details.Table
+			} else if control.Details.DataGrid != nil {
+				details = &control.Details.DataGrid.Table
+			}
+			break
+		}
+		if details == nil || details.VisibleColumnCount != 2 ||
+			details.FirstVisibleColumn != want[0].Column ||
+			details.LastVisibleColumn != want[2].Column ||
+			len(details.PresentationDigest) != 64 {
+			return fmt.Errorf("%s presentation Details = %+v", key, details)
+		}
+		return nil
+	}
+	tablePresentation := []expletives.TableColumnPresentation{
+		{Column: "tests", Visible: true, Wrap: expletives.TableColumnHang},
+		{Column: "state", Visible: false, Wrap: expletives.TableColumnClip},
+		{Column: "name", Visible: true, Wrap: expletives.TableColumnWrapWords},
+	}
+	gridPresentation := []expletives.TableColumnPresentation{
+		{Column: "state", Visible: true, Wrap: expletives.TableColumnWrapWords},
+		{Column: "tests", Visible: false, Wrap: expletives.TableColumnHang},
+		{Column: "name", Visible: true, Wrap: expletives.TableColumnClip},
+	}
+	transaction := s.App.NewTransaction()
+	if err := transaction.SetTableColumnPresentation(
+		s.collectionTable,
+		tablePresentation,
+	); err != nil {
+		return err
+	}
+	if err := transaction.SetDataGridColumnPresentation(
+		s.collectionDataGrid,
+		gridPresentation,
+	); err != nil {
+		return err
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.table",
+		s.collectionTable.State(),
+		tablePresentation,
+	); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.data-grid",
+		s.collectionDataGrid.State().TableState,
+		gridPresentation,
+	); err != nil {
+		return err
+	}
+	transaction = s.App.NewTransaction()
+	if err := transaction.SetTableColumnPresentation(s.collectionTable, nil); err != nil {
+		return err
+	}
+	if err := transaction.SetDataGridColumnPresentation(s.collectionDataGrid, nil); err != nil {
+		return err
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		return err
+	}
+	return s.collectionList.Focus()
+}
+
 func sameStableKeys(left, right []string) bool {
 	if len(left) != len(right) {
 		return false
@@ -8517,6 +8620,9 @@ func SelfCheck() error {
 	}
 	if err := scene.exerciseCollectionSelectionMatrix(pressCollectionKey); err != nil {
 		return fmt.Errorf("Table/DataGrid selection matrix: %w", err)
+	}
+	if err := scene.exerciseCollectionPresentationMatrix(); err != nil {
+		return fmt.Errorf("Table/DataGrid presentation matrix: %w", err)
 	}
 	if completion, inputErr := pressCollectionKey(
 		"collection-list-down",

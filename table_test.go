@@ -26,6 +26,76 @@ func sampleTableRows() []TableRow {
 	}
 }
 
+func sameTableColumnPresentation(
+	left []TableColumnPresentation,
+	right []TableColumnPresentation,
+) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func tableWrappedLineText(line tableWrappedLine) string {
+	return strings.Repeat(" ", line.indent) + strings.Join(line.cells, "")
+}
+
+func TestTableColumnWrapAlgorithms(t *testing.T) {
+	t.Parallel()
+	cells := []string{"a", "l", "p", "h", "a", " ", "b", "e", "t", "a"}
+	if lines := wrapTableCellLines(cells, 5, TableColumnClip); len(lines) != 1 ||
+		tableWrappedLineText(lines[0]) != "alpha beta" {
+		t.Fatalf("Clip lines = %#v", lines)
+	}
+	if lines := wrapTableCellLines(cells, 6, TableColumnWrapWords); len(lines) != 2 ||
+		tableWrappedLineText(lines[0]) != "alpha" ||
+		tableWrappedLineText(lines[1]) != "beta" {
+		t.Fatalf("Wrap lines = %#v", lines)
+	}
+	if lines := wrapTableCellLines(cells, 6, TableColumnHang); len(lines) != 2 ||
+		tableWrappedLineText(lines[0]) != "alpha" ||
+		tableWrappedLineText(lines[1]) != " beta" {
+		t.Fatalf("Hang lines = %#v", lines)
+	}
+	if lines := wrapTableCellLines(
+		[]string{"a", "b", "c", "d", "e", "f"},
+		4,
+		TableColumnWrapWords,
+	); len(lines) != 2 || tableWrappedLineText(lines[0]) != "abcd" ||
+		tableWrappedLineText(lines[1]) != "ef" {
+		t.Fatalf("long-word lines = %#v", lines)
+	}
+	if lines := wrapTableCellLines(
+		[]string{"a", "b", "c"},
+		1,
+		TableColumnHang,
+	); len(lines) != 3 || lines[1].indent != 0 ||
+		tableWrappedLineText(lines[2]) != "c" {
+		t.Fatalf("width-one Hang lines = %#v", lines)
+	}
+	if got := strings.Join(alignedWrappedTableCells(
+		tableWrappedLine{cells: []string{"x", "y"}, indent: 1},
+		6,
+		TextAlignEnd,
+	), ""); got != "    xy" {
+		t.Fatalf("aligned Hang continuation = %q", got)
+	}
+	normalized, err := normalizeDisplayText("e\u0301界", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := wrapTableCellLines(normalized.lines[0], 1, TableColumnWrapWords)
+	if len(lines) != 2 || len(lines[0].cells) != 1 || len(lines[1].cells) != 1 ||
+		lines[1].cells[0] != "�" {
+		t.Fatalf("one-cell Unicode wrap = %#v", lines)
+	}
+}
+
 func dispatchTableKey(t *testing.T, app *App, request string, key Key) Completion {
 	t.Helper()
 	completion, err := app.DispatchKey(context.Background(), "table-test", request, KeyEvent{Kind: KeyEventPress, Key: key})
@@ -82,8 +152,10 @@ func TestTableRenderingDetailsAndCopiedState(t *testing.T) {
 	state := table.State()
 	state.Selected[0] = "getter mutation"
 	state.ColumnWidths[0] = 999
+	state.ColumnPresentation[0].Column = "getter mutation"
 	if table.Columns()[0].Header != "Name" || table.Rows()[0].Cells[0].Text != "Bravo" ||
-		table.State().Selected[0] != "alpha" || table.State().ColumnWidths[0] == 999 {
+		table.State().Selected[0] != "alpha" || table.State().ColumnWidths[0] == 999 ||
+		table.State().ColumnPresentation[0].Column != "name" {
 		t.Fatal("Table getter exposed retained mutable storage")
 	}
 
@@ -98,7 +170,10 @@ func TestTableRenderingDetailsAndCopiedState(t *testing.T) {
 		details.RangeAnchor != "" || details.RangeExtent != "" ||
 		details.SelectedCount != 1 ||
 		details.FirstSelected != "alpha" || details.LastSelected != "alpha" ||
-		len(details.SelectionDigest) != 64 || len(details.ColumnWidthsDigest) != 64 ||
+		details.VisibleColumnCount != 3 || details.FirstVisibleColumn != "name" ||
+		details.LastVisibleColumn != "count" || len(details.ColumnPresentation) != 3 ||
+		len(details.SelectionDigest) != 64 || len(details.PresentationDigest) != 64 ||
+		len(details.ColumnWidthsDigest) != 64 ||
 		len(details.ColumnWidths) != 3 || !details.Enabled ||
 		details.Viewport.Content != "" || details.Viewport.ContentKey != "" {
 		t.Fatalf("TableDetails = %#v", details)
@@ -111,6 +186,453 @@ func TestTableRenderingDetailsAndCopiedState(t *testing.T) {
 	}
 	if got := rowText(app.Snapshot(), 3); !strings.Contains(got, "►[ ]Bravo") {
 		t.Fatalf("first table row = %q", got)
+	}
+}
+
+func TestTableColumnPresentationValidationCopyMutationAndRepair(t *testing.T) {
+	t.Parallel()
+	columns, rows := sampleTableColumns(), sampleTableRows()
+	invalid := map[string][]TableColumnPresentation{
+		"empty": {},
+		"missing": {
+			{Column: "name", Visible: true},
+			{Column: "state", Visible: true},
+		},
+		"unknown": {
+			{Column: "name", Visible: true},
+			{Column: "state", Visible: true},
+			{Column: "missing", Visible: true},
+		},
+		"duplicate": {
+			{Column: "name", Visible: true},
+			{Column: "state", Visible: true},
+			{Column: "state", Visible: true},
+		},
+		"wrap": {
+			{Column: "name", Visible: true},
+			{Column: "state", Visible: true, Wrap: "fold"},
+			{Column: "count", Visible: true},
+		},
+		"hidden": {
+			{Column: "name"},
+			{Column: "state"},
+			{Column: "count"},
+		},
+	}
+	for name, presentation := range invalid {
+		name, presentation := name, presentation
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			app := mustApp(t, Size{Width: 40, Height: 9})
+			if _, err := NewTable(app.Root(), TableOptions{
+				Columns: columns, Rows: rows, ColumnPresentation: presentation,
+			}); !errors.Is(err, ErrValidation) {
+				t.Fatalf("NewTable() error = %v", err)
+			}
+		})
+	}
+	emptyApp := mustApp(t, Size{Width: 20, Height: 6})
+	if _, err := NewTable(emptyApp.Root(), TableOptions{
+		ColumnPresentation: []TableColumnPresentation{},
+	}); err != nil {
+		t.Fatalf("empty-schema presentation error = %v", err)
+	}
+
+	app := mustApp(t, Size{Width: 44, Height: 10})
+	presentation := []TableColumnPresentation{
+		{Column: "state", Visible: true, Wrap: TableColumnHang},
+		{Column: "name", Visible: false},
+		{Column: "count", Visible: true, Wrap: TableColumnWrapWords},
+	}
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "table.presentation", Bounds: Rect{Width: 34, Height: 7}},
+		}},
+		Columns: columns, Rows: rows, CurrentColumn: "name",
+		ColumnPresentation: presentation,
+	})
+	if err != nil {
+		t.Fatalf("NewTable() error = %v", err)
+	}
+	presentation[0].Column = "caller-mutation"
+	want := []TableColumnPresentation{
+		{Column: "state", Visible: true, Wrap: TableColumnHang},
+		{Column: "name", Visible: false, Wrap: TableColumnClip},
+		{Column: "count", Visible: true, Wrap: TableColumnWrapWords},
+	}
+	if state := table.State(); state.CurrentColumn != "count" ||
+		state.VisibleColumnCount != 2 ||
+		!sameTableColumnPresentation(state.ColumnPresentation, want) {
+		t.Fatalf("initial presentation state = %#v", state)
+	}
+	copyValue := table.ColumnPresentation()
+	copyValue[0].Column = "getter-mutation"
+	if sameTableColumnPresentation(copyValue, table.ColumnPresentation()) {
+		t.Fatal("ColumnPresentation() exposed retained slice storage")
+	}
+	details := controlByKey(t, app.Snapshot(), "table.presentation").Details.Table
+	if details == nil || details.VisibleColumnCount != 2 ||
+		details.FirstVisibleColumn != "state" || details.LastVisibleColumn != "count" ||
+		len(details.PresentationDigest) != 64 ||
+		!sameTableColumnPresentation(details.ColumnPresentation, want) {
+		t.Fatalf("presentation details = %#v", details)
+	}
+	details.ColumnPresentation[0].Column = "snapshot-mutation"
+	if table.ColumnPresentation()[0].Column != "state" {
+		t.Fatal("snapshot exposed retained presentation storage")
+	}
+
+	before := table.ColumnPresentation()
+	if err := table.SetColumnPresentation([]TableColumnPresentation{
+		{Column: "name", Visible: false},
+		{Column: "state", Visible: false},
+		{Column: "count", Visible: false},
+	}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("SetColumnPresentation(all hidden) error = %v", err)
+	}
+	if !sameTableColumnPresentation(table.ColumnPresentation(), before) {
+		t.Fatal("failed presentation mutation changed state")
+	}
+
+	tx := app.NewTransaction()
+	staged := []TableColumnPresentation{
+		{Column: "count", Visible: true, Wrap: TableColumnHang},
+		{Column: "name", Visible: false},
+		{Column: "state", Visible: true, Wrap: TableColumnWrapWords},
+	}
+	if err := tx.SetTableColumnPresentation(table, staged); err != nil {
+		t.Fatalf("SetTableColumnPresentation() error = %v", err)
+	}
+	staged[0].Column = "caller-mutation"
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	if got := table.ColumnPresentation(); got[0].Column != "count" {
+		t.Fatalf("transaction retained caller storage: %#v", got)
+	}
+
+	newColumns := []Column{
+		{Key: "state", Header: "State"},
+		{Key: "fresh", Header: "Fresh"},
+		{Key: "count", Header: "Count"},
+	}
+	if err := table.SetModel(newColumns, []TableRow{{Key: "new-row"}}); err != nil {
+		t.Fatalf("SetModel() error = %v", err)
+	}
+	want = []TableColumnPresentation{
+		{Column: "count", Visible: true, Wrap: TableColumnHang},
+		{Column: "state", Visible: true, Wrap: TableColumnWrapWords},
+		{Column: "fresh", Visible: true, Wrap: TableColumnClip},
+	}
+	if got := table.ColumnPresentation(); !sameTableColumnPresentation(got, want) {
+		t.Fatalf("repaired presentation = %#v, want %#v", got, want)
+	}
+	if err := table.SetColumnPresentation(nil); err != nil {
+		t.Fatalf("SetColumnPresentation(nil) error = %v", err)
+	}
+	want = []TableColumnPresentation{
+		{Column: "state", Visible: true, Wrap: TableColumnClip},
+		{Column: "fresh", Visible: true, Wrap: TableColumnClip},
+		{Column: "count", Visible: true, Wrap: TableColumnClip},
+	}
+	if got := table.ColumnPresentation(); !sameTableColumnPresentation(got, want) {
+		t.Fatalf("canonical presentation = %#v, want %#v", got, want)
+	}
+	if err := table.SetColumnPresentation([]TableColumnPresentation{
+		{Column: "state", Visible: true},
+		{Column: "fresh", Visible: false, Wrap: TableColumnHang},
+		{Column: "count", Visible: false, Wrap: TableColumnWrapWords},
+	}); err != nil {
+		t.Fatalf("SetColumnPresentation(repair fixture) error = %v", err)
+	}
+	if err := table.SetModel(
+		[]Column{{Key: "fresh", Header: "Fresh"}, {Key: "count", Header: "Count"}},
+		[]TableRow{{Key: "final-row"}},
+	); err != nil {
+		t.Fatalf("SetModel(remove sole visible column) error = %v", err)
+	}
+	want = []TableColumnPresentation{
+		{Column: "fresh", Visible: true, Wrap: TableColumnHang},
+		{Column: "count", Visible: false, Wrap: TableColumnWrapWords},
+	}
+	if got := table.ColumnPresentation(); !sameTableColumnPresentation(got, want) ||
+		table.State().CurrentColumn != "fresh" {
+		t.Fatalf("no-visible repair presentation=%#v state=%#v", got, table.State())
+	}
+	if err := table.ReplaceWithPresentation(
+		[]Column{{Key: "left", Header: "Left"}, {Key: "right", Header: "Right"}},
+		[]TableRow{{Key: "replacement"}},
+		[]TableColumnPresentation{
+			{Column: "right", Visible: true, Wrap: TableColumnHang},
+			{Column: "left", Visible: false},
+		},
+		"replacement",
+		"left",
+		nil,
+		"",
+		SortNone,
+	); err != nil {
+		t.Fatalf("ReplaceWithPresentation() error = %v", err)
+	}
+	if state := table.State(); state.CurrentColumn != "right" ||
+		state.CurrentColumnIndex != 0 || state.VisibleColumnCount != 1 ||
+		state.ColumnPresentation[0].Wrap != TableColumnHang {
+		t.Fatalf("exact replacement state = %#v", state)
+	}
+}
+
+func TestTableColumnPresentationControlsRenderingNavigationAndHiddenSort(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 34, Height: 9})
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "table.visible-columns", Bounds: Rect{Width: 22, Height: 7}},
+		}},
+		Columns: []Column{
+			{Key: "name", Header: "Name", Width: 5},
+			{Key: "state", Header: "State", Width: 5, Sortable: true},
+			{Key: "count", Header: "Count", Width: 5},
+		},
+		Rows: []TableRow{
+			{Key: "one", Cells: []TableCell{{Column: "name", Text: "One"}, {Column: "state", Text: "Zulu"}, {Column: "count", Text: "1"}}},
+			{Key: "two", Cells: []TableCell{{Column: "name", Text: "Two"}, {Column: "state", Text: "Alpha"}, {Column: "count", Text: "2"}}},
+		},
+		CurrentRow: "one", CurrentColumn: "name", FocusMode: TableFocusCell,
+		ColumnPresentation: []TableColumnPresentation{
+			{Column: "count", Visible: true},
+			{Column: "state", Visible: false},
+			{Column: "name", Visible: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewTable() error = %v", err)
+	}
+	if err := table.Focus(); err != nil {
+		t.Fatalf("Focus() error = %v", err)
+	}
+	header := rowText(app.Snapshot(), 1)
+	if got := string([]rune(header)[1:21]); got != "    Count│Name      " {
+		t.Fatalf("exact presentation header = %q", got)
+	}
+	if countAt, nameAt := strings.Index(header, "Count"), strings.Index(header, "Name"); countAt < 0 || nameAt <= countAt || strings.Contains(header, "State") {
+		t.Fatalf("presentation header = %q", header)
+	}
+	firstRow := rowText(app.Snapshot(), 2)
+	if got := string([]rune(firstRow)[1:21]); got != "►[ ]1    │One       " {
+		t.Fatalf("exact presentation row = %q", got)
+	}
+	if countAt, nameAt := strings.Index(firstRow, "1"), strings.Index(firstRow, "One"); countAt < 0 || nameAt <= countAt || strings.Contains(firstRow, "Zulu") {
+		t.Fatalf("presentation row = %q", firstRow)
+	}
+	state := table.State()
+	if state.CurrentColumnIndex != 1 || len(state.ColumnWidths) != 2 ||
+		state.Offset.X != 0 {
+		t.Fatalf("initial visible state = %#v", state)
+	}
+	dispatchTableKey(t, app, "visible-left", KeyLeft)
+	if state = table.State(); state.CurrentColumn != "count" || state.CurrentColumnIndex != 0 {
+		t.Fatalf("Left visible state = %#v", state)
+	}
+	dispatchTableKey(t, app, "visible-right", KeyRight)
+	if state = table.State(); state.CurrentColumn != "name" || state.CurrentColumnIndex != 1 {
+		t.Fatalf("Right visible state = %#v", state)
+	}
+	dispatchTableControlKey(t, app, "visible-home", KeyHome)
+	if state = table.State(); state.CurrentColumn != "count" || state.CurrentRow != "one" {
+		t.Fatalf("Ctrl-Home visible state = %#v", state)
+	}
+	dispatchTableControlKey(t, app, "visible-end", KeyEnd)
+	if state = table.State(); state.CurrentColumn != "name" || state.CurrentRow != "two" {
+		t.Fatalf("Ctrl-End visible state = %#v", state)
+	}
+	if err := table.SetSort("state", SortAscending); err != nil {
+		t.Fatalf("SetSort(hidden) error = %v", err)
+	}
+	if state = table.State(); state.SortColumn != "state" || state.CurrentRowIndex != 0 {
+		t.Fatalf("hidden sort state = %#v", state)
+	}
+	if firstRow = rowText(app.Snapshot(), 2); !strings.Contains(firstRow, "2") ||
+		!strings.Contains(firstRow, "Two") || strings.Contains(firstRow, "Alpha") {
+		t.Fatalf("hidden sorted row = %q", firstRow)
+	}
+}
+
+func TestTableWrappedRowsExactFrameAndVisualGeometry(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 30, Height: 9})
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "table.wrap", Bounds: Rect{Width: 18, Height: 6}},
+		}},
+		Columns: []Column{
+			{Key: "notes", Header: "Notes", Width: 6},
+			{Key: "count", Header: "N", Width: 3},
+		},
+		Rows: []TableRow{
+			{Key: "one", Cells: []TableCell{{Column: "notes", Text: "alpha beta"}, {Column: "count", Text: "7"}}},
+			{Key: "two", Cells: []TableCell{{Column: "notes", Text: "gamma"}, {Column: "count", Text: "8"}}},
+		},
+		CurrentRow: "one", CurrentColumn: "notes", Selected: []string{"one"},
+		FocusMode: TableFocusCell,
+		ColumnPresentation: []TableColumnPresentation{
+			{Column: "notes", Visible: true, Wrap: TableColumnWrapWords},
+			{Column: "count", Visible: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewTable() error = %v", err)
+	}
+	if err := table.Focus(); err != nil {
+		t.Fatalf("Focus() error = %v", err)
+	}
+	for row, want := range map[int]string{
+		1: "    Notes │N    ",
+		2: "►[X]alpha │7    ",
+		3: "    beta  │     ",
+		4: " [ ]gamma │8    ",
+	} {
+		got := string([]rune(rowText(app.Snapshot(), row))[1:17])
+		if got != want {
+			t.Fatalf("frame row %d = %q, want %q", row, got, want)
+		}
+	}
+	state := table.State()
+	if state.RowCount != 2 || state.VisualRowCount != 3 ||
+		state.Offset.Y != 0 {
+		t.Fatalf("wrapped state = %#v", state)
+	}
+	details := controlByKey(t, app.Snapshot(), "table.wrap").Details.Table
+	if details == nil || details.VisualRowCount != 3 ||
+		details.Viewport.State.ContentSize.Height != 4 {
+		t.Fatalf("wrapped details = %#v", details)
+	}
+	snapshot := app.Snapshot()
+	for x := 1; x < 5; x++ {
+		cell, _ := snapshot.Frame.Cell(x, 3)
+		if cell.Style != "table.row_selected" {
+			t.Fatalf("continuation marker style at %d = %q", x, cell.Style)
+		}
+	}
+	for x := 5; x < 11; x++ {
+		cell, _ := snapshot.Frame.Cell(x, 3)
+		if cell.Style != "table.cell_current" {
+			t.Fatalf("continuation current-cell style at %d = %q", x, cell.Style)
+		}
+	}
+	dispatchTableKey(t, app, "wrapped-down", KeyDown)
+	if state = table.State(); state.CurrentRow != "two" || state.Offset.Y != 0 {
+		t.Fatalf("wrapped Down state = %#v", state)
+	}
+	if err := table.SetColumnPresentation([]TableColumnPresentation{
+		{Column: "notes", Visible: true, Wrap: TableColumnHang},
+		{Column: "count", Visible: true},
+	}); err != nil {
+		t.Fatalf("SetColumnPresentation(Hang) error = %v", err)
+	}
+	if got := string([]rune(rowText(app.Snapshot(), 3))[1:17]); got != "     beta │     " {
+		t.Fatalf("Hang continuation frame = %q", got)
+	}
+}
+
+func TestTableWrappedNavigationUsesVisualDistanceAndOffsets(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 26, Height: 8})
+	table, err := NewTable(app.Root(), TableOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{Bounds: Rect{Width: 16, Height: 5}},
+		}},
+		Columns: []Column{{Key: "notes", Header: "Notes", Width: 5}},
+		Rows: []TableRow{
+			{Key: "one", Cells: []TableCell{{Column: "notes", Text: "one two three four"}}},
+			{Key: "two", Cells: []TableCell{{Column: "notes", Text: "two"}}},
+			{Key: "three", Cells: []TableCell{{Column: "notes", Text: "three"}}},
+		},
+		CurrentRow: "one", CurrentColumn: "notes",
+		ColumnPresentation: []TableColumnPresentation{{
+			Column: "notes", Visible: true, Wrap: TableColumnWrapWords,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("NewTable() error = %v", err)
+	}
+	if state := table.State(); state.VisualRowCount != 6 || state.Offset.Y != 0 {
+		t.Fatalf("initial wrapped navigation state = %#v", state)
+	}
+	dispatchTableKey(t, app, "wrapped-offset-down", KeyDown)
+	if state := table.State(); state.CurrentRow != "two" || state.Offset.Y != 4 {
+		t.Fatalf("Down wrapped navigation state = %#v", state)
+	}
+	dispatchTableKey(t, app, "wrapped-offset-up", KeyUp)
+	if state := table.State(); state.CurrentRow != "one" || state.Offset.Y != 0 {
+		t.Fatalf("Up wrapped navigation state = %#v", state)
+	}
+	dispatchTableKey(t, app, "wrapped-page-down", KeyPageDown)
+	if state := table.State(); state.CurrentRow != "two" || state.Offset.Y != 4 {
+		t.Fatalf("PageDown wrapped navigation state = %#v", state)
+	}
+	dispatchTableKey(t, app, "wrapped-page-down-last", KeyPageDown)
+	if state := table.State(); state.CurrentRow != "three" || state.Offset.Y != 4 {
+		t.Fatalf("PageDown last wrapped state = %#v", state)
+	}
+	dispatchTableKey(t, app, "wrapped-page-up", KeyPageUp)
+	if state := table.State(); state.CurrentRow != "one" || state.Offset.Y != 0 {
+		t.Fatalf("PageUp wrapped navigation state = %#v", state)
+	}
+}
+
+func TestTableWrappedGeometryCacheInvalidation(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 28, Height: 8})
+	table, err := NewTable(app.Root(), TableOptions{
+		Columns: []Column{{Key: "value", Header: "Value", Width: 5, Sortable: true}},
+		Rows: []TableRow{
+			{Key: "one", Cells: []TableCell{{Column: "value", Text: "alpha beta"}}},
+			{Key: "two", Cells: []TableCell{{Column: "value", Text: "gamma"}}},
+		},
+		CurrentRow: "one", CurrentColumn: "value",
+		ColumnPresentation: []TableColumnPresentation{{
+			Column: "value", Visible: true, Wrap: TableColumnWrapWords,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("NewTable() error = %v", err)
+	}
+	revisions := func() (uint64, uint64) {
+		app.mu.RLock()
+		defer app.mu.RUnlock()
+		behavior := table.state.behavior.(tableBehavior)
+		return behavior.geometryRevision, behavior.geometryCachedAt
+	}
+	initial, cached := revisions()
+	if initial == 0 || cached != initial {
+		t.Fatalf("initial geometry revisions = %d/%d", initial, cached)
+	}
+	if err := table.SetSelection([]string{"one"}); err != nil {
+		t.Fatalf("SetSelection() error = %v", err)
+	}
+	if revision, at := revisions(); revision != initial || at != initial {
+		t.Fatalf("selection invalidated geometry = %d/%d", revision, at)
+	}
+	if err := table.SetCurrent("two", "value"); err != nil {
+		t.Fatalf("SetCurrent() error = %v", err)
+	}
+	if revision, at := revisions(); revision != initial || at != initial {
+		t.Fatalf("navigation invalidated geometry = %d/%d", revision, at)
+	}
+	if err := table.SetColumnPresentation([]TableColumnPresentation{{
+		Column: "value", Visible: true, Wrap: TableColumnHang,
+	}}); err != nil {
+		t.Fatalf("SetColumnPresentation() error = %v", err)
+	}
+	presentationRevision, at := revisions()
+	if presentationRevision <= initial || at != presentationRevision {
+		t.Fatalf("presentation geometry revisions = %d/%d", presentationRevision, at)
+	}
+	if err := table.SetSort("value", SortAscending); err != nil {
+		t.Fatalf("SetSort() error = %v", err)
+	}
+	if revision, at := revisions(); revision <= presentationRevision || at != revision {
+		t.Fatalf("sort geometry revisions = %d/%d", revision, at)
 	}
 }
 
@@ -590,6 +1112,53 @@ func TestTableConcurrentSelectionPolicyReplacement(t *testing.T) {
 	}
 }
 
+func TestTableConcurrentColumnPresentationReplacement(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 30, Height: 8})
+	table, err := NewTable(app.Root(), TableOptions{
+		Columns: sampleTableColumns(), Rows: sampleTableRows(),
+	})
+	if err != nil {
+		t.Fatalf("NewTable() error = %v", err)
+	}
+	presentations := [][]TableColumnPresentation{
+		{
+			{Column: "name", Visible: true},
+			{Column: "state", Visible: true, Wrap: TableColumnWrapWords},
+			{Column: "count", Visible: false, Wrap: TableColumnHang},
+		},
+		{
+			{Column: "count", Visible: true, Wrap: TableColumnHang},
+			{Column: "name", Visible: false},
+			{Column: "state", Visible: true},
+		},
+	}
+	var wait sync.WaitGroup
+	errorsSeen := make(chan error, len(presentations))
+	for worker, presentation := range presentations {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			for range 40 {
+				if err := table.SetColumnPresentation(presentation); err != nil {
+					errorsSeen <- fmt.Errorf("worker %d: %w", worker, err)
+					return
+				}
+			}
+		}()
+	}
+	wait.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		t.Fatal(err)
+	}
+	state := table.State()
+	if state.VisibleColumnCount < 1 || len(state.ColumnPresentation) != 3 ||
+		!tableColumnIsVisible(tableBehavior{columnPresentation: state.ColumnPresentation}, state.CurrentColumn) {
+		t.Fatalf("final presentation state = %#v", state)
+	}
+}
+
 func FuzzTableCellNormalization(f *testing.F) {
 	for _, seed := range []string{"value", "e\u0301", "wide界", string([]byte{0xff}), ""} {
 		f.Add(seed)
@@ -612,6 +1181,83 @@ func FuzzTableCellNormalization(f *testing.F) {
 			!utf8.ValidString(rows[0].cells[0].cell.Text) ||
 			strings.Contains(rows[0].cells[0].cell.Text, "\n") {
 			t.Fatalf("normalized Table cell = %#v", rows)
+		}
+	})
+}
+
+func FuzzTableColumnPresentationNormalization(f *testing.F) {
+	f.Add("name", "state", "count", true, false, true, "clip", "wrap", "hang")
+	f.Fuzz(func(
+		t *testing.T,
+		first, second, third string,
+		firstVisible, secondVisible, thirdVisible bool,
+		firstWrap, secondWrap, thirdWrap string,
+	) {
+		columns, err := normalizeTableColumns(sampleTableColumns())
+		if err != nil {
+			t.Fatal(err)
+		}
+		presentation, err := normalizeTableColumnPresentation(
+			columns,
+			[]TableColumnPresentation{
+				{Column: first, Visible: firstVisible, Wrap: TableColumnWrap(firstWrap)},
+				{Column: second, Visible: secondVisible, Wrap: TableColumnWrap(secondWrap)},
+				{Column: third, Visible: thirdVisible, Wrap: TableColumnWrap(thirdWrap)},
+			},
+		)
+		if err != nil {
+			return
+		}
+		if len(presentation) != len(columns) || visibleTableColumnCount(presentation) < 1 {
+			t.Fatalf("normalized presentation = %#v", presentation)
+		}
+		seen := map[string]bool{}
+		for _, entry := range presentation {
+			if seen[entry.Column] ||
+				(entry.Wrap != TableColumnClip && entry.Wrap != TableColumnWrapWords && entry.Wrap != TableColumnHang) {
+				t.Fatalf("normalized presentation = %#v", presentation)
+			}
+			seen[entry.Column] = true
+		}
+	})
+}
+
+func FuzzTableColumnWrapping(f *testing.F) {
+	for _, seed := range []struct {
+		text  string
+		width int
+		wrap  string
+	}{
+		{"alpha beta", 6, "wrap"},
+		{"abcdefgh", 3, "hang"},
+		{"e\u0301界", 1, "wrap"},
+		{"   ", 2, "hang"},
+	} {
+		f.Add(seed.text, seed.width, seed.wrap)
+	}
+	f.Fuzz(func(t *testing.T, text string, width int, wrapValue string) {
+		if len(text) > 4096 || width < 1 || width > 256 {
+			t.Skip()
+		}
+		wrap, err := normalizeTableColumnWrap(TableColumnWrap(wrapValue))
+		if err != nil || wrap == TableColumnClip {
+			return
+		}
+		normalized, err := normalizeDisplayText(text, false)
+		if err != nil {
+			return
+		}
+		lines := wrapTableCellLines(normalized.lines[0], width, wrap)
+		if len(lines) < 1 || len(lines) > max(1, len(normalized.lines[0])) {
+			t.Fatalf("wrapped line count = %d", len(lines))
+		}
+		for index, line := range lines {
+			if line.indent < 0 || line.indent >= width ||
+				line.indent+len(line.cells) > width ||
+				(wrap == TableColumnHang && width > 1 && index > 0 && line.indent != 1) ||
+				(wrap == TableColumnWrapWords && line.indent != 0) {
+				t.Fatalf("wrapped line %d = %#v", index, line)
+			}
 		}
 	})
 }

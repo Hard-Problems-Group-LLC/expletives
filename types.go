@@ -1233,39 +1233,45 @@ type TreeViewDetails struct {
 // TableDetails describes compact stable-identity tabular state without
 // duplicating the retained column or row model.
 type TableDetails struct {
-	Status             CollectionStatus        `json:"status"`
-	StatusMessage      string                  `json:"status_message,omitempty"`
-	RowCount           int                     `json:"row_count"`
-	EnabledCount       int                     `json:"enabled_count"`
-	ColumnCount        int                     `json:"column_count"`
-	CellCount          int                     `json:"cell_count"`
-	RetainedBytes      int                     `json:"retained_bytes"`
-	CurrentRow         string                  `json:"current_row,omitempty"`
-	CurrentRowIndex    int                     `json:"current_row_index"`
-	CurrentColumn      string                  `json:"current_column,omitempty"`
-	CurrentColumnIndex int                     `json:"current_column_index"`
-	FocusMode          TableFocusMode          `json:"focus_mode"`
-	SelectionMode      CollectionSelectionMode `json:"selection_mode"`
-	SelectionStyle     TableSelectionStyle     `json:"selection_style"`
-	RequireSelection   bool                    `json:"require_selection"`
-	RangeAnchor        string                  `json:"range_anchor,omitempty"`
-	RangeExtent        string                  `json:"range_extent,omitempty"`
-	SelectedCount      int                     `json:"selected_count"`
-	FirstSelected      string                  `json:"first_selected,omitempty"`
-	LastSelected       string                  `json:"last_selected,omitempty"`
-	SelectionDigest    string                  `json:"selection_digest"`
-	SortColumn         string                  `json:"sort_column,omitempty"`
-	SortDirection      SortDirection           `json:"sort_direction"`
-	FirstColumn        string                  `json:"first_column,omitempty"`
-	LastColumn         string                  `json:"last_column,omitempty"`
-	ColumnWidths       []int                   `json:"column_widths"`
-	ColumnWidthsDigest string                  `json:"column_widths_digest"`
-	Enabled            bool                    `json:"enabled"`
-	DisabledReason     string                  `json:"disabled_reason,omitempty"`
-	ChangeCommand      CommandID               `json:"change_command,omitempty"`
-	ActivateCommand    CommandID               `json:"activate_command,omitempty"`
-	SortCommand        CommandID               `json:"sort_command,omitempty"`
-	Viewport           ScrollableDetails       `json:"viewport"`
+	Status             CollectionStatus          `json:"status"`
+	StatusMessage      string                    `json:"status_message,omitempty"`
+	RowCount           int                       `json:"row_count"`
+	VisualRowCount     int                       `json:"visual_row_count"`
+	EnabledCount       int                       `json:"enabled_count"`
+	ColumnCount        int                       `json:"column_count"`
+	CellCount          int                       `json:"cell_count"`
+	RetainedBytes      int                       `json:"retained_bytes"`
+	CurrentRow         string                    `json:"current_row,omitempty"`
+	CurrentRowIndex    int                       `json:"current_row_index"`
+	CurrentColumn      string                    `json:"current_column,omitempty"`
+	CurrentColumnIndex int                       `json:"current_column_index"`
+	FocusMode          TableFocusMode            `json:"focus_mode"`
+	SelectionMode      CollectionSelectionMode   `json:"selection_mode"`
+	SelectionStyle     TableSelectionStyle       `json:"selection_style"`
+	RequireSelection   bool                      `json:"require_selection"`
+	RangeAnchor        string                    `json:"range_anchor,omitempty"`
+	RangeExtent        string                    `json:"range_extent,omitempty"`
+	SelectedCount      int                       `json:"selected_count"`
+	FirstSelected      string                    `json:"first_selected,omitempty"`
+	LastSelected       string                    `json:"last_selected,omitempty"`
+	SelectionDigest    string                    `json:"selection_digest"`
+	SortColumn         string                    `json:"sort_column,omitempty"`
+	SortDirection      SortDirection             `json:"sort_direction"`
+	FirstColumn        string                    `json:"first_column,omitempty"`
+	LastColumn         string                    `json:"last_column,omitempty"`
+	ColumnPresentation []TableColumnPresentation `json:"column_presentation"`
+	VisibleColumnCount int                       `json:"visible_column_count"`
+	FirstVisibleColumn string                    `json:"first_visible_column,omitempty"`
+	LastVisibleColumn  string                    `json:"last_visible_column,omitempty"`
+	PresentationDigest string                    `json:"presentation_digest"`
+	ColumnWidths       []int                     `json:"column_widths"`
+	ColumnWidthsDigest string                    `json:"column_widths_digest"`
+	Enabled            bool                      `json:"enabled"`
+	DisabledReason     string                    `json:"disabled_reason,omitempty"`
+	ChangeCommand      CommandID                 `json:"change_command,omitempty"`
+	ActivateCommand    CommandID                 `json:"activate_command,omitempty"`
+	SortCommand        CommandID                 `json:"sort_command,omitempty"`
+	Viewport           ScrollableDetails         `json:"viewport"`
 }
 
 // DataGridDetails describes one editable Table-compatible collection and its
@@ -1657,6 +1663,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		}
 		if snapshot.Controls[index].Details.Table != nil {
 			table := *snapshot.Controls[index].Details.Table
+			table.ColumnPresentation = append(
+				[]TableColumnPresentation(nil),
+				table.ColumnPresentation...,
+			)
 			table.ColumnWidths = append([]int(nil), table.ColumnWidths...)
 			if table.Viewport.HorizontalBar != nil {
 				bar := *table.Viewport.HorizontalBar
@@ -1670,6 +1680,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		}
 		if snapshot.Controls[index].Details.DataGrid != nil {
 			dataGrid := *snapshot.Controls[index].Details.DataGrid
+			dataGrid.Table.ColumnPresentation = append(
+				[]TableColumnPresentation(nil),
+				dataGrid.Table.ColumnPresentation...,
+			)
 			dataGrid.Table.ColumnWidths = append(
 				[]int(nil),
 				dataGrid.Table.ColumnWidths...,

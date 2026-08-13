@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Column is one copied stable-identity Table or DataGrid column.
@@ -69,6 +71,24 @@ type TableSelectionPolicy struct {
 	Extent   string
 }
 
+// TableColumnWrap selects the body-text presentation for one Table or
+// DataGrid column. The zero value normalizes to TableColumnClip.
+type TableColumnWrap string
+
+const (
+	TableColumnClip      TableColumnWrap = "clip"
+	TableColumnWrapWords TableColumnWrap = "wrap"
+	TableColumnHang      TableColumnWrap = "hang"
+)
+
+// TableColumnPresentation is one stable-keyed column presentation entry.
+// Slice order is display order and includes hidden columns.
+type TableColumnPresentation struct {
+	Column  string
+	Visible bool
+	Wrap    TableColumnWrap
+}
+
 // SortDirection selects the derived stable display order of table rows.
 type SortDirection string
 
@@ -85,23 +105,24 @@ const (
 // clamped while keeping the current row and, in cell mode, column visible.
 type TableOptions struct {
 	ScrollablePanelOptions
-	Columns          []Column
-	Rows             []TableRow
-	CurrentRow       string
-	CurrentColumn    string
-	Selected         []string
-	SelectionMode    CollectionSelectionMode
-	SelectionStyle   TableSelectionStyle
-	RequireSelection bool
-	RangeAnchor      string
-	RangeExtent      string
-	FocusMode        TableFocusMode
-	SortColumn       string
-	SortDirection    SortDirection
-	Status           CollectionStatus
-	StatusMessage    string
-	ActivateCommand  CommandID
-	SortCommand      CommandID
+	Columns            []Column
+	Rows               []TableRow
+	CurrentRow         string
+	CurrentColumn      string
+	Selected           []string
+	SelectionMode      CollectionSelectionMode
+	SelectionStyle     TableSelectionStyle
+	RequireSelection   bool
+	RangeAnchor        string
+	RangeExtent        string
+	ColumnPresentation []TableColumnPresentation
+	FocusMode          TableFocusMode
+	SortColumn         string
+	SortDirection      SortDirection
+	Status             CollectionStatus
+	StatusMessage      string
+	ActivateCommand    CommandID
+	SortCommand        CommandID
 }
 
 // TableState is one complete copied semantic and viewport state.
@@ -116,6 +137,9 @@ type TableState struct {
 	SelectionStyle     TableSelectionStyle
 	RangeAnchor        string
 	RangeExtent        string
+	ColumnPresentation []TableColumnPresentation
+	VisibleColumnCount int
+	VisualRowCount     int
 	FocusMode          TableFocusMode
 	SortColumn         string
 	SortDirection      SortDirection
@@ -147,32 +171,43 @@ type normalizedTableRow struct {
 }
 
 type tableBehavior struct {
-	scroll           scrollViewBehavior
-	columns          []normalizedTableColumn
-	rows             []normalizedTableRow
-	displayOrder     []int
-	columnWidths     []int
-	currentRow       string
-	currentColumn    string
-	selected         []string
-	selectionMode    CollectionSelectionMode
-	selectionStyle   TableSelectionStyle
-	requireSelection bool
-	rangeAnchor      string
-	rangeExtent      string
-	focusMode        TableFocusMode
-	sortColumn       string
-	sortDirection    SortDirection
-	status           CollectionStatus
-	statusMessage    normalizedDisplayText
-	changeCommand    CommandID
-	activateCommand  CommandID
-	sortCommand      CommandID
+	scroll             scrollViewBehavior
+	columns            []normalizedTableColumn
+	rows               []normalizedTableRow
+	displayOrder       []int
+	columnWidths       []int
+	rowHeights         []int
+	rowStarts          []int
+	geometryRevision   uint64
+	geometryCachedAt   uint64
+	geometryCacheSize  Size
+	currentRow         string
+	currentColumn      string
+	selected           []string
+	selectionMode      CollectionSelectionMode
+	selectionStyle     TableSelectionStyle
+	requireSelection   bool
+	rangeAnchor        string
+	rangeExtent        string
+	columnPresentation []TableColumnPresentation
+	focusMode          TableFocusMode
+	sortColumn         string
+	sortDirection      SortDirection
+	status             CollectionStatus
+	statusMessage      normalizedDisplayText
+	changeCommand      CommandID
+	activateCommand    CommandID
+	sortCommand        CommandID
 }
 
 type tablePaintCell struct {
 	grapheme string
 	style    StyleID
+}
+
+type tableWrappedLine struct {
+	cells  []string
+	indent int
 }
 
 // NewTable constructs and atomically inserts a Table.
@@ -290,23 +325,32 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 	if err != nil {
 		return tableBehavior{}, err
 	}
+	presentation, err := normalizeTableColumnPresentation(
+		columns,
+		options.ColumnPresentation,
+	)
+	if err != nil {
+		return tableBehavior{}, err
+	}
 	rows, err := normalizeTableRows(columns, options.Rows)
 	if err != nil {
 		return tableBehavior{}, err
 	}
 	behavior := tableBehavior{
-		scroll:           scroll,
-		columns:          columns,
-		rows:             rows,
-		selectionMode:    mode,
-		selectionStyle:   selectionStyle,
-		requireSelection: options.RequireSelection,
-		focusMode:        focusMode,
-		status:           status,
-		statusMessage:    message,
-		changeCommand:    scrollOptions.ChangeCommand,
-		activateCommand:  options.ActivateCommand,
-		sortCommand:      options.SortCommand,
+		scroll:             scroll,
+		columns:            columns,
+		rows:               rows,
+		selectionMode:      mode,
+		selectionStyle:     selectionStyle,
+		requireSelection:   options.RequireSelection,
+		columnPresentation: presentation,
+		geometryRevision:   1,
+		focusMode:          focusMode,
+		status:             status,
+		statusMessage:      message,
+		changeCommand:      scrollOptions.ChangeCommand,
+		activateCommand:    options.ActivateCommand,
+		sortCommand:        options.SortCommand,
 	}
 	if err := setExactTableSort(&behavior, options.SortColumn, options.SortDirection); err != nil {
 		return tableBehavior{}, err
@@ -321,6 +365,7 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 	); err != nil {
 		return tableBehavior{}, err
 	}
+	repairTableCurrentColumn(&behavior, behavior.columnPresentation)
 	return behavior, nil
 }
 
@@ -389,6 +434,203 @@ func normalizeTableSortDirection(direction SortDirection) (SortDirection, error)
 		return direction, nil
 	default:
 		return "", fmt.Errorf("%w: invalid Table sort direction %q", ErrValidation, direction)
+	}
+}
+
+func normalizeTableColumnWrap(wrap TableColumnWrap) (TableColumnWrap, error) {
+	if wrap == "" {
+		wrap = TableColumnClip
+	}
+	switch wrap {
+	case TableColumnClip, TableColumnWrapWords, TableColumnHang:
+		return wrap, nil
+	default:
+		return "", fmt.Errorf("%w: invalid Table column wrap %q", ErrValidation, wrap)
+	}
+}
+
+func normalizeTableColumnPresentation(
+	columns []normalizedTableColumn,
+	presentation []TableColumnPresentation,
+) ([]TableColumnPresentation, error) {
+	if presentation == nil {
+		result := make([]TableColumnPresentation, len(columns))
+		for index, column := range columns {
+			result[index] = TableColumnPresentation{
+				Column:  column.column.Key,
+				Visible: true,
+				Wrap:    TableColumnClip,
+			}
+		}
+		return result, nil
+	}
+	if len(presentation) != len(columns) {
+		return nil, fmt.Errorf("%w: Table column presentation must contain every column", ErrValidation)
+	}
+	known := make(map[string]bool, len(columns))
+	for _, column := range columns {
+		known[column.column.Key] = true
+	}
+	result := make([]TableColumnPresentation, len(presentation))
+	seen := make(map[string]bool, len(presentation))
+	visible := 0
+	for index, entry := range presentation {
+		if !known[entry.Column] || seen[entry.Column] {
+			return nil, fmt.Errorf(
+				"%w: unknown or duplicate Table presentation column %q",
+				ErrValidation,
+				entry.Column,
+			)
+		}
+		wrap, err := normalizeTableColumnWrap(entry.Wrap)
+		if err != nil {
+			return nil, err
+		}
+		entry.Wrap = wrap
+		result[index] = entry
+		seen[entry.Column] = true
+		if entry.Visible {
+			visible++
+		}
+	}
+	if len(columns) > 0 && visible == 0 {
+		return nil, fmt.Errorf("%w: Table requires one visible column", ErrValidation)
+	}
+	return result, nil
+}
+
+func repairTableColumnPresentation(
+	previous []TableColumnPresentation,
+	columns []normalizedTableColumn,
+) []TableColumnPresentation {
+	known := make(map[string]bool, len(columns))
+	for _, column := range columns {
+		known[column.column.Key] = true
+	}
+	result := make([]TableColumnPresentation, 0, len(columns))
+	seen := make(map[string]bool, len(columns))
+	visible := 0
+	for _, entry := range previous {
+		if !known[entry.Column] || seen[entry.Column] {
+			continue
+		}
+		result = append(result, entry)
+		seen[entry.Column] = true
+		if entry.Visible {
+			visible++
+		}
+	}
+	for _, column := range columns {
+		if seen[column.column.Key] {
+			continue
+		}
+		result = append(result, TableColumnPresentation{
+			Column:  column.column.Key,
+			Visible: true,
+			Wrap:    TableColumnClip,
+		})
+		visible++
+	}
+	if len(columns) > 0 && visible == 0 {
+		first := columns[0].column.Key
+		for index := range result {
+			if result[index].Column == first {
+				result[index].Visible = true
+				break
+			}
+		}
+	}
+	return result
+}
+
+func tableColumnPresentationIndex(
+	presentation []TableColumnPresentation,
+	column string,
+) int {
+	for index, entry := range presentation {
+		if entry.Column == column {
+			return index
+		}
+	}
+	return -1
+}
+
+func tableColumnIsVisible(behavior tableBehavior, column string) bool {
+	index := tableColumnPresentationIndex(behavior.columnPresentation, column)
+	return index >= 0 && behavior.columnPresentation[index].Visible
+}
+
+func visibleTableColumns(behavior tableBehavior) []int {
+	result := make([]int, 0, len(behavior.columnPresentation))
+	for _, entry := range behavior.columnPresentation {
+		if !entry.Visible {
+			continue
+		}
+		if index := tableColumnIndex(behavior.columns, entry.Column); index >= 0 {
+			result = append(result, index)
+		}
+	}
+	return result
+}
+
+func visibleTableColumnWidths(behavior tableBehavior) []int {
+	indices := visibleTableColumns(behavior)
+	result := make([]int, 0, len(indices))
+	for _, index := range indices {
+		if index >= 0 && index < len(behavior.columnWidths) {
+			result = append(result, behavior.columnWidths[index])
+		}
+	}
+	return result
+}
+
+func tableVisibleColumnIndex(behavior tableBehavior, key string) int {
+	for visibleIndex, canonicalIndex := range visibleTableColumns(behavior) {
+		if behavior.columns[canonicalIndex].column.Key == key {
+			return visibleIndex
+		}
+	}
+	return -1
+}
+
+func repairTableCurrentColumn(
+	behavior *tableBehavior,
+	previous []TableColumnPresentation,
+) {
+	if behavior == nil {
+		return
+	}
+	if len(behavior.columns) == 0 {
+		behavior.currentColumn = ""
+		return
+	}
+	if tableColumnIsVisible(*behavior, behavior.currentColumn) {
+		return
+	}
+	start := tableColumnPresentationIndex(
+		behavior.columnPresentation,
+		behavior.currentColumn,
+	)
+	if start < 0 {
+		start = tableColumnPresentationIndex(previous, behavior.currentColumn)
+	}
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(behavior.columnPresentation) {
+		start = len(behavior.columnPresentation) - 1
+	}
+	for index := start; index < len(behavior.columnPresentation); index++ {
+		if behavior.columnPresentation[index].Visible {
+			behavior.currentColumn = behavior.columnPresentation[index].Column
+			return
+		}
+	}
+	for index := start - 1; index >= 0; index-- {
+		if behavior.columnPresentation[index].Visible {
+			behavior.currentColumn = behavior.columnPresentation[index].Column
+			return
+		}
 	}
 }
 
@@ -867,7 +1109,13 @@ func cloneTableBehavior(behavior tableBehavior) tableBehavior {
 	}
 	cloned.displayOrder = append([]int(nil), behavior.displayOrder...)
 	cloned.columnWidths = append([]int(nil), behavior.columnWidths...)
+	cloned.rowHeights = append([]int(nil), behavior.rowHeights...)
+	cloned.rowStarts = append([]int(nil), behavior.rowStarts...)
 	cloned.selected = append([]string(nil), behavior.selected...)
+	cloned.columnPresentation = append(
+		[]TableColumnPresentation(nil),
+		behavior.columnPresentation...,
+	)
 	cloned.statusMessage.lines = cloneTextRows(behavior.statusMessage.lines)
 	return cloned
 }
@@ -884,7 +1132,10 @@ func tableBehaviorEqual(left, right tableBehavior) bool {
 		left.activateCommand != right.activateCommand || left.sortCommand != right.sortCommand ||
 		len(left.columns) != len(right.columns) || len(left.rows) != len(right.rows) ||
 		len(left.displayOrder) != len(right.displayOrder) ||
-		len(left.columnWidths) != len(right.columnWidths) || len(left.selected) != len(right.selected) {
+		len(left.columnWidths) != len(right.columnWidths) || len(left.selected) != len(right.selected) ||
+		len(left.columnPresentation) != len(right.columnPresentation) ||
+		len(left.rowHeights) != len(right.rowHeights) ||
+		len(left.rowStarts) != len(right.rowStarts) {
 		return false
 	}
 	for index := range left.columns {
@@ -905,6 +1156,21 @@ func tableBehaviorEqual(left, right tableBehavior) bool {
 	}
 	for index := range left.selected {
 		if left.selected[index] != right.selected[index] {
+			return false
+		}
+	}
+	for index := range left.columnPresentation {
+		if left.columnPresentation[index] != right.columnPresentation[index] {
+			return false
+		}
+	}
+	for index := range left.rowHeights {
+		if left.rowHeights[index] != right.rowHeights[index] {
+			return false
+		}
+	}
+	for index := range left.rowStarts {
+		if left.rowStarts[index] != right.rowStarts[index] {
 			return false
 		}
 	}
@@ -1010,7 +1276,9 @@ func (b tableBehavior) headerCells(focused bool) []tablePaintCell {
 		return tableTextPaintCells("", "table.header")
 	}
 	result := tableTextPaintCells("    ", "table.header")
-	for columnIndex, column := range b.columns {
+	visibleColumns := visibleTableColumns(b)
+	for visibleIndex, columnIndex := range visibleColumns {
+		column := b.columns[columnIndex]
 		style := StyleID("table.header")
 		if focused && b.focusMode == TableFocusCell && column.column.Key == b.currentColumn {
 			style = "table.header_current"
@@ -1031,7 +1299,7 @@ func (b tableBehavior) headerCells(focused bool) []tablePaintCell {
 			}
 			result = append(result, tablePaintCell{grapheme: grapheme, style: cellStyle})
 		}
-		if columnIndex+1 < len(b.columns) {
+		if visibleIndex+1 < len(visibleColumns) {
 			result = append(result, tablePaintCell{grapheme: "│", style: "table.header"})
 		}
 	}
@@ -1051,11 +1319,12 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 	if len(b.rows) == 0 {
 		return tableTextPaintCells("[empty]", "collection.empty")
 	}
+	displayIndex, within, ok := tableVisualRowAt(b, index)
 	order := tableDisplayOrder(b)
-	if index < 0 || index >= len(order) {
+	if !ok || displayIndex < 0 || displayIndex >= len(order) {
 		return nil
 	}
-	row := b.rows[order[index]]
+	row := b.rows[order[displayIndex]]
 	current := row.row.Key == b.currentRow
 	selected := listSelectionContains(b.selected, row.row.Key)
 	rowStyle := StyleID("table")
@@ -1069,11 +1338,11 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 		rowStyle = "table.row_selected"
 	}
 	marker := " "
-	if focused && current {
+	if within == 0 && focused && current {
 		marker = "►"
 	}
 	selectedMarker := " "
-	if selected {
+	if within == 0 && selected {
 		selectedMarker = "X"
 	}
 	result := []tablePaintCell{
@@ -1090,12 +1359,32 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 			{grapheme: " ", style: rowStyle},
 		}
 	}
-	for columnIndex, column := range b.columns {
+	if within > 0 {
+		result = []tablePaintCell{
+			{grapheme: " ", style: rowStyle},
+			{grapheme: " ", style: rowStyle},
+			{grapheme: " ", style: rowStyle},
+			{grapheme: " ", style: rowStyle},
+		}
+	}
+	visibleColumns := visibleTableColumns(b)
+	for visibleIndex, columnIndex := range visibleColumns {
+		column := b.columns[columnIndex]
 		text := []string{}
 		if cell, found := tableCellForColumn(row, column.column.Key); found {
 			text = cell.text.lines[0]
 		}
-		aligned := alignedTableCells(text, b.columnWidths[columnIndex], column.column.Alignment)
+		wrap := tableColumnWrapFor(b, column.column.Key)
+		lines := wrapTableCellLines(text, b.columnWidths[columnIndex], wrap)
+		line := tableWrappedLine{}
+		if within >= 0 && within < len(lines) {
+			line = lines[within]
+		}
+		aligned := alignedWrappedTableCells(
+			line,
+			b.columnWidths[columnIndex],
+			column.column.Alignment,
+		)
 		cellStyle := rowStyle
 		if !row.row.Disabled && focused && current && b.focusMode == TableFocusCell &&
 			column.column.Key == b.currentColumn {
@@ -1104,11 +1393,86 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 		for _, grapheme := range aligned {
 			result = append(result, tablePaintCell{grapheme: grapheme, style: cellStyle})
 		}
-		if columnIndex+1 < len(b.columns) {
+		if visibleIndex+1 < len(visibleColumns) {
 			result = append(result, tablePaintCell{grapheme: "│", style: rowStyle})
 		}
 	}
 	return result
+}
+
+func tableColumnWrapFor(behavior tableBehavior, key string) TableColumnWrap {
+	index := tableColumnPresentationIndex(behavior.columnPresentation, key)
+	if index < 0 {
+		return TableColumnClip
+	}
+	return behavior.columnPresentation[index].Wrap
+}
+
+func wrapTableCellLines(
+	cells []string,
+	width int,
+	wrap TableColumnWrap,
+) []tableWrappedLine {
+	if width <= 0 || wrap == TableColumnClip || len(cells) <= width {
+		return []tableWrappedLine{{cells: append([]string(nil), cells...)}}
+	}
+	remaining := append([]string(nil), cells...)
+	result := make([]tableWrappedLine, 0, 1+len(cells)/max(1, width))
+	first := true
+	for len(remaining) > 0 {
+		indent := 0
+		if !first && wrap == TableColumnHang && width > 1 {
+			indent = 1
+		}
+		available := max(1, width-indent)
+		breakAt := min(available, len(remaining))
+		if breakAt < len(remaining) {
+			for candidate := breakAt - 1; candidate > 0; candidate-- {
+				value, _ := utf8.DecodeRuneInString(remaining[candidate])
+				if unicode.IsSpace(value) {
+					breakAt = candidate
+					break
+				}
+			}
+		}
+		line := append([]string(nil), remaining[:breakAt]...)
+		for len(line) > 0 {
+			value, _ := utf8.DecodeRuneInString(line[len(line)-1])
+			if !unicode.IsSpace(value) {
+				break
+			}
+			line = line[:len(line)-1]
+		}
+		result = append(result, tableWrappedLine{cells: line, indent: indent})
+		remaining = remaining[breakAt:]
+		for len(remaining) > 0 {
+			value, _ := utf8.DecodeRuneInString(remaining[0])
+			if !unicode.IsSpace(value) {
+				break
+			}
+			remaining = remaining[1:]
+		}
+		first = false
+	}
+	if len(result) == 0 {
+		return []tableWrappedLine{{}}
+	}
+	return result
+}
+
+func alignedWrappedTableCells(
+	line tableWrappedLine,
+	width int,
+	alignment TextAlignment,
+) []string {
+	if line.indent <= 0 || width <= 1 {
+		return alignedTableCells(line.cells, width, alignment)
+	}
+	result := []string{" "}
+	return append(
+		result,
+		alignedTableCells(line.cells, width-1, alignment)...,
+	)
 }
 
 func tableTextPaintCells(text string, style StyleID) []tablePaintCell {
@@ -1166,23 +1530,26 @@ func tableBaseColumnWidths(behavior tableBehavior) []int {
 	return widths
 }
 
-func tableTotalWidth(widths []int) int {
-	if len(widths) == 0 {
+func tableTotalWidth(behavior tableBehavior, widths []int) int {
+	visible := visibleTableColumns(behavior)
+	if len(visible) == 0 {
 		return 1
 	}
-	total := 4 + len(widths) - 1
-	for _, width := range widths {
-		total = min(maxCoordinateMagnitude, total+width)
+	total := 4 + len(visible) - 1
+	for _, columnIndex := range visible {
+		total = min(maxCoordinateMagnitude, total+widths[columnIndex])
 	}
 	return total
 }
 
-func growTableColumnWidths(columns []normalizedTableColumn, base []int, viewportWidth int) []int {
+func growTableColumnWidths(behavior tableBehavior, base []int, viewportWidth int) []int {
 	result := append([]int(nil), base...)
-	remaining := viewportWidth - tableTotalWidth(result)
+	remaining := viewportWidth - tableTotalWidth(behavior, result)
+	visible := visibleTableColumns(behavior)
 	for remaining > 0 {
 		totalGrow := 0
-		for index, column := range columns {
+		for _, index := range visible {
+			column := behavior.columns[index]
 			if column.column.Grow > 0 &&
 				(column.column.MaximumWidth == 0 || result[index] < column.column.MaximumWidth) {
 				totalGrow += column.column.Grow
@@ -1192,7 +1559,8 @@ func growTableColumnWidths(columns []normalizedTableColumn, base []int, viewport
 			break
 		}
 		changed := 0
-		for index, column := range columns {
+		for _, index := range visible {
+			column := behavior.columns[index]
 			if remaining == 0 {
 				break
 			}
@@ -1216,40 +1584,150 @@ func growTableColumnWidths(columns []normalizedTableColumn, base []int, viewport
 	return result
 }
 
-func reflowTable(behavior tableBehavior, size Size) tableBehavior {
-	behavior.displayOrder = nil
-	behavior.displayOrder = deriveTableDisplayOrder(behavior)
-	bodyRows := len(behavior.rows)
-	if behavior.status != CollectionReady || bodyRows == 0 {
-		bodyRows = 1
-	}
-	baseWidths := tableBaseColumnWidths(behavior)
-	behavior.columnWidths = append([]int(nil), baseWidths...)
-	behavior.scroll.state.ContentSize = Size{
-		Width: tableTotalWidth(behavior.columnWidths), Height: bodyRows + 1,
-	}
-	for range 3 {
-		geometry := calculateScrollViewGeometry(size, behavior.scroll)
-		next := growTableColumnWidths(behavior.columns, baseWidths, geometry.viewport.Width)
-		nextWidth := tableTotalWidth(next)
-		if nextWidth == behavior.scroll.state.ContentSize.Width &&
-			len(next) == len(behavior.columnWidths) {
-			behavior.columnWidths = next
-			break
+func deriveTableRowGeometry(behavior *tableBehavior) int {
+	if behavior == nil || behavior.status != CollectionReady || len(behavior.rows) == 0 {
+		if behavior != nil {
+			behavior.rowHeights = nil
+			behavior.rowStarts = nil
 		}
-		behavior.columnWidths = next
-		behavior.scroll.state.ContentSize.Width = nextWidth
+		return 1
+	}
+	order := tableDisplayOrder(*behavior)
+	heights := make([]int, len(order))
+	starts := make([]int, len(order))
+	visibleColumns := visibleTableColumns(*behavior)
+	wraps := make(map[int]TableColumnWrap, len(visibleColumns))
+	for _, columnIndex := range visibleColumns {
+		wraps[columnIndex] = tableColumnWrapFor(
+			*behavior,
+			behavior.columns[columnIndex].column.Key,
+		)
+	}
+	total := 0
+	for displayIndex, canonicalIndex := range order {
+		starts[displayIndex] = total
+		height := 1
+		row := behavior.rows[canonicalIndex]
+		for _, columnIndex := range visibleColumns {
+			column := behavior.columns[columnIndex]
+			cells := []string{}
+			if cell, found := tableCellForColumn(row, column.column.Key); found {
+				cells = cell.text.lines[0]
+			}
+			height = max(
+				height,
+				len(wrapTableCellLines(
+					cells,
+					behavior.columnWidths[columnIndex],
+					wraps[columnIndex],
+				)),
+			)
+		}
+		height = min(height, maxCoordinateMagnitude-1)
+		heights[displayIndex] = height
+		total = min(maxCoordinateMagnitude-1, saturatingAdd(total, height))
+	}
+	behavior.rowHeights = heights
+	behavior.rowStarts = starts
+	return total
+}
+
+func tableVisualRowCount(behavior tableBehavior) int {
+	if behavior.status != CollectionReady || len(behavior.rows) == 0 {
+		return 1
+	}
+	if len(behavior.rowHeights) == 0 || len(behavior.rowStarts) == 0 {
+		copyValue := behavior
+		return deriveTableRowGeometry(&copyValue)
+	}
+	last := len(behavior.rowHeights) - 1
+	return min(
+		maxCoordinateMagnitude-1,
+		saturatingAdd(behavior.rowStarts[last], behavior.rowHeights[last]),
+	)
+}
+
+func tableVisualRowAt(
+	behavior tableBehavior,
+	visualIndex int,
+) (displayIndex int, within int, ok bool) {
+	if visualIndex < 0 || len(behavior.rowHeights) == 0 ||
+		len(behavior.rowStarts) != len(behavior.rowHeights) {
+		return -1, 0, false
+	}
+	index := sort.Search(len(behavior.rowStarts), func(index int) bool {
+		return saturatingAdd(
+			behavior.rowStarts[index],
+			behavior.rowHeights[index],
+		) > visualIndex
+	})
+	if index >= len(behavior.rowStarts) || visualIndex < behavior.rowStarts[index] {
+		return -1, 0, false
+	}
+	return index, visualIndex - behavior.rowStarts[index], true
+}
+
+func tableDisplayRowVisualStart(behavior tableBehavior, displayIndex int) int {
+	if displayIndex < 0 || displayIndex >= len(behavior.rowStarts) {
+		return -1
+	}
+	return behavior.rowStarts[displayIndex]
+}
+
+func invalidateTableGeometry(behavior *tableBehavior) {
+	if behavior == nil {
+		return
+	}
+	behavior.geometryRevision++
+	if behavior.geometryRevision == 0 {
+		behavior.geometryRevision = 1
+		behavior.geometryCachedAt = 0
+	}
+}
+
+func reflowTable(behavior tableBehavior, size Size) tableBehavior {
+	if behavior.geometryCachedAt != behavior.geometryRevision ||
+		behavior.geometryCacheSize != size {
+		behavior.displayOrder = nil
+		behavior.displayOrder = deriveTableDisplayOrder(behavior)
+		baseWidths := tableBaseColumnWidths(behavior)
+		behavior.columnWidths = append([]int(nil), baseWidths...)
+		bodyRows := deriveTableRowGeometry(&behavior)
+		behavior.scroll.state.ContentSize = Size{
+			Width: tableTotalWidth(behavior, behavior.columnWidths), Height: bodyRows + 1,
+		}
+		for range 4 {
+			geometry := calculateScrollViewGeometry(size, behavior.scroll)
+			next := growTableColumnWidths(behavior, baseWidths, geometry.viewport.Width)
+			nextWidth := tableTotalWidth(behavior, next)
+			behavior.columnWidths = next
+			nextRows := deriveTableRowGeometry(&behavior)
+			nextHeight := nextRows + 1
+			if nextWidth == behavior.scroll.state.ContentSize.Width &&
+				nextHeight == behavior.scroll.state.ContentSize.Height {
+				break
+			}
+			behavior.scroll.state.ContentSize.Width = nextWidth
+			behavior.scroll.state.ContentSize.Height = nextHeight
+		}
+		behavior.geometryCachedAt = behavior.geometryRevision
+		behavior.geometryCacheSize = size
 	}
 	geometry := calculateScrollViewGeometry(size, behavior.scroll)
 	behavior.scroll.state = clampViewportState(behavior.scroll.state, geometry)
 	if behavior.status == CollectionReady {
 		current := tableDisplayRowIndex(behavior, behavior.currentRow)
+		currentStart := tableDisplayRowVisualStart(behavior, current)
 		bodyHeight := max(0, geometry.viewport.Height-1)
-		if current >= 0 && bodyHeight > 0 {
-			if current < behavior.scroll.state.Offset.Y {
-				behavior.scroll.state.Offset.Y = current
-			} else if current >= behavior.scroll.state.Offset.Y+bodyHeight {
-				behavior.scroll.state.Offset.Y = current - bodyHeight + 1
+		if currentStart >= 0 && bodyHeight > 0 {
+			currentHeight := behavior.rowHeights[current]
+			if currentStart < behavior.scroll.state.Offset.Y {
+				behavior.scroll.state.Offset.Y = currentStart
+			} else if currentStart >= behavior.scroll.state.Offset.Y+bodyHeight {
+				behavior.scroll.state.Offset.Y = currentStart
+			} else if currentHeight <= bodyHeight &&
+				currentStart+currentHeight > behavior.scroll.state.Offset.Y+bodyHeight {
+				behavior.scroll.state.Offset.Y = currentStart + currentHeight - bodyHeight
 			}
 		}
 		if behavior.focusMode == TableFocusCell && geometry.viewport.Width > 0 {
@@ -1267,7 +1745,8 @@ func reflowTable(behavior tableBehavior, size Size) tableBehavior {
 
 func tableColumnInterval(behavior tableBehavior, key string) (int, int) {
 	start := 4
-	for index, column := range behavior.columns {
+	for _, index := range visibleTableColumns(behavior) {
+		column := behavior.columns[index]
 		end := start + behavior.columnWidths[index]
 		if column.column.Key == key {
 			return start, end
@@ -1287,6 +1766,11 @@ func reconcileTableLocked(state *controlState) bool {
 	}
 	next := reflowTable(behavior, state.bounds.Size())
 	if tableBehaviorEqual(behavior, next) {
+		if behavior.geometryRevision != next.geometryRevision ||
+			behavior.geometryCachedAt != next.geometryCachedAt ||
+			behavior.geometryCacheSize != next.geometryCacheSize {
+			state.behavior = next
+		}
 		return false
 	}
 	state.behavior = next
@@ -1317,6 +1801,51 @@ func tableCellCount(rows []normalizedTableRow) int {
 	return count
 }
 
+func visibleTableColumnCount(presentation []TableColumnPresentation) int {
+	count := 0
+	for _, entry := range presentation {
+		if entry.Visible {
+			count++
+		}
+	}
+	return count
+}
+
+func visibleTableColumnRange(
+	presentation []TableColumnPresentation,
+) (string, string) {
+	first, last := "", ""
+	for _, entry := range presentation {
+		if !entry.Visible {
+			continue
+		}
+		if first == "" {
+			first = entry.Column
+		}
+		last = entry.Column
+	}
+	return first, last
+}
+
+func tableColumnPresentationDigest(presentation []TableColumnPresentation) string {
+	hash := sha256.New()
+	var length [2]byte
+	for _, entry := range presentation {
+		binary.BigEndian.PutUint16(length[:], uint16(len(entry.Column)))
+		_, _ = hash.Write(length[:])
+		_, _ = hash.Write([]byte(entry.Column))
+		if entry.Visible {
+			_, _ = hash.Write([]byte{1})
+		} else {
+			_, _ = hash.Write([]byte{0})
+		}
+		binary.BigEndian.PutUint16(length[:], uint16(len(entry.Wrap)))
+		_, _ = hash.Write(length[:])
+		_, _ = hash.Write([]byte(entry.Wrap))
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 func tableDetails(bounds Rect, behavior tableBehavior) TableDetails {
 	viewport := scrollViewDetails(bounds, behavior.scroll)
 	viewport.Content = ""
@@ -1331,14 +1860,18 @@ func tableDetails(bounds Rect, behavior tableBehavior) TableDetails {
 		firstColumn = behavior.columns[0].column.Key
 		lastColumn = behavior.columns[len(behavior.columns)-1].column.Key
 	}
+	firstVisibleColumn, lastVisibleColumn := visibleTableColumnRange(
+		behavior.columnPresentation,
+	)
 	return TableDetails{
 		Status: behavior.status, StatusMessage: behavior.statusMessage.text,
-		RowCount: len(behavior.rows), EnabledCount: enabledTableRowCount(behavior.rows),
-		ColumnCount: len(behavior.columns), CellCount: tableCellCount(behavior.rows),
+		RowCount: len(behavior.rows), VisualRowCount: tableVisualRowCount(behavior),
+		EnabledCount: enabledTableRowCount(behavior.rows),
+		ColumnCount:  len(behavior.columns), CellCount: tableCellCount(behavior.rows),
 		RetainedBytes: tableStorageBytes(behavior), CurrentRow: behavior.currentRow,
 		CurrentRowIndex:    tableDisplayRowIndex(behavior, behavior.currentRow),
 		CurrentColumn:      behavior.currentColumn,
-		CurrentColumnIndex: tableColumnIndex(behavior.columns, behavior.currentColumn),
+		CurrentColumnIndex: tableVisibleColumnIndex(behavior, behavior.currentColumn),
 		FocusMode:          behavior.focusMode, SelectionMode: behavior.selectionMode,
 		SelectionStyle: behavior.selectionStyle, RangeAnchor: behavior.rangeAnchor,
 		RangeExtent:      behavior.rangeExtent,
@@ -1347,8 +1880,16 @@ func tableDetails(bounds Rect, behavior tableBehavior) TableDetails {
 		SelectionDigest: listSelectionDigest(behavior.selected),
 		SortColumn:      behavior.sortColumn, SortDirection: behavior.sortDirection,
 		FirstColumn: firstColumn, LastColumn: lastColumn,
-		ColumnWidths:       append([]int(nil), behavior.columnWidths...),
-		ColumnWidthsDigest: integerSequenceDigest(behavior.columnWidths),
+		ColumnPresentation: append(
+			[]TableColumnPresentation(nil),
+			behavior.columnPresentation...,
+		),
+		VisibleColumnCount: visibleTableColumnCount(behavior.columnPresentation),
+		FirstVisibleColumn: firstVisibleColumn,
+		LastVisibleColumn:  lastVisibleColumn,
+		PresentationDigest: tableColumnPresentationDigest(behavior.columnPresentation),
+		ColumnWidths:       visibleTableColumnWidths(behavior),
+		ColumnWidthsDigest: integerSequenceDigest(visibleTableColumnWidths(behavior)),
 		Enabled:            !behavior.scroll.disabled, DisabledReason: behavior.scroll.disabledReason,
 		ChangeCommand: behavior.changeCommand, ActivateCommand: behavior.activateCommand,
 		SortCommand: behavior.sortCommand, Viewport: viewport,
@@ -1367,6 +1908,21 @@ func (t *Table) Columns() []Column {
 		return nil
 	}
 	return copyTableColumns(behavior.columns)
+}
+
+// ColumnPresentation returns a caller-owned copy in display order, including
+// hidden columns.
+func (t *Table) ColumnPresentation() []TableColumnPresentation {
+	if t == nil || t.state == nil || t.state.app == nil {
+		return nil
+	}
+	t.state.app.mu.RLock()
+	defer t.state.app.mu.RUnlock()
+	behavior, ok := t.state.behavior.(tableBehavior)
+	if !ok || t.state.destroyed || t.state.aborted {
+		return nil
+	}
+	return append([]TableColumnPresentation(nil), behavior.columnPresentation...)
 }
 
 // Rows returns a caller-owned copy of the canonical unsorted row model.
@@ -1399,15 +1955,21 @@ func (t *Table) State() TableState {
 		CurrentRow:         behavior.currentRow,
 		CurrentRowIndex:    tableDisplayRowIndex(behavior, behavior.currentRow),
 		CurrentColumn:      behavior.currentColumn,
-		CurrentColumnIndex: tableColumnIndex(behavior.columns, behavior.currentColumn),
+		CurrentColumnIndex: tableVisibleColumnIndex(behavior, behavior.currentColumn),
 		Selected:           append([]string(nil), behavior.selected...), FocusMode: behavior.focusMode,
 		SelectionStyle: behavior.selectionStyle,
 		RangeAnchor:    behavior.rangeAnchor,
 		RangeExtent:    behavior.rangeExtent,
-		SortColumn:     behavior.sortColumn, SortDirection: behavior.sortDirection,
+		ColumnPresentation: append(
+			[]TableColumnPresentation(nil),
+			behavior.columnPresentation...,
+		),
+		VisibleColumnCount: visibleTableColumnCount(behavior.columnPresentation),
+		VisualRowCount:     tableVisualRowCount(behavior),
+		SortColumn:         behavior.sortColumn, SortDirection: behavior.sortDirection,
 		Offset: behavior.scroll.state.Offset, RowCount: len(behavior.rows),
 		EnabledCount: enabledTableRowCount(behavior.rows), ColumnCount: len(behavior.columns),
-		CellCount: tableCellCount(behavior.rows), ColumnWidths: append([]int(nil), behavior.columnWidths...),
+		CellCount: tableCellCount(behavior.rows), ColumnWidths: visibleTableColumnWidths(behavior),
 	}
 }
 
@@ -1438,6 +2000,33 @@ func (t *Table) Replace(
 	})
 }
 
+// ReplaceWithPresentation atomically replaces the model, exact column
+// presentation, current coordinate, selection, and sort.
+func (t *Table) ReplaceWithPresentation(
+	columns []Column,
+	rows []TableRow,
+	presentation []TableColumnPresentation,
+	currentRow string,
+	currentColumn string,
+	selected []string,
+	sortColumn string,
+	sortDirection SortDirection,
+) error {
+	return commitTableMutation(t, func(tx *Transaction) error {
+		return tx.ReplaceTableWithPresentation(
+			t,
+			columns,
+			rows,
+			presentation,
+			currentRow,
+			currentColumn,
+			selected,
+			sortColumn,
+			sortDirection,
+		)
+	})
+}
+
 // SetCurrent changes current by stable enabled row and known column keys.
 func (t *Table) SetCurrent(row, column string) error {
 	return commitTableMutation(t, func(tx *Transaction) error { return tx.SetTableCurrent(t, row, column) })
@@ -1453,6 +2042,16 @@ func (t *Table) SetSelection(selected []string) error {
 func (t *Table) SetSelectionPolicy(policy TableSelectionPolicy) error {
 	return commitTableMutation(t, func(tx *Transaction) error {
 		return tx.SetTableSelectionPolicy(t, policy)
+	})
+}
+
+// SetColumnPresentation atomically changes the exact display order,
+// visibility, and body wrapping policy for every column.
+func (t *Table) SetColumnPresentation(
+	presentation []TableColumnPresentation,
+) error {
+	return commitTableMutation(t, func(tx *Transaction) error {
+		return tx.SetTableColumnPresentation(t, presentation)
 	})
 }
 
@@ -1565,15 +2164,16 @@ func (a *App) tableKeyLocked(
 	if shift {
 		selectionChanged, handled = extendTableRangeSelection(&behavior, key, geometry)
 	} else if control && (key == KeyHome || key == KeyEnd) {
+		visibleColumns := visibleTableColumns(behavior)
 		if key == KeyHome {
 			behavior.currentRow = firstEnabledTableRowKey(&behavior)
-			if len(behavior.columns) > 0 {
-				behavior.currentColumn = behavior.columns[0].column.Key
+			if len(visibleColumns) > 0 {
+				behavior.currentColumn = behavior.columns[visibleColumns[0]].column.Key
 			}
 		} else {
 			behavior.currentRow = lastEnabledTableRowKey(behavior)
-			if len(behavior.columns) > 0 {
-				behavior.currentColumn = behavior.columns[len(behavior.columns)-1].column.Key
+			if len(visibleColumns) > 0 {
+				behavior.currentColumn = behavior.columns[visibleColumns[len(visibleColumns)-1]].column.Key
 			}
 		}
 	} else if control {
@@ -1600,18 +2200,20 @@ func (a *App) tableKeyLocked(
 			behavior.currentRow = lastEnabledTableRowKey(behavior)
 		case KeyLeft:
 			if behavior.focusMode == TableFocusCell {
-				column := tableColumnIndex(behavior.columns, behavior.currentColumn)
+				columns := visibleTableColumns(behavior)
+				column := tableVisibleColumnIndex(behavior, behavior.currentColumn)
 				if column > 0 {
-					behavior.currentColumn = behavior.columns[column-1].column.Key
+					behavior.currentColumn = behavior.columns[columns[column-1]].column.Key
 				}
 			} else {
 				behavior.scroll.state.Offset.X -= behavior.scroll.arrowStep.Width
 			}
 		case KeyRight:
 			if behavior.focusMode == TableFocusCell {
-				column := tableColumnIndex(behavior.columns, behavior.currentColumn)
-				if column >= 0 && column+1 < len(behavior.columns) {
-					behavior.currentColumn = behavior.columns[column+1].column.Key
+				columns := visibleTableColumns(behavior)
+				column := tableVisibleColumnIndex(behavior, behavior.currentColumn)
+				if column >= 0 && column+1 < len(columns) {
+					behavior.currentColumn = behavior.columns[columns[column+1]].column.Key
 				}
 			} else {
 				behavior.scroll.state.Offset.X += behavior.scroll.arrowStep.Width
@@ -1672,24 +2274,43 @@ func nextEnabledTableRowKey(behavior tableBehavior, current int) string {
 
 func pageEnabledTableRowKey(behavior tableBehavior, current, delta int) string {
 	order := tableDisplayOrder(behavior)
-	if len(order) == 0 {
+	if len(order) == 0 || current < 0 || current >= len(order) || delta == 0 {
 		return ""
 	}
-	target := min(len(order)-1, max(0, current+delta))
+	currentStart := tableDisplayRowVisualStart(behavior, current)
+	if currentStart < 0 {
+		return ""
+	}
+	targetVisual := min(
+		max(0, tableVisualRowCount(behavior)-1),
+		max(0, currentStart+delta),
+	)
+	target := sort.Search(len(behavior.rowStarts), func(index int) bool {
+		return behavior.rowStarts[index] >= targetVisual
+	})
 	if delta < 0 {
+		if target >= len(behavior.rowStarts) || behavior.rowStarts[target] > targetVisual {
+			target--
+		}
+		if target >= current {
+			target = current - 1
+		}
 		for index := target; index >= 0; index-- {
 			if !behavior.rows[order[index]].row.Disabled {
 				return behavior.rows[order[index]].row.Key
 			}
 		}
-		return nextEnabledTableRowKey(behavior, target-1)
+		return firstEnabledTableRowKey(&behavior)
+	}
+	if target <= current {
+		target = current + 1
 	}
 	for index := target; index < len(order); index++ {
 		if !behavior.rows[order[index]].row.Disabled {
 			return behavior.rows[order[index]].row.Key
 		}
 	}
-	return previousEnabledTableRowKey(behavior, target+1)
+	return lastEnabledTableRowKey(behavior)
 }
 
 func selectCurrentTableRow(behavior *tableBehavior, toggle bool) bool {
@@ -1828,6 +2449,7 @@ func cycleCurrentTableSort(behavior *tableBehavior) bool {
 		behavior.sortDirection = SortNone
 	}
 	behavior.displayOrder = nil
+	invalidateTableGeometry(behavior)
 	refreshTableSelection(behavior)
 	return true
 }
@@ -1851,6 +2473,14 @@ func tableStorageBytes(behavior tableBehavior) int {
 	for _, key := range behavior.selected {
 		total += len(key)
 	}
+	for _, entry := range behavior.columnPresentation {
+		total += len(entry.Column) + len(entry.Wrap)
+	}
+	// Derived integer caches remain bounded by the same aggregate collection
+	// budget as their source model. Eight bytes is a conservative per-int
+	// accounting on supported targets.
+	total += 8 * (len(behavior.displayOrder) + len(behavior.columnWidths) +
+		len(behavior.rowHeights) + len(behavior.rowStarts))
 	return total
 }
 
@@ -1897,6 +2527,7 @@ func (t *Transaction) SetTableRows(control *Table, rows []TableRow) error {
 	oldPositions := tableIdentityPositionsFor(behavior)
 	behavior.rows = normalized
 	behavior.displayOrder = nil
+	invalidateTableGeometry(&behavior)
 	repairTableIdentity(&behavior, oldPositions)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
@@ -1909,6 +2540,7 @@ func (t *Transaction) SetTableModel(control *Table, columns []Column, rows []Tab
 		return err
 	}
 	oldPositions := tableIdentityPositionsFor(behavior)
+	previousPresentation := behavior.columnPresentation
 	normalizedColumns, err := normalizeTableColumns(columns)
 	if err != nil {
 		return err
@@ -1918,17 +2550,17 @@ func (t *Transaction) SetTableModel(control *Table, columns []Column, rows []Tab
 		return err
 	}
 	behavior.columns, behavior.rows = normalizedColumns, normalizedRows
+	behavior.columnPresentation = repairTableColumnPresentation(
+		previousPresentation,
+		behavior.columns,
+	)
 	behavior.displayOrder = nil
+	invalidateTableGeometry(&behavior)
 	if tableColumnIndex(behavior.columns, behavior.sortColumn) < 0 ||
 		(behavior.sortColumn != "" && !behavior.columns[tableColumnIndex(behavior.columns, behavior.sortColumn)].column.Sortable) {
 		behavior.sortColumn, behavior.sortDirection = "", SortNone
 	}
-	if tableColumnIndex(behavior.columns, behavior.currentColumn) < 0 {
-		behavior.currentColumn = ""
-		if len(behavior.columns) > 0 {
-			behavior.currentColumn = behavior.columns[0].column.Key
-		}
-	}
+	repairTableCurrentColumn(&behavior, previousPresentation)
 	repairTableIdentity(&behavior, oldPositions)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
@@ -1949,6 +2581,7 @@ func (t *Transaction) ReplaceTable(
 	if err != nil {
 		return err
 	}
+	previousPresentation := behavior.columnPresentation
 	behavior.columns, err = normalizeTableColumns(columns)
 	if err != nil {
 		return err
@@ -1957,13 +2590,72 @@ func (t *Transaction) ReplaceTable(
 	if err != nil {
 		return err
 	}
+	behavior.columnPresentation = repairTableColumnPresentation(
+		previousPresentation,
+		behavior.columns,
+	)
 	behavior.displayOrder = nil
+	invalidateTableGeometry(&behavior)
 	if err := setExactTableSort(&behavior, sortColumn, sortDirection); err != nil {
 		return err
 	}
 	if err := setExactTableIdentity(&behavior, currentRow, currentColumn, selected, "", ""); err != nil {
 		return err
 	}
+	repairTableCurrentColumn(&behavior, previousPresentation)
+	behavior = reflowTable(behavior, target.bounds.Size())
+	return t.recordTable(target, behavior)
+}
+
+// ReplaceTableWithPresentation records one exact complete Table replacement,
+// including copied column presentation.
+func (t *Transaction) ReplaceTableWithPresentation(
+	control *Table,
+	columns []Column,
+	rows []TableRow,
+	presentation []TableColumnPresentation,
+	currentRow string,
+	currentColumn string,
+	selected []string,
+	sortColumn string,
+	sortDirection SortDirection,
+) error {
+	target, behavior, err := t.selectedTable(control)
+	if err != nil {
+		return err
+	}
+	previousPresentation := behavior.columnPresentation
+	behavior.columns, err = normalizeTableColumns(columns)
+	if err != nil {
+		return err
+	}
+	behavior.rows, err = normalizeTableRows(behavior.columns, rows)
+	if err != nil {
+		return err
+	}
+	behavior.columnPresentation, err = normalizeTableColumnPresentation(
+		behavior.columns,
+		presentation,
+	)
+	if err != nil {
+		return err
+	}
+	behavior.displayOrder = nil
+	invalidateTableGeometry(&behavior)
+	if err := setExactTableSort(&behavior, sortColumn, sortDirection); err != nil {
+		return err
+	}
+	if err := setExactTableIdentity(
+		&behavior,
+		currentRow,
+		currentColumn,
+		selected,
+		"",
+		"",
+	); err != nil {
+		return err
+	}
+	repairTableCurrentColumn(&behavior, previousPresentation)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
 }
@@ -1985,7 +2677,8 @@ func (t *Transaction) SetTableCurrent(control *Table, row, column string) error 
 		if len(behavior.columns) > 0 {
 			return fmt.Errorf("%w: Table requires current column", ErrValidation)
 		}
-	} else if tableColumnIndex(behavior.columns, column) < 0 {
+	} else if tableColumnIndex(behavior.columns, column) < 0 ||
+		!tableColumnIsVisible(behavior, column) {
 		return fmt.Errorf("%w: invalid Table current column", ErrValidation)
 	}
 	behavior.currentRow, behavior.currentColumn = row, column
@@ -2036,6 +2729,30 @@ func (t *Transaction) SetTableSelectionPolicy(
 	return t.recordTable(target, behavior)
 }
 
+// SetTableColumnPresentation records one exact copied column presentation.
+func (t *Transaction) SetTableColumnPresentation(
+	control *Table,
+	presentation []TableColumnPresentation,
+) error {
+	target, behavior, err := t.selectedTable(control)
+	if err != nil {
+		return err
+	}
+	normalized, err := normalizeTableColumnPresentation(
+		behavior.columns,
+		presentation,
+	)
+	if err != nil {
+		return err
+	}
+	previous := behavior.columnPresentation
+	behavior.columnPresentation = normalized
+	invalidateTableGeometry(&behavior)
+	repairTableCurrentColumn(&behavior, previous)
+	behavior = reflowTable(behavior, target.bounds.Size())
+	return t.recordTable(target, behavior)
+}
+
 // SetTableSort records an exact optional single-column sort.
 func (t *Transaction) SetTableSort(control *Table, column string, direction SortDirection) error {
 	target, behavior, err := t.selectedTable(control)
@@ -2046,6 +2763,7 @@ func (t *Transaction) SetTableSort(control *Table, column string, direction Sort
 		return err
 	}
 	behavior.displayOrder = nil
+	invalidateTableGeometry(&behavior)
 	refreshTableSelection(&behavior)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
@@ -2062,6 +2780,7 @@ func (t *Transaction) SetTableStatus(control *Table, status CollectionStatus, me
 		return err
 	}
 	behavior.status, behavior.statusMessage = status, normalized
+	invalidateTableGeometry(&behavior)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
 }

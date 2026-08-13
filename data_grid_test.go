@@ -104,6 +104,217 @@ func TestDataGridRenderingDetailsAndCopiedState(t *testing.T) {
 	}
 }
 
+func TestDataGridColumnPresentationCancelsEditorAndCopiesState(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 48, Height: 10})
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "grid.presentation", Bounds: Rect{Width: 38, Height: 7}},
+		}},
+		Columns: sampleDataGridColumns(), Rows: sampleDataGridRows(),
+		CurrentRow: "alpha", CurrentColumn: "name",
+	})
+	if err != nil {
+		t.Fatalf("NewDataGrid() error = %v", err)
+	}
+	dispatchTableKey(t, app, "grid-presentation-edit", KeyEnter)
+	if !grid.State().Editing {
+		t.Fatal("DataGrid did not begin editing")
+	}
+	presentation := []TableColumnPresentation{
+		{Column: "state", Visible: true, Wrap: TableColumnHang},
+		{Column: "name", Visible: false},
+		{Column: "count", Visible: true, Wrap: TableColumnWrapWords},
+	}
+	if err := grid.SetColumnPresentation(presentation); err != nil {
+		t.Fatalf("SetColumnPresentation() error = %v", err)
+	}
+	presentation[0].Column = "caller-mutation"
+	state := grid.State()
+	if state.Editing || state.CurrentColumn != "count" || state.VisibleColumnCount != 2 ||
+		state.ColumnPresentation[0].Column != "state" {
+		t.Fatalf("presentation state = %#v", state)
+	}
+	copyValue := grid.ColumnPresentation()
+	copyValue[0].Column = "getter-mutation"
+	if grid.ColumnPresentation()[0].Column != "state" {
+		t.Fatal("ColumnPresentation() exposed retained DataGrid storage")
+	}
+
+	if err := grid.SetCurrent("alpha", "name"); !errors.Is(err, ErrValidation) {
+		t.Fatalf("SetCurrent(hidden column) error = %v", err)
+	}
+	if err := grid.SetCurrent("alpha", "state"); err != nil {
+		t.Fatalf("SetCurrent(visible column) error = %v", err)
+	}
+	dispatchTableKey(t, app, "grid-presentation-edit-again", KeyEnter)
+	if !grid.State().Editing {
+		t.Fatal("DataGrid did not resume editing")
+	}
+	before := grid.ColumnPresentation()
+	if err := grid.SetColumnPresentation([]TableColumnPresentation{
+		{Column: "name"}, {Column: "state"}, {Column: "count"},
+	}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("invalid presentation error = %v", err)
+	}
+	if !grid.State().Editing ||
+		!sameTableColumnPresentation(grid.ColumnPresentation(), before) {
+		t.Fatal("failed presentation mutation changed DataGrid or cancelled editor")
+	}
+
+	tx := app.NewTransaction()
+	if err := tx.SetDataGridColumnPresentation(grid, nil); err != nil {
+		t.Fatalf("SetDataGridColumnPresentation(nil) error = %v", err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	state = grid.State()
+	if state.Editing || state.VisibleColumnCount != 3 ||
+		state.ColumnPresentation[0].Column != "name" ||
+		state.ColumnPresentation[0].Wrap != TableColumnClip {
+		t.Fatalf("canonical transaction state = %#v", state)
+	}
+	dispatchTableKey(t, app, "grid-exact-replacement-edit", KeyEnter)
+	if !grid.State().Editing {
+		t.Fatal("DataGrid did not edit before exact replacement")
+	}
+	tx = app.NewTransaction()
+	if err := tx.ReplaceDataGridWithPresentation(
+		grid,
+		[]Column{{Key: "new", Header: "New", Editable: true}},
+		[]TableRow{{Key: "new-row", Cells: []TableCell{{Column: "new", Text: "Value"}}}},
+		[]TableColumnPresentation{{Column: "new", Visible: true, Wrap: TableColumnHang}},
+		"new-row",
+		"new",
+		nil,
+		"",
+		SortNone,
+	); err != nil {
+		t.Fatalf("ReplaceDataGridWithPresentation() error = %v", err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("replacement Commit() error = %v", err)
+	}
+	if state = grid.State(); state.Editing || state.CurrentColumn != "new" ||
+		state.ColumnPresentation[0].Wrap != TableColumnHang {
+		t.Fatalf("exact replacement state = %#v", state)
+	}
+}
+
+func TestDataGridPresentationLimitsEditingToVisibleDisplayOrder(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 46, Height: 10})
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "grid.visible-edit", Bounds: Rect{Width: 36, Height: 7}},
+		}},
+		Columns: sampleDataGridColumns(), Rows: sampleDataGridRows(),
+		CurrentRow: "alpha", CurrentColumn: "name",
+		ColumnPresentation: []TableColumnPresentation{
+			{Column: "state", Visible: false},
+			{Column: "count", Visible: true},
+			{Column: "name", Visible: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewDataGrid() error = %v", err)
+	}
+	if err := grid.Focus(); err != nil {
+		t.Fatalf("Focus() error = %v", err)
+	}
+	dispatchTableKey(t, app, "visible-grid-edit", KeyEnter)
+	if state := grid.State(); !state.Editing || state.EditColumn != "name" ||
+		state.CurrentColumnIndex != 1 {
+		t.Fatalf("initial editor state = %#v", state)
+	}
+	dispatchTableKey(t, app, "visible-grid-tab", KeyTab)
+	if state := grid.State(); !state.Editing || state.CurrentRow != "bravo" ||
+		state.CurrentColumn != "name" || state.EditColumn != "name" {
+		t.Fatalf("visible Tab editor state = %#v", state)
+	}
+	dispatchTextChord(t, app, "visible-grid-backtab", KeyShift, KeyTab)
+	if state := grid.State(); !state.Editing || state.CurrentRow != "alpha" ||
+		state.CurrentColumn != "name" || state.EditColumn != "name" {
+		t.Fatalf("visible Shift-Tab editor state = %#v", state)
+	}
+}
+
+func TestDataGridWrappedCommittedGeometryAndSingleLineEditor(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 28, Height: 8})
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{AutomationKey: "grid.wrap-edit", Bounds: Rect{Width: 15, Height: 5}},
+		}},
+		Columns: []Column{
+			{Key: "name", Header: "Name", Width: 5, Editable: true, Sortable: true},
+			{Key: "secret", Header: "Secret", Width: 5, Editable: true, Sortable: true},
+		},
+		Rows: []TableRow{
+			{Key: "one", Cells: []TableCell{{Column: "name", Text: "alpha beta"}, {Column: "secret", Text: "Zulu"}}},
+			{Key: "two", Cells: []TableCell{{Column: "name", Text: "gamma"}, {Column: "secret", Text: "Alpha"}}},
+		},
+		CurrentRow: "one", CurrentColumn: "name",
+		ColumnPresentation: []TableColumnPresentation{
+			{Column: "secret", Visible: false},
+			{Column: "name", Visible: true, Wrap: TableColumnWrapWords},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewDataGrid() error = %v", err)
+	}
+	if err := grid.Focus(); err != nil {
+		t.Fatalf("Focus() error = %v", err)
+	}
+	if state := grid.State(); state.VisualRowCount != 3 {
+		t.Fatalf("initial wrapped DataGrid state = %#v", state)
+	}
+	dispatchTableKey(t, app, "wrapped-grid-edit", KeyEnter)
+	beforeRevision := uint64(0)
+	app.mu.RLock()
+	beforeRevision = grid.state.behavior.(dataGridBehavior).table.geometryRevision
+	app.mu.RUnlock()
+	dispatchGridText(t, app, "wrapped-grid-append", " gamma")
+	state := grid.State()
+	if !state.Editing || state.VisualRowCount != 3 || !app.Snapshot().Cursor.Visible ||
+		app.Snapshot().Cursor.Position.Y != 2 {
+		t.Fatalf("active single-line wrapped editor state=%#v cursor=%#v", state, app.Snapshot().Cursor)
+	}
+	app.mu.RLock()
+	afterInputRevision := grid.state.behavior.(dataGridBehavior).table.geometryRevision
+	app.mu.RUnlock()
+	if afterInputRevision != beforeRevision {
+		t.Fatalf("uncommitted edit invalidated geometry: %d -> %d", beforeRevision, afterInputRevision)
+	}
+	dispatchTableKey(t, app, "wrapped-grid-commit", KeyEnter)
+	state = grid.State()
+	if state.Editing || state.VisualRowCount != 4 ||
+		grid.Rows()[0].Cells[0].Text != "alpha beta gamma" {
+		t.Fatalf("committed wrapped editor state=%#v rows=%#v", state, grid.Rows())
+	}
+	app.mu.RLock()
+	afterCommitRevision := grid.state.behavior.(dataGridBehavior).table.geometryRevision
+	app.mu.RUnlock()
+	if afterCommitRevision != beforeRevision+1 {
+		t.Fatalf("commit geometry revision = %d, want %d", afterCommitRevision, beforeRevision+1)
+	}
+	dispatchTableKey(t, app, "wrapped-grid-edit-again", KeyEnter)
+	dispatchTableKey(t, app, "wrapped-grid-visible-tab", KeyTab)
+	if state = grid.State(); !state.Editing || state.CurrentRow != "two" ||
+		state.CurrentColumn != "name" || state.EditColumn != "name" {
+		t.Fatalf("wrapped visible Tab state = %#v", state)
+	}
+	dispatchTableKey(t, app, "wrapped-grid-cancel", KeyEscape)
+	if err := grid.SetSort("secret", SortAscending); err != nil {
+		t.Fatalf("SetSort(hidden editable) error = %v", err)
+	}
+	if state = grid.State(); state.SortColumn != "secret" ||
+		state.SortDirection != SortAscending || state.CurrentRowIndex != 0 {
+		t.Fatalf("hidden sorted DataGrid state = %#v", state)
+	}
+}
+
 func TestDataGridSoftHardEditingCommitCancelAndTab(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 48, Height: 10})
