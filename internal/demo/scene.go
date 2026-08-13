@@ -3490,7 +3490,7 @@ func NewWithRootConstraints(
 			CurrentRow:       "core",
 			CurrentColumn:    "name",
 			Selected:         []string{"core"},
-			SelectionMode:    expletives.CollectionSelectionMultiple,
+			SelectionStyle:   expletives.TableSelectionMultiple,
 			RequireSelection: true,
 			FocusMode:        expletives.TableFocusCell,
 			ActivateCommand:  CommandCollectionActivate,
@@ -3624,7 +3624,7 @@ func NewWithRootConstraints(
 			CurrentRow:       "core",
 			CurrentColumn:    "name",
 			Selected:         []string{"core"},
-			SelectionMode:    expletives.CollectionSelectionMultiple,
+			SelectionStyle:   expletives.TableSelectionMultiple,
 			RequireSelection: true,
 			ActivateCommand:  CommandCollectionActivate,
 			SortCommand:      CommandCollectionSort,
@@ -6013,12 +6013,14 @@ func (s *Scene) handleCommand(
 			collectionTreeState.Expanded[0] != "workspace" ||
 			collectionTableState.CurrentRow != "core" ||
 			collectionTableState.CurrentColumn != "name" ||
+			collectionTableState.SelectionStyle != expletives.TableSelectionMultiple ||
 			len(collectionTableState.Selected) != 1 ||
 			collectionTableState.Selected[0] != "core" ||
 			collectionTableState.SortColumn != "" ||
 			collectionTableState.SortDirection != expletives.SortNone ||
 			collectionDataGridState.CurrentRow != "core" ||
 			collectionDataGridState.CurrentColumn != "name" ||
+			collectionDataGridState.SelectionStyle != expletives.TableSelectionMultiple ||
 			len(collectionDataGridState.Selected) != 1 ||
 			collectionDataGridState.Selected[0] != "core" ||
 			collectionDataGridState.SortColumn != "" ||
@@ -6203,6 +6205,15 @@ func (s *Scene) handleCommand(
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
+		if err := transaction.SetTableSelectionPolicy(
+			s.collectionTable,
+			expletives.TableSelectionPolicy{
+				Style: expletives.TableSelectionMultiple, Require: true,
+				Selected: []string{"core"},
+			},
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
 		if err := transaction.ReplaceTable(
 			s.collectionTable,
 			collectionTableColumns(),
@@ -6212,6 +6223,15 @@ func (s *Scene) handleCommand(
 			[]string{"core"},
 			"",
 			expletives.SortNone,
+		); err != nil {
+			return expletives.OutcomeFailed, err
+		}
+		if err := transaction.SetDataGridSelectionPolicy(
+			s.collectionDataGrid,
+			expletives.TableSelectionPolicy{
+				Style: expletives.TableSelectionMultiple, Require: true,
+				Selected: []string{"core"},
+			},
 		); err != nil {
 			return expletives.OutcomeFailed, err
 		}
@@ -7202,6 +7222,241 @@ func mutationOutcome(
 		return expletives.OutcomeNoOp, nil
 	}
 	return expletives.OutcomeApplied, nil
+}
+
+// exerciseCollectionSelectionMatrix keeps the behavior matrix independent of
+// the current catalog route and Layout so the dedicated Phase 23 screens can
+// reuse it without rebuilding the selection assertions.
+func (s *Scene) exerciseCollectionSelectionMatrix(
+	press func(string, expletives.Key) (expletives.Completion, error),
+) error {
+	verify := func(
+		key string,
+		state expletives.TableState,
+		style expletives.TableSelectionStyle,
+		require bool,
+		selected []string,
+		anchor string,
+		extent string,
+	) error {
+		if state.SelectionStyle != style || state.RangeAnchor != anchor ||
+			state.RangeExtent != extent || !sameStableKeys(state.Selected, selected) {
+			return fmt.Errorf("%s selection State = %+v", key, state)
+		}
+		var details *expletives.TableDetails
+		for _, control := range s.App.Snapshot().Controls {
+			if control.Key != key {
+				continue
+			}
+			if control.Details.Table != nil {
+				details = control.Details.Table
+			} else if control.Details.DataGrid != nil {
+				details = &control.Details.DataGrid.Table
+			}
+			break
+		}
+		mode := expletives.CollectionSelectionSingle
+		if style == expletives.TableSelectionRange ||
+			style == expletives.TableSelectionMultiple {
+			mode = expletives.CollectionSelectionMultiple
+		}
+		if details == nil || details.SelectionStyle != style ||
+			details.SelectionMode != mode || details.RequireSelection != require ||
+			details.RangeAnchor != anchor || details.RangeExtent != extent ||
+			details.SelectedCount != len(selected) {
+			return fmt.Errorf("%s selection Details = %+v", key, details)
+		}
+		return nil
+	}
+	setTableCurrent := func(row string) error {
+		return s.collectionTable.SetCurrent(row, "name")
+	}
+	setGridCurrent := func(row string) error {
+		return s.collectionDataGrid.SetCurrent(row, "name")
+	}
+
+	if err := setTableCurrent("core"); err != nil {
+		return err
+	}
+	if err := s.collectionTable.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{Style: expletives.TableSelectionNone},
+	); err != nil {
+		return err
+	}
+	if err := s.collectionTable.Focus(); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.table", s.collectionTable.State(),
+		expletives.TableSelectionNone, false, nil, "", "",
+	); err != nil {
+		return err
+	}
+	if completion, err := press("selection-table-none-space", expletives.KeySpace); err != nil ||
+		completion.Outcome != expletives.OutcomeNoOp || completion.Command != "" {
+		return fmt.Errorf("Table None Space = %+v, %v", completion, err)
+	}
+	if completion, err := press("selection-table-none-enter", expletives.KeyEnter); err != nil ||
+		completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionActivate {
+		return fmt.Errorf("Table None Enter = %+v, %v", completion, err)
+	}
+
+	if err := s.collectionTable.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{
+			Style: expletives.TableSelectionSingle, Selected: []string{"terminal"},
+		},
+	); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.table", s.collectionTable.State(),
+		expletives.TableSelectionSingle, false, []string{"terminal"}, "", "",
+	); err != nil {
+		return err
+	}
+	if completion, err := press("selection-table-single-space", expletives.KeySpace); err != nil ||
+		completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionChanged {
+		return fmt.Errorf("Table Single Space = %+v, %v", completion, err)
+	}
+	if err := verify(
+		"collections.table", s.collectionTable.State(),
+		expletives.TableSelectionSingle, false, []string{"core"}, "", "",
+	); err != nil {
+		return err
+	}
+
+	if err := s.collectionTable.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{
+			Style: expletives.TableSelectionRange, Require: true,
+			Anchor: "core", Extent: "core",
+		},
+	); err != nil {
+		return err
+	}
+	if completion, err := press("selection-table-range-next", expletives.Key("]")); err != nil ||
+		completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionChanged {
+		return fmt.Errorf("Table Range ] = %+v, %v", completion, err)
+	}
+	if err := verify(
+		"collections.table", s.collectionTable.State(),
+		expletives.TableSelectionRange, true,
+		[]string{"core", "terminal"}, "core", "terminal",
+	); err != nil {
+		return err
+	}
+
+	if err := setTableCurrent("core"); err != nil {
+		return err
+	}
+	if err := s.collectionTable.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{
+			Style: expletives.TableSelectionMultiple, Require: true,
+			Selected: []string{"core"},
+		},
+	); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.table", s.collectionTable.State(),
+		expletives.TableSelectionMultiple, true, []string{"core"}, "", "",
+	); err != nil {
+		return err
+	}
+
+	if err := setGridCurrent("core"); err != nil {
+		return err
+	}
+	if err := s.collectionDataGrid.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{Style: expletives.TableSelectionNone},
+	); err != nil {
+		return err
+	}
+	if err := s.collectionDataGrid.Focus(); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		expletives.TableSelectionNone, false, nil, "", "",
+	); err != nil {
+		return err
+	}
+	if completion, err := press("selection-grid-none-space", expletives.KeySpace); err != nil ||
+		completion.Outcome != expletives.OutcomeNoOp || completion.Command != "" {
+		return fmt.Errorf("DataGrid None Space = %+v, %v", completion, err)
+	}
+
+	if err := s.collectionDataGrid.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{
+			Style: expletives.TableSelectionSingle, Selected: []string{"core"},
+		},
+	); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		expletives.TableSelectionSingle, false, []string{"core"}, "", "",
+	); err != nil {
+		return err
+	}
+	if err := s.collectionDataGrid.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{
+			Style: expletives.TableSelectionRange, Require: true,
+			Anchor: "core", Extent: "core",
+		},
+	); err != nil {
+		return err
+	}
+	if completion, err := press("selection-grid-range-next", expletives.Key("]")); err != nil ||
+		completion.Outcome != expletives.OutcomeApplied ||
+		completion.Command != CommandCollectionChanged {
+		return fmt.Errorf("DataGrid Range ] = %+v, %v", completion, err)
+	}
+	if err := verify(
+		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		expletives.TableSelectionRange, true,
+		[]string{"core", "terminal"}, "core", "terminal",
+	); err != nil {
+		return err
+	}
+
+	transaction := s.App.NewTransaction()
+	if err := transaction.SetDataGridCurrent(s.collectionDataGrid, "core", "name"); err != nil {
+		return err
+	}
+	if err := transaction.SetDataGridSelectionPolicy(
+		s.collectionDataGrid,
+		expletives.TableSelectionPolicy{
+			Style: expletives.TableSelectionMultiple, Require: true,
+			Selected: []string{"core"},
+		},
+	); err != nil {
+		return err
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		return err
+	}
+	if err := verify(
+		"collections.data-grid", s.collectionDataGrid.State().TableState,
+		expletives.TableSelectionMultiple, true, []string{"core"}, "", "",
+	); err != nil {
+		return err
+	}
+	return s.collectionList.Focus()
+}
+
+func sameStableKeys(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // SelfCheck validates catalog visibility, typed Menu evidence, geometry, and
@@ -8260,6 +8515,9 @@ func SelfCheck() error {
 			expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: key},
 		)
 	}
+	if err := scene.exerciseCollectionSelectionMatrix(pressCollectionKey); err != nil {
+		return fmt.Errorf("Table/DataGrid selection matrix: %w", err)
+	}
 	if completion, inputErr := pressCollectionKey(
 		"collection-list-down",
 		expletives.KeyDown,
@@ -8472,10 +8730,12 @@ func SelfCheck() error {
 		len(scene.collectionTree.State().Expanded) != 1 ||
 		scene.collectionTable.State().CurrentRow != "core" ||
 		scene.collectionTable.State().CurrentColumn != "name" ||
+		scene.collectionTable.State().SelectionStyle != expletives.TableSelectionMultiple ||
 		len(scene.collectionTable.State().Selected) != 1 ||
 		scene.collectionTable.State().SortDirection != expletives.SortNone ||
 		scene.collectionDataGrid.State().CurrentRow != "core" ||
 		scene.collectionDataGrid.State().CurrentColumn != "name" ||
+		scene.collectionDataGrid.State().SelectionStyle != expletives.TableSelectionMultiple ||
 		len(scene.collectionDataGrid.State().Selected) != 1 ||
 		scene.collectionDataGrid.State().SortDirection != expletives.SortNone ||
 		scene.collectionDataGrid.State().Editing ||

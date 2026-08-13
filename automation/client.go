@@ -2367,6 +2367,32 @@ func validTableDetails(
 	if details.SelectionMode != "single" && details.SelectionMode != "multiple" {
 		return false
 	}
+	switch details.SelectionStyle {
+	case "none":
+		if details.SelectionMode != "single" || details.RequireSelection ||
+			details.SelectedCount != 0 || details.RangeAnchor != "" || details.RangeExtent != "" {
+			return false
+		}
+	case "single":
+		if details.SelectionMode != "single" || details.RangeAnchor != "" || details.RangeExtent != "" {
+			return false
+		}
+	case "range":
+		if details.SelectionMode != "multiple" ||
+			((details.RangeAnchor == "") != (details.RangeExtent == "")) ||
+			(details.SelectedCount == 0) != (details.RangeAnchor == "") ||
+			(details.RangeAnchor != "" &&
+				(!validIdentifier(details.RangeAnchor, limits.IdentifierBytes) ||
+					!validIdentifier(details.RangeExtent, limits.IdentifierBytes))) {
+			return false
+		}
+	case "multiple":
+		if details.SelectionMode != "multiple" || details.RangeAnchor != "" || details.RangeExtent != "" {
+			return false
+		}
+	default:
+		return false
+	}
 	if details.SelectionMode == "single" && details.SelectedCount > 1 {
 		return false
 	}

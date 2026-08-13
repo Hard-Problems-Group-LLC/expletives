@@ -1166,6 +1166,8 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 		details.CurrentRow != "two" || details.CurrentRowIndex != 1 ||
 		details.CurrentColumn != "name" || details.CurrentColumnIndex != 0 ||
 		details.FocusMode != "cell" || details.SelectionMode != "multiple" ||
+		details.SelectionStyle != "multiple" || details.RangeAnchor != "" ||
+		details.RangeExtent != "" ||
 		details.SelectedCount != 2 || details.FirstSelected != "one" ||
 		details.LastSelected != "two" || details.SortColumn != "name" ||
 		details.SortDirection != "ascending" || len(details.SelectionDigest) != 64 ||
@@ -1186,6 +1188,52 @@ func TestSnapshotProjectsTableDetailsAndCopiesState(t *testing.T) {
 	clonedDetails.Status = "mutated"
 	if details.Status == "mutated" {
 		t.Fatal("cloneSnapshot exposed TableDetails storage")
+	}
+}
+
+func TestSnapshotProjectsTableRangeSelection(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 28, Height: 8},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = expletives.NewTable(app.Root(), expletives.TableOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "range-table", Bounds: expletives.Rect{Width: 20, Height: 6},
+			}},
+		},
+		Columns: []expletives.Column{{Key: "value", Header: "Value"}},
+		Rows: []expletives.TableRow{
+			{Key: "one", Cells: []expletives.TableCell{{Column: "value", Text: "One"}}},
+			{Key: "disabled", Disabled: true, DisabledReason: "Unavailable"},
+			{Key: "three", Cells: []expletives.TableCell{{Column: "value", Text: "Three"}}},
+		},
+		SelectionStyle:   expletives.TableSelectionRange,
+		RequireSelection: true, RangeAnchor: "one", RangeExtent: "three",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := snapshotFromCore(app.Snapshot())
+	if err := validateSnapshot(&projected, DefaultLimits()); err != nil {
+		t.Fatalf("validateSnapshot() error = %v", err)
+	}
+	var details *TableDetails
+	for index := range projected.Controls {
+		if projected.Controls[index].Key == "range-table" {
+			details = projected.Controls[index].Details.Table
+			break
+		}
+	}
+	if details == nil || details.SelectionStyle != "range" ||
+		details.SelectionMode != "multiple" || !details.RequireSelection ||
+		details.RangeAnchor != "one" || details.RangeExtent != "three" ||
+		details.SelectedCount != 2 || details.FirstSelected != "one" ||
+		details.LastSelected != "three" {
+		t.Fatalf("projected range Table details = %#v", details)
 	}
 }
 
@@ -1215,6 +1263,8 @@ func TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet(t *testing.T) {
 		Rows: []expletives.TableRow{{
 			Key: "row", Cells: []expletives.TableCell{{Column: "value", Text: "One"}},
 		}},
+		SelectionStyle:   expletives.TableSelectionRange,
+		RequireSelection: true, RangeAnchor: "row", RangeExtent: "row",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1245,6 +1295,9 @@ func TestSnapshotProjectsDataGridEditorWithoutTextOrValidatorSet(t *testing.T) {
 	if details == nil || !details.Editing || details.EditRow != "row" ||
 		details.EditColumn != "value" || details.EditLength != 4 ||
 		details.EditCaret != 4 || details.EditValid ||
+		details.Table.SelectionStyle != "range" ||
+		details.Table.RangeAnchor != "row" || details.Table.RangeExtent != "row" ||
+		details.Table.SelectedCount != 1 ||
 		details.ValidationEnforcement != "soft" ||
 		details.ValidationMode != "whitelist" || details.Table.FocusMode != "cell" {
 		t.Fatalf("projected DataGrid details = %#v", details)

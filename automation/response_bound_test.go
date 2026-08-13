@@ -1883,6 +1883,8 @@ func TestSnapshotRejectsInvalidTableDetails(t *testing.T) {
 		{"current row", func(control *ControlSnapshot) { control.Details.Table.CurrentRowIndex = 2 }},
 		{"current column", func(control *ControlSnapshot) { control.Details.Table.CurrentColumnIndex = 2 }},
 		{"focus mode", func(control *ControlSnapshot) { control.Details.Table.FocusMode = "header" }},
+		{"selection style", func(control *ControlSnapshot) { control.Details.Table.SelectionStyle = "free" }},
+		{"multiple range endpoint", func(control *ControlSnapshot) { control.Details.Table.RangeAnchor = "one" }},
 		{"selection digest", func(control *ControlSnapshot) { control.Details.Table.SelectionDigest = strings.Repeat("G", 64) }},
 		{"width digest", func(control *ControlSnapshot) { control.Details.Table.ColumnWidthsDigest = strings.Repeat("G", 64) }},
 		{"sort implication", func(control *ControlSnapshot) { control.Details.Table.SortColumn = "name" }},

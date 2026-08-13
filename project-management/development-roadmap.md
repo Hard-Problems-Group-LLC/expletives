@@ -721,13 +721,241 @@ ordered backlog and the active-task record; it does not replace either.
   is reliable on catchable paths; final automation outcomes remain honest;
   and supported performance and resource bounds have evidence.
 
-### 20. Release Readiness
+### 20. Table Selection Foundation
 
-- Status: `in progress`
+- Status: `complete`
+- Goal: establish the compatible four-style Table/DataGrid selection contract
+  and deliver it as the first independently coherent Table Improvements
+  checkpoint.
+- Dependencies: Phase 16 Collections, Phase 19 Terminal Compatibility,
+  [`EXPL-PROP-003`](proposals/approved/expl-prop-003-table-and-data-grid-improvements.md),
+  and the directed
+  [`Table Improvements v1`](../docs/specifications/table-improvements-v1.md)
+  contract.
+- `expletives-test` scenarios: exercise None, Single, Range, and Multiple in
+  the maintained Table/DataGrid state matrix before the fixtures move to
+  dedicated screens in Phase 23.
+- Normal Go tests: legacy/new option compatibility, exact policy mutation,
+  disabled and required-selection rules, portable range interaction,
+  sort/model repair, DataGrid editor cancellation and sorted commit, typed
+  state, compact automation validation, transaction rollback, concurrency,
+  and caller-owned slice behavior.
+- Delivery rule: every implementation slice carries its applicable focused
+  ordinary, exact-frame, Transaction, automation-bound, resource/race, and
+  phase-owned specification/API documentation work. Later evidence slices
+  aggregate cross-slice matrices; they are not the first proof or
+  documentation of earlier behavior.
+- Slice 20.0 (`complete`): inventory the current Table/DataGrid public API,
+  shared private implementation, rendering, interaction, mutation, resource,
+  snapshot, automation, catalog, and test surfaces.
+- Slice 20.1 (`complete`): complete the bounded Panel review, preapproved
+  proposal, decision record, and directed Table Improvements v1 contract.
+- Slice 20.2 (`complete`): add the compatible canonical
+  None/Single/Range/Multiple policy, stable range endpoints, exact direct and
+  Transaction mutations, copied state, and legacy `SelectionMode` conflict
+  validation.
+- Slice 20.3 (`complete`): implement selection rendering and keyboard
+  behavior, Shift and `[`/`]` range paths, disabled-row skipping, stable
+  sort/model repair, and DataGrid editor integration.
+- Slice 20.4 (`complete`): complete kind-consistent core details, automation
+  projection/cloning/validation/bounds, public-consumer coverage, and the
+  maintained `expletives-test` selection state matrix. Keep fixture creation,
+  transitions, and self-check assertions reusable when Phase 23 replaces the
+  route and Layout around them.
+- Slice 20.5 (`complete`): focused ordinary/race coverage and the complete
+  `make verify` phase gate passed on 2026-08-13, including vet, ordinary and
+  race tests, the PTY lifecycle integration test, and debug, release, and
+  profiling builds. ACP the selection checkpoint before Phase 21 delivery.
+- Acceptance gate: selection behavior is compatible when omitted, exact when
+  selected, atomic, keyboard complete, deterministically repairable, compactly
+  observable, cataloged, and green under the declared project verification.
+
+### 21. Table Column Presentation And Wrapped Geometry
+
+- Status: `active`
+- Goal: add stable-keyed column visibility/order and deterministic body
+  Clip/Wrap/Hang presentation without mutating canonical schema or row data.
+- Dependencies: Phase 20 and the Table Improvements v1 presentation/wrapping
+  contract.
+- `expletives-test` scenarios: demonstrate hidden and reordered columns,
+  retained hidden sorting, all three wrapping choices, aligned continuation
+  lines, both scroll axes, resize, and wrapped DataGrid editing.
+- Normal Go tests: exact presentation validation/copying, schema repair,
+  visible-current repair, width policy, word/cell/hanging wrapping,
+  variable-height indexing, paging, Unicode one-cell behavior, cache
+  invalidation, bounded arithmetic, DataGrid commit reflow, fuzzing, and race
+  coverage.
+- Delivery rule: every implementation slice carries its applicable focused
+  ordinary, exact-frame, Transaction, automation-bound, resource/race, and
+  phase-owned specification/API documentation work. Slice 21.5 aggregates
+  cross-slice proofs rather than deferring them.
+- Slice 21.0 (`active`): add the complete `TableColumnPresentation` model,
+  nil/default normalization, one-visible-column invariant, copied getters,
+  state, and exact direct/Transaction mutations for Table and DataGrid.
+- Slice 21.1 (`planned`): implement display order and visibility in header,
+  body, width, navigation, sorting, editing, schema replacement, and
+  current-column repair while preserving canonical `Columns()`/`Rows()`.
+- Slice 21.2 (`planned`): implement pure Clip/Wrap/Hang body-line measurement
+  and painting, including width-one Hang degradation, alignment, markers,
+  separators, and complete-row semantic styling.
+- Slice 21.3 (`planned`): add bounded visual-row heights and prefix starts,
+  binary-search viewport mapping, logical-row navigation, visual-distance
+  paging, visibility clamping, and precise cache invalidation.
+- Slice 21.4 (`planned`): integrate variable-height committed DataGrid cells
+  with the existing single-line editor, hidden editable-column traversal,
+  validation, sorted commits, and geometry repair.
+- Slice 21.5 (`planned`): complete the aggregate core/automation integrity,
+  response-bound, fuzz/race, and maintained catalog matrices for presentation
+  and wrapping, closing only cross-slice evidence gaps.
+- Slice 21.6 (`planned`): run the complete phase gate, benchmark representative
+  large/narrow models where useful, record evidence, and ACP the presentation
+  checkpoint.
+- Acceptance gate: visibility/order/wrap remain copied, bounded, atomic, and
+  stable under schema, sort, edit, scroll, and resize changes; exact intended
+  frames and typed evidence agree without a flattened wrapped-row model.
+
+### 22. Table Columns Action And Editor
+
+- Status: `planned`
+- Goal: add the optional `&Columns...` command band and revision-aware modal
+  column editor while retaining Table/DataGrid leaf ownership.
+- Dependencies: Phase 21 and the existing Button, modal, focus, transaction,
+  and automation contracts.
+- `expletives-test` scenarios: exercise Body/ColumnsAction traversal, band
+  degradation, empty models, large searchable schemas, visibility/wrap/order
+  editing, Reset/OK/Cancel/Reload, conflict handling, and DataGrid pre-dialog
+  commit refusal/success.
+- Normal Go tests: feature-set bounds, band geometry, action rendering,
+  mnemonic and press capture, internal focus, tiny/clipped/disabled behavior,
+  dialog inventory and draft isolation, final-visible rejection, schema
+  rebase, stale presentation conflicts, owner/modal lifecycle, command
+  routing, concurrency, resource bounds, and exact focus restoration.
+- Delivery rule: every implementation slice carries its applicable focused
+  ordinary, exact-frame, Transaction, automation-bound, resource/race, and
+  phase-owned specification/API documentation work. Slice 22.5 aggregates
+  large-schema and attached end-to-end evidence rather than deferring it.
+- Slice 22.0 (`planned`): add bounded feature normalization plus the optional
+  full-width band, Body/ColumnsAction semantic focus parts, geometry
+  allocation/degradation, and atomic feature/focus repair.
+- Slice 22.1 (`planned`): implement the right-justified raised action's label,
+  mnemonic, styles, Enter/Space/Alt-C routes, Tab/Shift-Tab traversal, pressed
+  capture, enabled state, and compact semantic evidence.
+- Slice 22.2 (`planned`): build the fixed-tree modal with one bounded
+  scrolling/searchable inventory and visibility, Clip/Wrap/Hang, Move Left,
+  Move Right, Reset, OK, and Cancel behavior over a private copied draft.
+- Slice 22.3 (`planned`): implement atomic apply, last-visible rejection,
+  schema/presentation revisions, deterministic schema rebase, stale Reload or
+  Cancel handling, and one post-publication ChangeCommand route.
+- Slice 22.4 (`planned`): integrate DataGrid's single pre-open commit attempt,
+  invalid-edit refusal, successful commit ordering, owner hide/destroy,
+  feature removal, modal invalidation, shutdown, and focus restoration.
+- Slice 22.5 (`planned`): complete aggregate snapshot/automation integrity,
+  response bounds, large-schema, self-check, and attached drive/observe
+  matrices, closing only cross-slice evidence gaps.
+- Slice 22.6 (`planned`): run the complete phase gate, obtain focused operator
+  acceptance for band/dialog behavior, record evidence, and ACP the Columns
+  editor checkpoint.
+- Acceptance gate: the feature is optional, leaf-owned, keyboard complete,
+  revision safe, atomic, bounded for maximum schemas, deterministic on small
+  surfaces, and fully observable without exposing the complete draft.
+
+### 23. Table Visual Roles And Interactive Catalog
+
+- Status: `planned`
+- Goal: add fixed per-instance semantic visual roles and move Table/DataGrid
+  demonstrations to dedicated live configuration screens.
+- Dependencies: Phase 22, Theme transactions, Notebook, ScrollablePanel,
+  DropDown, RadioGroup, Checkbox, Layout, Menu, and command routing.
+- `expletives-test` scenarios: Controls / `&Tables` and Controls /
+  `Data&Grid`, each with a 3:1 post-minimum control/Notebook split, scrollable
+  Options and Colors pages, live exact mutations, named palette choices,
+  comprehensive fixtures, reset, resize, and screen switching.
+- Normal Go tests: fixed role normalization and Theme membership, default
+  compatibility, exact live role replacement, transaction isolation, semantic
+  frame roles, menu mnemonics/routes, Layout minima/grow ratios, options
+  synchronization, local color updates, unaffected-instance proof, catalog
+  completeness, and public-consumer-only API use.
+- Delivery rule: every implementation slice carries its applicable focused
+  ordinary, exact-frame, Transaction, automation-bound, resource/race, and
+  phase-owned specification/API documentation work. Shared fixture builders,
+  transitions, and self-check expectations from earlier phases survive the
+  route/Layout migration and are extended rather than recreated.
+- Slice 23.0 (`planned`): define and implement `TableVisualRoles` and
+  `DataGridVisualRoles`, default-role normalization, staged Theme validation,
+  exact direct/Transaction replacement, state/detail copying, and compact
+  role digests.
+- Slice 23.1 (`planned`): add dedicated menu routes and screens, adjust
+  accelerators, move Table/DataGrid out of Collections, and construct the
+  left control/right Notebook Layout with usable minima and stable keys.
+- Slice 23.2 (`planned`): build the scrollable Options page and wire feature,
+  selection, requirement, focus, presentation, and reset controls to atomic
+  public mutations with normalized-state resynchronization.
+- Slice 23.3 (`planned`): build the scrollable Colors page with `Visual role`,
+  `Foreground`, and `Background` rows, bounded named-palette DropDowns,
+  screen-local StyleIDs, and atomic Theme replacement preserving attributes
+  and unrelated controls.
+- Slice 23.4 (`planned`): complete long/wrapped, disabled, sorted, scrolling,
+  editable/read-only, soft/hard validation, dialog, and color fixtures plus
+  the aggregate catalog state matrix, self-check, and attached automation
+  paths.
+- Slice 23.5 (`planned`): run the complete phase gate, obtain operator
+  acceptance for wide/narrow layouts and representative color states, record
+  a deterministic Phase 24 pairwise factor/value matrix (or seeded covering
+  array) with expected outcomes and explicit exclusions, record evidence, and
+  ACP the catalog checkpoint.
+- Acceptance gate: both controls have complete public-API-only interactive
+  screens; every important state is reachable and self-checked; color changes
+  are instance-local and Theme-owned; menu and keyboard paths remain unique.
+
+### 24. Table Improvements Integration And Acceptance
+
+- Status: `planned`
+- Goal: verify the approved Table Improvements as one compatible product
+  across feature, selection, presentation, wrapping, editing, color, modal,
+  concurrency, automation, and terminal boundaries.
+- Dependencies: the acceptance gates of Phases 20 through 23 are closed and
+  all directed specifications they extend are current. Missing primary
+  behavior or phase-owned documentation returns to its owning phase; Phase 24
+  may repair only defects exposed by cross-phase integration.
+- `expletives-test` scenarios: drive the complete dedicated Table/DataGrid
+  matrices headlessly and through attached automation at wide, narrow, short,
+  clipped, resized, and restored geometries.
+- Normal Go tests: pairwise cross-axis combinations, invalid combinations,
+  transaction rollback, concurrent model/policy/presentation/theme changes,
+  resource ceilings, fuzzed normalizers, external-package consumption,
+  snapshot/detail union integrity, and non-disclosure.
+- Slice 24.0 (`planned`): execute the recorded deterministic pairwise matrix
+  for feature/selection/presentation/wrap/role/edit/dialog combinations plus
+  targeted exhaustive Range × sort/model-repair and Wrap/Hang × DataGrid
+  edit/resize cases. Repair cross-phase integration defects in failure
+  atomicity, focus, command ordering, and deterministic frames; return missing
+  primary behavior to its owning phase.
+- Slice 24.1 (`planned`): complete concurrency/race, maximum-resource,
+  allocation/benchmark, fuzz, automation response-bound, final-snapshot, and
+  shutdown evidence.
+- Slice 24.2 (`planned`): audit cross-document consistency, stale links and
+  indexes, synthesized compatibility guidance, AGENTS routing, and an external
+  public consumer build. Phase-owned specifications, exported API
+  documentation, and examples must already be current at their phase exits.
+- Slice 24.3 (`planned`): run attached automation and operator visual/
+  interaction acceptance for selection, Clip/Wrap/Hang, hidden/reordered
+  columns, band/dialog, colors, DataGrid editing, and resize recovery.
+- Slice 24.4 (`planned`): run `make verify` and any justified focused fuzz or
+  benchmark gates, reconcile durable/Ubersight state, prepare the feature
+  branch for final ACP and merge, and close only with operator authorization.
+- Acceptance gate: every `EXPL-PROP-003` criterion is implemented, compatible,
+  documented, cataloged, bounded, automation-native, and verified; all
+  presentation-sensitive behavior is accepted and the feature branch is
+  ready to merge without unresolved non-deferred findings.
+
+### 25. Release Readiness
+
+- Status: `pending`; Slice 25.0 has partial completed work and resumes after
+  Phase 24.
 - Goal: stabilize the public Go API, documentation, examples, compatibility
   policy, release builds, provenance, security review, and downstream
   consumption.
-- Dependencies: Phase 19 and completion of every non-deferred catalog phase.
+- Dependencies: Phase 24 and completion of every non-deferred catalog phase.
 - `expletives-test` scenario: a catalog-completeness check fails whenever an
   exported control or required important state lacks a stable scenario and
   state-matrix entry.
@@ -735,9 +963,10 @@ ordered backlog and the active-task record; it does not replace either.
   module and dependency checks, vulnerability analysis, downstream external
   consumer tests, release smoke tests, debugger/profiler checks, and
   reproducibility evidence.
-- Slice 20.0 (`active`): inventory the exported API, non-deferred control
-  catalog, specifications, examples, and maintained test surfaces; repair only
-  concrete coverage/documentation gaps found by that mechanical audit.
+- Slice 25.0 (`paused after partial completion`): inventory the exported API,
+  non-deferred control catalog, specifications, examples, and maintained test
+  surfaces; repair only concrete coverage/documentation gaps found by that
+  mechanical audit.
   - Consumer contract repair began at 2026-08-11T01:26:22-07:00 under
     `EXPL-BUG-009`. A downstream Models selector supplied a width-only
     `MinimumSize`; `DropDown` retained the zero height, so a vertical-natural
@@ -779,15 +1008,15 @@ ordered backlog and the active-task record; it does not replace either.
     focus is black on white, focused read-only TextArea presentation is black
     on yellow, and validation/selection remain legible and distinct. Exact
     Theme and rendered-cell regressions plus the complete project gate pass.
-- Slice 20.1 (`planned`): verify supported Go/toolchain/target declarations,
+- Slice 25.1 (`planned`): verify supported Go/toolchain/target declarations,
   module hygiene, dependency provenance, and available vulnerability checks.
-- Slice 20.2 (`planned`): verify debug, release, and profiling artifacts,
+- Slice 25.2 (`planned`): verify debug, release, and profiling artifacts,
   executable metadata, debugger/profiler entry points, provenance, and
   reproducibility boundaries.
-- Slice 20.3 (`planned`): exercise clean external-consumer builds and complete
+- Slice 25.3 (`planned`): exercise clean external-consumer builds and complete
   the maintainable developer crash-course/reference path without duplicating
   normative specifications.
-- Slice 20.4 (`planned`): run the clean-checkout release gate, reconcile all
+- Slice 25.4 (`planned`): run the clean-checkout release gate, reconcile all
   non-deferred roadmap/catalog state, and prepare the explicit version/tag
   decision without publishing a tag absent operator authorization.
 - Acceptance gate: project-owned verification passes from a clean checkout;

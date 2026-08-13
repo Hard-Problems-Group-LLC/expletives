@@ -10,6 +10,46 @@ For each entry, include:
 - rationale
 - related files, proposals, or backlog items
 
+## EXPL-DEC-018 — Adopt Table And DataGrid Improvements
+
+- Date: 2026-08-12
+- Status: Directed, preapproved, and in implementation
+- Authority: Direct operator instruction following `EXPL-REV-002`
+
+### Decision
+
+Implement `EXPL-PROP-003` on permanent branch `feature/table-improvements`.
+Table and DataGrid gain independent optional features plus one typed selection
+style, stable-keyed derived column visibility/order/Clip-Wrap-Hang
+presentation, a leaf-owned two-row `&Columns...` action and revisioned modal
+editor, cached variable-height body rendering, fixed per-instance semantic
+visual roles, compact typed automation, and dedicated interactive catalog
+screens with Options and Colors Notebook pages.
+
+Omitted new options preserve current Single behavior. A nonempty schema retains
+at least one visible column. Hiding does not clear sorting. Body wrapping uses
+the existing width policy and DataGrid editing remains single-line. Continuous
+Range preserves stable endpoints and rederives displayed membership. Theme
+continues to own colors; the catalog uses named-color DropDowns rather than
+adding a public ColorPicker in this phase.
+
+### Rationale
+
+This separates independent capabilities from exclusive policies, preserves
+canonical caller data and the leaf/Transaction architecture, keeps the
+behavior bounded and automation-native, and supplies the interactive
+control-focused catalog shape requested by the operator. The operator-
+convened five-lens Panel found no technical blocker; its split findings were
+resolved in favor of recoverability and compatibility.
+
+### Related Records
+
+- [`EXPL-PROP-003`](proposals/approved/expl-prop-003-table-and-data-grid-improvements.md)
+- [`EXPL-REV-002`](reviews/packets/EXPL-REV-002-table-improvements-design-v1.md)
+- [`EXPL-TASK-039`](tasks-in-progress.md)
+- Phases 20 through 24 in
+  [`development-roadmap.md`](development-roadmap.md)
+
 ## EXPL-DEC-017 — Prioritize Meaning In Compact Overflow Warnings
 
 - Date: 2026-08-11

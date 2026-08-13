@@ -1246,7 +1246,10 @@ type TableDetails struct {
 	CurrentColumnIndex int                     `json:"current_column_index"`
 	FocusMode          TableFocusMode          `json:"focus_mode"`
 	SelectionMode      CollectionSelectionMode `json:"selection_mode"`
+	SelectionStyle     TableSelectionStyle     `json:"selection_style"`
 	RequireSelection   bool                    `json:"require_selection"`
+	RangeAnchor        string                  `json:"range_anchor,omitempty"`
+	RangeExtent        string                  `json:"range_extent,omitempty"`
 	SelectedCount      int                     `json:"selected_count"`
 	FirstSelected      string                  `json:"first_selected,omitempty"`
 	LastSelected       string                  `json:"last_selected,omitempty"`

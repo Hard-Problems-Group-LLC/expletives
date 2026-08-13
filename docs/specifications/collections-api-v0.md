@@ -520,6 +520,23 @@ const (
     SortDescending SortDirection = "descending"
 )
 
+type TableSelectionStyle string
+
+const (
+    TableSelectionNone     TableSelectionStyle = "none"
+    TableSelectionSingle   TableSelectionStyle = "single"
+    TableSelectionRange    TableSelectionStyle = "range"
+    TableSelectionMultiple TableSelectionStyle = "multiple"
+)
+
+type TableSelectionPolicy struct {
+    Style    TableSelectionStyle
+    Require  bool
+    Selected []string
+    Anchor   string
+    Extent   string
+}
+
 type TableOptions struct {
     ScrollablePanelOptions
     Columns          []Column
@@ -528,7 +545,10 @@ type TableOptions struct {
     CurrentColumn    string
     Selected         []string
     SelectionMode    CollectionSelectionMode
+    SelectionStyle   TableSelectionStyle
     RequireSelection bool
+    RangeAnchor      string
+    RangeExtent      string
     FocusMode        TableFocusMode
     SortColumn       string
     SortDirection    SortDirection
@@ -546,6 +566,9 @@ type TableState struct {
     CurrentColumn      string
     CurrentColumnIndex int
     Selected           []string
+    SelectionStyle     TableSelectionStyle
+    RangeAnchor        string
+    RangeExtent        string
     FocusMode          TableFocusMode
     SortColumn         string
     SortDirection      SortDirection
@@ -577,6 +600,7 @@ func (t *Table) Replace(
 ) error
 func (t *Table) SetCurrent(row string, column string) error
 func (t *Table) SetSelection([]string) error
+func (t *Table) SetSelectionPolicy(TableSelectionPolicy) error
 func (t *Table) SetSort(string, SortDirection) error
 func (t *Table) SetStatus(CollectionStatus, string) error
 func (t *Table) Focus() error
@@ -604,6 +628,10 @@ func (t *Transaction) ReplaceTable(
 ) error
 func (t *Transaction) SetTableCurrent(*Table, string, string) error
 func (t *Transaction) SetTableSelection(*Table, []string) error
+func (t *Transaction) SetTableSelectionPolicy(
+    *Table,
+    TableSelectionPolicy,
+) error
 func (t *Transaction) SetTableSort(*Table, string, SortDirection) error
 func (t *Transaction) SetTableStatus(
     *Table,
@@ -622,8 +650,13 @@ scrolling. A column validator requires `Editable`; hard validation rejects
 incompatible copied model cells now so the same schema remains valid when the
 later DataGrid editor uses it. Table itself never enters edit mode.
 
-Table supports row or cell current focus, stable row selection, and optional
-single-column stable sorting. Sorting is stable and compares normalized cell
+Table supports row or cell current focus, one canonical None, Single, Range,
+or Multiple stable-row selection policy, and optional single-column stable
+sorting. An omitted `SelectionStyle` derives the compatible Single/Multiple
+value from legacy `SelectionMode`; explicit disagreement is invalid. None
+retains no selection, Range retains stable Anchor/Extent and derives the
+continuous enabled displayed interval, and `SetSelectionPolicy` changes the
+complete policy atomically. Sorting is stable and compares normalized cell
 sequences, then preserves original model order for equal values. Activating a
 sortable current column with `S` cycles none → ascending → descending → none.
 `SortCommand` is routed only after a real user sort change. Programmatic
@@ -633,11 +666,14 @@ returns canonical model order while current indices, selection order, the
 frame, and automation reflect derived display order.
 
 Up/Down/Page/Home/End move rows. In cell mode Left/Right move columns; in row
-mode they scroll horizontally. Space changes row selection. Enter activates
-the current row/cell. Ctrl-Home and Ctrl-End move to the first and last
-enabled row and boundary column. Disabled rows remain visible but cannot be
-current, selected, or activated. Tab and Shift-Tab leave the complete Table
-as one focus group.
+mode they scroll horizontally. Space applies the exact selection style; None
+is a handled no-op and Range establishes a one-row interval. Enter activates
+the current row/cell without selecting under None. Shift plus row navigation
+extends Range, with `[` and `]` as portable previous/next-extent routes.
+Ctrl-Home and Ctrl-End move to the first and last enabled row and boundary
+column. Disabled rows remain visible but cannot be current, selected, an
+endpoint, or activated. Tab and Shift-Tab leave the complete Table as one
+focus group.
 
 `SetRows` preserves surviving row current and selection, the current column,
 and sort. `SetModel` additionally preserves a surviving current column and
@@ -649,8 +685,9 @@ displayed index under the resulting sort, then scans forward and backward.
 Core typed details expose exact bounded status text and derived column widths.
 Automation omits the retained columns, rows, cells, validators, and exact
 status/disabled-reason text. It reports row/column/cell/enabled counts,
-retained bytes, current stable row/column and indices, selection endpoints
-and digest, sort state, column endpoints and a digest of all derived widths,
+retained bytes, current stable row/column and indices, exact selection style,
+range endpoints, selection endpoints and digest, sort state, column endpoints
+and a digest of all derived widths,
 optional commands, and the compact viewport. The intended frame supplies
 exact visible headers, cells, markers, styles, clipping, and sticky-header
 evidence.
@@ -666,7 +703,10 @@ type DataGridOptions struct {
     CurrentColumn    string
     Selected         []string
     SelectionMode    CollectionSelectionMode
+    SelectionStyle   TableSelectionStyle
     RequireSelection bool
+    RangeAnchor      string
+    RangeExtent      string
     SortColumn       string
     SortDirection    SortDirection
     Status           CollectionStatus
@@ -708,6 +748,7 @@ func (g *DataGrid) Replace(
 ) error
 func (g *DataGrid) SetCurrent(string, string) error
 func (g *DataGrid) SetSelection([]string) error
+func (g *DataGrid) SetSelectionPolicy(TableSelectionPolicy) error
 func (g *DataGrid) SetSort(string, SortDirection) error
 func (g *DataGrid) SetStatus(CollectionStatus, string) error
 func (g *DataGrid) Focus() error
@@ -735,6 +776,10 @@ func (t *Transaction) ReplaceDataGrid(
 ) error
 func (t *Transaction) SetDataGridCurrent(*DataGrid, string, string) error
 func (t *Transaction) SetDataGridSelection(*DataGrid, []string) error
+func (t *Transaction) SetDataGridSelectionPolicy(
+    *DataGrid,
+    TableSelectionPolicy,
+) error
 func (t *Transaction) SetDataGridSort(
     *DataGrid,
     string,

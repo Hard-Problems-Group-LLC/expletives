@@ -7,7 +7,7 @@
 - Resolved: 2026-08-11T01:34:02-07:00
 - Reporter: radioradio consumer investigation
 - Owner: Codex
-- Related work: `EXPL-TASK-037`, Phase 20 Slice 20.0,
+- Related work: `EXPL-TASK-037`, Phase 25 Slice 25.0,
   [`collections-api-v0.md`](../../../docs/specifications/collections-api-v0.md)
 
 ## Symptom And Impact

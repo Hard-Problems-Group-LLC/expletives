@@ -101,6 +101,123 @@ func commandIDs(values []expletives.CommandID) []string {
 	return result
 }
 
+func TestExternalConsumerConfiguresTableSelectionPolicies(t *testing.T) {
+	t.Parallel()
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 36, Height: 10},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	columns := []expletives.Column{{
+		Key: "value", Header: "Value", Editable: true,
+	}}
+	rows := []expletives.TableRow{
+		{Key: "one", Cells: []expletives.TableCell{{Column: "value", Text: "One"}}},
+		{Key: "disabled", Disabled: true, DisabledReason: "Unavailable"},
+		{Key: "three", Cells: []expletives.TableCell{{Column: "value", Text: "Three"}}},
+	}
+	table, err := expletives.NewTable(app.Root(), expletives.TableOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.table", Bounds: expletives.Rect{Width: 16, Height: 6},
+			}},
+		},
+		Columns: columns, Rows: rows, CurrentRow: "one", CurrentColumn: "value",
+		SelectionStyle:   expletives.TableSelectionRange,
+		RequireSelection: true, RangeAnchor: "one", RangeExtent: "three",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, err := expletives.NewDataGrid(app.Root(), expletives.DataGridOptions{
+		ScrollablePanelOptions: expletives.ScrollablePanelOptions{
+			ScrollViewOptions: expletives.ScrollViewOptions{PanelOptions: expletives.PanelOptions{
+				AutomationKey: "external.grid", Bounds: expletives.Rect{X: 18, Width: 16, Height: 6},
+			}},
+		},
+		Columns: columns, Rows: rows, CurrentRow: "one", CurrentColumn: "value",
+		SelectionStyle: expletives.TableSelectionNone,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := table.State()
+	if state.SelectionStyle != expletives.TableSelectionRange ||
+		state.RangeAnchor != "one" || state.RangeExtent != "three" ||
+		strings.Join(state.Selected, ",") != "one,three" {
+		t.Fatalf("initial external Table state = %+v", state)
+	}
+	if err := table.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	completion, err := app.DispatchKey(
+		context.Background(),
+		"external-test",
+		"range-contract",
+		expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: "["},
+	)
+	if err != nil || completion.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("range contraction = %+v, %v", completion, err)
+	}
+	state = table.State()
+	if state.RangeAnchor != "one" || state.RangeExtent != "one" ||
+		strings.Join(state.Selected, ",") != "one" {
+		t.Fatalf("contracted external Table state = %+v", state)
+	}
+
+	selected := []string{"one", "three"}
+	if err := grid.SetSelectionPolicy(expletives.TableSelectionPolicy{
+		Style: expletives.TableSelectionMultiple, Selected: selected,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	selected[0] = "caller-mutation"
+	if got := strings.Join(grid.State().Selected, ","); got != "one,three" {
+		t.Fatalf("DataGrid retained caller selection storage: %q", got)
+	}
+
+	transaction := app.NewTransaction()
+	if err := transaction.SetTableSelectionPolicy(
+		table,
+		expletives.TableSelectionPolicy{Style: expletives.TableSelectionNone},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.SetDataGridSelectionPolicy(
+		grid,
+		expletives.TableSelectionPolicy{
+			Style:  expletives.TableSelectionRange,
+			Anchor: "one", Extent: "three",
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if table.State().SelectionStyle != expletives.TableSelectionNone ||
+		len(table.State().Selected) != 0 ||
+		grid.State().SelectionStyle != expletives.TableSelectionRange ||
+		strings.Join(grid.State().Selected, ",") != "one,three" {
+		t.Fatalf("external atomic policies: table=%+v grid=%+v", table.State(), grid.State())
+	}
+	for _, control := range app.Snapshot().Controls {
+		if control.Key == "external.table" &&
+			(control.Details.Table == nil ||
+				control.Details.Table.SelectionStyle != expletives.TableSelectionNone) {
+			t.Fatalf("external Table details = %+v", control.Details)
+		}
+		if control.Key == "external.grid" &&
+			(control.Details.DataGrid == nil ||
+				control.Details.DataGrid.Table.SelectionStyle != expletives.TableSelectionRange ||
+				control.Details.DataGrid.Table.RangeAnchor != "one" ||
+				control.Details.DataGrid.Table.RangeExtent != "three") {
+			t.Fatalf("external DataGrid details = %+v", control.Details)
+		}
+	}
+}
+
 func TestExternalConsumerDeclaresAndObservesInputScope(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

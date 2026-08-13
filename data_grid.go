@@ -21,7 +21,10 @@ type DataGridOptions struct {
 	CurrentColumn    string
 	Selected         []string
 	SelectionMode    CollectionSelectionMode
+	SelectionStyle   TableSelectionStyle
 	RequireSelection bool
+	RangeAnchor      string
+	RangeExtent      string
 	SortColumn       string
 	SortDirection    SortDirection
 	Status           CollectionStatus
@@ -104,7 +107,10 @@ func newDataGridBehavior(options DataGridOptions) (dataGridBehavior, error) {
 		CurrentColumn:          options.CurrentColumn,
 		Selected:               options.Selected,
 		SelectionMode:          options.SelectionMode,
+		SelectionStyle:         options.SelectionStyle,
 		RequireSelection:       options.RequireSelection,
+		RangeAnchor:            options.RangeAnchor,
+		RangeExtent:            options.RangeExtent,
 		FocusMode:              TableFocusCell,
 		SortColumn:             options.SortColumn,
 		SortDirection:          options.SortDirection,
@@ -416,7 +422,10 @@ func tableState(behavior tableBehavior) TableState {
 		CurrentColumn:      behavior.currentColumn,
 		CurrentColumnIndex: tableColumnIndex(behavior.columns, behavior.currentColumn),
 		Selected:           append([]string(nil), behavior.selected...), FocusMode: behavior.focusMode,
-		SortColumn: behavior.sortColumn, SortDirection: behavior.sortDirection,
+		SelectionStyle: behavior.selectionStyle,
+		RangeAnchor:    behavior.rangeAnchor,
+		RangeExtent:    behavior.rangeExtent,
+		SortColumn:     behavior.sortColumn, SortDirection: behavior.sortDirection,
 		Offset: behavior.scroll.state.Offset, RowCount: len(behavior.rows),
 		EnabledCount: enabledTableRowCount(behavior.rows), ColumnCount: len(behavior.columns),
 		CellCount: tableCellCount(behavior.rows), ColumnWidths: append([]int(nil), behavior.columnWidths...),
@@ -463,6 +472,14 @@ func (g *DataGrid) SetCurrent(row, column string) error {
 func (g *DataGrid) SetSelection(selected []string) error {
 	return commitDataGridMutation(g, func(tx *Transaction) error {
 		return tx.SetDataGridSelection(g, selected)
+	})
+}
+
+// SetSelectionPolicy atomically changes the selection behavior and exact
+// retained row selection, cancelling an active cell editor.
+func (g *DataGrid) SetSelectionPolicy(policy TableSelectionPolicy) error {
+	return commitDataGridMutation(g, func(tx *Transaction) error {
+		return tx.SetDataGridSelectionPolicy(g, policy)
 	})
 }
 
@@ -541,7 +558,7 @@ func (a *App) activateDataGrid(
 		_ = a.commitOrCancelEditorStateLocked(a.focus)
 		a.focus = state
 	}
-	command, target, _, changed := a.dataGridKeyLocked(state, KeyEnter, false)
+	command, target, _, changed := a.dataGridKeyLocked(state, KeyEnter, false, false)
 	result := CommandResult{Outcome: OutcomeNoOp}
 	var router CommandRouter
 	var execute bool
@@ -630,6 +647,7 @@ func (a *App) dataGridKeyLocked(
 	state *controlState,
 	key Key,
 	control bool,
+	shift bool,
 ) (CommandID, ControlID, bool, bool) {
 	if state == nil {
 		return "", "", false, false
@@ -651,7 +669,7 @@ func (a *App) dataGridKeyLocked(
 		}
 	}
 	state.behavior = behavior.table
-	command, target, handled, changed := a.tableKeyLocked(state, key, control)
+	command, target, handled, changed := a.tableKeyLocked(state, key, control, shift)
 	if table, valid := state.behavior.(tableBehavior); valid {
 		behavior.table = table
 	}
@@ -770,7 +788,7 @@ func setDataGridCellText(table *tableBehavior, rowKey, columnKey, value string) 
 	}
 	table.rows = normalizedRows
 	table.displayOrder = nil
-	table.selected, _ = normalizeTableSelection(table, table.selected)
+	refreshTableSelection(table)
 	return nil
 }
 
@@ -936,10 +954,10 @@ func (t *Transaction) SetDataGridRows(control *DataGrid, rows []TableRow) error 
 	if err != nil {
 		return err
 	}
-	oldIndex := tableDisplayRowIndex(behavior.table, behavior.table.currentRow)
+	oldPositions := tableIdentityPositionsFor(behavior.table)
 	behavior.table.rows = normalized
 	behavior.table.displayOrder = nil
-	repairTableIdentity(&behavior.table, oldIndex)
+	repairTableIdentity(&behavior.table, oldPositions)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
 }
@@ -955,7 +973,7 @@ func (t *Transaction) SetDataGridModel(
 		return err
 	}
 	cancelDataGridEditBehavior(&behavior)
-	oldIndex := tableDisplayRowIndex(behavior.table, behavior.table.currentRow)
+	oldPositions := tableIdentityPositionsFor(behavior.table)
 	normalizedColumns, err := normalizeTableColumns(columns)
 	if err != nil {
 		return err
@@ -976,7 +994,7 @@ func (t *Transaction) SetDataGridModel(
 			behavior.table.currentColumn = behavior.table.columns[0].column.Key
 		}
 	}
-	repairTableIdentity(&behavior.table, oldIndex)
+	repairTableIdentity(&behavior.table, oldPositions)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
 }
@@ -1014,6 +1032,8 @@ func (t *Transaction) ReplaceDataGrid(
 		currentRow,
 		currentColumn,
 		selected,
+		"",
+		"",
 	); err != nil {
 		return err
 	}
@@ -1055,14 +1075,41 @@ func (t *Transaction) SetDataGridSelection(control *DataGrid, selected []string)
 		return err
 	}
 	cancelDataGridEditBehavior(&behavior)
-	ordered, err := normalizeTableSelection(&behavior.table, selected)
+	if behavior.table.requireSelection && len(selected) == 0 && behavior.table.currentRow != "" {
+		return fmt.Errorf("%w: DataGrid selection is required", ErrValidation)
+	}
+	if err := setExactTableSelection(&behavior.table, selected, "", ""); err != nil {
+		return err
+	}
+	behavior = reflowDataGrid(behavior, target.bounds.Size())
+	return t.recordDataGrid(target, behavior)
+}
+
+// SetDataGridSelectionPolicy records one exact atomic selection policy and
+// cancels an active cell editor.
+func (t *Transaction) SetDataGridSelectionPolicy(
+	control *DataGrid,
+	policy TableSelectionPolicy,
+) error {
+	target, behavior, err := t.selectedDataGrid(control)
 	if err != nil {
 		return err
 	}
-	if behavior.table.requireSelection && len(ordered) == 0 && behavior.table.currentRow != "" {
-		return fmt.Errorf("%w: DataGrid selection is required", ErrValidation)
+	cancelDataGridEditBehavior(&behavior)
+	style, mode, err := normalizeExplicitTableSelectionStyle(policy.Style)
+	if err != nil {
+		return err
 	}
-	behavior.table.selected = ordered
+	behavior.table.selectionStyle, behavior.table.selectionMode = style, mode
+	behavior.table.requireSelection = policy.Require
+	if err := setExactTableSelection(
+		&behavior.table,
+		policy.Selected,
+		policy.Anchor,
+		policy.Extent,
+	); err != nil {
+		return err
+	}
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
 }
@@ -1082,10 +1129,7 @@ func (t *Transaction) SetDataGridSort(
 		return err
 	}
 	behavior.table.displayOrder = nil
-	behavior.table.selected, _ = normalizeTableSelection(
-		&behavior.table,
-		behavior.table.selected,
-	)
+	refreshTableSelection(&behavior.table)
 	behavior = reflowDataGrid(behavior, target.bounds.Size())
 	return t.recordDataGrid(target, behavior)
 }

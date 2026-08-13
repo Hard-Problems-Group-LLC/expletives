@@ -776,13 +776,15 @@ func (a *App) DispatchKey(
 			}
 			controlOnly := held[KeyControl] && !held[KeyAlt] &&
 				!held[KeyMeta] && !held[KeyShift]
-			if (noHeldModifiers(held) || controlOnly) && !scrollHandled {
+			shiftOnly := held[KeyShift] && !held[KeyAlt] &&
+				!held[KeyMeta] && !held[KeyControl]
+			if (noHeldModifiers(held) || controlOnly || shiftOnly) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
-					a.tableKeyLocked(a.focus, event.Key, controlOnly)
+					a.tableKeyLocked(a.focus, event.Key, controlOnly, shiftOnly)
 			}
-			if (noHeldModifiers(held) || controlOnly) && !scrollHandled {
+			if (noHeldModifiers(held) || controlOnly || shiftOnly) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =
-					a.dataGridKeyLocked(a.focus, event.Key, controlOnly)
+					a.dataGridKeyLocked(a.focus, event.Key, controlOnly, shiftOnly)
 			}
 			if noHeldModifiers(held) && !scrollHandled {
 				scrollCommand, scrollTarget, scrollHandled, scrollChanged =

@@ -8,6 +8,24 @@ specifications, and ISO 8601 timestamps.
 
 ## Current Queue
 
+- 2026-08-12 — `EXPL-TASK-037` — Resume Phase 25 Release Readiness.
+  - Requestor: project operator
+  - Owner: Codex
+  - Created: 2026-08-10T14:21:00-07:00
+  - Paused: 2026-08-12T16:26:41-07:00 when Table Improvements was inserted as
+    the Table Improvements program, now Phases 20 through 24.
+  - Context: Slice 25.0 already completed several concrete downstream and
+    native-terminal repairs while its public-surface inventory was underway.
+    Resume the remaining API/documentation/example audit, supported-toolchain
+    and dependency checks, build/provenance work, external-consumer gate, and
+    clean-checkout release decision after Phase 24 closes.
+  - Acceptance criteria: the Phase 25 acceptance gate in the development
+    roadmap passes; tag creation or public release remains a separate explicit
+    operator decision.
+  - Dependencies: Phases 20 through 24 Table Improvements and every other non-deferred
+    catalog phase.
+  - Blockers: the Table Improvements program is active in Phase 20.
+
 - 2026-08-02 — `EXPL-TASK-035` — Build a maintainable developer crash course
   and toolkit reference manual.
   - Requestor: project operator

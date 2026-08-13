@@ -7,7 +7,7 @@
 - Resolved: 2026-08-11T10:41:18-07:00
 - Reporter: radioradio operator
 - Owner: Codex
-- Related work: Phase 20 Slice 20.0; Text And Numeric Input API v0
+- Related work: Phase 25 Slice 25.0; Text And Numeric Input API v0
 
 ## Symptom And Impact
 
@@ -54,6 +54,6 @@ failed only because that sandbox forbids the required socket option.
 
 ## History
 
-- 2026-08-11T10:34:45-07:00 — Accepted as a Phase 20 Slice 20.0 consumer
+- 2026-08-11T10:34:45-07:00 — Accepted as a Phase 25 Slice 25.0 consumer
   repair and implementation began on `feature/text-input-focus-contrast`.
 - 2026-08-11T10:41:18-07:00 — The complete gate passed and the bug closed.

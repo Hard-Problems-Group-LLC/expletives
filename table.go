@@ -47,6 +47,28 @@ const (
 	TableFocusCell TableFocusMode = "cell"
 )
 
+// TableSelectionStyle selects the exact row-selection behavior of a Table or
+// DataGrid. The zero value is accepted only by construction options, where it
+// preserves the legacy SelectionMode behavior.
+type TableSelectionStyle string
+
+const (
+	TableSelectionNone     TableSelectionStyle = "none"
+	TableSelectionSingle   TableSelectionStyle = "single"
+	TableSelectionRange    TableSelectionStyle = "range"
+	TableSelectionMultiple TableSelectionStyle = "multiple"
+)
+
+// TableSelectionPolicy is one atomic row-selection configuration and state.
+// Selected is copied by constructors and mutations.
+type TableSelectionPolicy struct {
+	Style    TableSelectionStyle
+	Require  bool
+	Selected []string
+	Anchor   string
+	Extent   string
+}
+
 // SortDirection selects the derived stable display order of table rows.
 type SortDirection string
 
@@ -69,7 +91,10 @@ type TableOptions struct {
 	CurrentColumn    string
 	Selected         []string
 	SelectionMode    CollectionSelectionMode
+	SelectionStyle   TableSelectionStyle
 	RequireSelection bool
+	RangeAnchor      string
+	RangeExtent      string
 	FocusMode        TableFocusMode
 	SortColumn       string
 	SortDirection    SortDirection
@@ -88,6 +113,9 @@ type TableState struct {
 	CurrentColumn      string
 	CurrentColumnIndex int
 	Selected           []string
+	SelectionStyle     TableSelectionStyle
+	RangeAnchor        string
+	RangeExtent        string
 	FocusMode          TableFocusMode
 	SortColumn         string
 	SortDirection      SortDirection
@@ -128,7 +156,10 @@ type tableBehavior struct {
 	currentColumn    string
 	selected         []string
 	selectionMode    CollectionSelectionMode
+	selectionStyle   TableSelectionStyle
 	requireSelection bool
+	rangeAnchor      string
+	rangeExtent      string
 	focusMode        TableFocusMode
 	sortColumn       string
 	sortDirection    SortDirection
@@ -240,7 +271,10 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 	}
 	scroll.border = border
 	scroll.state.Offset = requestedOffset
-	mode, err := normalizeCollectionSelectionMode(options.SelectionMode)
+	selectionStyle, mode, err := normalizeTableSelectionStyle(
+		options.SelectionStyle,
+		options.SelectionMode,
+	)
 	if err != nil {
 		return tableBehavior{}, err
 	}
@@ -265,6 +299,7 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 		columns:          columns,
 		rows:             rows,
 		selectionMode:    mode,
+		selectionStyle:   selectionStyle,
 		requireSelection: options.RequireSelection,
 		focusMode:        focusMode,
 		status:           status,
@@ -281,10 +316,56 @@ func newTableBehavior(options TableOptions) (tableBehavior, error) {
 		options.CurrentRow,
 		options.CurrentColumn,
 		options.Selected,
+		options.RangeAnchor,
+		options.RangeExtent,
 	); err != nil {
 		return tableBehavior{}, err
 	}
 	return behavior, nil
+}
+
+func normalizeTableSelectionStyle(
+	style TableSelectionStyle,
+	legacy CollectionSelectionMode,
+) (TableSelectionStyle, CollectionSelectionMode, error) {
+	if style == "" {
+		mode, err := normalizeCollectionSelectionMode(legacy)
+		if err != nil {
+			return "", "", err
+		}
+		if mode == CollectionSelectionMultiple {
+			return TableSelectionMultiple, mode, nil
+		}
+		return TableSelectionSingle, mode, nil
+	}
+	mode := CollectionSelectionSingle
+	switch style {
+	case TableSelectionNone, TableSelectionSingle:
+	case TableSelectionRange, TableSelectionMultiple:
+		mode = CollectionSelectionMultiple
+	default:
+		return "", "", fmt.Errorf("%w: invalid Table selection style %q", ErrValidation, style)
+	}
+	if legacy != "" {
+		normalizedLegacy, err := normalizeCollectionSelectionMode(legacy)
+		if err != nil {
+			return "", "", err
+		}
+		if (style != TableSelectionSingle && style != TableSelectionMultiple) ||
+			normalizedLegacy != mode {
+			return "", "", fmt.Errorf("%w: conflicting Table selection style and legacy mode", ErrValidation)
+		}
+	}
+	return style, mode, nil
+}
+
+func normalizeExplicitTableSelectionStyle(
+	style TableSelectionStyle,
+) (TableSelectionStyle, CollectionSelectionMode, error) {
+	if style == "" {
+		return "", "", fmt.Errorf("%w: Table selection policy requires a style", ErrValidation)
+	}
+	return normalizeTableSelectionStyle(style, "")
 }
 
 func normalizeTableFocusMode(mode TableFocusMode) (TableFocusMode, error) {
@@ -453,6 +534,8 @@ func setExactTableIdentity(
 	currentRow string,
 	currentColumn string,
 	selected []string,
+	rangeAnchor string,
+	rangeExtent string,
 ) error {
 	if behavior == nil {
 		return ErrInvalidControl
@@ -470,22 +553,17 @@ func setExactTableIdentity(
 	} else if tableColumnIndex(behavior.columns, currentColumn) < 0 {
 		return fmt.Errorf("%w: invalid Table current column", ErrValidation)
 	}
-	ordered, err := normalizeTableSelection(behavior, selected)
-	if err != nil {
-		return err
-	}
-	if behavior.requireSelection && len(ordered) == 0 && currentRow != "" {
-		ordered = []string{currentRow}
-	}
 	behavior.currentRow = currentRow
 	behavior.currentColumn = currentColumn
-	behavior.selected = ordered
-	return nil
+	return setExactTableSelection(behavior, selected, rangeAnchor, rangeExtent)
 }
 
 func normalizeTableSelection(behavior *tableBehavior, selected []string) ([]string, error) {
 	if behavior == nil {
 		return nil, ErrInvalidControl
+	}
+	if behavior.selectionStyle == TableSelectionNone && len(selected) > 0 {
+		return nil, fmt.Errorf("%w: no-selection Table has selected rows", ErrValidation)
 	}
 	if behavior.selectionMode == CollectionSelectionSingle && len(selected) > 1 {
 		return nil, fmt.Errorf("%w: single-selection Table has multiple selected rows", ErrValidation)
@@ -509,6 +587,152 @@ func normalizeTableSelection(behavior *tableBehavior, selected []string) ([]stri
 		}
 	}
 	return result, nil
+}
+
+func setExactTableSelection(
+	behavior *tableBehavior,
+	selected []string,
+	anchor string,
+	extent string,
+) error {
+	if behavior == nil {
+		return ErrInvalidControl
+	}
+	if behavior.selectionStyle == TableSelectionNone {
+		if behavior.requireSelection || len(selected) > 0 || anchor != "" || extent != "" {
+			return fmt.Errorf("%w: no-selection Table cannot retain selection state", ErrValidation)
+		}
+		behavior.selected = nil
+		behavior.rangeAnchor, behavior.rangeExtent = "", ""
+		return nil
+	}
+	if behavior.selectionStyle != TableSelectionRange {
+		if anchor != "" || extent != "" {
+			return fmt.Errorf("%w: Table range endpoints require range selection", ErrValidation)
+		}
+		ordered, err := normalizeTableSelection(behavior, selected)
+		if err != nil {
+			return err
+		}
+		if behavior.requireSelection && len(ordered) == 0 && behavior.currentRow != "" {
+			ordered = []string{behavior.currentRow}
+		}
+		behavior.selected = ordered
+		behavior.rangeAnchor, behavior.rangeExtent = "", ""
+		return nil
+	}
+	if (anchor == "") != (extent == "") {
+		return fmt.Errorf("%w: Table range endpoints must both be present or absent", ErrValidation)
+	}
+	if anchor != "" {
+		derived, err := tableRangeSelection(behavior, anchor, extent)
+		if err != nil {
+			return err
+		}
+		if len(selected) > 0 {
+			ordered, err := normalizeTableSelection(behavior, selected)
+			if err != nil || !sameTableSelection(ordered, derived) {
+				return fmt.Errorf("%w: Table range selection does not match its endpoints", ErrValidation)
+			}
+		}
+		behavior.selected = derived
+		behavior.rangeAnchor, behavior.rangeExtent = anchor, extent
+		return nil
+	}
+	if len(selected) > 0 {
+		ordered, err := normalizeTableSelection(behavior, selected)
+		if err != nil {
+			return err
+		}
+		derived, err := tableRangeSelection(behavior, ordered[0], ordered[len(ordered)-1])
+		if err != nil || !sameTableSelection(ordered, derived) {
+			return fmt.Errorf("%w: Table range selection must be one continuous enabled interval", ErrValidation)
+		}
+		behavior.selected = derived
+		behavior.rangeAnchor, behavior.rangeExtent = ordered[0], ordered[len(ordered)-1]
+		return nil
+	}
+	if behavior.requireSelection && behavior.currentRow != "" {
+		behavior.selected = []string{behavior.currentRow}
+		behavior.rangeAnchor, behavior.rangeExtent = behavior.currentRow, behavior.currentRow
+		return nil
+	}
+	behavior.selected = nil
+	behavior.rangeAnchor, behavior.rangeExtent = "", ""
+	return nil
+}
+
+func tableRangeSelection(
+	behavior *tableBehavior,
+	anchor string,
+	extent string,
+) ([]string, error) {
+	if behavior == nil {
+		return nil, ErrInvalidControl
+	}
+	anchorIndex := tableDisplayRowIndex(*behavior, anchor)
+	extentIndex := tableDisplayRowIndex(*behavior, extent)
+	if anchorIndex < 0 || extentIndex < 0 {
+		return nil, fmt.Errorf("%w: Table range endpoint is unavailable", ErrValidation)
+	}
+	anchorRow := tableCanonicalRowIndex(behavior.rows, anchor)
+	extentRow := tableCanonicalRowIndex(behavior.rows, extent)
+	if anchorRow < 0 || extentRow < 0 || behavior.rows[anchorRow].row.Disabled ||
+		behavior.rows[extentRow].row.Disabled {
+		return nil, fmt.Errorf("%w: Table range endpoint is unavailable", ErrValidation)
+	}
+	first, last := min(anchorIndex, extentIndex), max(anchorIndex, extentIndex)
+	order := tableDisplayOrder(*behavior)
+	result := make([]string, 0, last-first+1)
+	for _, rowIndex := range order[first : last+1] {
+		if !behavior.rows[rowIndex].row.Disabled {
+			result = append(result, behavior.rows[rowIndex].row.Key)
+		}
+	}
+	return result, nil
+}
+
+func sameTableSelection(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func refreshTableSelection(behavior *tableBehavior) {
+	if behavior == nil {
+		return
+	}
+	if behavior.selectionStyle == TableSelectionRange {
+		if behavior.rangeAnchor != "" && behavior.rangeExtent != "" {
+			if selected, err := tableRangeSelection(
+				behavior,
+				behavior.rangeAnchor,
+				behavior.rangeExtent,
+			); err == nil {
+				behavior.selected = selected
+				return
+			}
+		}
+		if behavior.requireSelection && behavior.currentRow != "" {
+			behavior.selected = []string{behavior.currentRow}
+			behavior.rangeAnchor, behavior.rangeExtent = behavior.currentRow, behavior.currentRow
+		} else {
+			behavior.selected = nil
+			behavior.rangeAnchor, behavior.rangeExtent = "", ""
+		}
+		return
+	}
+	behavior.rangeAnchor, behavior.rangeExtent = "", ""
+	behavior.selected, _ = normalizeTableSelection(behavior, behavior.selected)
+	if behavior.requireSelection && len(behavior.selected) == 0 && behavior.currentRow != "" {
+		behavior.selected = []string{behavior.currentRow}
+	}
 }
 
 func tableCanonicalRowIndex(rows []normalizedTableRow, key string) int {
@@ -651,7 +875,9 @@ func cloneTableBehavior(behavior tableBehavior) tableBehavior {
 func tableBehaviorEqual(left, right tableBehavior) bool {
 	if !scrollViewBehaviorEqual(left.scroll, right.scroll) ||
 		left.currentRow != right.currentRow || left.currentColumn != right.currentColumn ||
-		left.selectionMode != right.selectionMode || left.requireSelection != right.requireSelection ||
+		left.selectionMode != right.selectionMode || left.selectionStyle != right.selectionStyle ||
+		left.requireSelection != right.requireSelection ||
+		left.rangeAnchor != right.rangeAnchor || left.rangeExtent != right.rangeExtent ||
 		left.focusMode != right.focusMode || left.sortColumn != right.sortColumn ||
 		left.sortDirection != right.sortDirection || left.status != right.status ||
 		left.statusMessage.text != right.statusMessage.text || left.changeCommand != right.changeCommand ||
@@ -855,6 +1081,14 @@ func (b tableBehavior) bodyCells(index int, focused bool) []tablePaintCell {
 		{grapheme: "[", style: rowStyle},
 		{grapheme: selectedMarker, style: rowStyle},
 		{grapheme: "]", style: rowStyle},
+	}
+	if b.selectionStyle == TableSelectionNone {
+		result = []tablePaintCell{
+			{grapheme: marker, style: rowStyle},
+			{grapheme: " ", style: rowStyle},
+			{grapheme: " ", style: rowStyle},
+			{grapheme: " ", style: rowStyle},
+		}
 	}
 	for columnIndex, column := range b.columns {
 		text := []string{}
@@ -1106,6 +1340,8 @@ func tableDetails(bounds Rect, behavior tableBehavior) TableDetails {
 		CurrentColumn:      behavior.currentColumn,
 		CurrentColumnIndex: tableColumnIndex(behavior.columns, behavior.currentColumn),
 		FocusMode:          behavior.focusMode, SelectionMode: behavior.selectionMode,
+		SelectionStyle: behavior.selectionStyle, RangeAnchor: behavior.rangeAnchor,
+		RangeExtent:      behavior.rangeExtent,
 		RequireSelection: behavior.requireSelection, SelectedCount: len(behavior.selected),
 		FirstSelected: firstSelected, LastSelected: lastSelected,
 		SelectionDigest: listSelectionDigest(behavior.selected),
@@ -1165,7 +1401,10 @@ func (t *Table) State() TableState {
 		CurrentColumn:      behavior.currentColumn,
 		CurrentColumnIndex: tableColumnIndex(behavior.columns, behavior.currentColumn),
 		Selected:           append([]string(nil), behavior.selected...), FocusMode: behavior.focusMode,
-		SortColumn: behavior.sortColumn, SortDirection: behavior.sortDirection,
+		SelectionStyle: behavior.selectionStyle,
+		RangeAnchor:    behavior.rangeAnchor,
+		RangeExtent:    behavior.rangeExtent,
+		SortColumn:     behavior.sortColumn, SortDirection: behavior.sortDirection,
 		Offset: behavior.scroll.state.Offset, RowCount: len(behavior.rows),
 		EnabledCount: enabledTableRowCount(behavior.rows), ColumnCount: len(behavior.columns),
 		CellCount: tableCellCount(behavior.rows), ColumnWidths: append([]int(nil), behavior.columnWidths...),
@@ -1207,6 +1446,14 @@ func (t *Table) SetCurrent(row, column string) error {
 // SetSelection changes the exact selected stable row keys.
 func (t *Table) SetSelection(selected []string) error {
 	return commitTableMutation(t, func(tx *Transaction) error { return tx.SetTableSelection(t, selected) })
+}
+
+// SetSelectionPolicy atomically changes the selection behavior and exact
+// retained row selection.
+func (t *Table) SetSelectionPolicy(policy TableSelectionPolicy) error {
+	return commitTableMutation(t, func(tx *Transaction) error {
+		return tx.SetTableSelectionPolicy(t, policy)
+	})
 }
 
 // SetSort changes the optional single-column derived stable display order.
@@ -1276,7 +1523,7 @@ func (a *App) activateTable(
 		a.mu.Unlock()
 		return Completion{}, ErrNotFocusable
 	}
-	command, target, _, changed := a.tableKeyLocked(state, KeyEnter, false)
+	command, target, _, changed := a.tableKeyLocked(state, KeyEnter, false, false)
 	result := CommandResult{Outcome: OutcomeNoOp}
 	var router CommandRouter
 	var execute bool
@@ -1302,6 +1549,7 @@ func (a *App) tableKeyLocked(
 	state *controlState,
 	key Key,
 	control bool,
+	shift bool,
 ) (CommandID, ControlID, bool, bool) {
 	if state == nil {
 		return "", "", false, false
@@ -1314,7 +1562,9 @@ func (a *App) tableKeyLocked(
 	handled, selectionChanged, activate, sortChanged := true, false, false, false
 	current := tableDisplayRowIndex(behavior, behavior.currentRow)
 	geometry := calculateScrollViewGeometry(state.bounds.Size(), behavior.scroll)
-	if control && (key == KeyHome || key == KeyEnd) {
+	if shift {
+		selectionChanged, handled = extendTableRangeSelection(&behavior, key, geometry)
+	} else if control && (key == KeyHome || key == KeyEnd) {
 		if key == KeyHome {
 			behavior.currentRow = firstEnabledTableRowKey(&behavior)
 			if len(behavior.columns) > 0 {
@@ -1371,6 +1621,8 @@ func (a *App) tableKeyLocked(
 		case KeyEnter:
 			selectionChanged = selectCurrentTableRow(&behavior, false)
 			activate = true
+		case Key("["), Key("]"):
+			selectionChanged, handled = stepTableRangeExtent(&behavior, key)
 		case Key("s"), Key("S"):
 			sortChanged = cycleCurrentTableSort(&behavior)
 		default:
@@ -1444,6 +1696,19 @@ func selectCurrentTableRow(behavior *tableBehavior, toggle bool) bool {
 	if behavior == nil || behavior.currentRow == "" {
 		return false
 	}
+	if behavior.selectionStyle == TableSelectionNone {
+		return false
+	}
+	if behavior.selectionStyle == TableSelectionRange {
+		if !toggle && listSelectionContains(behavior.selected, behavior.currentRow) {
+			return false
+		}
+		changed := len(behavior.selected) != 1 || behavior.selected[0] != behavior.currentRow ||
+			behavior.rangeAnchor != behavior.currentRow || behavior.rangeExtent != behavior.currentRow
+		behavior.selected = []string{behavior.currentRow}
+		behavior.rangeAnchor, behavior.rangeExtent = behavior.currentRow, behavior.currentRow
+		return changed
+	}
 	selected := listSelectionContains(behavior.selected, behavior.currentRow)
 	if behavior.selectionMode == CollectionSelectionSingle {
 		if selected && len(behavior.selected) == 1 {
@@ -1471,6 +1736,79 @@ func selectCurrentTableRow(behavior *tableBehavior, toggle bool) bool {
 	return true
 }
 
+func extendTableRangeSelection(
+	behavior *tableBehavior,
+	key Key,
+	geometry scrollViewGeometry,
+) (bool, bool) {
+	if behavior == nil || behavior.selectionStyle != TableSelectionRange ||
+		behavior.currentRow == "" {
+		return false, false
+	}
+	anchor := behavior.rangeAnchor
+	if anchor == "" {
+		anchor = behavior.currentRow
+	}
+	current := tableDisplayRowIndex(*behavior, behavior.currentRow)
+	next := behavior.currentRow
+	switch key {
+	case KeyUp:
+		next = previousEnabledTableRowKey(*behavior, current)
+	case KeyDown:
+		next = nextEnabledTableRowKey(*behavior, current)
+	case KeyPageUp:
+		next = pageEnabledTableRowKey(
+			*behavior,
+			current,
+			-effectiveScrollPageStep(behavior.scroll.pageStep.Height, max(1, geometry.viewport.Height-1)),
+		)
+	case KeyPageDown:
+		next = pageEnabledTableRowKey(
+			*behavior,
+			current,
+			effectiveScrollPageStep(behavior.scroll.pageStep.Height, max(1, geometry.viewport.Height-1)),
+		)
+	case KeyHome:
+		next = firstEnabledTableRowKey(behavior)
+	case KeyEnd:
+		next = lastEnabledTableRowKey(*behavior)
+	default:
+		return false, false
+	}
+	before := append([]string(nil), behavior.selected...)
+	oldAnchor, oldExtent := behavior.rangeAnchor, behavior.rangeExtent
+	behavior.currentRow = next
+	behavior.rangeAnchor, behavior.rangeExtent = anchor, next
+	behavior.selected, _ = tableRangeSelection(behavior, anchor, next)
+	return !sameTableSelection(before, behavior.selected) || oldAnchor != anchor || oldExtent != next, true
+}
+
+func stepTableRangeExtent(behavior *tableBehavior, key Key) (bool, bool) {
+	if behavior == nil || behavior.selectionStyle != TableSelectionRange ||
+		behavior.currentRow == "" {
+		return false, false
+	}
+	anchor, extent := behavior.rangeAnchor, behavior.rangeExtent
+	if anchor == "" {
+		anchor, extent = behavior.currentRow, behavior.currentRow
+	}
+	current := tableDisplayRowIndex(*behavior, extent)
+	next := extent
+	if key == Key("[") {
+		next = previousEnabledTableRowKey(*behavior, current)
+	} else if key == Key("]") {
+		next = nextEnabledTableRowKey(*behavior, current)
+	} else {
+		return false, false
+	}
+	before := append([]string(nil), behavior.selected...)
+	oldAnchor, oldExtent := behavior.rangeAnchor, behavior.rangeExtent
+	behavior.currentRow = next
+	behavior.rangeAnchor, behavior.rangeExtent = anchor, next
+	behavior.selected, _ = tableRangeSelection(behavior, anchor, next)
+	return !sameTableSelection(before, behavior.selected) || oldAnchor != anchor || oldExtent != next, true
+}
+
 func cycleCurrentTableSort(behavior *tableBehavior) bool {
 	if behavior == nil {
 		return false
@@ -1490,13 +1828,14 @@ func cycleCurrentTableSort(behavior *tableBehavior) bool {
 		behavior.sortDirection = SortNone
 	}
 	behavior.displayOrder = nil
-	behavior.selected, _ = normalizeTableSelection(behavior, behavior.selected)
+	refreshTableSelection(behavior)
 	return true
 }
 
 func tableStorageBytes(behavior tableBehavior) int {
 	total := len(behavior.statusMessage.text) + len(behavior.currentRow) +
-		len(behavior.currentColumn) + len(behavior.sortColumn)
+		len(behavior.currentColumn) + len(behavior.sortColumn) +
+		len(behavior.rangeAnchor) + len(behavior.rangeExtent)
 	for _, column := range behavior.columns {
 		total += len(column.column.Key) + len(column.column.Header)
 		if column.validator != nil {
@@ -1555,10 +1894,10 @@ func (t *Transaction) SetTableRows(control *Table, rows []TableRow) error {
 	if err != nil {
 		return err
 	}
-	oldIndex := tableDisplayRowIndex(behavior, behavior.currentRow)
+	oldPositions := tableIdentityPositionsFor(behavior)
 	behavior.rows = normalized
 	behavior.displayOrder = nil
-	repairTableIdentity(&behavior, oldIndex)
+	repairTableIdentity(&behavior, oldPositions)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
 }
@@ -1569,7 +1908,7 @@ func (t *Transaction) SetTableModel(control *Table, columns []Column, rows []Tab
 	if err != nil {
 		return err
 	}
-	oldIndex := tableDisplayRowIndex(behavior, behavior.currentRow)
+	oldPositions := tableIdentityPositionsFor(behavior)
 	normalizedColumns, err := normalizeTableColumns(columns)
 	if err != nil {
 		return err
@@ -1590,7 +1929,7 @@ func (t *Transaction) SetTableModel(control *Table, columns []Column, rows []Tab
 			behavior.currentColumn = behavior.columns[0].column.Key
 		}
 	}
-	repairTableIdentity(&behavior, oldIndex)
+	repairTableIdentity(&behavior, oldPositions)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
 }
@@ -1622,7 +1961,7 @@ func (t *Transaction) ReplaceTable(
 	if err := setExactTableSort(&behavior, sortColumn, sortDirection); err != nil {
 		return err
 	}
-	if err := setExactTableIdentity(&behavior, currentRow, currentColumn, selected); err != nil {
+	if err := setExactTableIdentity(&behavior, currentRow, currentColumn, selected, "", ""); err != nil {
 		return err
 	}
 	behavior = reflowTable(behavior, target.bounds.Size())
@@ -1660,14 +1999,39 @@ func (t *Transaction) SetTableSelection(control *Table, selected []string) error
 	if err != nil {
 		return err
 	}
-	ordered, err := normalizeTableSelection(&behavior, selected)
+	if behavior.requireSelection && len(selected) == 0 && behavior.currentRow != "" {
+		return fmt.Errorf("%w: Table selection is required", ErrValidation)
+	}
+	if err := setExactTableSelection(&behavior, selected, "", ""); err != nil {
+		return err
+	}
+	behavior = reflowTable(behavior, target.bounds.Size())
+	return t.recordTable(target, behavior)
+}
+
+// SetTableSelectionPolicy records one exact atomic selection policy.
+func (t *Transaction) SetTableSelectionPolicy(
+	control *Table,
+	policy TableSelectionPolicy,
+) error {
+	target, behavior, err := t.selectedTable(control)
 	if err != nil {
 		return err
 	}
-	if behavior.requireSelection && len(ordered) == 0 && behavior.currentRow != "" {
-		return fmt.Errorf("%w: Table selection is required", ErrValidation)
+	style, mode, err := normalizeExplicitTableSelectionStyle(policy.Style)
+	if err != nil {
+		return err
 	}
-	behavior.selected = ordered
+	behavior.selectionStyle, behavior.selectionMode = style, mode
+	behavior.requireSelection = policy.Require
+	if err := setExactTableSelection(
+		&behavior,
+		policy.Selected,
+		policy.Anchor,
+		policy.Extent,
+	); err != nil {
+		return err
+	}
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
 }
@@ -1682,7 +2046,7 @@ func (t *Transaction) SetTableSort(control *Table, column string, direction Sort
 		return err
 	}
 	behavior.displayOrder = nil
-	behavior.selected, _ = normalizeTableSelection(&behavior, behavior.selected)
+	refreshTableSelection(&behavior)
 	behavior = reflowTable(behavior, target.bounds.Size())
 	return t.recordTable(target, behavior)
 }
@@ -1702,13 +2066,55 @@ func (t *Transaction) SetTableStatus(control *Table, status CollectionStatus, me
 	return t.recordTable(target, behavior)
 }
 
-func repairTableIdentity(behavior *tableBehavior, oldDisplayIndex int) {
+type tableIdentityPositions struct {
+	current int
+	anchor  int
+	extent  int
+}
+
+func tableIdentityPositionsFor(behavior tableBehavior) tableIdentityPositions {
+	return tableIdentityPositions{
+		current: tableDisplayRowIndex(behavior, behavior.currentRow),
+		anchor:  tableDisplayRowIndex(behavior, behavior.rangeAnchor),
+		extent:  tableDisplayRowIndex(behavior, behavior.rangeExtent),
+	}
+}
+
+func repairTableIdentity(behavior *tableBehavior, old tableIdentityPositions) {
 	if behavior == nil {
 		return
 	}
 	currentIndex := tableCanonicalRowIndex(behavior.rows, behavior.currentRow)
 	if currentIndex < 0 || behavior.rows[currentIndex].row.Disabled {
-		behavior.currentRow = repairedTableCurrent(*behavior, oldDisplayIndex)
+		behavior.currentRow = repairedTableCurrent(*behavior, old.current)
+	}
+	if behavior.selectionStyle == TableSelectionRange {
+		anchorSurvives := enabledTableRowKey(behavior, behavior.rangeAnchor)
+		extentSurvives := enabledTableRowKey(behavior, behavior.rangeExtent)
+		if !anchorSurvives && !extentSurvives {
+			if behavior.requireSelection && behavior.currentRow != "" {
+				behavior.rangeAnchor, behavior.rangeExtent = behavior.currentRow, behavior.currentRow
+				behavior.selected = []string{behavior.currentRow}
+			} else {
+				behavior.rangeAnchor, behavior.rangeExtent = "", ""
+				behavior.selected = nil
+			}
+			return
+		}
+		if !anchorSurvives {
+			behavior.rangeAnchor = repairedTableCurrent(*behavior, old.anchor)
+			if behavior.rangeAnchor == "" {
+				behavior.rangeAnchor = behavior.rangeExtent
+			}
+		}
+		if !extentSurvives {
+			behavior.rangeExtent = repairedTableCurrent(*behavior, old.extent)
+			if behavior.rangeExtent == "" {
+				behavior.rangeExtent = behavior.rangeAnchor
+			}
+		}
+		refreshTableSelection(behavior)
+		return
 	}
 	requested := make([]string, 0, len(behavior.selected))
 	for _, key := range behavior.selected {
@@ -1724,6 +2130,14 @@ func repairTableIdentity(behavior *tableBehavior, oldDisplayIndex int) {
 	if behavior.requireSelection && len(behavior.selected) == 0 && behavior.currentRow != "" {
 		behavior.selected = []string{behavior.currentRow}
 	}
+}
+
+func enabledTableRowKey(behavior *tableBehavior, key string) bool {
+	if behavior == nil || key == "" {
+		return false
+	}
+	index := tableCanonicalRowIndex(behavior.rows, key)
+	return index >= 0 && !behavior.rows[index].row.Disabled
 }
 
 func repairedTableCurrent(behavior tableBehavior, oldDisplayIndex int) string {

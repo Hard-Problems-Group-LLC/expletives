@@ -775,7 +775,10 @@ type TableDetails struct {
 	CurrentColumnIndex  int                    `json:"current_column_index"`
 	FocusMode           string                 `json:"focus_mode"`
 	SelectionMode       string                 `json:"selection_mode"`
+	SelectionStyle      string                 `json:"selection_style"`
 	RequireSelection    bool                   `json:"require_selection"`
+	RangeAnchor         string                 `json:"range_anchor,omitempty"`
+	RangeExtent         string                 `json:"range_extent,omitempty"`
 	SelectedCount       int                    `json:"selected_count"`
 	FirstSelected       string                 `json:"first_selected,omitempty"`
 	LastSelected        string                 `json:"last_selected,omitempty"`
@@ -1549,7 +1552,10 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 				CurrentColumnIndex:  details.CurrentColumnIndex,
 				FocusMode:           string(details.FocusMode),
 				SelectionMode:       string(details.SelectionMode),
+				SelectionStyle:      string(details.SelectionStyle),
 				RequireSelection:    details.RequireSelection,
+				RangeAnchor:         details.RangeAnchor,
+				RangeExtent:         details.RangeExtent,
 				SelectedCount:       details.SelectedCount,
 				FirstSelected:       details.FirstSelected,
 				LastSelected:        details.LastSelected,
@@ -1588,7 +1594,10 @@ func snapshotFromCore(snapshot expletives.Snapshot) SnapshotV1 {
 					CurrentColumnIndex:  table.CurrentColumnIndex,
 					FocusMode:           string(table.FocusMode),
 					SelectionMode:       string(table.SelectionMode),
+					SelectionStyle:      string(table.SelectionStyle),
 					RequireSelection:    table.RequireSelection,
+					RangeAnchor:         table.RangeAnchor,
+					RangeExtent:         table.RangeExtent,
 					SelectedCount:       table.SelectedCount,
 					FirstSelected:       table.FirstSelected,
 					LastSelected:        table.LastSelected,

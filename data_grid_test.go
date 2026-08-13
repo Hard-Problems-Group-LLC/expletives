@@ -86,13 +86,16 @@ func TestDataGridRenderingDetailsAndCopiedState(t *testing.T) {
 	}
 	state := grid.State()
 	if state.FocusMode != TableFocusCell || state.CurrentRow != "alpha" ||
-		state.CurrentColumn != "name" || state.Editing {
+		state.CurrentColumn != "name" ||
+		state.SelectionStyle != TableSelectionSingle || state.Editing {
 		t.Fatalf("initial DataGrid state = %#v", state)
 	}
 	control := controlByKey(t, app.Snapshot(), "collection.data-grid")
 	details := control.Details.DataGrid
 	if details == nil || control.Details.Table != nil || details.Table.RowCount != 2 ||
 		details.Table.ColumnCount != 3 || details.Table.FocusMode != TableFocusCell ||
+		details.Table.SelectionStyle != TableSelectionSingle ||
+		details.Table.RangeAnchor != "" || details.Table.RangeExtent != "" ||
 		details.Editing || details.Editor != nil || control.Details.Border == nil {
 		t.Fatalf("DataGrid details = %#v", control.Details)
 	}
@@ -221,6 +224,51 @@ func TestDataGridSortedEditPreservesStableCurrentAndSelectionOrder(t *testing.T)
 		len(state.Selected) != 2 || state.Selected[0] != "bravo" ||
 		state.Selected[1] != "alpha" || grid.Rows()[0].Cells[0].Text != "Z" {
 		t.Fatalf("sorted edit state=%#v rows=%#v", state, grid.Rows())
+	}
+}
+
+func TestDataGridSelectionPolicyCancelsEditor(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 32, Height: 8})
+	grid, err := NewDataGrid(app.Root(), DataGridOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{ScrollViewOptions: ScrollViewOptions{
+			PanelOptions: PanelOptions{Bounds: Rect{Width: 24, Height: 6}},
+		}},
+		Columns: []Column{{Key: "value", Header: "Value", Editable: true, Sortable: true}},
+		Rows: []TableRow{
+			{Key: "alpha", Cells: []TableCell{{Column: "value", Text: "A"}}},
+			{Key: "bravo", Cells: []TableCell{{Column: "value", Text: "B"}}},
+		},
+		CurrentRow: "alpha", CurrentColumn: "value",
+		SortColumn: "value", SortDirection: SortAscending,
+	})
+	if err != nil {
+		t.Fatalf("NewDataGrid() error = %v", err)
+	}
+	dispatchTableKey(t, app, "begin-policy-edit", KeyEnter)
+	if !grid.State().Editing {
+		t.Fatal("Enter did not begin DataGrid edit")
+	}
+	if err := grid.SetSelectionPolicy(TableSelectionPolicy{
+		Style: TableSelectionRange, Require: true,
+		Anchor: "alpha", Extent: "bravo",
+	}); err != nil {
+		t.Fatalf("SetSelectionPolicy(range) error = %v", err)
+	}
+	state := grid.State()
+	if state.Editing || state.SelectionStyle != TableSelectionRange ||
+		state.RangeAnchor != "alpha" || state.RangeExtent != "bravo" ||
+		!sameTableSelection(state.Selected, []string{"alpha", "bravo"}) {
+		t.Fatalf("DataGrid range policy state = %#v", state)
+	}
+	dispatchTableKey(t, app, "begin-range-edit", KeyEnter)
+	dispatchTextChord(t, app, "select-range-edit", KeyControl, Key("a"))
+	dispatchGridText(t, app, "replace-range-edit", "Z")
+	dispatchTableKey(t, app, "commit-range-edit", KeyEnter)
+	if state = grid.State(); state.CurrentRow != "alpha" || state.CurrentRowIndex != 1 ||
+		state.RangeAnchor != "alpha" || state.RangeExtent != "bravo" ||
+		!sameTableSelection(state.Selected, []string{"bravo", "alpha"}) {
+		t.Fatalf("sorted committed range state = %#v", state)
 	}
 }
 

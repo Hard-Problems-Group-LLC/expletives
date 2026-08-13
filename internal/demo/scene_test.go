@@ -183,6 +183,70 @@ func TestCatalogDialogThemeUsesEndorsedWhiteBodyText(t *testing.T) {
 	}
 }
 
+func TestCollectionSelectionPoliciesAndReset(t *testing.T) {
+	t.Parallel()
+	scene, err := New(expletives.Size{Width: 100, Height: 30}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scene.App.InvokeCommand(
+		context.Background(),
+		"collection-selection-audit",
+		"show-collections",
+		CommandCollections,
+		"",
+	); err != nil {
+		t.Fatal(err)
+	}
+	request := 0
+	press := func(label string, key expletives.Key) (expletives.Completion, error) {
+		request++
+		return scene.App.DispatchKey(
+			context.Background(),
+			"collection-selection-audit",
+			fmt.Sprintf("%s-%d", label, request),
+			expletives.KeyEvent{Kind: expletives.KeyEventPress, Key: key},
+		)
+	}
+	if err := scene.exerciseCollectionSelectionMatrix(press); err != nil {
+		t.Fatalf("selection matrix error = %v", err)
+	}
+	if err := scene.collectionTable.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{Style: expletives.TableSelectionNone},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := scene.collectionDataGrid.SetSelectionPolicy(
+		expletives.TableSelectionPolicy{
+			Style:  expletives.TableSelectionRange,
+			Anchor: "terminal", Extent: "automation",
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	reset, err := scene.App.InvokeCommand(
+		context.Background(),
+		"collection-selection-audit",
+		"reset-selection-policies",
+		CommandScenarioReset,
+		"",
+	)
+	if err != nil || reset.Outcome != expletives.OutcomeApplied {
+		t.Fatalf("Scenario Reset = %+v, %v", reset, err)
+	}
+	for name, state := range map[string]expletives.TableState{
+		"Table":    scene.collectionTable.State(),
+		"DataGrid": scene.collectionDataGrid.State().TableState,
+	} {
+		if state.SelectionStyle != expletives.TableSelectionMultiple ||
+			state.CurrentRow != "core" || state.CurrentColumn != "name" ||
+			len(state.Selected) != 1 || state.Selected[0] != "core" ||
+			state.RangeAnchor != "" || state.RangeExtent != "" {
+			t.Fatalf("reset %s state = %+v", name, state)
+		}
+	}
+}
+
 func TestCatalogEveryDisabledMenuEntryIsSelectableButInactive(t *testing.T) {
 	for _, test := range disabledCatalogMenuEntries {
 		t.Run(test.key, func(t *testing.T) {

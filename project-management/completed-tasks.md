@@ -63,7 +63,8 @@ evidence, important decisions or risk acceptances, and follow-up records.
   - Contracts:
     - [`Terminal Compatibility v0`](../docs/specifications/terminal-compatibility-v0.md)
     - [`Terminal Compatibility Verification`](../docs/Terminal-Compatibility-Verification.md)
-  - Follow-up: Phase 20 Release Readiness is active as `EXPL-TASK-037`.
+  - Follow-up: Phase 25 Release Readiness is pending as `EXPL-TASK-037` after
+    the operator inserted the Phase 20 through 24 Table Improvements program.
 
 - 2026-08-02 — `EXPL-TASK-033` — Deliver Phase 18 file and directory pickers.
   - Requestor: project operator

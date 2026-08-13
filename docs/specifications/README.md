@@ -77,6 +77,11 @@ do not use them as retrospective decoration.
 - [`collections-api-v0.md`](collections-api-v0.md) defines copied bounded
   collection models, stable current/selection identity, popup selection,
   tree expansion, table sorting, DataGrid editing, and compact automation.
+- [`table-improvements-v1.md`](table-improvements-v1.md) extends the directed
+  Table/DataGrid contract with optional features, four selection styles,
+  stable column presentation, Clip/Wrap/Hang body rendering, the Columns
+  action/dialog, per-instance visual roles, and dedicated interactive catalog
+  screens.
 - [`modals-api-v0.md`](modals-api-v0.md) defines the Phase 17 modal stack,
   one-shot result lifecycle, focus and command capture, resize/shadow behavior,
   standard dialogs, progress cancellation, and automation evidence.
