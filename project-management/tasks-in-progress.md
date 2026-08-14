@@ -66,7 +66,12 @@ owner, known blockers, and brief status notes.
     wide and 84-by-24 layouts, live Columns toggle, Columns modal focus/close,
     representative DataGrid Body color change, instance isolation, reset, and
     final-snapshot shutdown. The operator's automatic-delivery direction
-    closes Phase 23's delegated acceptance. The deterministic 17-row Phase 24
-    covering array and targeted Range/edit/dialog matrices are recorded in
-    `table-improvements-phase-24-matrix.md`. Phase 24 remains planned for final
-    cross-axis integration and acceptance.
+    closed Phase 23's delegated acceptance. On 2026-08-13, attached human
+    evaluation then exposed `EXPL-BUG-012`: palette `■` glyphs inherited
+    DropDown row styles instead of representing their named colors. Completed
+    Slice 23.6 added one-cell Theme-owned collection indicators, catalog
+    swatches, exact frame coverage, and attached regression evidence; the full
+    gate passed and Phase 23 is complete again. The deterministic 17-row
+    Phase 24 covering array and targeted Range/edit/dialog matrices are
+    recorded in `table-improvements-phase-24-matrix.md`. Phase 24 remains
+    planned for final cross-axis integration and acceptance.

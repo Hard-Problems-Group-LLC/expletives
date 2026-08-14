@@ -419,6 +419,9 @@ uses one atomic public mutation and the controls mirror normalized state.
 
 Colors uses a ScrollablePanel labeled `Visual role`, `Foreground`, and
 `Background`. Catalog-local DropDowns choose from a bounded named palette.
+Every choice retains its visible name and an independently Theme-styled
+one-cell swatch in both the popup and collapsed DropDown; row focus and
+selection styling does not recolor the swatch.
 The screen owns unique semantic role IDs and atomically replaces their Theme
 definitions on discrete commits, preserving attributes and unrelated controls.
 No public ColorPicker is added by this phase.

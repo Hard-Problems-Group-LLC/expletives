@@ -434,6 +434,45 @@ func TestDedicatedTableCatalogLiveOptionsColorsAndReset(t *testing.T) {
 			if colorDropDown == nil {
 				t.Fatal("Body foreground color binding is absent")
 			}
+			paletteModel := colorDropDown.Items()
+			if len(paletteModel) < len(tableCatalogPalette) {
+				t.Fatalf("palette model items = %d, want at least %d", len(paletteModel), len(tableCatalogPalette))
+			}
+			for index, entry := range tableCatalogPalette {
+				item := paletteModel[index]
+				if item.Key != entry.key || item.Label != entry.label ||
+					item.Indicator != "■" ||
+					item.IndicatorStyle != catalogPaletteStyleID(entry.color) {
+					t.Fatalf("palette item %d = %+v, want %q/%q swatch", index, item, entry.key, entry.label)
+				}
+			}
+			if err := colorDropDown.Open(); err != nil {
+				t.Fatalf("open Body palette error = %v", err)
+			}
+			paletteSnapshot := scene.App.Snapshot()
+			var paletteDetails *expletives.DropDownDetails
+			for _, control := range paletteSnapshot.Controls {
+				if control.ID == colorDropDown.ID() {
+					paletteDetails = control.Details.DropDown
+					break
+				}
+			}
+			if paletteDetails == nil || !paletteDetails.Open {
+				t.Fatalf("open Body palette details = %+v", paletteDetails)
+			}
+			for index, entry := range tableCatalogPalette[:8] {
+				x := paletteDetails.PopupBounds.X + 7
+				y := paletteDetails.PopupBounds.Y + 1 + index
+				cell, found := paletteSnapshot.Frame.Cell(x, y)
+				if !found || cell.Grapheme != "■" ||
+					cell.Style != catalogPaletteStyleID(entry.color) ||
+					cell.Foreground != entry.color || cell.Background != entry.color {
+					t.Fatalf("palette swatch %q at (%d,%d) = %+v, found=%t", entry.key, x, y, cell, found)
+				}
+			}
+			if err := colorDropDown.Close(); err != nil {
+				t.Fatalf("close Body palette error = %v", err)
+			}
 			unrelatedBefore, _ := scene.App.Theme().Resolve("list_box")
 			if err := colorDropDown.SetSelection("yellow"); err != nil {
 				t.Fatal(err)

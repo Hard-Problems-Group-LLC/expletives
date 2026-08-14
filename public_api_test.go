@@ -101,6 +101,48 @@ func commandIDs(values []expletives.CommandID) []string {
 	return result
 }
 
+func TestExternalConsumerConfiguresListItemIndicator(t *testing.T) {
+	t.Parallel()
+	styles := expletives.DefaultTheme().Styles()
+	styles = append(styles, expletives.Style{
+		ID: "external.swatch", Foreground: expletives.RGB(0xAA, 0, 0),
+		Background: expletives.RGB(0xAA, 0, 0),
+	})
+	theme, err := expletives.NewTheme(styles...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size: expletives.Size{Width: 18, Height: 4}, Theme: theme,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dropDown, err := expletives.NewDropDown(app.Root(), expletives.DropDownOptions{
+		PanelOptions: expletives.PanelOptions{
+			AutomationKey: "external.palette",
+			Bounds:        expletives.Rect{Width: 16, Height: 1},
+		},
+		Items: []expletives.ListItem{{
+			Key: "red", Label: "Red", Indicator: "■",
+			IndicatorStyle: "external.swatch",
+		}},
+		Selected: "red",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := dropDown.Items()[0]; got.Indicator != "■" ||
+		got.IndicatorStyle != "external.swatch" {
+		t.Fatalf("copied item = %+v", got)
+	}
+	cell, found := app.Snapshot().Frame.Cell(0, 0)
+	if !found || cell.Grapheme != "■" || cell.Style != "external.swatch" ||
+		cell.Foreground != expletives.RGB(0xAA, 0, 0) {
+		t.Fatalf("collapsed indicator cell = %+v, found=%t", cell, found)
+	}
+}
+
 func TestExternalConsumerConfiguresTableSelectionPolicies(t *testing.T) {
 	t.Parallel()
 	app, err := expletives.NewApp(expletives.AppOptions{

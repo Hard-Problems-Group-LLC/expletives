@@ -335,7 +335,10 @@ func (dropDownBehavior) details() ControlDetails {
 }
 
 func (b dropDownBehavior) additionalStyles() []StyleID {
-	return popupCollectionStyles(false)
+	return append(
+		popupCollectionStyles(false),
+		listItemIndicatorStyles(b.popup.items)...,
+	)
 }
 
 func (b dropDownBehavior) paintDecoration(
@@ -362,7 +365,8 @@ func (comboBoxBehavior) details() ControlDetails {
 }
 
 func (b comboBoxBehavior) additionalStyles() []StyleID {
-	return append(popupCollectionStyles(true), b.editor.additionalStyles()...)
+	styles := append(popupCollectionStyles(true), b.editor.additionalStyles()...)
+	return append(styles, listItemIndicatorStyles(b.popup.items)...)
 }
 
 func (b comboBoxBehavior) paintDecoration(
@@ -418,12 +422,27 @@ func paintCollapsedPopupField(
 		}
 		app.fillStyleLocked(frame, absolute.Intersect(clip), style, state.id)
 		if index := listItemIndex(popup.items, popup.selected); index >= 0 {
-			cells := popup.items[index].label.lines[0]
+			item := popup.items[index]
+			cells := make([]collectionPaintCell, 0, item.label.cells+2)
+			if item.indicator.cells == 1 {
+				cells = append(cells,
+					collectionPaintCell{
+						grapheme: item.indicator.lines[0][0],
+						style:    item.item.IndicatorStyle,
+					},
+					collectionPaintCell{grapheme: " ", style: style},
+				)
+			}
+			cells = append(
+				cells,
+				uniformCollectionPaintCells(item.label.lines[0], style)...,
+			)
 			for column := 0; column < min(len(cells), content.Width); column++ {
+				cell := cells[column]
 				app.setClippedCellLocked(
 					frame, clip, content.X+column,
 					content.Y+max(0, (content.Height-1)/2),
-					cells[column], style, app.styles[style], state.id,
+					cell.grapheme, cell.style, app.styles[cell.style], state.id,
 				)
 			}
 		}
@@ -510,7 +529,8 @@ func popupCollectionStorageBytes(popup popupCollectionBehavior) int {
 		len(popup.disabledReason)
 	for _, item := range popup.items {
 		total += len(item.item.Key) + len(item.item.Label) +
-			len(item.item.Description) + len(item.item.DisabledReason)
+			len(item.item.Description) + len(item.item.Indicator) +
+			len(item.item.IndicatorStyle) + len(item.item.DisabledReason)
 	}
 	return total
 }
@@ -1125,6 +1145,9 @@ func (a *App) popupCollectionBoundsLocked(
 	width := max(8, field.Width)
 	for _, item := range popup.items {
 		rowWidth := 6 + item.label.cells
+		if item.indicator.cells == 1 {
+			rowWidth += 2
+		}
 		if item.description.cells > 0 {
 			rowWidth += 2 + item.description.cells
 		}
@@ -1181,9 +1204,10 @@ func (a *App) paintCollectionPopupOverlayLocked(frame *IntendedFrame) {
 		rowRect := Rect{X: bounds.X + 1, Y: y, Width: max(0, bounds.Width-2), Height: 1}
 		a.fillStyleLocked(frame, rowRect.Intersect(clip), style, state.id)
 		for column := 0; column < min(len(cells), rowRect.Width); column++ {
+			cell := cells[column]
 			a.setClippedCellLocked(
-				frame, clip, rowRect.X+column, y, cells[column],
-				style, a.styles[style], state.id,
+				frame, clip, rowRect.X+column, y, cell.grapheme,
+				cell.style, a.styles[cell.style], state.id,
 			)
 		}
 	}
@@ -1192,10 +1216,13 @@ func (a *App) paintCollectionPopupOverlayLocked(frame *IntendedFrame) {
 func popupCollectionDisplayRow(
 	popup popupCollectionBehavior,
 	index int,
-) ([]string, StyleID, bool) {
+) ([]collectionPaintCell, StyleID, bool) {
 	if len(popup.items) == 0 {
 		if index == 0 {
-			return []string{"[", "e", "m", "p", "t", "y", "]"},
+			return uniformCollectionPaintCells(
+					[]string{"[", "e", "m", "p", "t", "y", "]"},
+					"collection.empty",
+				),
 				"collection.empty", true
 		}
 		return nil, "", false
@@ -1224,11 +1251,29 @@ func popupCollectionDisplayRow(
 	if selected {
 		selectedMarker = "X"
 	}
-	cells := []string{marker, " ", "[", selectedMarker, "]", " "}
-	cells = append(cells, item.label.lines[0]...)
+	cells := uniformCollectionPaintCells(
+		[]string{marker, " ", "[", selectedMarker, "]", " "},
+		style,
+	)
+	if item.indicator.cells == 1 {
+		cells = append(cells,
+			collectionPaintCell{
+				grapheme: item.indicator.lines[0][0],
+				style:    item.item.IndicatorStyle,
+			},
+			collectionPaintCell{grapheme: " ", style: style},
+		)
+	}
+	cells = append(cells, uniformCollectionPaintCells(item.label.lines[0], style)...)
 	if item.description.cells > 0 {
-		cells = append(cells, " ", " ")
-		cells = append(cells, item.description.lines[0]...)
+		cells = append(cells,
+			collectionPaintCell{grapheme: " ", style: style},
+			collectionPaintCell{grapheme: " ", style: style},
+		)
+		cells = append(
+			cells,
+			uniformCollectionPaintCells(item.description.lines[0], style)...,
+		)
 	}
 	return cells, style, true
 }

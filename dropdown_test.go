@@ -53,6 +53,204 @@ func comboBoxDetailsByKey(
 	return *control.Details.ComboBox
 }
 
+func TestListItemIndicatorValidationRenderingAndThemeOwnership(t *testing.T) {
+	t.Parallel()
+	app := mustApp(t, Size{Width: 34, Height: 10})
+	item := ListItem{
+		Key: "red", Label: "Red", Indicator: "■",
+		IndicatorStyle: "palette.red",
+	}
+	if _, err := NewDropDown(app.Root(), DropDownOptions{
+		Items: []ListItem{item},
+	}); !errors.Is(err, ErrStyleMissing) {
+		t.Fatalf("missing indicator style error = %v", err)
+	}
+	for name, invalid := range map[string]ListItem{
+		"indicator without style": {Key: "bad", Label: "Bad", Indicator: "■"},
+		"style without indicator": {Key: "bad", Label: "Bad", IndicatorStyle: "palette.red"},
+		"multiple cells": {
+			Key: "bad", Label: "Bad", Indicator: "XX",
+			IndicatorStyle: "palette.red",
+		},
+	} {
+		invalid := invalid
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewDropDown(app.Root(), DropDownOptions{
+				Items: []ListItem{invalid},
+			}); !errors.Is(err, ErrValidation) {
+				t.Fatalf("NewDropDown() error = %v, want ErrValidation", err)
+			}
+		})
+	}
+
+	styles := app.Theme().Styles()
+	styles = append(styles,
+		Style{ID: "palette.red", Foreground: RGB(0xAA, 0, 0), Background: RGB(0xAA, 0, 0)},
+		Style{ID: "palette.blue", Foreground: RGB(0, 0, 0xAA), Background: RGB(0, 0, 0xAA)},
+	)
+	theme, err := NewTheme(styles...)
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	if err := app.SetTheme(theme); err != nil {
+		t.Fatalf("SetTheme() error = %v", err)
+	}
+	unicodeDropDown, err := NewDropDown(app.Root(), DropDownOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "drop.indicator-unicode",
+			Bounds:        Rect{Y: 5, Width: 18, Height: 1},
+		},
+		Items: []ListItem{
+			{Key: "composed", Label: "Composed", Indicator: "e\u0301", IndicatorStyle: "palette.red"},
+			{Key: "wide", Label: "Wide", Indicator: "界", IndicatorStyle: "palette.blue"},
+		},
+		Selected: "composed",
+	})
+	if err != nil {
+		t.Fatalf("NewDropDown(Unicode indicators) error = %v", err)
+	}
+	if composed := cellAt(t, app.Snapshot(), 0, 5); composed.Grapheme != "e\u0301" ||
+		composed.Style != "palette.red" {
+		t.Fatalf("composed one-cell indicator = %+v", composed)
+	}
+	if err := unicodeDropDown.SetSelection("wide"); err != nil {
+		t.Fatalf("SetSelection(wide indicator) error = %v", err)
+	}
+	wide := cellAt(t, app.Snapshot(), 0, 5)
+	wideLabel := cellAt(t, app.Snapshot(), 2, 5)
+	if wide.Grapheme != "�" || wide.Style != "palette.blue" ||
+		wideLabel.Grapheme != "W" {
+		t.Fatalf("unsupported indicator replacement/placement = %+v label=%+v", wide, wideLabel)
+	}
+	dropDown, err := NewDropDown(app.Root(), DropDownOptions{
+		PanelOptions: PanelOptions{
+			AutomationKey: "drop.indicators",
+			Bounds:        Rect{Width: 18, Height: 1},
+		},
+		Items: []ListItem{
+			item,
+			{Key: "blue", Label: "Blue", Indicator: "■", IndicatorStyle: "palette.blue"},
+		},
+		Current: "red", Selected: "red", PopupRows: 2,
+	})
+	if err != nil {
+		t.Fatalf("NewDropDown() error = %v", err)
+	}
+	if got := dropDown.Items()[0]; got.Indicator != "■" ||
+		got.IndicatorStyle != "palette.red" {
+		t.Fatalf("copied indicator item = %+v", got)
+	}
+	collapsed := cellAt(t, app.Snapshot(), 0, 0)
+	if collapsed.Grapheme != "■" || collapsed.Style != "palette.red" ||
+		collapsed.Foreground != RGB(0xAA, 0, 0) ||
+		collapsed.Background != RGB(0xAA, 0, 0) {
+		t.Fatalf("collapsed indicator cell = %+v", collapsed)
+	}
+
+	if err := dropDown.Open(); err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	dispatchPopupKey(t, app, "indicator-down", KeyDown)
+	snapshot := app.Snapshot()
+	details := dropDownDetailsByKey(t, app, "drop.indicators")
+	indicatorX := details.PopupBounds.X + 7
+	for _, want := range []struct {
+		row        int
+		style      StyleID
+		color      Color
+		labelStyle StyleID
+	}{
+		{row: 0, style: "palette.red", color: RGB(0xAA, 0, 0), labelStyle: "collection.selected"},
+		{row: 1, style: "palette.blue", color: RGB(0, 0, 0xAA), labelStyle: "collection.current"},
+	} {
+		y := details.PopupBounds.Y + 1 + want.row
+		indicator := cellAt(t, snapshot, indicatorX, y)
+		if indicator.Grapheme != "■" || indicator.Style != want.style ||
+			indicator.Foreground != want.color || indicator.Background != want.color {
+			t.Fatalf("popup indicator row %d = %+v", want.row, indicator)
+		}
+		label := cellAt(t, snapshot, indicatorX+2, y)
+		if label.Style != want.labelStyle {
+			t.Fatalf("popup label row %d = %+v, want style %q", want.row, label, want.labelStyle)
+		}
+	}
+
+	list, err := NewListBox(app.Root(), ListBoxOptions{
+		ScrollablePanelOptions: ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{PanelOptions: PanelOptions{
+				AutomationKey: "list.indicators",
+				Bounds:        Rect{Y: 7, Width: 12, Height: 2},
+			}},
+			BorderForm: BorderNone,
+		},
+		Items: []ListItem{item}, Current: "red", Selected: []string{"red"},
+	})
+	if err != nil {
+		t.Fatalf("NewListBox() error = %v", err)
+	}
+	listIndicator := cellAt(t, app.Snapshot(), 6, 7)
+	if listIndicator.Owner != list.ID() || listIndicator.Style != "palette.red" ||
+		listIndicator.Foreground != RGB(0xAA, 0, 0) {
+		t.Fatalf("ListBox indicator cell = %+v", listIndicator)
+	}
+
+	before := app.Snapshot()
+	if err := dropDown.SetItems([]ListItem{{
+		Key: "missing", Label: "Missing", Indicator: "■",
+		IndicatorStyle: "palette.missing",
+	}}); !errors.Is(err, ErrStyleMissing) {
+		t.Fatalf("SetItems(missing indicator style) error = %v", err)
+	}
+	if after := app.Snapshot(); after.Sequence != before.Sequence ||
+		dropDown.Items()[0].Key != "red" {
+		t.Fatalf("failed indicator replacement published state: before=%d after=%d items=%+v",
+			before.Sequence, after.Sequence, dropDown.Items())
+	}
+	stylesWithGreen := app.Theme().Styles()
+	stylesWithGreen = append(stylesWithGreen, Style{
+		ID: "palette.green", Foreground: RGB(0, 0xAA, 0), Background: RGB(0, 0xAA, 0),
+	})
+	greenTheme, err := NewTheme(stylesWithGreen...)
+	if err != nil {
+		t.Fatalf("NewTheme(with staged indicator) error = %v", err)
+	}
+	transaction := app.NewTransaction()
+	if err := transaction.SetDropDownItems(dropDown, []ListItem{{
+		Key: "green", Label: "Green", Indicator: "■",
+		IndicatorStyle: "palette.green",
+	}}); err != nil {
+		t.Fatalf("SetDropDownItems(staged indicator) error = %v", err)
+	}
+	if err := transaction.SetTheme(greenTheme); err != nil {
+		t.Fatalf("SetTheme(staged indicator) error = %v", err)
+	}
+	if err := transaction.Commit(context.Background()); err != nil {
+		t.Fatalf("Commit(staged indicator and Theme) error = %v", err)
+	}
+	if got := dropDown.Items()[0]; got.Key != "green" ||
+		got.IndicatorStyle != "palette.green" {
+		t.Fatalf("staged indicator item = %+v", got)
+	}
+	afterStaged := app.Snapshot()
+
+	withoutRed := make([]Style, 0, len(styles)-1)
+	for _, style := range app.Theme().Styles() {
+		if style.ID != "palette.red" {
+			withoutRed = append(withoutRed, style)
+		}
+	}
+	missingTheme, err := NewTheme(withoutRed...)
+	if err != nil {
+		t.Fatalf("NewTheme(without indicator) error = %v", err)
+	}
+	if err := app.SetTheme(missingTheme); !errors.Is(err, ErrStyleMissing) {
+		t.Fatalf("SetTheme(without indicator) error = %v", err)
+	}
+	if after := app.Snapshot(); after.Sequence != afterStaged.Sequence {
+		t.Fatalf("failed Theme replacement sequence = %d, want %d", after.Sequence, afterStaged.Sequence)
+	}
+}
+
 func TestDropDownCopiedModelRenderingAndClampedPopup(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 30, Height: 8})

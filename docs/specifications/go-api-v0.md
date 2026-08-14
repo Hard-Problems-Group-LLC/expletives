@@ -882,6 +882,15 @@ copies; snapshots expose compact counts, identities, digests, and viewport
 geometry without duplicating the retained item model. See
 [`collections-api-v0.md`](collections-api-v0.md).
 
+Each `ListItem` may pair an optional exactly one-cell `Indicator` with an
+`IndicatorStyle`. The pair is copied, normalized, counted, and validated
+against the complete staged Theme. The indicator retains that semantic style
+inside ListBox and popup rows while current/selection/disabled styling remains
+on every surrounding cell. DropDown also repeats the selected indicator in
+its collapsed field; ComboBox keeps its editable collapsed text and displays
+indicators only in the choices popup. A nonempty textual label remains
+mandatory.
+
 Its optional `Wrap` policy can word- or cell-wrap one logical stable item into
 multiple visual rows. Label-plus-description rows use a description-aligned
 hanging indent, logical navigation and selection remain key-based, and

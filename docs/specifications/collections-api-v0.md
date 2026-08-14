@@ -72,6 +72,8 @@ type ListItem struct {
     Key            string
     Label          string
     Description    string
+    Indicator      string
+    IndicatorStyle StyleID
     Disabled       bool
     DisabledReason string
 }
@@ -93,6 +95,18 @@ Labels are nonempty canonical single-line display text. Descriptions are
 optional canonical single-line text. Disabled items require a reason;
 enabled items cannot carry one. Disabled items remain visible but are skipped
 by current-row navigation and cannot be selected or activated.
+
+`Indicator` and `IndicatorStyle` are an optional paired presentation. Both
+must be empty or both supplied. The indicator normalizes to exactly one
+canonical display cell; its StyleID must exist in the complete staged Theme.
+It appears before the textual label with one separating cell and retains its
+own semantic style while the surrounding row uses current, selected,
+current-selected, disabled, or ordinary styling. ListBox and popup wrapping
+retain that one independently styled source cell without changing logical
+item identity or navigation. A collapsed DropDown repeats its selected
+indicator; ComboBox retains its editable text field while showing indicators
+in the choices popup. Textual labels remain required, so an indicator or its
+color is never the only representation of item meaning.
 
 `current` is the intra-control keyboard focus and is distinct from selection.
 Arrow, Page, Home, and End navigation changes current without silently
@@ -217,7 +231,9 @@ Enter selects it if needed and activates it. Vertical offset automatically
 keeps the complete current item visible when it fits and at least its leading
 visual row visible otherwise. All visual rows of a current, selected,
 current-selected, or disabled item use the same semantic row style; the
-non-color marker remains on its first visual row.
+non-color marker remains on its first visual row. An optional item indicator
+is the sole exception: its one cell retains `IndicatorStyle` while every
+other cell keeps the logical row style.
 
 Wrapped content reflows at settled Panel Client Area width after integrated
 vertical-scrollbar visibility converges. Its derived content width never
@@ -343,6 +359,9 @@ Space, Enter, F4, or Alt-Down opens a closed DropDown. For ComboBox, Space,
 F4, or Alt-Down opens choices while Enter or F2 starts editor mode. The popup
 is sized to its bounded rows and widest item, clamped to the application
 client area, and placed below the field when possible or above it otherwise.
+Optional item indicators contribute two cells—indicator plus separator—to
+popup measurement and retain their semantic styles across provisional
+current and selection movement.
 Horizontal backset keeps its right edge onscreen. While open, arrows, Page,
 Home, End, and Space manipulate provisional popup current/selection; Enter
 commits and closes; Escape cancels and restores the opening state. Tab or a
@@ -1098,6 +1117,9 @@ loading, empty, error, sorted, and edited state. Default Theme roles include:
 - `data_grid.edit`, `data_grid.edit_focused`, and
   `data_grid.edit_invalid`.
 
+Every nonempty `ListItem.IndicatorStyle` is an additional caller-selected
+Theme reference and is validated with these fixed roles.
+
 Every marker is a canonical intended-frame cell. Physical-terminal fallback
 is applied later without changing semantic ownership or style identity.
 
@@ -1114,7 +1136,10 @@ stable current and selected keys/indices, popup rows/open/bounds/offset and
 provisional identities, enabled policy, disabled-reason byte count, and
 commands. ComboBox combines that popup record with its exact bounded
 TextField-compatible editor record. The intended frame remains the source of
-exact visible labels, cells, markers, and styles.
+exact visible labels, cells, markers, independently styled indicators, and
+resolved colors. Indicator text and StyleID bytes count toward collection
+retention; the complete retained item model remains absent from attached
+automation.
 
 The selection digest is lowercase hexadecimal SHA-256 over the ordered
 sequence of length-prefixed selected keys. It is evidence of the complete
@@ -1136,7 +1161,8 @@ Controls-menu screens with roots `tables.control` and `data-grid.control`.
 Their right-hand Notebooks expose scrollable Options and Colors pages. Options
 changes the Columns feature, exact selection policy, requirement, and Table
 focus mode live. Colors changes one instance-local foreground/background role
-through named-palette DropDowns and an atomic Theme replacement. Both screens
+through named-palette DropDowns whose textual names have independently styled
+one-cell swatches, and an atomic Theme replacement. Both screens
 provide exact reset commands and retain a 3:1 post-minimum horizontal split.
 
 ## Acceptance

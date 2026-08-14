@@ -36,11 +36,15 @@ const (
 	CollectionSelectionMarksHide    CollectionSelectionMarks = "hide"
 )
 
-// ListItem is one copied stable-identity ListBox row.
+// ListItem is one copied stable-identity ListBox or popup item.
 type ListItem struct {
-	Key            string
-	Label          string
-	Description    string
+	Key         string
+	Label       string
+	Description string
+	// Indicator is an optional one-cell leading display element painted with
+	// IndicatorStyle. Both fields must be empty or both must be supplied.
+	Indicator      string
+	IndicatorStyle StyleID
 	Disabled       bool
 	DisabledReason string
 }
@@ -90,12 +94,19 @@ type normalizedListItem struct {
 	item        ListItem
 	label       normalizedDisplayText
 	description normalizedDisplayText
+	indicator   normalizedDisplayText
 }
 
 type listBoxVisualRow struct {
-	itemIndex int
-	within    int
-	cells     []string
+	itemIndex     int
+	within        int
+	indicatorCell int
+	cells         []string
+}
+
+type collectionPaintCell struct {
+	grapheme string
+	style    StyleID
 }
 
 type listBoxBehavior struct {
@@ -374,6 +385,28 @@ func normalizeListItems(items []ListItem) ([]normalizedListItem, error) {
 				item.Key,
 			)
 		}
+		indicator := normalizedDisplayText{}
+		if (item.Indicator == "") != (item.IndicatorStyle == "") {
+			return nil, fmt.Errorf(
+				"%w: collection item %q indicator and style must be supplied together",
+				ErrValidation,
+				item.Key,
+			)
+		}
+		if item.Indicator != "" {
+			indicator, err = normalizeDisplayText(item.Indicator, false)
+			if err != nil || indicator.cells != 1 {
+				return nil, fmt.Errorf(
+					"%w: invalid one-cell collection indicator for %q",
+					ErrValidation,
+					item.Key,
+				)
+			}
+			item.IndicatorStyle, err = normalizeStyleID(item.IndicatorStyle, "")
+			if err != nil {
+				return nil, err
+			}
+		}
 		reason, err := normalizeDisabledReason(
 			item.Disabled,
 			item.DisabledReason,
@@ -383,9 +416,11 @@ func normalizeListItems(items []ListItem) ([]normalizedListItem, error) {
 		}
 		item.Label = label.text
 		item.Description = description.text
+		item.Indicator = indicator.text
 		item.DisabledReason = reason
 		result[index] = normalizedListItem{
 			item: item, label: label, description: description,
+			indicator: indicator,
 		}
 	}
 	return result, nil
@@ -512,6 +547,7 @@ func cloneNormalizedListItems(items []normalizedListItem) []normalizedListItem {
 		cloned[index] = item
 		cloned[index].label.lines = cloneTextRows(item.label.lines)
 		cloned[index].description.lines = cloneTextRows(item.description.lines)
+		cloned[index].indicator.lines = cloneTextRows(item.indicator.lines)
 	}
 	return cloned
 }
@@ -554,6 +590,7 @@ func listBoxBehaviorEqual(left, right listBoxBehavior) bool {
 	for index := range left.rows {
 		if left.rows[index].itemIndex != right.rows[index].itemIndex ||
 			left.rows[index].within != right.rows[index].within ||
+			left.rows[index].indicatorCell != right.rows[index].indicatorCell ||
 			!stringSlicesEqual(left.rows[index].cells, right.rows[index].cells) {
 			return false
 		}
@@ -577,7 +614,7 @@ func (b listBoxBehavior) intrinsicMinimum() Size {
 
 func (b listBoxBehavior) additionalStyles() []StyleID {
 	styles := append([]StyleID{}, b.scroll.additionalStyles()...)
-	return append(styles,
+	styles = append(styles,
 		"collection.current",
 		"collection.selected",
 		"collection.current_selected",
@@ -586,6 +623,21 @@ func (b listBoxBehavior) additionalStyles() []StyleID {
 		"collection.loading",
 		"collection.error",
 	)
+	return append(styles, listItemIndicatorStyles(b.items)...)
+}
+
+func listItemIndicatorStyles(items []normalizedListItem) []StyleID {
+	styles := make([]StyleID, 0)
+	seen := make(map[StyleID]bool)
+	for _, item := range items {
+		style := item.item.IndicatorStyle
+		if style == "" || seen[style] {
+			continue
+		}
+		seen[style] = true
+		styles = append(styles, style)
+	}
+	return styles
 }
 
 func (b listBoxBehavior) details() ControlDetails {
@@ -608,23 +660,23 @@ func (b listBoxBehavior) paintDecoration(
 	visible := viewport.Intersect(clip)
 	for y := visible.Y; y < visible.Y+visible.Height; y++ {
 		sourceY := b.scroll.state.Offset.Y + y - viewport.Y
-		cells, style, exists := b.displayRow(sourceY, app.focus == state)
+		cells, rowStyle, exists := b.displayRow(sourceY, app.focus == state)
 		if !exists {
 			continue
 		}
 		for x := visible.X; x < visible.X+visible.Width; x++ {
 			sourceX := b.scroll.state.Offset.X + x - viewport.X
-			grapheme := " "
+			cell := collectionPaintCell{grapheme: " ", style: rowStyle}
 			if sourceX >= 0 && sourceX < len(cells) {
-				grapheme = cells[sourceX]
+				cell = cells[sourceX]
 			}
 			app.setCellLocked(
 				frame,
 				x,
 				y,
-				grapheme,
-				style,
-				app.styles[style],
+				cell.grapheme,
+				cell.style,
+				app.styles[cell.style],
 				state.id,
 			)
 		}
@@ -634,21 +686,27 @@ func (b listBoxBehavior) paintDecoration(
 func (b listBoxBehavior) displayRow(
 	index int,
 	focused bool,
-) ([]string, StyleID, bool) {
+) ([]collectionPaintCell, StyleID, bool) {
 	if index != 0 && (b.status != CollectionReady || len(b.items) == 0) {
 		return nil, "", false
 	}
 	switch b.status {
 	case CollectionLoading:
-		return listStatusCells("[loading] ", b.statusMessage),
-			"collection.loading", true
+		return uniformCollectionPaintCells(
+			listStatusCells("[loading] ", b.statusMessage),
+			"collection.loading",
+		), "collection.loading", true
 	case CollectionError:
-		return listStatusCells("[error] ", b.statusMessage),
-			"collection.error", true
+		return uniformCollectionPaintCells(
+			listStatusCells("[error] ", b.statusMessage),
+			"collection.error",
+		), "collection.error", true
 	}
 	if len(b.items) == 0 {
-		return []string{"[", "e", "m", "p", "t", "y", "]"},
-			"collection.empty", true
+		return uniformCollectionPaintCells(
+			[]string{"[", "e", "m", "p", "t", "y", "]"},
+			"collection.empty",
+		), "collection.empty", true
 	}
 	if index < 0 || index >= len(b.rows) {
 		return nil, "", false
@@ -678,20 +736,43 @@ func (b listBoxBehavior) displayRow(
 	if selected {
 		selectedMarker = "X"
 	}
-	cells := append([]string(nil), row.cells...)
-	if len(cells) > 0 && row.within == 0 {
-		cells[0] = marker
-		if b.selectionMarks && len(cells) > 3 {
-			cells[3] = selectedMarker
+	rowCells := append([]string(nil), row.cells...)
+	if len(rowCells) > 0 && row.within == 0 {
+		rowCells[0] = marker
+		if b.selectionMarks && len(rowCells) > 3 {
+			rowCells[3] = selectedMarker
 		}
+	}
+	cells := uniformCollectionPaintCells(rowCells, style)
+	if row.indicatorCell >= 0 && row.indicatorCell < len(cells) {
+		cells[row.indicatorCell].style = item.item.IndicatorStyle
 	}
 	return cells, style, true
 }
 
-func listItemCells(item normalizedListItem, selectionMarks bool) ([]string, int) {
+func uniformCollectionPaintCells(
+	cells []string,
+	style StyleID,
+) []collectionPaintCell {
+	result := make([]collectionPaintCell, len(cells))
+	for index, grapheme := range cells {
+		result[index] = collectionPaintCell{grapheme: grapheme, style: style}
+	}
+	return result
+}
+
+func listItemCells(
+	item normalizedListItem,
+	selectionMarks bool,
+) ([]string, int, int) {
 	cells := []string{" ", " "}
 	if selectionMarks {
 		cells = append(cells, "[", " ", "]", " ")
+	}
+	indicatorCell := -1
+	if item.indicator.cells == 1 {
+		indicatorCell = len(cells)
+		cells = append(cells, item.indicator.lines[0][0], " ")
 	}
 	cells = append(cells, item.label.lines[0]...)
 	indent := len(cells)
@@ -700,19 +781,33 @@ func listItemCells(item normalizedListItem, selectionMarks bool) ([]string, int)
 		indent = len(cells)
 		cells = append(cells, item.description.lines[0]...)
 	}
-	return cells, indent
+	return cells, indent, indicatorCell
 }
 
-func wrapListItemCells(cells []string, width int, wrap TextWrap, indent int) [][]string {
+type wrappedListItemCells struct {
+	cells         []string
+	indicatorCell int
+}
+
+func wrapListItemCells(
+	cells []string,
+	width int,
+	wrap TextWrap,
+	indent int,
+	indicatorCell int,
+) []wrappedListItemCells {
 	if wrap == TextWrapNone || width <= 0 || len(cells) <= width {
-		return [][]string{append([]string(nil), cells...)}
+		return []wrappedListItemCells{{
+			cells: append([]string(nil), cells...), indicatorCell: indicatorCell,
+		}}
 	}
 	continuation := indent
 	if continuation >= width {
 		continuation = min(2, max(0, width-1))
 	}
-	rows := make([][]string, 0, 1+len(cells)/max(1, width-continuation))
+	rows := make([]wrappedListItemCells, 0, 1+len(cells)/max(1, width-continuation))
 	remaining := append([]string(nil), cells...)
+	sourceOffset := 0
 	first := true
 	for len(remaining) > 0 {
 		prefix := 0
@@ -730,6 +825,10 @@ func wrapListItemCells(cells []string, width int, wrap TextWrap, indent int) [][
 			}
 		}
 		line := append([]string(nil), remaining[:breakAt]...)
+		lineIndicator := -1
+		if indicatorCell >= sourceOffset && indicatorCell < sourceOffset+breakAt {
+			lineIndicator = prefix + indicatorCell - sourceOffset
+		}
 		for len(line) > 0 && line[len(line)-1] == " " {
 			line = line[:len(line)-1]
 		}
@@ -739,11 +838,15 @@ func wrapListItemCells(cells []string, width int, wrap TextWrap, indent int) [][
 				line[index] = " "
 			}
 		}
-		rows = append(rows, line)
+		rows = append(rows, wrappedListItemCells{
+			cells: line, indicatorCell: lineIndicator,
+		})
 		remaining = remaining[breakAt:]
+		sourceOffset += breakAt
 		if wrap == TextWrapWords {
 			for len(remaining) > 0 && remaining[0] == " " {
 				remaining = remaining[1:]
+				sourceOffset++
 			}
 		}
 		first = false
@@ -754,11 +857,14 @@ func wrapListItemCells(cells []string, width int, wrap TextWrap, indent int) [][
 func listBoxRows(behavior listBoxBehavior, width int) []listBoxVisualRow {
 	rows := make([]listBoxVisualRow, 0, len(behavior.items))
 	for itemIndex, item := range behavior.items {
-		cells, indent := listItemCells(item, behavior.selectionMarks)
-		wrapped := wrapListItemCells(cells, width, behavior.wrap, indent)
+		cells, indent, indicatorCell := listItemCells(item, behavior.selectionMarks)
+		wrapped := wrapListItemCells(
+			cells, width, behavior.wrap, indent, indicatorCell,
+		)
 		for within, line := range wrapped {
 			rows = append(rows, listBoxVisualRow{
-				itemIndex: itemIndex, within: within, cells: line,
+				itemIndex: itemIndex, within: within,
+				indicatorCell: line.indicatorCell, cells: line.cells,
 			})
 		}
 	}
@@ -1283,7 +1389,8 @@ func listBoxStorageBytes(behavior listBoxBehavior) int {
 	total := len(behavior.statusMessage.text) + len(behavior.current)
 	for _, item := range behavior.items {
 		total += len(item.item.Key) + len(item.item.Label) +
-			len(item.item.Description) + len(item.item.DisabledReason)
+			len(item.item.Description) + len(item.item.Indicator) +
+			len(item.item.IndicatorStyle) + len(item.item.DisabledReason)
 	}
 	for _, key := range behavior.selected {
 		total += len(key)

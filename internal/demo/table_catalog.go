@@ -197,16 +197,53 @@ func paletteKey(color expletives.Color) string {
 	return ""
 }
 
+func catalogPaletteStyleID(color expletives.Color) expletives.StyleID {
+	return expletives.StyleID(fmt.Sprintf(
+		"catalog.palette.%02x%02x%02x",
+		color.R,
+		color.G,
+		color.B,
+	))
+}
+
+func catalogPaletteStyles(roleStyleGroups ...[]expletives.Style) []expletives.Style {
+	styles := make([]expletives.Style, 0, len(tableCatalogPalette))
+	seen := make(map[expletives.Color]bool)
+	add := func(color expletives.Color) {
+		if seen[color] {
+			return
+		}
+		seen[color] = true
+		styles = append(styles, expletives.Style{
+			ID: catalogPaletteStyleID(color), Foreground: color, Background: color,
+		})
+	}
+	for _, entry := range tableCatalogPalette {
+		add(entry.color)
+	}
+	for _, roleStyles := range roleStyleGroups {
+		for _, style := range roleStyles {
+			add(style.Foreground)
+			add(style.Background)
+		}
+	}
+	return styles
+}
+
 func paletteItems(current expletives.Color) ([]expletives.ListItem, string) {
 	items := make([]expletives.ListItem, 0, len(tableCatalogPalette)+1)
 	selected := paletteKey(current)
 	for _, entry := range tableCatalogPalette {
-		items = append(items, expletives.ListItem{Key: entry.key, Label: "■ " + entry.label})
+		items = append(items, expletives.ListItem{
+			Key: entry.key, Label: entry.label,
+			Indicator: "■", IndicatorStyle: catalogPaletteStyleID(entry.color),
+		})
 	}
 	if selected == "" {
 		selected = "original"
 		items = append(items, expletives.ListItem{
-			Key: "original", Label: "■ Original " + current.String(),
+			Key: "original", Label: "Original " + current.String(),
+			Indicator: "■", IndicatorStyle: catalogPaletteStyleID(current),
 		})
 	}
 	return items, selected

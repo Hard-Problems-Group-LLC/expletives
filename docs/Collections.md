@@ -110,7 +110,10 @@ priority, err := expletives.NewDropDown(panel, expletives.DropDownOptions{
         AutomationKey: "ticket.priority",
     },
     Items: []expletives.ListItem{
-        {Key: "low", Label: "Low"},
+        {
+            Key: "low", Label: "Low", Indicator: "■",
+            IndicatorStyle: "priority.low",
+        },
         {Key: "normal", Label: "Normal"},
         {Key: "high", Label: "High"},
     },
@@ -119,6 +122,15 @@ priority, err := expletives.NewDropDown(panel, expletives.DropDownOptions{
     ChangeCommand: "ticket.priority.changed",
 })
 ```
+
+An optional `Indicator`/`IndicatorStyle` pair adds one independently styled
+leading cell while retaining the required textual label. The indicator style
+must exist in the App Theme; construction, item replacement, and Theme
+replacement reject a missing reference atomically. Current, selected, and
+disabled styles continue across the rest of the row, so a named color swatch
+can remain accurate without making color the only cue. DropDown repeats the
+selected indicator when collapsed. ComboBox keeps the editable field text and
+shows indicators only in its choices popup.
 
 Space, Enter, F4, and Alt-Down open DropDown choices. Navigation and Space
 change only provisional popup state. Enter commits; Escape, Tab, or a focus

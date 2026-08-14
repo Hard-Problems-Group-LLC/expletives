@@ -5,6 +5,10 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-13 — [`EXPL-BUG-012`](closed/EXPL-BUG-012-table-catalog-color-swatches.md)
+  — Gave Table/DataGrid catalog palette choices independently styled,
+  exact-color swatches while retaining textual names and row-state styling.
+
 - 2026-08-11 — [`EXPL-BUG-010`](closed/EXPL-BUG-010-contextless-overflow-warning.md)
   — Replaced the contextless overflow acknowledgement with a centered,
   word-wrapped explanation and dedicated action row.

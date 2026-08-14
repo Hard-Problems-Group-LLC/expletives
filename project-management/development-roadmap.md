@@ -911,6 +911,11 @@ ordered backlog and the active-task record; it does not replace either.
   a deterministic Phase 24 pairwise factor/value matrix (or seeded covering
   array) with expected outcomes and explicit exclusions, record evidence, and
   ACP the catalog checkpoint.
+- Slice 23.6 (`complete`): repaired `EXPL-BUG-012` by giving the bounded
+  named-palette DropDowns independently styled one-cell swatches, retaining
+  row-state styling and textual names, with atomic Theme validation, exact
+  frame evidence, resource accounting, and attached automation regression
+  coverage.
 - Acceptance gate: both controls have complete public-API-only interactive
   screens; every important state is reachable and self-checked; color changes
   are instance-local and Theme-owned; menu and keyboard paths remain unique.

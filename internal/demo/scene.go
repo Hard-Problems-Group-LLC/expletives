@@ -1256,6 +1256,10 @@ func NewWithRootConstraints(
 	allThemeStyles := theme.Styles()
 	allThemeStyles = append(allThemeStyles, tableCatalogRoleStyles...)
 	allThemeStyles = append(allThemeStyles, dataGridCatalogRoleStyles...)
+	allThemeStyles = append(
+		allThemeStyles,
+		catalogPaletteStyles(tableCatalogRoleStyles, dataGridCatalogRoleStyles)...,
+	)
 	theme, err = expletives.NewTheme(allThemeStyles...)
 	if err != nil {
 		return nil, err

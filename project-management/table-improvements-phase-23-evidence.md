@@ -2,6 +2,7 @@
 
 - Owner: `EXPL-TASK-039`
 - Completed: 2026-08-13T16:32:04-07:00
+- Regression repair completed: 2026-08-13T18:28:58-07:00
 - Branch: `feature/table-improvements`
 - Baseline checkpoint: `33506edca7f2` (completed Phase 22)
 - Status: complete; Phase 24 remains planned
@@ -98,3 +99,27 @@ Phase 24 must execute the recorded deterministic covering array and targeted
 matrices in
 [`table-improvements-phase-24-matrix.md`](table-improvements-phase-24-matrix.md).
 No Phase 23 blocker or non-deferred defect remains.
+
+## Post-Completion Regression Repair
+
+Operator evaluation exposed `EXPL-BUG-012`: palette `■` glyphs were label
+characters and therefore inherited DropDown row-state colors instead of
+showing the colors they represented. Slice 23.6 added an optional copied,
+one-cell `ListItem` indicator with an independent semantic Theme style,
+complete staged-Theme validation, exact frame behavior, and bounded retained
+storage. Table/DataGrid catalog palette choices now pair that swatch with the
+existing textual color name in both open and collapsed DropDown states.
+
+A rebuilt isolated attached instance at 140 by 40 showed the first eight open
+foreground choices as exact `#000000`, `#0000AA`, `#00AA00`, `#00AAAA`,
+`#AA0000`, `#AA00AA`, `#AA5500`, and `#AAAAAA` foreground/background swatches.
+The adjacent labels retained ordinary, current, and selected row styles.
+Keyboard selection of red closed the popup, retained the red swatch in the
+field, and resolved `tables.control` Body text to `#AA0000` on `#AAAAAA`.
+The attached process returned an `exited` completion with its final snapshot
+and removed its owned socket.
+
+The exact repaired worktree passed `make verify` on 2026-08-13, covering vet,
+ordinary tests, the PTY lifecycle test, the full race suite, and debug,
+release, and profiling builds. Phase 23 is complete again; Phase 24 remains
+planned.
