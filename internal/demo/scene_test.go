@@ -318,6 +318,17 @@ func TestDedicatedTableCatalogLiveOptionsColorsAndReset(t *testing.T) {
 			if !controls[test.screenKey].Visible || !controls[test.controlKey].Visible {
 				t.Fatalf("dedicated screen is not visible")
 			}
+			var tableDetails *expletives.TableDetails
+			if details := controls[test.controlKey].Details; details.Table != nil {
+				tableDetails = details.Table
+			} else if details.DataGrid != nil {
+				tableDetails = &details.DataGrid.Table
+			}
+			if tableDetails == nil || tableDetails.Viewport.HorizontalVisible ||
+				tableDetails.Viewport.State.ContentSize.Width !=
+					tableDetails.Viewport.ViewportBounds.Width {
+				t.Fatalf("wide catalog columns do not fill viewport: %+v", tableDetails)
+			}
 			if _, exists := controls["collections.table"]; exists {
 				t.Fatal("legacy Table remained on Collections")
 			}
@@ -553,6 +564,17 @@ func TestDedicatedTableCatalogMinimumUsefulNarrowLayouts(t *testing.T) {
 			if options == nil || !options.HorizontalVisible ||
 				!options.VerticalVisible || options.State.ContentSize.Width != 40 {
 				t.Fatalf("narrow Options viewport = %+v", options)
+			}
+			var tableDetails *expletives.TableDetails
+			if details := controls[test.controlKey].Details; details.Table != nil {
+				tableDetails = details.Table
+			} else if details.DataGrid != nil {
+				tableDetails = &details.DataGrid.Table
+			}
+			if tableDetails == nil || !tableDetails.Viewport.HorizontalVisible ||
+				tableDetails.Viewport.State.ContentSize.Width <=
+					tableDetails.Viewport.ViewportBounds.Width {
+				t.Fatalf("narrow catalog horizontal overflow = %+v", tableDetails)
 			}
 		})
 	}

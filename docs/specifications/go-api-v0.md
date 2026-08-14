@@ -424,7 +424,10 @@ closest declared non-modal input scope selects which groups and Action
 namespace apply. Tab and Shift-Tab cross groups within a confined scope; an
 escaping declared scope permits crossing the boundary. Arrows move spatially
 between eligible controls within the same traversal set and cross to a
-different group only for an unambiguous directional target. Plain Enter/Space
+different group only for an unambiguous directional target. Focusable
+ancestors do not compete as peers with a focused descendant. Cross-group
+candidates are ordered by squared center distance, then cross-axis and
+primary-axis distance; an exact tie remains a no-op. Plain Enter/Space
 activates the focused Button, Enter falls back to the active scope's default
 Button, and Escape uses its cancel Button. Raw Enter/Space down-up pairs
 publish and clear source-local pressed capture; input reset and disconnect

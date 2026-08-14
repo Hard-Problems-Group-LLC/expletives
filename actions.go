@@ -1042,7 +1042,11 @@ func (a *App) moveDirectionalFocusLocked(key Key) bool {
 	sameGroup := make([]*controlState, 0)
 	otherGroups := make([]*controlState, 0)
 	for _, control := range controls {
-		if control == a.focus {
+		// Spatial focus from a descendant compares peer targets. A focusable
+		// ancestor is the current composite hierarchy rather than a peer;
+		// admitting it can make an otherwise exact crossing ambiguous when
+		// nested container rectangles overlap the neighboring control.
+		if controlWithin(a.focus, control) {
 			continue
 		}
 		if control.parent == a.focus.parent {
@@ -1087,6 +1091,7 @@ func (a *App) directionalFocusTargetLocked(
 	currentY := 2*currentBounds.Y + currentBounds.Height
 	var best *controlState
 	bestPrimary, bestCross := 0, 0
+	bestDistance := int64(0)
 	tied := false
 	for _, candidate := range candidates {
 		bounds, exists := a.snapshotControlBoundsLocked(candidate)
@@ -1109,12 +1114,19 @@ func (a *App) directionalFocusTargetLocked(
 		if primary <= 0 {
 			continue
 		}
-		if best == nil || primary < bestPrimary ||
-			(primary == bestPrimary && cross < bestCross) {
+		// Rank by real center proximity so a slightly nearer control on the
+		// primary axis cannot beat an aligned neighbor far less distant overall.
+		distance := int64(primary)*int64(primary) +
+			int64(cross)*int64(cross)
+		if best == nil || distance < bestDistance ||
+			(distance == bestDistance && cross < bestCross) ||
+			(distance == bestDistance && cross == bestCross &&
+				primary < bestPrimary) {
 			best = candidate
-			bestPrimary, bestCross = primary, cross
+			bestPrimary, bestCross, bestDistance = primary, cross, distance
 			tied = false
-		} else if primary == bestPrimary && cross == bestCross {
+		} else if distance == bestDistance && cross == bestCross &&
+			primary == bestPrimary {
 			tied = true
 		}
 	}

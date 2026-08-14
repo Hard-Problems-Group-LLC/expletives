@@ -150,8 +150,13 @@ switch without an intermediate input namespace.
 
 Plain arrows move focus spatially among eligible controls in the same group.
 When no same-group control exists in that direction, focus may enter another
-group only when the nearest primary/cross-axis target is unambiguous. Arrow
-movement does not imply activation or selection.
+group only when the nearest target is unambiguous. Focusable ancestors are the
+current composite hierarchy, not peer targets, and cannot compete with their
+focused descendants. Candidate centers must lie in the requested direction;
+the smallest squared center distance wins, with smaller cross-axis and then
+primary-axis distance as deterministic tie-breakers. An exact remaining tie
+blocks a cross-group move. Arrow movement does not imply activation or
+selection.
 
 A plain Enter or Space activates the focused Button. If no focused Button
 handles Enter, the applicable visible default Button is activated. Plain

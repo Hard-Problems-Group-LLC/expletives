@@ -310,6 +310,96 @@ func TestActionActivationTraversalPressAndReset(t *testing.T) {
 	}
 }
 
+func TestDirectionalFocusUsesNearestPeerGeometry(t *testing.T) {
+	t.Parallel()
+
+	t.Run("cross-axis distance", func(t *testing.T) {
+		app := mustApp(t, Size{Width: 80, Height: 20})
+		for _, id := range []CommandID{"focus.current", "focus.aligned", "focus.offset"} {
+			registerActionCommand(t, app, id, string(id), true)
+		}
+		newGroup := func(key string) *Panel {
+			t.Helper()
+			group, err := NewPanel(app.Root(), PanelOptions{
+				AutomationKey: key,
+				Bounds:        Rect{Width: 80, Height: 20},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return group
+		}
+		current, err := NewButton(newGroup("focus.group.current"), ButtonOptions{
+			PanelOptions: PanelOptions{Bounds: Rect{X: 30, Y: 8, Width: 10, Height: 1}},
+			Command:      "focus.current",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		aligned, err := NewButton(newGroup("focus.group.aligned"), ButtonOptions{
+			PanelOptions: PanelOptions{Bounds: Rect{X: 30, Y: 10, Width: 10, Height: 1}},
+			Command:      "focus.aligned",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = NewButton(newGroup("focus.group.offset"), ButtonOptions{
+			PanelOptions: PanelOptions{Bounds: Rect{Y: 9, Width: 4, Height: 1}},
+			Command:      "focus.offset",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := current.Focus(); err != nil {
+			t.Fatal(err)
+		}
+		dispatchTextKey(t, app, "nearest-down", KeyDown)
+		if app.Focused() != aligned {
+			t.Fatalf("Down focus = %#v, want aligned peer", app.Focused())
+		}
+	})
+
+	t.Run("focusable ancestor is not a peer", func(t *testing.T) {
+		app := mustApp(t, Size{Width: 80, Height: 20})
+		registerActionCommand(t, app, "focus.child", "Child", true)
+		registerActionCommand(t, app, "focus.peer", "Peer", true)
+		viewport, err := NewScrollablePanel(app.Root(), ScrollablePanelOptions{
+			ScrollViewOptions: ScrollViewOptions{
+				PanelOptions: PanelOptions{
+					AutomationKey: "focus.viewport",
+					Bounds:        Rect{X: 20, Y: 2, Width: 30, Height: 10},
+				},
+				State: ViewportState{ContentSize: Size{Width: 40, Height: 20}},
+			},
+			BorderForm: BorderNone,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		child, err := NewButton(viewport.Content(), ButtonOptions{
+			PanelOptions: PanelOptions{Bounds: Rect{X: 10, Y: 3, Width: 8, Height: 1}},
+			Command:      "focus.child",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		peer, err := NewButton(app.Root(), ButtonOptions{
+			PanelOptions: PanelOptions{Bounds: Rect{X: 30, Y: 8, Width: 8, Height: 1}},
+			Command:      "focus.peer",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := child.Focus(); err != nil {
+			t.Fatal(err)
+		}
+		dispatchTextKey(t, app, "ancestor-down", KeyDown)
+		if app.Focused() != peer {
+			t.Fatalf("Down focus = %#v, want non-hierarchical peer", app.Focused())
+		}
+	})
+}
+
 func TestActionMnemonicsRolesAndInvalidation(t *testing.T) {
 	t.Parallel()
 	app := mustApp(t, Size{Width: 40, Height: 5})

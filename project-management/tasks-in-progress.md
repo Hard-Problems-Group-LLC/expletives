@@ -71,7 +71,18 @@ owner, known blockers, and brief status notes.
     DropDown row styles instead of representing their named colors. Completed
     Slice 23.6 added one-cell Theme-owned collection indicators, catalog
     swatches, exact frame coverage, and attached regression evidence; the full
-    gate passed and Phase 23 is complete again. The deterministic 17-row
-    Phase 24 covering array and targeted Range/edit/dialog matrices are
+    gate passed and Phase 23 was complete again. Subsequent attached keyboard
+    evaluation exposed `EXPL-BUG-013`: at particular Colors viewport offsets,
+    focusable Notebook and ScrollablePanel ancestors tie as cross-group
+    spatial candidates and block the otherwise adjacent row transition.
+    Phase 23 reopened for bounded Slice 23.7 repair; exhaustive in-process and
+    rebuilt attached checks now pass. Operator inspection then confirmed
+    `EXPL-BUG-014`: the catalog's capped Grow columns stop at 81 cells inside
+    a 120-cell Table viewport. Completed Slice 23.8 makes Summary the unbounded
+    flexible catalog column and proves exact wide fill plus retained narrow
+    overflow for both controls. The rebuilt attached checks and complete
+    `make verify` gate passed for both regression repairs; Phase 23 is complete
+    again. The deterministic 17-row Phase 24 covering array and targeted
+    Range/edit/dialog matrices are
     recorded in `table-improvements-phase-24-matrix.md`. Phase 24 remains
     planned for final cross-axis integration and acceptance.

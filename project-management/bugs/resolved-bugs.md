@@ -5,6 +5,14 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-13 — [`EXPL-BUG-014`](closed/EXPL-BUG-014-catalog-table-column-fill.md)
+  — Let the catalog's flexible Summary column consume surplus Table/DataGrid
+  viewport width while retaining intentional narrow-screen overflow.
+
+- 2026-08-13 — [`EXPL-BUG-013`](closed/EXPL-BUG-013-color-selector-directional-focus.md)
+  — Made color-selector spatial navigation invariant across viewport offsets
+  by excluding ancestors as peers and ranking real center distance.
+
 - 2026-08-13 — [`EXPL-BUG-012`](closed/EXPL-BUG-012-table-catalog-color-swatches.md)
   — Gave Table/DataGrid catalog palette choices independently styled,
   exact-color swatches while retaining textual names and row-state styling.

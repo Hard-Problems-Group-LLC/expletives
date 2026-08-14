@@ -916,6 +916,14 @@ ordered backlog and the active-task record; it does not replace either.
   row-state styling and textual names, with atomic Theme validation, exact
   frame evidence, resource accounting, and attached automation regression
   coverage.
+- Slice 23.7 (`complete`): repaired `EXPL-BUG-013` by excluding hierarchical
+  ancestors from peer spatial-focus competition, then proved
+  every arrow transition from every Table and DataGrid foreground/background
+  color selector across stable viewport offsets and attached automation.
+- Slice 23.8 (`complete`): repaired `EXPL-BUG-014` by removing the catalog-only
+  Summary growth cap so the existing Table/DataGrid Grow contract consumes
+  the complete available viewport width, while retaining bounded widths and
+  narrow-screen horizontal overflow coverage.
 - Acceptance gate: both controls have complete public-API-only interactive
   screens; every important state is reachable and self-checked; color changes
   are instance-local and Theme-owned; menu and keyboard paths remain unique.

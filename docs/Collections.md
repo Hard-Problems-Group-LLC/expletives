@@ -317,7 +317,9 @@ compact: exact model content stays available through the in-process copied
 `Columns` and `Rows` APIs, while automation reports counts, identities,
 presentation/width/role digests, sort, Columns state, commands, and viewport.
 Pull the frame to inspect exact visible headers, cells, wrapping, markers,
-styles, sticky placement, and clipping.
+styles, sticky placement, and clipping. At ordinary wide sizes, its flexible
+Summary column consumes the remaining viewport width; narrow screens retain
+intentional horizontal overflow for scrolling coverage.
 
 ## Editable Data Grids
 

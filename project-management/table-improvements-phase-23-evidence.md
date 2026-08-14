@@ -3,6 +3,7 @@
 - Owner: `EXPL-TASK-039`
 - Completed: 2026-08-13T16:32:04-07:00
 - Regression repair completed: 2026-08-13T18:28:58-07:00
+- Navigation/fill repairs completed: 2026-08-13T23:03:31-07:00
 - Branch: `feature/table-improvements`
 - Baseline checkpoint: `33506edca7f2` (completed Phase 22)
 - Status: complete; Phase 24 remains planned
@@ -123,3 +124,29 @@ The exact repaired worktree passed `make verify` on 2026-08-13, covering vet,
 ordinary tests, the PTY lifecycle test, the full race suite, and debug,
 release, and profiling builds. Phase 23 is complete again; Phase 24 remains
 planned.
+
+## Post-Completion Navigation And Width Repairs
+
+Operator keyboard evaluation exposed `EXPL-BUG-013`: nested focusable
+Notebook and ScrollablePanel ancestors could tie an otherwise adjacent
+foreground/background color-selector row crossing, and primary-axis-first
+ranking could favor a far cross-axis control. Spatial focus now excludes the
+focused control's ancestor chain from peer competition and ranks remaining
+directional candidates by squared center distance with deterministic
+cross/primary tie-breakers. Exhaustive coverage checks all four arrows from
+every foreground/background selector on both screens, including the former
+row 10/11 collision at zero and maximum scroll offsets.
+
+Operator visual evaluation then exposed `EXPL-BUG-014`: the shared catalog's
+only growing columns both had maximum widths, leaving 39 unused cells inside
+the wide Table viewport. Summary is now the unbounded flexible demo column.
+Exact tests prove Table and DataGrid content fills their wide viewport while
+the 84 by 24 layout retains intentional horizontal scrolling.
+
+A rebuilt 190 by 40 attached instance crossed the exact former navigation
+boundary and reported equal 121-cell content/viewport widths for Table and
+DataGrid, without unnecessary scrollbars. It shut down through the supported
+automation command, published a final snapshot, and removed its socket. The
+exact repaired worktree passed `make verify` on 2026-08-13, including vet,
+ordinary tests, PTY integration, the complete race suite, and debug, release,
+and profiling builds. Phase 23 is complete again; Phase 24 remains planned.

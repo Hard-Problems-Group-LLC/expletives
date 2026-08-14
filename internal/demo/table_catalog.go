@@ -252,7 +252,7 @@ func paletteItems(current expletives.Color) ([]expletives.ListItem, string) {
 func catalogTableColumns(dataGrid bool) []expletives.Column {
 	columns := []expletives.Column{
 		{Key: "name", Header: "Name", MinimumWidth: 10, MaximumWidth: 22, Grow: 2, Sortable: true},
-		{Key: "summary", Header: "Summary", Width: 18, MaximumWidth: 24, Grow: 3, Sortable: true},
+		{Key: "summary", Header: "Summary", Width: 18, Grow: 3, Sortable: true},
 		{Key: "state", Header: "State", Width: 9, Sortable: true},
 		{Key: "tests", Header: "Tests", Width: 6, Alignment: expletives.TextAlignEnd, Sortable: true},
 		{Key: "owner", Header: "Owner", Width: 12, Sortable: true},

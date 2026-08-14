@@ -294,8 +294,9 @@ presentation copies.
 
 Column widths continue to derive from existing Width, MinimumWidth,
 MaximumWidth, Grow, header, and complete cell-text rules. Wrap does not change
-width allocation. The catalog uses explicit widths/maximums to demonstrate
-wrapping.
+width allocation. The catalog uses explicit base widths and a bounded Name
+maximum to demonstrate narrow-screen wrapping, while its unbounded growing
+Summary column consumes every surplus cell in an ordinary wide viewport.
 
 - Clip paints the first column-width cells.
 - Wrap performs word wrapping, falling back to cell-boundary breaks for a word
@@ -422,6 +423,12 @@ Colors uses a ScrollablePanel labeled `Visual role`, `Foreground`, and
 Every choice retains its visible name and an independently Theme-styled
 one-cell swatch in both the popup and collapsed DropDown; row focus and
 selection styling does not recolor the swatch.
+The foreground/background selectors form a spatial two-column keyboard
+matrix. Left/Right crosses a row, Up/Down preserves the column and crosses the
+adjacent role, top/bottom outward movement is a no-op, and Left from a
+foreground selector may move to the demonstrated control. Nested Notebook and
+ScrollablePanel ancestors never compete as peer targets, so viewport offset
+cannot change these transitions.
 The screen owns unique semantic role IDs and atomically replaces their Theme
 definitions on discrete commits, preserving attributes and unrelated controls.
 No public ColorPicker is added by this phase.
