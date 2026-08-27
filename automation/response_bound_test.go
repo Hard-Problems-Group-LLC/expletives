@@ -1661,6 +1661,9 @@ func TestSnapshotRejectsInvalidListBoxDetails(t *testing.T) {
 		{"current index", func(control *ControlSnapshot) {
 			control.Details.ListBox.CurrentIndex = 3
 		}},
+		{"unwrapped current outside viewport", func(control *ControlSnapshot) {
+			control.Details.ListBox.Viewport.State.Offset.Y = 1
+		}},
 		{"selection mode", func(control *ControlSnapshot) {
 			control.Details.ListBox.SelectionMode = "range"
 		}},

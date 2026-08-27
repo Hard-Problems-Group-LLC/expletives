@@ -534,6 +534,10 @@ ordered backlog and the active-task record; it does not replace either.
   large, disabled, and resized evidence.
 - Contract:
   [`collections-api-v0.md`](../docs/specifications/collections-api-v0.md).
+- Slice 16.1 (`complete`): repaired `EXPL-BUG-015` by removing the invalid
+  logical-current-index versus visual-row-viewport comparison from matching
+  automation-client validation, while retaining strict compact ListBox bounds
+  and proving legal projection/replacement states end to end.
 
 ### 17. Modals
 

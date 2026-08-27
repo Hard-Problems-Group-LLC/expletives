@@ -1130,7 +1130,13 @@ details expose compact evidence instead, so a maximum collection payload
 cannot inflate the retained wire response. ListBox uses message byte counts,
 a SHA-256 status digest, selection cardinality/endpoints/digest, and compact
 viewport state. It also exposes the normalized wrap policy and bounded derived
-visual-row count while keeping `ItemCount` logical. DropDown uses
+visual-row count while keeping `ItemCount` and `CurrentIndex` logical.
+Vertical viewport offsets are visual-row coordinates after wrapping, so a
+compact client must not infer wrapped current-item visibility by comparing
+them with `CurrentIndex`; the intended frame and exact core snapshot own that
+mapping. Unwrapped ListBoxes retain the direct index/viewport visibility
+check because each logical item is exactly one visual row.
+DropDown uses
 item/enabled/retained counts, exact bounded
 stable current and selected keys/indices, popup rows/open/bounds/offset and
 provisional identities, enabled policy, disabled-reason byte count, and

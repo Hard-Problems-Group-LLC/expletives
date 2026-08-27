@@ -2205,7 +2205,12 @@ func validListBoxDetails(
 			"27ae41e4649b934ca495991b7852b855" {
 		return false
 	}
-	if details.Status == "ready" && details.CurrentIndex >= 0 &&
+	// CurrentIndex is logical while vertical offsets are visual when an item
+	// wraps. Their relationship is proven by the intended frame and core
+	// snapshot rather than inferred from compact automation state.
+	if details.Status == "ready" &&
+		details.Wrap == TextWrap(expletives.TextWrapNone) &&
+		details.CurrentIndex >= 0 &&
 		details.Viewport.ViewportBounds.Height > 0 &&
 		(details.CurrentIndex < details.Viewport.State.Offset.Y ||
 			details.CurrentIndex >= details.Viewport.State.Offset.Y+

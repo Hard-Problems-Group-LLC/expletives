@@ -5,6 +5,10 @@ closure timestamp, short outcome, and link to the authoritative record under
 `closed/`. Keep root cause, resolution, and validation evidence in that
 record.
 
+- 2026-08-27 — [`EXPL-BUG-015`](closed/EXPL-BUG-015-wrapped-listbox-snapshot-validation.md)
+  — Kept matching-client ListBox validation strict without comparing logical
+  current indices to wrapped visual-row viewport coordinates.
+
 - 2026-08-13 — [`EXPL-BUG-014`](closed/EXPL-BUG-014-catalog-table-column-fill.md)
   — Let the catalog's flexible Summary column consume surplus Table/DataGrid
   viewport width while retaining intentional narrow-screen overflow.

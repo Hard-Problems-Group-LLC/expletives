@@ -990,7 +990,10 @@ the root package's local snapshot. The client checks:
   derived visual-row count, stable current identity/index, exact selection
   cardinality/endpoints/SHA-256 digest, required-selection implications,
   enabled and command policy, and compact viewport geometry without retained
-  item labels or status text;
+  item labels or status text. For wrapped ListBoxes, the logical current index
+  and visual-row vertical viewport coordinates are independently bounded and
+  are not directly compared by compact client validation. Unwrapped lists
+  retain the direct visibility implication;
 - kind-consistent TreeView details with ready/loading/error evidence, bounded
   node/visible/enabled/retained counts, stable current visible identity/index,
   exact selection and expansion cardinality/endpoints/SHA-256 digests,

@@ -898,7 +898,11 @@ Its optional `Wrap` policy can word- or cell-wrap one logical stable item into
 multiple visual rows. Label-plus-description rows use a description-aligned
 hanging indent, logical navigation and selection remain key-based, and
 semantic state distinguishes logical `ItemCount` from derived
-`VisualRowCount`. The zero value remains the original single-line behavior.
+`VisualRowCount`. `CurrentIndex` is likewise logical while vertical viewport
+offsets use visual-row coordinates; compact automation validates each domain
+independently for wrapped lists rather than comparing them directly.
+Unwrapped lists retain the direct visibility implication. The zero value
+remains the original single-line behavior.
 
 `TreeView` is the hierarchical Phase 16 collection leaf. It iteratively copies
 the bounded recursive `[]TreeNode` input into stable preorder identity, keeps

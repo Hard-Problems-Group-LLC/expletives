@@ -327,6 +327,96 @@ func TestServerClientClosedLoop(t *testing.T) {
 	}
 }
 
+func TestServerClientAcceptsWrappedListBoxReplacementSnapshots(t *testing.T) {
+	t.Parallel()
+
+	app, err := expletives.NewApp(expletives.AppOptions{
+		Size:     expletives.Size{Width: 30, Height: 10},
+		Scenario: "automation.wrapped-list-replacement",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := expletives.NewListBox(
+		app.Root(),
+		listBoxSnapshotFixtureOptions(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "automation.sock")
+	server, err := NewServer(ServerOptions{
+		App: app, SocketPath: path, Application: "automation-test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serveContext, cancelServe := context.WithCancel(context.Background())
+	serveErrors := make(chan error, 1)
+	go func() {
+		serveErrors <- server.Serve(serveContext)
+	}()
+	t.Cleanup(func() {
+		cancelServe()
+		_ = server.Close()
+		select {
+		case <-serveErrors:
+		case <-time.After(5 * time.Second):
+			t.Error("Serve() did not stop during cleanup")
+		}
+	})
+
+	client := dialTestClient(t, path)
+	t.Cleanup(func() { _ = client.Close() })
+	observe := func(requestID string) *ListBoxDetails {
+		t.Helper()
+		completion := request(t, func(ctx context.Context) (Completion, error) {
+			return client.Observe(ctx, requestID, nil)
+		})
+		return projectedListBoxControl(t, completion.Snapshot).Details.ListBox
+	}
+	initial := observe("wrapped-list-initial")
+	if initial.CurrentIndex != 2 ||
+		initial.Viewport.State.Offset.Y <= initial.CurrentIndex {
+		t.Fatalf("initial projection did not reproduce coordinate split: %+v", initial)
+	}
+
+	items := listBoxSnapshotFixtureItems()
+	reordered := []expletives.ListItem{items[2], items[0], items[1]}
+	if err := list.SetItems(reordered); err != nil {
+		t.Fatal(err)
+	}
+	if details := observe("wrapped-list-retained"); details.Current != "three" || details.CurrentIndex != 0 {
+		t.Fatalf("retained-current completion = %+v", details)
+	}
+
+	if err := list.Replace(reordered, "two", []string{"two"}); err != nil {
+		t.Fatal(err)
+	}
+	if details := observe("wrapped-list-moved"); details.Current != "two" || details.CurrentIndex != 2 ||
+		details.SelectedCount != 1 {
+		t.Fatalf("moved-current completion = %+v", details)
+	}
+
+	if err := list.SetItems(reordered[:2]); err != nil {
+		t.Fatal(err)
+	}
+	if details := observe("wrapped-list-removed"); details.Current != "one" || details.CurrentIndex != 1 ||
+		details.SelectedCount != 0 {
+		t.Fatalf("removed-current completion = %+v", details)
+	}
+
+	if err := list.SetVisible(false); err != nil {
+		t.Fatal(err)
+	}
+	completion := request(t, func(ctx context.Context) (Completion, error) {
+		return client.Observe(ctx, "wrapped-list-hidden", nil)
+	})
+	if control := projectedListBoxControl(t, completion.Snapshot); control.Visible {
+		t.Fatal("matching client projected hidden ListBox as visible")
+	}
+}
+
 func TestCloseDrainsAcceptedProcessingCompletion(t *testing.T) {
 	t.Parallel()
 
